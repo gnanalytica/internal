@@ -12,6 +12,7 @@ import {
   FileText,
   Folder,
   LogOut,
+  Map as MapIcon,
   MessageSquare,
   Plus,
   PenSquare,
@@ -253,6 +254,12 @@ export function Sidebar({
           active={pathname.startsWith("/initiatives")}
           icon={<Target className="size-4" />}
           label="Initiatives"
+        />
+        <NavItem
+          href="/roadmap"
+          active={pathname.startsWith("/roadmap")}
+          icon={<MapIcon className="size-4" />}
+          label="Roadmap"
         />
         <NavItem
           href="/teams"

@@ -79,6 +79,8 @@ export const projects = pgTable(
     initiativeId: uuid("initiative_id").references(() => initiatives.id, {
       onDelete: "set null",
     }),
+    startDate: timestamp("start_date", { withTimezone: true }),
+    targetDate: timestamp("target_date", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("projects_workspace_key_idx").on(t.workspaceId, t.key)],
@@ -260,8 +262,12 @@ export const databaseFields = pgTable(
       .notNull()
       .references(() => databases.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    type: text("type").notNull().default("text"), // text|number|select|checkbox|date
+    type: text("type").notNull().default("text"), // text|number|select|checkbox|date|relation|rollup
     options: jsonb("options"), // for select: [{ label, color }]
+    // For relation fields: the database whose rows this field links to.
+    relationDatabaseId: uuid("relation_database_id"),
+    // For rollup fields: { relationFieldId, targetFieldId, fn }.
+    config: jsonb("config"),
     position: text("position").notNull().default("a0"),
   },
   (t) => [index("database_fields_db_idx").on(t.databaseId)],

@@ -217,6 +217,17 @@ export async function getProjectsWithCounts(
   }));
 }
 
+export type RoadmapProject = Project & { initiative: Initiative | null };
+
+export async function getRoadmap(workspaceId: string): Promise<RoadmapProject[]> {
+  const rows = await db.query.projects.findMany({
+    where: eq(projects.workspaceId, workspaceId),
+    orderBy: [asc(projects.startDate), asc(projects.name)],
+    with: { initiative: true },
+  });
+  return rows;
+}
+
 export async function getProject(
   workspaceId: string,
   id: string,
@@ -574,7 +585,43 @@ export async function getDatabase(
       rows: { orderBy: [asc(databaseRows.position)] },
     },
   });
-  return row ?? null;
+  if (!row) return null;
+
+  // Load any databases referenced by relation fields so the client can render
+  // relation chips and compute rollups.
+  const targetIds = [
+    ...new Set(
+      row.fields
+        .filter((f) => f.type === "relation" && f.relationDatabaseId)
+        .map((f) => f.relationDatabaseId as string),
+    ),
+  ];
+
+  const related: Record<string, import("@/lib/types").RelatedDatabase> = {};
+  if (targetIds.length) {
+    const targets = await db.query.databases.findMany({
+      where: and(
+        eq(databases.workspaceId, workspaceId),
+        inArray(databases.id, targetIds),
+      ),
+      with: {
+        fields: { orderBy: [asc(databaseFields.position)] },
+        rows: { orderBy: [asc(databaseRows.position)] },
+      },
+    });
+    for (const t of targets) {
+      const primary = t.fields.find((f) => f.type === "text") ?? t.fields[0] ?? null;
+      related[t.id] = {
+        id: t.id,
+        name: t.name,
+        primaryFieldId: primary?.id ?? null,
+        fields: t.fields,
+        rows: t.rows,
+      };
+    }
+  }
+
+  return { ...row, related };
 }
 
 // ---- Comments & activity timeline ----

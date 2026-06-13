@@ -91,18 +91,43 @@ export function cycleStatus(
 export type Database = typeof databases.$inferSelect;
 export type DatabaseField = typeof databaseFields.$inferSelect;
 export type DatabaseRow = typeof databaseRows.$inferSelect;
-export type DatabaseWithSchema = Database & {
+
+/** A database referenced by a relation field, with the data needed to render
+ *  relation chips and compute rollups. */
+export type RelatedDatabase = {
+  id: string;
+  name: string;
+  primaryFieldId: string | null;
   fields: DatabaseField[];
   rows: DatabaseRow[];
 };
+
+export type DatabaseWithSchema = Database & {
+  fields: DatabaseField[];
+  rows: DatabaseRow[];
+  /** Keyed by target database id, for relation/rollup fields. */
+  related: Record<string, RelatedDatabase>;
+};
+
+export type RollupFn = "count" | "sum" | "min" | "max" | "avg";
+
+export type RollupConfig = {
+  relationFieldId: string;
+  targetFieldId: string | null;
+  fn: RollupFn;
+};
+
 export type SelectOption = { label: string; color: string };
 
+/** Field types selectable when adding a database field. */
 export const FIELD_TYPES = [
   { id: "text", label: "Text", icon: "T" },
   { id: "number", label: "Number", icon: "#" },
   { id: "select", label: "Select", icon: "▾" },
   { id: "checkbox", label: "Checkbox", icon: "☑" },
   { id: "date", label: "Date", icon: "📅" },
+  { id: "relation", label: "Relation", icon: "🔗" },
+  { id: "rollup", label: "Rollup", icon: "Σ" },
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number]["id"];

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { DatabaseView } from "@/components/database-view";
-import { getDatabase, getMyRole, getWorkspace } from "@/lib/data";
+import { getDatabase, getDatabases, getMyRole, getWorkspace } from "@/lib/data";
 
 export default async function DatabaseRoute({
   params,
@@ -12,6 +12,15 @@ export default async function DatabaseRoute({
   const ws = await getWorkspace();
   const database = await getDatabase(ws.id, id);
   if (!database) notFound();
-  const role = await getMyRole(ws.id);
-  return <DatabaseView database={database} isAdmin={role === "admin"} />;
+  const [role, allDatabases] = await Promise.all([
+    getMyRole(ws.id),
+    getDatabases(ws.id),
+  ]);
+  return (
+    <DatabaseView
+      database={database}
+      isAdmin={role === "admin"}
+      allDatabases={allDatabases.map((d) => ({ id: d.id, name: d.name }))}
+    />
+  );
 }

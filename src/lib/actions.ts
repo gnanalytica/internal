@@ -785,13 +785,23 @@ export async function createProject(input: { name: string; key?: string }) {
 
 export async function updateProject(
   id: string,
-  patch: Partial<{ name: string; description: string; color: string }>,
+  patch: Partial<{
+    name: string;
+    description: string;
+    color: string;
+    startDate: string | null;
+    targetDate: string | null;
+  }>,
 ) {
   const ws = await getWorkspace();
   const values: Record<string, unknown> = {};
   if (patch.name !== undefined) values.name = patch.name.trim() || "Untitled project";
   if (patch.description !== undefined) values.description = patch.description;
   if (patch.color !== undefined) values.color = patch.color;
+  if (patch.startDate !== undefined)
+    values.startDate = patch.startDate ? new Date(patch.startDate) : null;
+  if (patch.targetDate !== undefined)
+    values.targetDate = patch.targetDate ? new Date(patch.targetDate) : null;
   if (Object.keys(values).length === 0) return;
   await db
     .update(projects)
@@ -799,6 +809,7 @@ export async function updateProject(
     .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
   revalidatePath("/projects");
   revalidatePath(`/projects/${id}`);
+  revalidatePath("/roadmap");
   revalidatePath("/", "layout");
 }
 
@@ -928,7 +939,12 @@ export async function deleteDatabase(id: string) {
 
 export async function addField(
   databaseId: string,
-  input: { name: string; type: string },
+  input: {
+    name: string;
+    type: string;
+    relationDatabaseId?: string | null;
+    config?: unknown;
+  },
 ) {
   await db.insert(databaseFields).values({
     databaseId,
@@ -939,6 +955,9 @@ export async function addField(
       input.type === "select"
         ? [{ label: "Option 1", color: "#6366f1" }]
         : null,
+    relationDatabaseId:
+      input.type === "relation" ? input.relationDatabaseId ?? null : null,
+    config: input.type === "rollup" ? (input.config ?? null) : null,
   });
   revalidatePath(`/databases/${databaseId}`);
 }

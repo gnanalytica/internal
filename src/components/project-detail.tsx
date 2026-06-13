@@ -143,6 +143,34 @@ export function ProjectDetail({
                 {project.initiative.name}
               </Link>
             )}
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">Start</label>
+              <input
+                type="date"
+                defaultValue={
+                  project.startDate
+                    ? new Date(project.startDate).toISOString().slice(0, 10)
+                    : ""
+                }
+                onChange={(e) =>
+                  void updateProject(project.id, { startDate: e.target.value || null })
+                }
+                className="rounded-md border bg-transparent px-2 py-1 text-xs outline-none focus:border-brand"
+              />
+              <label className="text-xs text-muted-foreground">Target</label>
+              <input
+                type="date"
+                defaultValue={
+                  project.targetDate
+                    ? new Date(project.targetDate).toISOString().slice(0, 10)
+                    : ""
+                }
+                onChange={(e) =>
+                  void updateProject(project.id, { targetDate: e.target.value || null })
+                }
+                className="rounded-md border bg-transparent px-2 py-1 text-xs outline-none focus:border-brand"
+              />
+            </div>
           </div>
 
           {/* Issues */}

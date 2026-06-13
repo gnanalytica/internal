@@ -16,6 +16,14 @@ import { toast } from "sonner";
 
 import { Topbar } from "@/components/topbar";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -33,11 +41,14 @@ import {
   updateDatabase,
 } from "@/lib/actions";
 import { filterRows, sortRows, type SortDir } from "@/lib/database-filters";
+import { computeRollup, relationCellIds, rowLabel } from "@/lib/database-rollup";
 import {
   FIELD_TYPES,
   type DatabaseField,
   type DatabaseRow,
   type DatabaseWithSchema,
+  type RollupConfig,
+  type RollupFn,
   type SelectOption,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -47,9 +58,11 @@ type View = "table" | "board";
 export function DatabaseView({
   database,
   isAdmin,
+  allDatabases,
 }: {
   database: DatabaseWithSchema;
   isAdmin: boolean;
+  allDatabases: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -186,7 +199,12 @@ export function DatabaseView({
 
       <div className="scrollbar-thin min-h-0 flex-1 overflow-auto px-6 pb-8">
         {view === "table" ? (
-          <TableView database={database} rows={rows} persist={persist} />
+          <TableView
+            database={database}
+            rows={rows}
+            persist={persist}
+            allDatabases={allDatabases}
+          />
         ) : (
           <BoardView database={database} rows={rows} field={firstSelect!} persist={persist} />
         )}
@@ -224,10 +242,12 @@ function TableView({
   database,
   rows,
   persist,
+  allDatabases,
 }: {
   database: DatabaseWithSchema;
   rows: DatabaseRow[];
   persist: (fn: () => Promise<unknown>) => void;
+  allDatabases: { id: string; name: string }[];
 }) {
   return (
     <div className="inline-block min-w-full overflow-hidden rounded-lg border">
@@ -255,7 +275,11 @@ function TableView({
               </th>
             ))}
             <th className="px-2 py-2">
-              <AddFieldButton databaseId={database.id} persist={persist} />
+              <AddFieldButton
+                database={database}
+                persist={persist}
+                allDatabases={allDatabases}
+              />
             </th>
           </tr>
         </thead>
@@ -264,7 +288,7 @@ function TableView({
             <tr key={row.id} className="group/r border-b last:border-0 hover:bg-accent/30">
               {database.fields.map((f) => (
                 <td key={f.id} className="border-r p-0">
-                  <Cell field={f} row={row} databaseId={database.id} persist={persist} />
+                  <Cell field={f} row={row} database={database} persist={persist} />
                 </td>
               ))}
               <td className="px-2 text-center">
@@ -297,17 +321,32 @@ function TableView({
 function Cell({
   field,
   row,
-  databaseId,
+  database,
   persist,
 }: {
   field: DatabaseField;
   row: DatabaseRow;
-  databaseId: string;
+  database: DatabaseWithSchema;
   persist: (fn: () => Promise<unknown>) => void;
 }) {
+  const databaseId = database.id;
   const values = (row.values as Record<string, unknown>) ?? {};
   const raw = values[field.id];
   const commit = (v: unknown) => persist(() => updateCell(row.id, databaseId, field.id, v));
+
+  if (field.type === "relation") {
+    return <RelationCell field={field} row={row} database={database} commit={commit} />;
+  }
+
+  if (field.type === "rollup") {
+    const config = field.config as RollupConfig | null;
+    const value = config
+      ? computeRollup(config, row, database.fields, database.related)
+      : "—";
+    return (
+      <div className="px-3 py-1.5 text-sm tabular-nums text-muted-foreground">{value}</div>
+    );
+  }
 
   if (field.type === "checkbox") {
     return (
@@ -375,26 +414,160 @@ function Cell({
   );
 }
 
-function AddFieldButton({
-  databaseId,
-  persist,
+function RelationCell({
+  field,
+  row,
+  database,
+  commit,
 }: {
-  databaseId: string;
+  field: DatabaseField;
+  row: DatabaseRow;
+  database: DatabaseWithSchema;
+  commit: (v: unknown) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const target = field.relationDatabaseId
+    ? database.related[field.relationDatabaseId]
+    : null;
+  const selected = relationCellIds(row, field.id);
+
+  if (!target) {
+    return <div className="px-3 py-1.5 text-xs text-muted-foreground">No target</div>;
+  }
+
+  const selectedRows = target.rows.filter((r) => selected.includes(r.id));
+
+  function toggle(id: string) {
+    const next = selected.includes(id)
+      ? selected.filter((x) => x !== id)
+      : [...selected, id];
+    commit(next);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className="flex min-h-[2rem] w-full flex-wrap items-center gap-1 px-3 py-1.5 text-left text-xs hover:bg-accent/40">
+        {selectedRows.length === 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          selectedRows.map((r) => (
+            <span
+              key={r.id}
+              className="rounded bg-brand/10 px-1.5 py-0.5 text-[11px] text-brand"
+            >
+              {rowLabel(r, target.primaryFieldId)}
+            </span>
+          ))
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60 p-0">
+        <Command>
+          <CommandInput placeholder={`Link ${target.name}…`} className="h-9" />
+          <CommandList>
+            <CommandEmpty>No rows.</CommandEmpty>
+            <CommandGroup>
+              {target.rows.map((r) => {
+                const label = rowLabel(r, target.primaryFieldId);
+                const isSel = selected.includes(r.id);
+                return (
+                  <CommandItem
+                    key={r.id}
+                    value={`${label} ${r.id}`}
+                    onSelect={() => toggle(r.id)}
+                    className="gap-2"
+                  >
+                    <span className="flex-1 truncate">{label}</span>
+                    {isSel && <Check className="size-3.5 opacity-70" />}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+const ROLLUP_FNS: { id: RollupFn; label: string }[] = [
+  { id: "count", label: "Count" },
+  { id: "sum", label: "Sum" },
+  { id: "avg", label: "Average" },
+  { id: "min", label: "Min" },
+  { id: "max", label: "Max" },
+];
+
+function AddFieldButton({
+  database,
+  persist,
+  allDatabases,
+}: {
+  database: DatabaseWithSchema;
   persist: (fn: () => Promise<unknown>) => void;
+  allDatabases: { id: string; name: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState<string>("text");
+  // relation config
+  const [relationDbId, setRelationDbId] = useState<string>("");
+  // rollup config
+  const [rollupRelId, setRollupRelId] = useState<string>("");
+  const [rollupFn, setRollupFn] = useState<RollupFn>("count");
+  const [rollupTargetField, setRollupTargetField] = useState<string>("");
+
+  const relationFields = database.fields.filter(
+    (f) => f.type === "relation" && f.relationDatabaseId,
+  );
+  const chosenRel = relationFields.find((f) => f.id === rollupRelId);
+  const rollupTargetFields = chosenRel?.relationDatabaseId
+    ? (database.related[chosenRel.relationDatabaseId]?.fields ?? [])
+    : [];
+
+  function reset() {
+    setName("");
+    setType("text");
+    setRelationDbId("");
+    setRollupRelId("");
+    setRollupFn("count");
+    setRollupTargetField("");
+    setOpen(false);
+  }
+
+  const canAdd =
+    name.trim() !== "" &&
+    (type !== "relation" || relationDbId !== "") &&
+    (type !== "rollup" ||
+      (rollupRelId !== "" && (rollupFn === "count" || rollupTargetField !== "")));
+
+  function add() {
+    const input: {
+      name: string;
+      type: string;
+      relationDatabaseId?: string | null;
+      config?: RollupConfig;
+    } = { name, type };
+    if (type === "relation") input.relationDatabaseId = relationDbId;
+    if (type === "rollup") {
+      input.config = {
+        relationFieldId: rollupRelId,
+        targetFieldId: rollupFn === "count" ? null : rollupTargetField,
+        fn: rollupFn,
+      };
+    }
+    persist(() => addField(database.id, input));
+    reset();
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => (o ? setOpen(true) : reset())}>
       <PopoverTrigger
         render={<Button variant="ghost" size="icon" className="size-6" />}
         aria-label="Add field"
       >
         <Plus className="size-4" />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-56 space-y-2 p-3">
+      <PopoverContent align="end" className="w-64 space-y-2 p-3">
         <input
           autoFocus
           value={name}
@@ -416,17 +589,75 @@ function AddFieldButton({
             </button>
           ))}
         </div>
-        <Button
-          size="sm"
-          className="h-7 w-full"
-          disabled={!name.trim()}
-          onClick={() => {
-            persist(() => addField(databaseId, { name, type }));
-            setName("");
-            setType("text");
-            setOpen(false);
-          }}
-        >
+
+        {type === "relation" && (
+          <select
+            value={relationDbId}
+            onChange={(e) => setRelationDbId(e.target.value)}
+            className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:border-brand"
+          >
+            <option value="">Link to database…</option>
+            {allDatabases.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {type === "rollup" && (
+          <div className="space-y-1.5">
+            {relationFields.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Add a relation field first to roll up its values.
+              </p>
+            ) : (
+              <>
+                <select
+                  value={rollupRelId}
+                  onChange={(e) => setRollupRelId(e.target.value)}
+                  className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:border-brand"
+                >
+                  <option value="">Through relation…</option>
+                  {relationFields.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={rollupFn}
+                  onChange={(e) => setRollupFn(e.target.value as RollupFn)}
+                  className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:border-brand"
+                >
+                  {ROLLUP_FNS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+                {rollupFn !== "count" && (
+                  <select
+                    value={rollupTargetField}
+                    onChange={(e) => setRollupTargetField(e.target.value)}
+                    className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:border-brand"
+                  >
+                    <option value="">Of field…</option>
+                    {rollupTargetFields
+                      .filter((f) => f.type === "number")
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        <Button size="sm" className="h-7 w-full" disabled={!canAdd} onClick={add}>
           Add field
         </Button>
       </PopoverContent>
