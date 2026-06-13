@@ -11,6 +11,7 @@ import {
   projects,
 } from "@/db/schema";
 import { isPriority, isStatus } from "@/lib/constants";
+import { dispatchWebhook } from "@/lib/api/webhooks";
 
 function textToDoc(text: string): unknown {
   const clean = (text ?? "").trim();
@@ -76,6 +77,13 @@ export async function apiCreateIssue(
     data: null,
   });
 
+  await dispatchWebhook(workspaceId, "issue.created", {
+    id: created.id,
+    title: created.title,
+    status: created.status,
+    priority: created.priority,
+  });
+
   return created.id;
 }
 
@@ -102,6 +110,7 @@ export async function apiUpdateIssue(
     .set(values)
     .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
     .returning({ id: issues.id });
+  if (res.length > 0) await dispatchWebhook(workspaceId, "issue.updated", { id, ...patch });
   return res.length > 0;
 }
 
@@ -110,6 +119,7 @@ export async function apiDeleteIssue(workspaceId: string, id: string): Promise<b
     .delete(issues)
     .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
     .returning({ id: issues.id });
+  if (res.length > 0) await dispatchWebhook(workspaceId, "issue.deleted", { id });
   return res.length > 0;
 }
 
@@ -131,6 +141,11 @@ export async function apiCreateComment(
     .insert(comments)
     .values({ workspaceId, issueId, authorId: userId, body: text })
     .returning();
+  await dispatchWebhook(workspaceId, "issue.commented", {
+    issueId,
+    commentId: created.id,
+    body: text,
+  });
   return created.id;
 }
 
@@ -168,6 +183,11 @@ export async function apiCreateProject(
       color: PROJECT_COLORS[taken.size % PROJECT_COLORS.length],
     })
     .returning();
+  await dispatchWebhook(workspaceId, "project.created", {
+    id: created.id,
+    name: created.name,
+    key: created.key,
+  });
   return created.id;
 }
 
@@ -187,6 +207,10 @@ export async function apiCreatePage(
       position: `a${Date.now()}`,
     })
     .returning();
+  await dispatchWebhook(workspaceId, "page.created", {
+    id: created.id,
+    title: created.title,
+  });
   return created.id;
 }
 

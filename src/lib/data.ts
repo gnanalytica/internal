@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -31,6 +31,7 @@ import {
   teamMembers,
   teams,
   users,
+  webhooks,
   workspaceMembers,
   workspaces,
 } from "@/db/schema";
@@ -308,6 +309,58 @@ export async function getIssues(
   }));
 }
 
+/** Keyset-paginated issues for the API (newest first). */
+export async function getIssuesPage(
+  workspaceId: string,
+  opts: {
+    limit: number;
+    cursor?: { createdAt: string; id: string } | null;
+    status?: string | null;
+    projectId?: string | null;
+    assigneeId?: string | null;
+  },
+): Promise<{ items: IssueWithRelations[]; nextCursor: import("@/lib/api/pagination").Cursor | null }> {
+  const conds = [eq(issues.workspaceId, workspaceId)];
+  if (opts.status) conds.push(eq(issues.status, opts.status));
+  if (opts.projectId) conds.push(eq(issues.projectId, opts.projectId));
+  if (opts.assigneeId) conds.push(eq(issues.assigneeId, opts.assigneeId));
+  if (opts.cursor) {
+    const at = new Date(opts.cursor.createdAt);
+    conds.push(
+      or(
+        lt(issues.createdAt, at),
+        and(eq(issues.createdAt, at), lt(issues.id, opts.cursor.id)),
+      )!,
+    );
+  }
+
+  const rows = await db.query.issues.findMany({
+    where: and(...conds),
+    orderBy: [desc(issues.createdAt), desc(issues.id)],
+    limit: opts.limit + 1,
+    with: {
+      project: true,
+      cycle: true,
+      team: true,
+      assignee: true,
+      labels: { with: { label: true } },
+    },
+  });
+
+  const hasMore = rows.length > opts.limit;
+  const page = (hasMore ? rows.slice(0, opts.limit) : rows).map((r) => ({
+    ...r,
+    labels: r.labels.map((l) => l.label),
+  }));
+  const last = hasMore ? page[page.length - 1] : null;
+  return {
+    items: page,
+    nextCursor: last
+      ? { createdAt: new Date(last.createdAt).toISOString(), id: last.id }
+      : null,
+  };
+}
+
 export async function getIssue(
   workspaceId: string,
   id: string,
@@ -457,6 +510,47 @@ export async function getPagesFlat(
     .from(pages)
     .where(and(eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)))
     .orderBy(asc(pages.title));
+}
+
+/** Keyset-paginated pages for the API (newest first, excludes trash). */
+export async function getPagesPage(
+  workspaceId: string,
+  opts: { limit: number; cursor?: { createdAt: string; id: string } | null },
+): Promise<{
+  items: Pick<Page, "id" | "title" | "icon">[];
+  nextCursor: import("@/lib/api/pagination").Cursor | null;
+}> {
+  const conds = [eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)];
+  if (opts.cursor) {
+    const at = new Date(opts.cursor.createdAt);
+    conds.push(
+      or(
+        lt(pages.createdAt, at),
+        and(eq(pages.createdAt, at), lt(pages.id, opts.cursor.id)),
+      )!,
+    );
+  }
+  const rows = await db
+    .select({
+      id: pages.id,
+      title: pages.title,
+      icon: pages.icon,
+      createdAt: pages.createdAt,
+    })
+    .from(pages)
+    .where(and(...conds))
+    .orderBy(desc(pages.createdAt), desc(pages.id))
+    .limit(opts.limit + 1);
+
+  const hasMore = rows.length > opts.limit;
+  const page = hasMore ? rows.slice(0, opts.limit) : rows;
+  const last = hasMore ? page[page.length - 1] : null;
+  return {
+    items: page.map((p) => ({ id: p.id, title: p.title, icon: p.icon })),
+    nextCursor: last
+      ? { createdAt: new Date(last.createdAt).toISOString(), id: last.id }
+      : null,
+  };
 }
 
 /** Trashed pages for the workspace, most recently deleted first. */
@@ -852,6 +946,35 @@ export async function getApiKeys(workspaceId: string): Promise<ApiKeyRow[]> {
     .from(apiKeys)
     .where(eq(apiKeys.workspaceId, workspaceId))
     .orderBy(desc(apiKeys.createdAt));
+}
+
+// ---- Webhooks ----
+
+export type WebhookRow = {
+  id: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  lastStatus: number | null;
+  lastDeliveryAt: Date | null;
+  createdAt: Date;
+};
+
+export async function getWebhooks(workspaceId: string): Promise<WebhookRow[]> {
+  const rows = await db
+    .select({
+      id: webhooks.id,
+      url: webhooks.url,
+      events: webhooks.events,
+      active: webhooks.active,
+      lastStatus: webhooks.lastStatus,
+      lastDeliveryAt: webhooks.lastDeliveryAt,
+      createdAt: webhooks.createdAt,
+    })
+    .from(webhooks)
+    .where(eq(webhooks.workspaceId, workspaceId))
+    .orderBy(desc(webhooks.createdAt));
+  return rows.map((r) => ({ ...r, events: (r.events as string[]) ?? [] }));
 }
 
 // ---- Saved views ----

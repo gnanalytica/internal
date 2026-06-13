@@ -3,20 +3,31 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Check, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, KeyRound, Plus, Trash2, Webhook } from "lucide-react";
 import { toast } from "sonner";
 
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
-import { createApiKey, revokeApiKey } from "@/lib/actions";
-import type { ApiKeyRow } from "@/lib/data";
+import {
+  createApiKey,
+  createWebhook,
+  deleteWebhook,
+  revokeApiKey,
+  setWebhookActive,
+} from "@/lib/actions";
+import type { ApiKeyRow, WebhookRow } from "@/lib/data";
+import { cn } from "@/lib/utils";
 
 export function ApiKeysView({
   keys,
+  webhooks,
+  events,
   isAdmin,
   baseUrl,
 }: {
   keys: ApiKeyRow[];
+  webhooks: WebhookRow[];
+  events: string[];
   isAdmin: boolean;
   baseUrl: string;
 }) {
@@ -25,6 +36,41 @@ export function ApiKeysView({
   const [created, setCreated] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // Webhooks
+  const [hookUrl, setHookUrl] = useState("");
+  const [hookEvents, setHookEvents] = useState<Set<string>>(new Set());
+  const [hookSecret, setHookSecret] = useState<string | null>(null);
+
+  function addWebhook() {
+    if (!/^https?:\/\//.test(hookUrl.trim())) {
+      toast.error("Enter a valid http(s) URL.");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const { secret } = await createWebhook(
+          hookUrl,
+          hookEvents.size ? [...hookEvents] : ["*"],
+        );
+        setHookSecret(secret);
+        setHookUrl("");
+        setHookEvents(new Set());
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't add webhook");
+      }
+    });
+  }
+
+  function toggleEvent(e: string) {
+    setHookEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(e)) next.delete(e);
+      else next.add(e);
+      return next;
+    });
+  }
 
   function create() {
     if (!name.trim()) return;
@@ -167,6 +213,121 @@ export function ApiKeysView({
                 </div>
               ))
             )}
+          </div>
+
+          {/* Webhooks */}
+          <div className="mt-10">
+            <div className="mb-1 flex items-center gap-2">
+              <Webhook className="size-5 text-brand" />
+              <h2 className="text-base font-semibold">Webhooks</h2>
+            </div>
+            <p className="mb-4 text-sm text-muted-foreground">
+              POST workspace events to your URL, signed with{" "}
+              <code className="rounded bg-muted px-1 py-0.5">X-Internal-Signature</code>{" "}
+              (HMAC-SHA256).
+            </p>
+
+            {hookSecret && (
+              <div className="mb-4 rounded-xl border border-brand/40 bg-brand/5 p-4">
+                <div className="mb-1 text-sm font-medium">Signing secret</div>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Verify deliveries with this secret. Shown once.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 break-all rounded-md bg-muted px-2 py-1.5 text-xs">
+                    {hookSecret}
+                  </code>
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => copy(hookSecret)}>
+                    {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+                <button
+                  onClick={() => setHookSecret(null)}
+                  className="mt-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="mb-4 rounded-xl border p-4">
+                <input
+                  value={hookUrl}
+                  onChange={(e) => setHookUrl(e.target.value)}
+                  placeholder="https://example.com/webhooks/internal"
+                  className="mb-2 h-9 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-brand"
+                />
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {events.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => toggleEvent(e)}
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-xs",
+                        hookEvents.has(e)
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {hookEvents.size === 0 ? "All events" : `${hookEvents.size} selected`}
+                  </span>
+                  <Button size="sm" className="gap-1.5" onClick={addWebhook} disabled={pending || !hookUrl.trim()}>
+                    <Plus className="size-4" /> Add webhook
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              {webhooks.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No webhooks yet.</p>
+              ) : (
+                webhooks.map((h) => (
+                  <div key={h.id} className="flex items-center gap-3 rounded-lg border px-3 py-2.5">
+                    <Webhook className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm">{h.url}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {h.events.includes("*") ? "all events" : h.events.join(", ")}
+                        {h.lastStatus != null
+                          ? ` · last ${h.lastStatus === 0 ? "failed" : h.lastStatus}`
+                          : " · no deliveries"}
+                      </div>
+                    </div>
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={() => startTransition(() => setWebhookActive(h.id, !h.active).then(() => router.refresh()))}
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                            h.active ? "bg-emerald-500/15 text-emerald-600" : "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {h.active ? "Active" : "Paused"}
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => startTransition(() => deleteWebhook(h.id).then(() => router.refresh()))}
+                          aria-label="Delete webhook"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

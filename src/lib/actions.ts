@@ -31,6 +31,7 @@ import {
   teamMembers,
   teams,
   users,
+  webhooks,
   workspaceMembers,
   workspaces,
 } from "@/db/schema";
@@ -45,6 +46,11 @@ import { isPriority, isStatus } from "@/lib/constants";
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
+import {
+  WEBHOOK_EVENTS,
+  dispatchWebhook,
+  newWebhookSecret,
+} from "@/lib/api/webhooks";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import { isRelationType } from "@/lib/issue-relations";
 import { extractReferences } from "@/lib/references";
@@ -302,6 +308,12 @@ export async function createIssue(input: {
     ws.id,
     `:memo: *${me.name}* created an issue: *${created.title}*`,
   );
+  await dispatchWebhook(ws.id, "issue.created", {
+    id: created.id,
+    title: created.title,
+    status: created.status,
+    priority: created.priority,
+  });
 
   revalidatePath("/issues");
   if (created.parentId) revalidatePath(`/issues/${created.parentId}`);
@@ -367,6 +379,8 @@ export async function addComment(issueId: string, body: string) {
     ];
     if (rows.length) await db.insert(notifications).values(rows);
   }
+
+  await dispatchWebhook(ws.id, "issue.commented", { issueId, body: text });
 
   revalidatePath(`/issues/${issueId}`);
 }
@@ -507,6 +521,10 @@ export async function updateIssue(
     }
   }
 
+  const { description: _omitDesc, ...changed } = patch;
+  void _omitDesc;
+  await dispatchWebhook(ws.id, "issue.updated", { id, ...changed });
+
   revalidatePath("/issues");
   revalidatePath(`/issues/${id}`);
 }
@@ -514,6 +532,7 @@ export async function updateIssue(
 export async function deleteIssue(id: string) {
   const ws = await getWorkspace();
   await db.delete(issues).where(and(eq(issues.workspaceId, ws.id), eq(issues.id, id)));
+  await dispatchWebhook(ws.id, "issue.deleted", { id });
   revalidatePath("/issues");
 }
 
@@ -541,6 +560,7 @@ export async function createPage(parentId?: string | null) {
       position: `a${Date.now()}`,
     })
     .returning();
+  await dispatchWebhook(ws.id, "page.created", { id: created.id, title: created.title });
   revalidatePath("/", "layout");
   return created;
 }
@@ -822,6 +842,11 @@ export async function createProject(input: { name: string; key?: string }) {
       color: PROJECT_COLORS[taken.size % PROJECT_COLORS.length],
     })
     .returning();
+  await dispatchWebhook(ws.id, "project.created", {
+    id: created.id,
+    name: created.name,
+    key: created.key,
+  });
   revalidatePath("/projects");
   revalidatePath("/", "layout");
   return created;
@@ -1535,6 +1560,47 @@ export async function revokeApiKey(id: string) {
   const ws = await getWorkspace();
   await requireAdmin(ws.id);
   await db.delete(apiKeys).where(and(eq(apiKeys.workspaceId, ws.id), eq(apiKeys.id, id)));
+  revalidatePath("/settings/api");
+}
+
+// ---- Webhooks ----
+
+export async function createWebhook(
+  url: string,
+  events: string[],
+): Promise<{ secret: string }> {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const me = await getCurrentUser(ws.id);
+  const clean = url.trim();
+  if (!/^https?:\/\//.test(clean)) throw new Error("Enter a valid http(s) URL.");
+  const valid = events.filter((e) => e === "*" || WEBHOOK_EVENTS.includes(e as never));
+  const secret = newWebhookSecret();
+  await db.insert(webhooks).values({
+    workspaceId: ws.id,
+    url: clean,
+    secret,
+    events: valid.length ? valid : ["*"],
+    createdBy: me.id,
+  });
+  revalidatePath("/settings/api");
+  return { secret };
+}
+
+export async function setWebhookActive(id: string, active: boolean) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  await db
+    .update(webhooks)
+    .set({ active })
+    .where(and(eq(webhooks.workspaceId, ws.id), eq(webhooks.id, id)));
+  revalidatePath("/settings/api");
+}
+
+export async function deleteWebhook(id: string) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  await db.delete(webhooks).where(and(eq(webhooks.workspaceId, ws.id), eq(webhooks.id, id)));
   revalidatePath("/settings/api");
 }
 

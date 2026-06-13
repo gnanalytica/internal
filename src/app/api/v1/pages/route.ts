@@ -1,11 +1,16 @@
 import { pageDto } from "@/lib/api/dto";
 import { ok, readJson, withApiAuth } from "@/lib/api/http";
 import { apiCreatePage } from "@/lib/api/ops";
-import { getPagesFlat } from "@/lib/data";
+import { encodeCursor, pageParams } from "@/lib/api/pagination";
+import { getPagesPage } from "@/lib/data";
 
-export const GET = withApiAuth(async (_req, auth) => {
-  const rows = await getPagesFlat(auth.workspaceId);
-  return ok({ data: rows.map(pageDto), count: rows.length });
+export const GET = withApiAuth(async (req, auth) => {
+  const { limit, cursor } = pageParams(req.url);
+  const { items, nextCursor } = await getPagesPage(auth.workspaceId, { limit, cursor });
+  return ok({
+    data: items.map(pageDto),
+    next_cursor: nextCursor ? encodeCursor(nextCursor) : null,
+  });
 });
 
 export const POST = withApiAuth(async (req, auth) => {

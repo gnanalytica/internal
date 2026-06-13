@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -459,6 +460,26 @@ export const apiKeys = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("api_keys_workspace_idx").on(t.workspaceId)],
+);
+
+/** Outbound webhooks for workspace events. */
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    secret: text("secret").notNull(),
+    events: jsonb("events").notNull(), // string[] of event names, or ["*"]
+    active: boolean("active").notNull().default(true),
+    lastStatus: integer("last_status"),
+    lastDeliveryAt: timestamp("last_delivery_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("webhooks_workspace_idx").on(t.workspaceId)],
 );
 
 /** Named, workspace-shared issue views (filters + sort + grouping + layout). */
