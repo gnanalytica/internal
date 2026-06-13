@@ -11,6 +11,8 @@ import type {
 // Shared, client-safe types and helpers (no server-only imports here).
 
 export type Member = typeof users.$inferSelect;
+export type Role = "admin" | "member";
+export type MemberWithRole = Member & { role: string };
 export type Project = typeof projects.$inferSelect;
 export type Label = typeof labels.$inferSelect;
 export type Issue = typeof issues.$inferSelect;

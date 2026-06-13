@@ -28,10 +28,12 @@ import type {
   IssueWithRelations,
   Label,
   Member,
+  MemberWithRole,
   Page,
   PageNode,
   Project,
   ProjectWithIssueCount,
+  Role,
 } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 
@@ -46,10 +48,12 @@ export type {
   IssueWithRelations,
   Label,
   Member,
+  MemberWithRole,
   Page,
   PageNode,
   Project,
   ProjectWithIssueCount,
+  Role,
 } from "@/lib/types";
 export { issueIdentifier } from "@/lib/types";
 
@@ -75,7 +79,7 @@ const AVATAR_COLORS = [
   "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#8b5cf6",
 ];
 
-function pickColor(seed: string): string {
+export function pickColor(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
@@ -83,8 +87,9 @@ function pickColor(seed: string): string {
 
 /**
  * Resolve the current user from the Neon Auth session, bridging it to our own
- * `users` table by email (find-or-create) and ensuring workspace membership.
- * Seeded users (e.g. sandeep@gnanalytica.com) map to the matching real login.
+ * `users` table by email. New users auto-join (open sign-up). Existing users
+ * who were removed from the workspace have no membership and are sent to
+ * /no-access — so removing a member actually keeps them out.
  */
 export async function getCurrentUser(workspaceId: string): Promise<Member> {
   const { data: session } = await auth.getSession();
@@ -97,24 +102,63 @@ export async function getCurrentUser(workspaceId: string): Promise<Member> {
     .where(eq(users.email, sUser.email))
     .limit(1);
 
-  let user = existing[0];
-  if (!user) {
-    [user] = await db
-      .insert(users)
-      .values({
-        name: sUser.name?.trim() || sUser.email.split("@")[0],
-        email: sUser.email,
-        avatarColor: pickColor(sUser.email),
-      })
-      .returning();
+  if (existing[0]) {
+    const [m] = await db
+      .select({ userId: workspaceMembers.userId })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, workspaceId),
+          eq(workspaceMembers.userId, existing[0].id),
+        ),
+      )
+      .limit(1);
+    if (!m) redirect("/no-access");
+    return existing[0];
   }
 
+  // First sign-in for this email → create the user and auto-join.
+  const [created] = await db
+    .insert(users)
+    .values({
+      name: sUser.name?.trim() || sUser.email.split("@")[0],
+      email: sUser.email,
+      avatarColor: pickColor(sUser.email),
+    })
+    .returning();
   await db
     .insert(workspaceMembers)
-    .values({ workspaceId, userId: user.id, role: "member" })
+    .values({ workspaceId, userId: created.id, role: "member" })
     .onConflictDoNothing();
+  return created;
+}
 
-  return user;
+export async function getMembersWithRole(
+  workspaceId: string,
+): Promise<MemberWithRole[]> {
+  const rows = await db
+    .select({ user: users, role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(workspaceMembers.userId, users.id))
+    .where(eq(workspaceMembers.workspaceId, workspaceId))
+    .orderBy(asc(users.name));
+  return rows.map((r) => ({ ...r.user, role: r.role }));
+}
+
+/** The current user's role in the workspace ("admin" | "member"). */
+export async function getMyRole(workspaceId: string): Promise<Role> {
+  const me = await getCurrentUser(workspaceId);
+  const [m] = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        eq(workspaceMembers.userId, me.id),
+      ),
+    )
+    .limit(1);
+  return m?.role === "admin" ? "admin" : "member";
 }
 
 export async function getProjects(workspaceId: string): Promise<Project[]> {

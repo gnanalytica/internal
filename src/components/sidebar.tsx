@@ -15,6 +15,7 @@ import {
   Settings,
   Target,
   Timer,
+  Users,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -98,6 +99,13 @@ export function Sidebar({
               </div>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => router.push("/members")}
+              className="gap-2 text-sm"
+            >
+              <Users className="size-4" />
+              Members
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => router.push("/settings")}
               className="gap-2 text-sm"

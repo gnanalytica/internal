@@ -12,9 +12,105 @@ import {
   issues,
   pages,
   projects,
+  users,
+  workspaceMembers,
 } from "@/db/schema";
-import { getCurrentUser, getWorkspace } from "@/lib/data";
+import {
+  getCurrentUser,
+  getMyRole,
+  getWorkspace,
+  pickColor,
+} from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
+
+// ---- Members & access ----
+
+async function requireAdmin(workspaceId: string) {
+  const role = await getMyRole(workspaceId);
+  if (role !== "admin") throw new Error("Only admins can manage members.");
+}
+
+async function ensureNotLastAdmin(workspaceId: string, userId: string) {
+  const admins = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        eq(workspaceMembers.role, "admin"),
+      ),
+    );
+  if (admins.length <= 1 && admins.some((a) => a.userId === userId)) {
+    throw new Error("There must be at least one admin.");
+  }
+}
+
+/** Invite a person by email: pre-creates their user row + membership. */
+export async function inviteMember(input: {
+  email: string;
+  name?: string;
+  role?: string;
+}) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const email = input.email.trim().toLowerCase();
+  if (!email || !email.includes("@")) throw new Error("Enter a valid email.");
+
+  let [u] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  if (!u) {
+    [u] = await db
+      .insert(users)
+      .values({
+        name: input.name?.trim() || email.split("@")[0],
+        email,
+        avatarColor: pickColor(email),
+      })
+      .returning();
+  }
+  await db
+    .insert(workspaceMembers)
+    .values({
+      workspaceId: ws.id,
+      userId: u.id,
+      role: input.role === "admin" ? "admin" : "member",
+    })
+    .onConflictDoNothing();
+  revalidatePath("/members");
+}
+
+export async function setMemberRole(userId: string, role: string) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const r = role === "admin" ? "admin" : "member";
+  if (r === "member") await ensureNotLastAdmin(ws.id, userId);
+  await db
+    .update(workspaceMembers)
+    .set({ role: r })
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ws.id),
+        eq(workspaceMembers.userId, userId),
+      ),
+    );
+  revalidatePath("/members");
+}
+
+export async function removeMember(userId: string) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const me = await getCurrentUser(ws.id);
+  if (userId === me.id) throw new Error("You can't remove yourself.");
+  await ensureNotLastAdmin(ws.id, userId);
+  await db
+    .delete(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ws.id),
+        eq(workspaceMembers.userId, userId),
+      ),
+    );
+  revalidatePath("/members");
+}
 
 // ---- Issues ----
 
