@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Internal",
+    "slug": "internal",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "internal",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#ffffff",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.gnanalytica.internal",
+      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "extra": {
+      "appUrl": "https://internal.gnanalytica.com",
+      "eas": {
+        "projectId": "REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
