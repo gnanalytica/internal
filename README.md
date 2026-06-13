@@ -4,6 +4,9 @@ A self-built, Vercel-friendly internal tool that fuses **Notion-style docs** wit
 **Linear-style issue tracking** in one workspace. Built from scratch (no Huly/Plane)
 to run on **Vercel free tier + Neon Postgres**.
 
+**Live:** https://notion-coral-delta.vercel.app
+Pushes to `main` auto-deploy to production via Vercel.
+
 ## Stack
 
 - **Next.js 16** (App Router, React 19, Server Actions)
