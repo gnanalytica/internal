@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PageView } from "@/components/page-view";
+import { isAiConfigured } from "@/lib/ai";
 import {
   getBacklinks,
   getIssuesFlat,
@@ -33,6 +34,7 @@ export default async function PageRoute({
       favorited={favorited}
       mentionItems={mentionItems}
       backlinks={backlinks}
+      aiEnabled={isAiConfigured()}
     />
   );
 }

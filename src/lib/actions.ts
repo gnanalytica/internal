@@ -40,6 +40,8 @@ import {
   pickColor,
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
+import { callClaude, isAiConfigured } from "@/lib/ai";
+import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import { isRelationType } from "@/lib/issue-relations";
 import { extractReferences } from "@/lib/references";
@@ -1279,6 +1281,231 @@ export async function markAllNotificationsRead() {
     );
   revalidatePath("/inbox");
   revalidatePath("/", "layout");
+}
+
+// ---- AI ----
+
+function textToDoc(text: string): unknown {
+  const clean = text.trim();
+  if (!clean) return null;
+  return {
+    type: "doc",
+    content: clean.split(/\n{2,}/).map((para) => ({
+      type: "paragraph",
+      content: [{ type: "text", text: para.trim() }],
+    })),
+  };
+}
+
+/** Ask Claude to turn a doc into a list of proposed issues (no DB writes). */
+export async function proposeIssuesFromPage(
+  pageId: string,
+): Promise<import("@/lib/types").ProposedIssue[]> {
+  if (!isAiConfigured()) {
+    throw new Error("AI isn't configured. Add an ANTHROPIC_API_KEY to enable this.");
+  }
+  const ws = await getWorkspace();
+  const [page] = await db
+    .select({ title: pages.title, content: pages.content })
+    .from(pages)
+    .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, pageId)))
+    .limit(1);
+  if (!page) throw new Error("Page not found.");
+
+  const body = `# ${page.title}\n\n${docToText(page.content)}`.slice(0, 12000);
+  const out = await callClaude({
+    maxTokens: 1500,
+    system:
+      "You turn product/spec documents into a concrete list of actionable engineering issues. " +
+      "Return ONLY a JSON array of objects with `title` (short, imperative) and `description` " +
+      "(1-3 sentences of context). Aim for 3-12 issues. No prose outside the JSON.",
+    prompt: `Extract the issues from this document:\n\n${body}`,
+  });
+
+  return extractJsonArray(out)
+    .map(normalizeProposedIssue)
+    .filter((x): x is import("@/lib/types").ProposedIssue => x !== null)
+    .slice(0, 20);
+}
+
+/** Create the chosen proposed issues and link them back to the source page. */
+export async function createIssuesFromProposals(
+  pageId: string,
+  proposals: { title: string; description: string }[],
+): Promise<number> {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [{ value: maxNumber }] = await db
+    .select({ value: max(issues.number) })
+    .from(issues)
+    .where(eq(issues.workspaceId, ws.id));
+
+  let n = maxNumber ?? 0;
+  let created = 0;
+  for (const p of proposals) {
+    const title = p.title?.trim();
+    if (!title) continue;
+    n += 1;
+    const [issue] = await db
+      .insert(issues)
+      .values({
+        workspaceId: ws.id,
+        number: n,
+        title: title.slice(0, 200),
+        description: textToDoc(p.description ?? ""),
+        status: "backlog",
+        priority: "none",
+        creatorId: me.id,
+        sortKey: `a${Date.now()}${created}`,
+      })
+      .returning();
+    await db
+      .insert(issuePageLinks)
+      .values({ issueId: issue.id, pageId })
+      .onConflictDoNothing();
+    created += 1;
+  }
+
+  revalidatePath(`/pages/${pageId}`);
+  revalidatePath("/issues");
+  return created;
+}
+
+const STOPWORDS = new Set([
+  "the", "and", "for", "are", "but", "not", "you", "all", "can", "her", "was",
+  "one", "our", "out", "his", "has", "how", "who", "what", "why", "does", "did",
+  "with", "this", "that", "from", "have", "about", "which", "when", "where",
+]);
+
+function keywords(question: string): string[] {
+  return [
+    ...new Set(
+      question
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 2 && !STOPWORDS.has(w)),
+    ),
+  ].slice(0, 8);
+}
+
+/** Answer a question grounded in the workspace's docs and issues (keyword RAG). */
+export async function askWorkspace(
+  question: string,
+): Promise<import("@/lib/types").AskResult> {
+  if (!isAiConfigured()) {
+    throw new Error("AI isn't configured. Add an ANTHROPIC_API_KEY to enable this.");
+  }
+  const q = question.trim();
+  if (!q) return { answer: "", sources: [] };
+  const ws = await getWorkspace();
+  const kws = keywords(q);
+  if (kws.length === 0) return { answer: "Try a more specific question.", sources: [] };
+
+  const pageOr = or(
+    ...kws.flatMap((k) => [
+      ilike(pages.title, `%${k}%`),
+      ilike(pages.contentText, `%${k}%`),
+    ]),
+  );
+  const issueOr = or(...kws.map((k) => ilike(issues.title, `%${k}%`)));
+
+  const [pageRows, issueRows] = await Promise.all([
+    db
+      .select({ id: pages.id, title: pages.title, contentText: pages.contentText })
+      .from(pages)
+      .where(and(eq(pages.workspaceId, ws.id), isNull(pages.deletedAt), pageOr))
+      .limit(8),
+    db
+      .select({
+        id: issues.id,
+        title: issues.title,
+        description: issues.description,
+        number: issues.number,
+        projectKey: projects.key,
+      })
+      .from(issues)
+      .leftJoin(projects, eq(issues.projectId, projects.id))
+      .where(and(eq(issues.workspaceId, ws.id), issueOr))
+      .limit(8),
+  ]);
+
+  const sources: import("@/lib/types").AskSource[] = [];
+  const blocks: string[] = [];
+  for (const p of pageRows) {
+    sources.push({ kind: "page", title: p.title || "Untitled", href: `/pages/${p.id}` });
+    blocks.push(`[Doc: ${p.title}]\n${(p.contentText || "").slice(0, 1500)}`);
+  }
+  for (const r of issueRows) {
+    const ident = r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`;
+    sources.push({ kind: "issue", title: `${ident} ${r.title}`, href: `/issues/${r.id}` });
+    blocks.push(`[Issue ${ident}: ${r.title}]\n${docToText(r.description).slice(0, 800)}`);
+  }
+
+  if (blocks.length === 0) {
+    return { answer: "I couldn't find anything relevant in this workspace.", sources: [] };
+  }
+
+  const answer = await callClaude({
+    maxTokens: 800,
+    system:
+      "You answer questions about a team's workspace using ONLY the provided docs and issues. " +
+      "Be concise. If the context doesn't contain the answer, say so. Don't invent facts.",
+    prompt: `Question: ${q}\n\nContext:\n\n${blocks.join("\n\n---\n\n").slice(0, 14000)}`,
+  });
+
+  return { answer, sources };
+}
+
+// ---- Embedded issue views (live blocks inside docs) ----
+
+export type EmbedProject = { id: string; name: string; color: string };
+
+export async function getEmbedProjects(): Promise<EmbedProject[]> {
+  const ws = await getWorkspace();
+  return db
+    .select({ id: projects.id, name: projects.name, color: projects.color })
+    .from(projects)
+    .where(eq(projects.workspaceId, ws.id))
+    .orderBy(projects.name);
+}
+
+export type EmbeddedIssue = {
+  id: string;
+  title: string;
+  status: string;
+  identifier: string;
+};
+
+/** Run a saved filter for an embedded issue view inside a document. */
+export async function queryEmbeddedIssues(filter: {
+  projectId?: string | null;
+  status?: string | null;
+}): Promise<EmbeddedIssue[]> {
+  const ws = await getWorkspace();
+  const conds = [eq(issues.workspaceId, ws.id)];
+  if (filter.projectId) conds.push(eq(issues.projectId, filter.projectId));
+  if (filter.status && isStatus(filter.status)) conds.push(eq(issues.status, filter.status));
+
+  const rows = await db
+    .select({
+      id: issues.id,
+      title: issues.title,
+      status: issues.status,
+      number: issues.number,
+      projectKey: projects.key,
+    })
+    .from(issues)
+    .leftJoin(projects, eq(issues.projectId, projects.id))
+    .where(and(...conds))
+    .orderBy(issues.sortKey)
+    .limit(25);
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    status: r.status,
+    identifier: r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`,
+  }));
 }
 
 // ---- Global search (⌘K) ----

@@ -19,6 +19,7 @@ import {
   PenSquare,
   Search,
   Settings,
+  Sparkles,
   Star,
   Target,
   Timer,
@@ -225,6 +226,12 @@ export function Sidebar({
 
       <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-4">
         {/* Primary */}
+        <NavItem
+          href="/ask"
+          active={pathname.startsWith("/ask")}
+          icon={<Sparkles className="size-4" />}
+          label="Ask AI"
+        />
         <NavItem
           href="/inbox"
           active={pathname.startsWith("/inbox")}

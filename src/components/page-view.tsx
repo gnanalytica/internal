@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { AiGenerateIssues } from "@/components/ai-generate-issues";
 import { Backlinks } from "@/components/backlinks";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { StatusIcon } from "@/components/glyphs";
@@ -56,12 +57,14 @@ export function PageView({
   favorited,
   mentionItems,
   backlinks,
+  aiEnabled,
 }: {
   page: Page & { linkedIssues: IssueWithRelations[] };
   allIssues: FlatIssue[];
   favorited: boolean;
   mentionItems: MentionItem[];
   backlinks: BacklinkItem[];
+  aiEnabled: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -111,6 +114,7 @@ export function PageView({
         breadcrumb={[{ label: "Pages" }, { label: title || "Untitled" }]}
         actions={
           <>
+            <AiGenerateIssues pageId={page.id} enabled={aiEnabled} />
             <FavoriteButton kind="page" targetId={page.id} initial={favorited} />
             <DropdownMenu>
               <DropdownMenuTrigger

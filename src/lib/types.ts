@@ -248,6 +248,11 @@ export type BacklinkItem = {
   href: string;
 };
 
+export type ProposedIssue = { title: string; description: string };
+
+export type AskSource = { kind: "issue" | "page"; title: string; href: string };
+export type AskResult = { answer: string; sources: AskSource[] };
+
 export type NotificationItem = {
   id: string;
   type: string;

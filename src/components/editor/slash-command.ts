@@ -10,6 +10,7 @@ import {
   Heading2,
   Heading3,
   List,
+  ListFilter,
   ListOrdered,
   Minus,
   Quote,
@@ -97,6 +98,19 @@ const COMMANDS: Cmd[] = [
     icon: createElement(Minus, { className: "size-4" }),
     keywords: "divider hr rule separator",
     run: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run(),
+  },
+  {
+    title: "Issue view",
+    description: "Embed a live, filtered list of issues",
+    icon: createElement(ListFilter, { className: "size-4" }),
+    keywords: "issue view embed list linear tasks",
+    run: (e, r) =>
+      e
+        .chain()
+        .focus()
+        .deleteRange(r)
+        .insertContent({ type: "issueEmbed", attrs: { projectId: null, status: null } })
+        .run(),
   },
 ];
 
