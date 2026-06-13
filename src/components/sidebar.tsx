@@ -12,6 +12,7 @@ import {
   Plus,
   PenSquare,
   Search,
+  Settings,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -95,6 +96,13 @@ export function Sidebar({
               </div>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => router.push("/settings")}
+              className="gap-2 text-sm"
+            >
+              <Settings className="size-4" />
+              Account settings
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={signOut} className="gap-2 text-sm">
               <LogOut className="size-4" />
               Sign out
