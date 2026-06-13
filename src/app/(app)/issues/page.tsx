@@ -4,6 +4,7 @@ import {
   getLabels,
   getMembers,
   getProjects,
+  getSavedViews,
   getWorkspace,
 } from "@/lib/data";
 
@@ -14,11 +15,12 @@ export default async function IssuesPage({
 }) {
   const { project: projectId } = await searchParams;
   const ws = await getWorkspace();
-  const [allIssues, projects, members, labels] = await Promise.all([
+  const [allIssues, projects, members, labels, savedViews] = await Promise.all([
     getIssues(ws.id),
     getProjects(ws.id),
     getMembers(ws.id),
     getLabels(ws.id),
+    getSavedViews(ws.id),
   ]);
 
   const activeProject = projectId
@@ -36,6 +38,7 @@ export default async function IssuesPage({
       labels={labels}
       heading={activeProject ? activeProject.name : "All issues"}
       defaultProjectId={activeProject?.id ?? null}
+      savedViews={savedViews}
     />
   );
 }

@@ -25,6 +25,7 @@ import {
   pages,
   projectStatusUpdates,
   references,
+  savedViews,
   projects,
   teamMembers,
   teams,
@@ -825,6 +826,23 @@ export async function getAttachments(
     size: a.size,
     createdAt: a.createdAt,
     uploader: a.uploader,
+  }));
+}
+
+// ---- Saved views ----
+
+export async function getSavedViews(
+  workspaceId: string,
+): Promise<import("@/lib/types").SavedView[]> {
+  const rows = await db
+    .select({ id: savedViews.id, name: savedViews.name, config: savedViews.config })
+    .from(savedViews)
+    .where(eq(savedViews.workspaceId, workspaceId))
+    .orderBy(asc(savedViews.name));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    config: r.config as import("@/lib/types").SavedViewConfig,
   }));
 }
 

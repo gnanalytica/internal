@@ -253,6 +253,18 @@ export type BacklinkItem = {
 
 export type ProposedIssue = { title: string; description: string };
 
+export type SavedViewConfig = {
+  status: string[];
+  priority: string[];
+  assignee: string[];
+  label: string[];
+  sort: string;
+  groupBy: string;
+  view: string;
+};
+
+export type SavedView = { id: string; name: string; config: SavedViewConfig };
+
 export type AskSource = { kind: "issue" | "page"; title: string; href: string };
 export type AskResult = { answer: string; sources: AskSource[] };
 

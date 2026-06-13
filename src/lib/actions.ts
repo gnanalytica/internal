@@ -24,6 +24,7 @@ import {
   notifications,
   projectStatusUpdates,
   references,
+  savedViews,
   pages,
   projects,
   teamMembers,
@@ -1506,6 +1507,32 @@ export async function queryEmbeddedIssues(filter: {
     status: r.status,
     identifier: r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`,
   }));
+}
+
+// ---- Saved views ----
+
+export async function createSavedView(
+  name: string,
+  config: import("@/lib/types").SavedViewConfig,
+) {
+  const clean = name.trim();
+  if (!clean) throw new Error("Give the view a name.");
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(savedViews)
+    .values({ workspaceId: ws.id, createdBy: me.id, name: clean.slice(0, 60), config })
+    .returning();
+  revalidatePath("/issues");
+  return { id: created.id, name: created.name };
+}
+
+export async function deleteSavedView(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(savedViews)
+    .where(and(eq(savedViews.workspaceId, ws.id), eq(savedViews.id, id)));
+  revalidatePath("/issues");
 }
 
 // ---- Global search (⌘K) ----

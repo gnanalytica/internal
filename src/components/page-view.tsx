@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { AiGenerateIssues } from "@/components/ai-generate-issues";
 import { Backlinks } from "@/components/backlinks";
+import { PageToc } from "@/components/page-toc";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { StatusIcon } from "@/components/glyphs";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -49,6 +50,7 @@ import type {
 import { issueIdentifier } from "@/lib/types";
 import { docToMarkdown } from "@/lib/markdown";
 import { downloadText, slugifyFilename } from "@/lib/download";
+import { extractHeadings } from "@/lib/toc";
 import type { StatusId } from "@/lib/constants";
 
 const EMOJIS = ["📄", "📝", "📚", "🛠️", "🚀", "🏗️", "📌", "💡", "🎯", "🔥", "✅", "📁", "🧭", "🗂️", "⭐", "🧪"];
@@ -146,7 +148,8 @@ export function PageView({
         }
       />
 
-      <div className="scrollbar-thin flex-1 overflow-y-auto">
+      <div className="scrollbar-thin relative flex-1 overflow-y-auto">
+        <PageToc headings={extractHeadings(page.content)} />
         <div className="mx-auto w-full max-w-3xl px-12 py-12">
           {/* Icon */}
           <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>

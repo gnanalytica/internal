@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowUpDown,
+  Bookmark,
   Check,
   Columns3,
   Download,
@@ -37,7 +38,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/glyphs";
-import { deleteIssue, updateIssue } from "@/lib/actions";
+import {
+  createSavedView,
+  deleteIssue,
+  deleteSavedView,
+  updateIssue,
+} from "@/lib/actions";
 import { issuesToCsv } from "@/lib/csv";
 import { downloadText } from "@/lib/download";
 import { PRIORITIES, STATUSES, type StatusId } from "@/lib/constants";
@@ -50,7 +56,14 @@ import {
   type GroupBy,
   type SortId,
 } from "@/lib/issue-filters";
-import type { IssueWithRelations, Label, Member, Project } from "@/lib/types";
+import type {
+  IssueWithRelations,
+  Label,
+  Member,
+  Project,
+  SavedView,
+  SavedViewConfig,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type View = "list" | "board";
@@ -62,6 +75,7 @@ export function IssuesView({
   labels,
   heading = "All issues",
   defaultProjectId = null,
+  savedViews = [],
 }: {
   initialIssues: IssueWithRelations[];
   projects: Project[];
@@ -69,6 +83,7 @@ export function IssuesView({
   labels: Label[];
   heading?: string;
   defaultProjectId?: string | null;
+  savedViews?: SavedView[];
 }) {
   const router = useRouter();
   const [issues, setIssues] = useState(initialIssues);
@@ -99,6 +114,44 @@ export function IssuesView({
     startTransition(async () => {
       await Promise.all(ids.map(fn));
       setSelected(new Set());
+      router.refresh();
+    });
+  }
+
+  function currentConfig(): SavedViewConfig {
+    return {
+      status: [...fStatus],
+      priority: [...fPriority],
+      assignee: [...fAssignee],
+      label: [...fLabel],
+      sort,
+      groupBy,
+      view,
+    };
+  }
+
+  function applyView(config: SavedViewConfig) {
+    setFStatus(new Set(config.status ?? []));
+    setFPriority(new Set(config.priority ?? []));
+    setFAssignee(new Set(config.assignee ?? []));
+    setFLabel(new Set(config.label ?? []));
+    if (config.sort) setSort(config.sort as SortId);
+    if (config.groupBy) setGroupBy(config.groupBy as GroupBy);
+    if (config.view === "list" || config.view === "board") setView(config.view);
+  }
+
+  function saveView() {
+    const name = window.prompt("Name this view");
+    if (!name?.trim()) return;
+    startTransition(async () => {
+      await createSavedView(name.trim(), currentConfig());
+      router.refresh();
+    });
+  }
+
+  function removeView(id: string) {
+    startTransition(async () => {
+      await deleteSavedView(id);
       router.refresh();
     });
   }
@@ -274,6 +327,43 @@ export function IssuesView({
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
+            >
+              <Bookmark className="size-3.5" />
+              Views
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {savedViews.length === 0 ? (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">No saved views</div>
+              ) : (
+                savedViews.map((v) => (
+                  <DropdownMenuItem
+                    key={v.id}
+                    onClick={() => applyView(v.config)}
+                    className="group/v gap-2 text-xs"
+                  >
+                    <Bookmark className="size-3.5 text-muted-foreground" />
+                    <span className="flex-1 truncate">{v.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeView(v.id);
+                      }}
+                      className="text-muted-foreground opacity-0 hover:text-destructive group-hover/v:opacity-100"
+                      aria-label="Delete view"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </DropdownMenuItem>
+                ))
+              )}
+              <DropdownMenuItem onClick={saveView} className="gap-2 text-xs text-brand">
+                <Plus className="size-3.5" /> Save current view…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}

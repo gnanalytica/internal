@@ -443,6 +443,22 @@ export const projectStatusUpdates = pgTable(
   (t) => [index("project_status_updates_project_idx").on(t.projectId)],
 );
 
+/** Named, workspace-shared issue views (filters + sort + grouping + layout). */
+export const savedViews = pgTable(
+  "saved_views",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    config: jsonb("config").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("saved_views_workspace_idx").on(t.workspaceId)],
+);
+
 /** Per-user favorites (issues, pages, projects). */
 export const favorites = pgTable(
   "favorites",
