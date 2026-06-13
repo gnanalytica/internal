@@ -74,6 +74,11 @@ export function IssuesView({
   const [fLabel, setFLabel] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortId>("manual");
 
+  // Persist filter/sort/view per project scope so it survives reloads.
+  const storageKey = `issues-view:${defaultProjectId ?? "all"}`;
+  const loaded = useRef(false);
+  const skipSave = useRef(true);
+
   // Re-sync local state when the server sends a fresh list (e.g. after refresh).
   useEffect(() => {
     if (lastInitial.current !== initialIssues) {
@@ -81,6 +86,54 @@ export function IssuesView({
       setIssues(initialIssues);
     }
   }, [initialIssues]);
+
+  // Load saved view once on mount. Restoring persisted UI state from
+  // localStorage is a valid one-time effect; the lint rule guards against
+  // cascading render loops, which the `loaded` ref prevents here.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!loaded.current) {
+      loaded.current = true;
+      try {
+        const raw = localStorage.getItem(storageKey);
+        const s = raw ? JSON.parse(raw) : null;
+        if (s) {
+          if (Array.isArray(s.status)) setFStatus(new Set(s.status));
+          if (Array.isArray(s.priority)) setFPriority(new Set(s.priority));
+          if (Array.isArray(s.assignee)) setFAssignee(new Set(s.assignee));
+          if (Array.isArray(s.label)) setFLabel(new Set(s.label));
+          if (typeof s.sort === "string") setSort(s.sort as SortId);
+          if (s.view === "list" || s.view === "board") setView(s.view);
+        }
+      } catch {
+        // Ignore malformed storage.
+      }
+    }
+  }, [storageKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Save on change (skipping the very first run so we don't clobber the load).
+  useEffect(() => {
+    if (skipSave.current) {
+      skipSave.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          status: [...fStatus],
+          priority: [...fPriority],
+          assignee: [...fAssignee],
+          label: [...fLabel],
+          sort,
+          view,
+        }),
+      );
+    } catch {
+      // Storage may be unavailable (private mode); ignore.
+    }
+  }, [storageKey, fStatus, fPriority, fAssignee, fLabel, sort, view]);
 
   function persist(changed: { id: string; status: StatusId; sortKey: string }[]) {
     startTransition(async () => {

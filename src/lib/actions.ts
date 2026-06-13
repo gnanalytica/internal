@@ -215,6 +215,7 @@ export async function createIssue(input: {
   status?: string;
   priority?: string;
   assigneeId?: string | null;
+  parentId?: string | null;
 }) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
@@ -233,6 +234,7 @@ export async function createIssue(input: {
     .values({
       workspaceId: ws.id,
       projectId: input.projectId ?? null,
+      parentId: input.parentId ?? null,
       number: (maxNumber ?? 0) + 1,
       title: input.title.trim() || "Untitled issue",
       status: input.status && isStatus(input.status) ? input.status : "backlog",
@@ -257,6 +259,7 @@ export async function createIssue(input: {
   );
 
   revalidatePath("/issues");
+  if (created.parentId) revalidatePath(`/issues/${created.parentId}`);
   return created;
 }
 
@@ -342,6 +345,7 @@ export async function updateIssue(
     projectId: string | null;
     cycleId: string | null;
     teamId: string | null;
+    parentId: string | null;
     sortKey: string;
   }>,
 ) {
@@ -364,6 +368,7 @@ export async function updateIssue(
   if (patch.projectId !== undefined) values.projectId = patch.projectId;
   if (patch.cycleId !== undefined) values.cycleId = patch.cycleId;
   if (patch.teamId !== undefined) values.teamId = patch.teamId;
+  if (patch.parentId !== undefined) values.parentId = patch.parentId;
   if (patch.sortKey !== undefined) values.sortKey = patch.sortKey;
 
   await db

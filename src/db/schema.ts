@@ -156,6 +156,8 @@ export const issues = pgTable(
     teamId: uuid("team_id").references(() => teams.id, {
       onDelete: "set null",
     }),
+    // Self-reference for sub-issues; null = top-level issue.
+    parentId: uuid("parent_id"),
     // Per-project incrementing number, combined with project key for display.
     number: integer("number").notNull(),
     title: text("title").notNull(),
@@ -443,6 +445,12 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
     fields: [issues.creatorId],
     references: [users.id],
   }),
+  parent: one(issues, {
+    fields: [issues.parentId],
+    references: [issues.id],
+    relationName: "issue_subissues",
+  }),
+  subIssues: many(issues, { relationName: "issue_subissues" }),
   labels: many(issueLabels),
   pageLinks: many(issuePageLinks),
   comments: many(comments),

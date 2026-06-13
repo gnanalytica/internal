@@ -273,7 +273,7 @@ export async function getIssues(
 export async function getIssue(
   workspaceId: string,
   id: string,
-): Promise<(IssueWithRelations & { linkedPages: Page[] }) | null> {
+): Promise<import("@/lib/types").IssueDetail | null> {
   const row = await db.query.issues.findFirst({
     where: and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)),
     with: {
@@ -283,6 +283,17 @@ export async function getIssue(
       assignee: true,
       labels: { with: { label: true } },
       pageLinks: { with: { page: true } },
+      parent: { with: { project: true } },
+      subIssues: {
+        orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
+        with: {
+          project: true,
+          cycle: true,
+          team: true,
+          assignee: true,
+          labels: { with: { label: true } },
+        },
+      },
     },
   });
   if (!row) return null;
@@ -290,6 +301,15 @@ export async function getIssue(
     ...row,
     labels: row.labels.map((l) => l.label),
     linkedPages: row.pageLinks.map((p) => p.page),
+    parent: row.parent
+      ? {
+          id: row.parent.id,
+          number: row.parent.number,
+          title: row.parent.title,
+          project: row.parent.project,
+        }
+      : null,
+    subIssues: row.subIssues.map((s) => ({ ...s, labels: s.labels.map((l) => l.label) })),
   };
 }
 

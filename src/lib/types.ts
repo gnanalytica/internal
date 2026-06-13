@@ -35,12 +35,25 @@ export type Initiative = typeof initiatives.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type TeamWithCount = Team & { issueCount: number; memberCount: number };
 
+export type IssueParentRef = {
+  id: string;
+  number: number;
+  title: string;
+  project: Project | null;
+};
+
 export type IssueWithRelations = Issue & {
   project: Project | null;
   cycle: Cycle | null;
   team: Team | null;
   assignee: Member | null;
   labels: Label[];
+};
+
+export type IssueDetail = IssueWithRelations & {
+  linkedPages: Page[];
+  parent: IssueParentRef | null;
+  subIssues: IssueWithRelations[];
 };
 
 export type CycleWithCount = Cycle & { issueCount: number; doneCount: number };

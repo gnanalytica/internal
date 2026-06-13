@@ -1,8 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { Columns3, MoreHorizontal, Plus, Table2, Trash2 } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import {
+  ArrowUpDown,
+  Check,
+  Columns3,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Table2,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Topbar } from "@/components/topbar";
@@ -23,6 +32,7 @@ import {
   updateCell,
   updateDatabase,
 } from "@/lib/actions";
+import { filterRows, sortRows, type SortDir } from "@/lib/database-filters";
 import {
   FIELD_TYPES,
   type DatabaseField,
@@ -45,6 +55,9 @@ export function DatabaseView({
   const [, startTransition] = useTransition();
   const [name, setName] = useState(database.name);
   const [view, setView] = useState<View>("table");
+  const [query, setQuery] = useState("");
+  const [sortFieldId, setSortFieldId] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const refresh = () => router.refresh();
   const persist = (fn: () => Promise<unknown>) =>
@@ -54,6 +67,12 @@ export function DatabaseView({
     });
 
   const firstSelect = database.fields.find((f) => f.type === "select");
+  const sortField = database.fields.find((f) => f.id === sortFieldId) ?? null;
+
+  const rows = useMemo(
+    () => sortRows(filterRows(database.rows, query), sortField, sortDir),
+    [database.rows, query, sortField, sortDir],
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -112,11 +131,64 @@ export function DatabaseView({
         />
       </div>
 
+      {/* Filter + sort toolbar */}
+      <div className="flex flex-wrap items-center gap-2 px-6 pb-2">
+        <div className="flex h-7 items-center gap-1.5 rounded-md border px-2">
+          <Search className="size-3.5 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter rows…"
+            className="w-40 bg-transparent text-xs outline-none"
+          />
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
+          >
+            <ArrowUpDown className="size-3.5" />
+            {sortField ? `Sort: ${sortField.name}` : "Sort"}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem
+              onClick={() => setSortFieldId(null)}
+              className="gap-2 text-xs text-muted-foreground"
+            >
+              <span className="flex-1">None (manual)</span>
+              {sortFieldId === null && <Check className="size-3.5 opacity-70" />}
+            </DropdownMenuItem>
+            {database.fields.map((f) => (
+              <DropdownMenuItem
+                key={f.id}
+                onClick={() => setSortFieldId(f.id)}
+                className="gap-2 text-xs"
+              >
+                <span className="flex-1 truncate">{f.name}</span>
+                {sortFieldId === f.id && <Check className="size-3.5 opacity-70" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {sortField && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+          >
+            {sortDir === "asc" ? "Ascending" : "Descending"}
+          </Button>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground">
+          {rows.length} {rows.length === 1 ? "row" : "rows"}
+        </span>
+      </div>
+
       <div className="scrollbar-thin min-h-0 flex-1 overflow-auto px-6 pb-8">
         {view === "table" ? (
-          <TableView database={database} persist={persist} />
+          <TableView database={database} rows={rows} persist={persist} />
         ) : (
-          <BoardView database={database} field={firstSelect!} persist={persist} />
+          <BoardView database={database} rows={rows} field={firstSelect!} persist={persist} />
         )}
       </div>
     </div>
@@ -150,9 +222,11 @@ function ViewBtn({
 
 function TableView({
   database,
+  rows,
   persist,
 }: {
   database: DatabaseWithSchema;
+  rows: DatabaseRow[];
   persist: (fn: () => Promise<unknown>) => void;
 }) {
   return (
@@ -186,7 +260,7 @@ function TableView({
           </tr>
         </thead>
         <tbody>
-          {database.rows.map((row) => (
+          {rows.map((row) => (
             <tr key={row.id} className="group/r border-b last:border-0 hover:bg-accent/30">
               {database.fields.map((f) => (
                 <td key={f.id} className="border-r p-0">
@@ -362,10 +436,12 @@ function AddFieldButton({
 
 function BoardView({
   database,
+  rows,
   field,
   persist,
 }: {
   database: DatabaseWithSchema;
+  rows: DatabaseRow[];
   field: DatabaseField;
   persist: (fn: () => Promise<unknown>) => void;
 }) {
@@ -378,7 +454,7 @@ function BoardView({
   return (
     <div className="flex gap-3 pb-4">
       {columns.map((col) => {
-        const rows = database.rows.filter(
+        const colRows = rows.filter(
           (r) => ((r.values as Record<string, unknown>)[field.id] ?? null) === col.value,
         );
         return (
@@ -386,10 +462,10 @@ function BoardView({
             <div className="mb-2 flex items-center gap-2 px-1">
               <span className="size-2.5 rounded-full" style={{ backgroundColor: col.color }} />
               <span className="text-sm font-medium">{col.label}</span>
-              <span className="text-xs text-muted-foreground">{rows.length}</span>
+              <span className="text-xs text-muted-foreground">{colRows.length}</span>
             </div>
             <div className="flex flex-col gap-2 rounded-lg bg-muted/40 p-2">
-              {rows.map((r) => {
+              {colRows.map((r) => {
                 const title = nameField
                   ? String((r.values as Record<string, unknown>)[nameField.id] ?? "Untitled")
                   : "Untitled";
