@@ -1,3 +1,5 @@
+import { AppShell } from "@/components/app-shell";
+import { CommandPalette } from "@/components/command-palette";
 import { Sidebar } from "@/components/sidebar";
 import {
   getCurrentUser,
@@ -6,6 +8,7 @@ import {
   getMyWorkspaces,
   getPageTree,
   getProjects,
+  getUnreadCount,
   getWorkspace,
 } from "@/lib/data";
 
@@ -15,27 +18,37 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const ws = await getWorkspace();
-  const [members, me, projects, pageTree, labels, myWorkspaces] = await Promise.all([
-    getMembers(ws.id),
-    getCurrentUser(ws.id),
-    getProjects(ws.id),
-    getPageTree(ws.id),
-    getLabels(ws.id),
-    getMyWorkspaces(),
-  ]);
+  const [members, me, projects, pageTree, labels, myWorkspaces, unreadCount] =
+    await Promise.all([
+      getMembers(ws.id),
+      getCurrentUser(ws.id),
+      getProjects(ws.id),
+      getPageTree(ws.id),
+      getLabels(ws.id),
+      getMyWorkspaces(),
+      getUnreadCount(ws.id),
+    ]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar
-        workspace={ws}
-        workspaces={myWorkspaces}
-        members={members}
-        currentUser={me}
-        projects={projects}
-        pageTree={pageTree}
-        labels={labels}
-      />
-      <main className="flex-1 min-w-0 overflow-hidden">{children}</main>
+      <AppShell
+        workspaceName={ws.name}
+        sidebar={
+          <Sidebar
+            workspace={ws}
+            workspaces={myWorkspaces}
+            members={members}
+            currentUser={me}
+            projects={projects}
+            pageTree={pageTree}
+            labels={labels}
+            unreadCount={unreadCount}
+          />
+        }
+      >
+        {children}
+      </AppShell>
+      <CommandPalette />
     </div>
   );
 }

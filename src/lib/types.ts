@@ -131,3 +131,42 @@ export function issueIdentifier(issue: {
 }): string {
   return issue.project ? `${issue.project.key}-${issue.number}` : `#${issue.number}`;
 }
+
+export type SearchResultKind =
+  | "issue"
+  | "page"
+  | "project"
+  | "initiative"
+  | "database"
+  | "team"
+  | "cycle";
+
+export type SearchResult = {
+  kind: SearchResultKind;
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  icon?: string | null;
+  href: string;
+};
+
+export type NotificationItem = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  read: Date | null;
+  issueId: string | null;
+  createdAt: Date;
+  actor: Member | null;
+};
+
+export type Attachment = {
+  id: string;
+  name: string;
+  url: string;
+  contentType: string | null;
+  size: number;
+  createdAt: Date;
+  uploader: Member | null;
+};

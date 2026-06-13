@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
+  Bell,
   ChevronDown,
   ChevronRight,
   CircleDot,
@@ -51,6 +52,7 @@ export function Sidebar({
   projects,
   pageTree,
   labels,
+  unreadCount = 0,
 }: {
   workspace: Workspace;
   workspaces: WorkspaceWithRole[];
@@ -59,6 +61,7 @@ export function Sidebar({
   projects: Project[];
   pageTree: PageNode[];
   labels: Label[];
+  unreadCount?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -200,6 +203,10 @@ export function Sidebar({
           variant="ghost"
           className="size-8 ring-1 ring-border"
           aria-label="Search"
+          title="Search (⌘K)"
+          onClick={() =>
+            window.dispatchEvent(new Event("open-command-palette"))
+          }
         >
           <Search className="size-4 text-muted-foreground" />
         </Button>
@@ -207,6 +214,19 @@ export function Sidebar({
 
       <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-4">
         {/* Primary */}
+        <NavItem
+          href="/inbox"
+          active={pathname.startsWith("/inbox")}
+          icon={<Bell className="size-4" />}
+          label="Inbox"
+          trailing={
+            unreadCount > 0 ? (
+              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            ) : undefined
+          }
+        />
         <NavItem
           href="/issues"
           active={pathname === "/issues"}

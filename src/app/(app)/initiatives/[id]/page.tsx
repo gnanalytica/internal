@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { InitiativeDetail } from "@/components/initiative-detail";
-import { getInitiative, getProjects, getWorkspace } from "@/lib/data";
+import { getInitiative, getMyRole, getProjects, getWorkspace } from "@/lib/data";
 
 export default async function InitiativeRoute({
   params,
@@ -12,7 +12,16 @@ export default async function InitiativeRoute({
   const ws = await getWorkspace();
   const initiative = await getInitiative(ws.id, id);
   if (!initiative) notFound();
-  const allProjects = await getProjects(ws.id);
+  const [allProjects, role] = await Promise.all([
+    getProjects(ws.id),
+    getMyRole(ws.id),
+  ]);
 
-  return <InitiativeDetail initiative={initiative} allProjects={allProjects} />;
+  return (
+    <InitiativeDetail
+      initiative={initiative}
+      allProjects={allProjects}
+      isAdmin={role === "admin"}
+    />
+  );
 }

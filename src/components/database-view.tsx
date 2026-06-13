@@ -34,7 +34,13 @@ import { cn } from "@/lib/utils";
 
 type View = "table" | "board";
 
-export function DatabaseView({ database }: { database: DatabaseWithSchema }) {
+export function DatabaseView({
+  database,
+  isAdmin,
+}: {
+  database: DatabaseWithSchema;
+  isAdmin: boolean;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [name, setName] = useState(database.name);
@@ -67,27 +73,29 @@ export function DatabaseView({ database }: { database: DatabaseWithSchema }) {
                 <Columns3 className="size-3.5" /> Board
               </ViewBtn>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon" className="size-7" />}
-              >
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() =>
-                    persist(async () => {
-                      await deleteDatabase(database.id);
-                      toast.success("Database deleted");
-                      router.push("/databases");
-                    })
-                  }
-                  className="gap-2 text-destructive focus:text-destructive"
+            {isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button variant="ghost" size="icon" className="size-7" />}
                 >
-                  <Trash2 className="size-4" /> Delete database
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <MoreHorizontal className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      persist(async () => {
+                        await deleteDatabase(database.id);
+                        toast.success("Database deleted");
+                        router.push("/databases");
+                      })
+                    }
+                    className="gap-2 text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="size-4" /> Delete database
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </>
         }
       />

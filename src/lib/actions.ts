@@ -1,12 +1,14 @@
 "use server";
 
-import { and, eq, max } from "drizzle-orm";
+import { and, eq, ilike, isNull, max, or } from "drizzle-orm";
+import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
 import { db } from "@/db";
 import {
   activity,
+  attachments,
   comments,
   cycles,
   databaseFields,
@@ -16,6 +18,7 @@ import {
   issueLabels,
   issuePageLinks,
   issues,
+  notifications,
   pages,
   projects,
   teamMembers,
@@ -31,6 +34,7 @@ import {
   pickColor,
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
+import { isBlobConfigured, MAX_ATTACHMENT_BYTES } from "@/lib/blob";
 import { notifySlack } from "@/lib/slack";
 import { createGithubIssue, verifyGithubRepo } from "@/lib/github";
 
@@ -267,6 +271,38 @@ export async function addComment(issueId: string, body: string) {
     authorId: me.id,
     body: text,
   });
+
+  // Notify the issue's assignee and creator (excluding the comment author).
+  const [issue] = await db
+    .select({
+      title: issues.title,
+      assigneeId: issues.assigneeId,
+      creatorId: issues.creatorId,
+    })
+    .from(issues)
+    .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)))
+    .limit(1);
+  if (issue) {
+    const recipients = new Set(
+      [issue.assigneeId, issue.creatorId].filter(
+        (uid): uid is string => Boolean(uid) && uid !== me.id,
+      ),
+    );
+    if (recipients.size) {
+      await db.insert(notifications).values(
+        [...recipients].map((userId) => ({
+          workspaceId: ws.id,
+          userId,
+          actorId: me.id,
+          type: "commented",
+          issueId,
+          title: `${me.name} commented on ${issue.title}`,
+          body: text.slice(0, 140),
+        })),
+      );
+    }
+  }
+
   revalidatePath(`/issues/${issueId}`);
 }
 
@@ -337,6 +373,24 @@ export async function updateIssue(
           data: a.data,
         })),
       );
+    }
+
+    // Notify the new assignee (when it's someone other than the actor).
+    if (
+      patch.assigneeId !== undefined &&
+      patch.assigneeId &&
+      patch.assigneeId !== before.assigneeId &&
+      patch.assigneeId !== me.id
+    ) {
+      await db.insert(notifications).values({
+        workspaceId: ws.id,
+        userId: patch.assigneeId,
+        actorId: me.id,
+        type: "assigned",
+        issueId: id,
+        title: `${me.name} assigned you an issue`,
+        body: patch.title ?? before.title,
+      });
     }
   }
 
@@ -504,6 +558,7 @@ export async function updateInitiative(
 
 export async function deleteInitiative(id: string) {
   const ws = await getWorkspace();
+  await requireAdmin(ws.id);
   await db
     .delete(initiatives)
     .where(and(eq(initiatives.workspaceId, ws.id), eq(initiatives.id, id)));
@@ -561,6 +616,7 @@ export async function updateTeam(
 
 export async function deleteTeam(id: string) {
   const ws = await getWorkspace();
+  await requireAdmin(ws.id);
   await db.delete(teams).where(and(eq(teams.workspaceId, ws.id), eq(teams.id, id)));
   revalidatePath("/teams");
 }
@@ -624,6 +680,7 @@ export async function updateDatabase(
 
 export async function deleteDatabase(id: string) {
   const ws = await getWorkspace();
+  await requireAdmin(ws.id);
   await db
     .delete(databases)
     .where(and(eq(databases.workspaceId, ws.id), eq(databases.id, id)));
@@ -751,4 +808,249 @@ export async function pushIssueToGithub(issueId: string) {
     .set({ githubUrl: htmlUrl, githubNumber: number })
     .where(eq(issues.id, issueId));
   revalidatePath(`/issues/${issueId}`);
+}
+
+// ---- Attachments ----
+
+export async function uploadAttachment(issueId: string, formData: FormData) {
+  if (!isBlobConfigured()) {
+    throw new Error(
+      "File storage isn't configured. Add a BLOB_READ_WRITE_TOKEN to enable attachments.",
+    );
+  }
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("No file provided.");
+  }
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    throw new Error("File is too large (max 10 MB).");
+  }
+
+  // Confirm the issue belongs to this workspace before storing.
+  const [issue] = await db
+    .select({ id: issues.id })
+    .from(issues)
+    .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)))
+    .limit(1);
+  if (!issue) throw new Error("Issue not found.");
+
+  const blob = await put(`${ws.id}/${issueId}/${file.name}`, file, {
+    access: "public",
+    addRandomSuffix: true,
+  });
+
+  await db.insert(attachments).values({
+    workspaceId: ws.id,
+    issueId,
+    uploaderId: me.id,
+    name: file.name,
+    url: blob.url,
+    contentType: file.type || null,
+    size: file.size,
+  });
+
+  revalidatePath(`/issues/${issueId}`);
+}
+
+export async function deleteAttachment(id: string, issueId: string) {
+  const ws = await getWorkspace();
+  const [row] = await db
+    .select({ url: attachments.url })
+    .from(attachments)
+    .where(and(eq(attachments.workspaceId, ws.id), eq(attachments.id, id)))
+    .limit(1);
+  if (!row) return;
+  if (isBlobConfigured()) {
+    try {
+      await del(row.url);
+    } catch {
+      // Best-effort: still remove the DB row even if blob delete fails.
+    }
+  }
+  await db
+    .delete(attachments)
+    .where(and(eq(attachments.workspaceId, ws.id), eq(attachments.id, id)));
+  revalidatePath(`/issues/${issueId}`);
+}
+
+// ---- Notifications ----
+
+export async function markNotificationRead(id: string) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  await db
+    .update(notifications)
+    .set({ read: new Date() })
+    .where(
+      and(
+        eq(notifications.workspaceId, ws.id),
+        eq(notifications.userId, me.id),
+        eq(notifications.id, id),
+      ),
+    );
+  revalidatePath("/inbox");
+  revalidatePath("/", "layout");
+}
+
+export async function markAllNotificationsRead() {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  await db
+    .update(notifications)
+    .set({ read: new Date() })
+    .where(
+      and(
+        eq(notifications.workspaceId, ws.id),
+        eq(notifications.userId, me.id),
+        isNull(notifications.read),
+      ),
+    );
+  revalidatePath("/inbox");
+  revalidatePath("/", "layout");
+}
+
+// ---- Global search (⌘K) ----
+
+export async function searchWorkspace(
+  query: string,
+): Promise<import("@/lib/types").SearchResult[]> {
+  const ws = await getWorkspace();
+  const q = query.trim();
+  if (!q) return [];
+  const term = `%${q}%`;
+  const LIMIT = 6;
+
+  const [
+    issueRows,
+    pageRows,
+    projectRows,
+    initiativeRows,
+    databaseRows_,
+    teamRows,
+    cycleRows,
+  ] = await Promise.all([
+    db
+      .select({
+        id: issues.id,
+        title: issues.title,
+        number: issues.number,
+        status: issues.status,
+        projectKey: projects.key,
+      })
+      .from(issues)
+      .leftJoin(projects, eq(issues.projectId, projects.id))
+      .where(and(eq(issues.workspaceId, ws.id), ilike(issues.title, term)))
+      .limit(LIMIT),
+    db
+      .select({ id: pages.id, title: pages.title, icon: pages.icon })
+      .from(pages)
+      .where(and(eq(pages.workspaceId, ws.id), ilike(pages.title, term)))
+      .limit(LIMIT),
+    db
+      .select({ id: projects.id, name: projects.name, key: projects.key })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.workspaceId, ws.id),
+          or(ilike(projects.name, term), ilike(projects.key, term)),
+        ),
+      )
+      .limit(LIMIT),
+    db
+      .select({ id: initiatives.id, name: initiatives.name })
+      .from(initiatives)
+      .where(and(eq(initiatives.workspaceId, ws.id), ilike(initiatives.name, term)))
+      .limit(LIMIT),
+    db
+      .select({ id: databases.id, name: databases.name, icon: databases.icon })
+      .from(databases)
+      .where(and(eq(databases.workspaceId, ws.id), ilike(databases.name, term)))
+      .limit(LIMIT),
+    db
+      .select({ id: teams.id, name: teams.name, key: teams.key, icon: teams.icon })
+      .from(teams)
+      .where(
+        and(
+          eq(teams.workspaceId, ws.id),
+          or(ilike(teams.name, term), ilike(teams.key, term)),
+        ),
+      )
+      .limit(LIMIT),
+    db
+      .select({ id: cycles.id, name: cycles.name, number: cycles.number })
+      .from(cycles)
+      .where(and(eq(cycles.workspaceId, ws.id), ilike(cycles.name, term)))
+      .limit(LIMIT),
+  ]);
+
+  const results: import("@/lib/types").SearchResult[] = [];
+
+  for (const r of issueRows) {
+    results.push({
+      kind: "issue",
+      id: r.id,
+      title: r.title,
+      subtitle: r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`,
+      href: `/issues/${r.id}`,
+    });
+  }
+  for (const r of pageRows) {
+    results.push({
+      kind: "page",
+      id: r.id,
+      title: r.title || "Untitled",
+      icon: r.icon,
+      href: `/pages/${r.id}`,
+    });
+  }
+  for (const r of projectRows) {
+    results.push({
+      kind: "project",
+      id: r.id,
+      title: r.name,
+      subtitle: r.key,
+      href: `/issues?project=${r.id}`,
+    });
+  }
+  for (const r of initiativeRows) {
+    results.push({
+      kind: "initiative",
+      id: r.id,
+      title: r.name,
+      href: `/initiatives/${r.id}`,
+    });
+  }
+  for (const r of databaseRows_) {
+    results.push({
+      kind: "database",
+      id: r.id,
+      title: r.name,
+      icon: r.icon,
+      href: `/databases/${r.id}`,
+    });
+  }
+  for (const r of teamRows) {
+    results.push({
+      kind: "team",
+      id: r.id,
+      title: r.name,
+      subtitle: r.key,
+      icon: r.icon,
+      href: `/teams/${r.id}`,
+    });
+  }
+  for (const r of cycleRows) {
+    results.push({
+      kind: "cycle",
+      id: r.id,
+      title: r.name,
+      subtitle: `Cycle ${r.number}`,
+      href: `/cycles/${r.id}`,
+    });
+  }
+
+  return results;
 }

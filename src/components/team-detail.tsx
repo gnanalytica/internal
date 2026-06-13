@@ -36,9 +36,11 @@ import type { IssueWithRelations, Member, Team } from "@/lib/types";
 export function TeamDetail({
   team,
   allMembers,
+  isAdmin,
 }: {
   team: Team & { issues: IssueWithRelations[]; members: Member[] };
   allMembers: Member[];
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -64,27 +66,29 @@ export function TeamDetail({
       <Topbar
         breadcrumb={[{ label: "Teams", href: "/teams" }, { label: name }]}
         actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon" className="size-7" />}
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  persist(async () => {
-                    await deleteTeam(team.id);
-                    toast.success("Team deleted");
-                    router.push("/teams");
-                  })
-                }
-                className="gap-2 text-destructive focus:text-destructive"
+          isAdmin ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon" className="size-7" />}
               >
-                <Trash2 className="size-4" /> Delete team
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    persist(async () => {
+                      await deleteTeam(team.id);
+                      toast.success("Team deleted");
+                      router.push("/teams");
+                    })
+                  }
+                  className="gap-2 text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="size-4" /> Delete team
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : undefined
         }
       />
 

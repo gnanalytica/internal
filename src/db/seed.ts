@@ -98,7 +98,7 @@ async function main() {
     { project: design, title: "New empty-state illustrations", status: "backlog", priority: "low", assignee: alex },
   ];
 
-  let n = { ENG: 0, DES: 0 } as Record<string, number>;
+  const n = { ENG: 0, DES: 0 } as Record<string, number>;
   const createdIssues = [];
   for (let i = 0; i < issueRows.length; i++) {
     const r = issueRows[i];

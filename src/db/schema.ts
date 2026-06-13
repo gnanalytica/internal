@@ -314,6 +314,53 @@ export const activity = pgTable(
   (t) => [index("activity_issue_idx").on(t.issueId)],
 );
 
+/** Per-user inbox notifications (assignment, comments). */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type").notNull(), // assigned | commented | mentioned | status
+    issueId: uuid("issue_id").references(() => issues.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body"),
+    read: timestamp("read", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("notifications_user_idx").on(t.workspaceId, t.userId),
+  ],
+);
+
+/** File attachments on issues (stored in Vercel Blob). */
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    uploaderId: uuid("uploader_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    contentType: text("content_type"),
+    size: integer("size").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("attachments_issue_idx").on(t.issueId)],
+);
+
 // ---- Relations (for drizzle query API) ----
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -400,6 +447,7 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   pageLinks: many(issuePageLinks),
   comments: many(comments),
   activity: many(activity),
+  attachments: many(attachments),
 }));
 
 export const databasesRelations = relations(databases, ({ one, many }) => ({
@@ -433,6 +481,20 @@ export const commentsRelations = relations(comments, ({ one }) => ({
 export const activityRelations = relations(activity, ({ one }) => ({
   issue: one(issues, { fields: [activity.issueId], references: [issues.id] }),
   actor: one(users, { fields: [activity.actorId], references: [users.id] }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  issue: one(issues, { fields: [notifications.issueId], references: [issues.id] }),
+  actor: one(users, { fields: [notifications.actorId], references: [users.id] }),
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  issue: one(issues, { fields: [attachments.issueId], references: [issues.id] }),
+  uploader: one(users, {
+    fields: [attachments.uploaderId],
+    references: [users.id],
+  }),
 }));
 
 export const labelsRelations = relations(labels, ({ many }) => ({

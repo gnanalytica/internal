@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { RichEditor } from "@/components/editor/rich-editor";
 import { GitHubIcon } from "@/components/auth/provider-icons";
+import { IssueAttachments } from "@/components/issue-attachments";
 import { IssueTimeline } from "@/components/issue-timeline";
 import {
   AssigneePicker,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/actions";
 import { issueIdentifier } from "@/lib/types";
 import type {
+  Attachment,
   Cycle,
   IssueWithRelations,
   Label,
@@ -70,6 +72,8 @@ export function IssueDetail({
   teams,
   timeline,
   githubConnected,
+  attachments,
+  attachmentsEnabled,
 }: {
   issue: IssueWithRelations & { linkedPages: Page[] };
   projects: Project[];
@@ -80,6 +84,8 @@ export function IssueDetail({
   teams: Team[];
   timeline: TimelineItem[];
   githubConnected: boolean;
+  attachments: Attachment[];
+  attachmentsEnabled: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -127,10 +133,10 @@ export function IssueDetail({
         }
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row">
         {/* Main */}
         <div className="scrollbar-thin flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl px-10 py-10">
+          <div className="mx-auto w-full max-w-3xl px-5 py-8 md:px-10 md:py-10">
             <textarea
               value={title}
               onChange={(e) => {
@@ -220,6 +226,15 @@ export function IssueDetail({
               )}
             </div>
 
+            {/* Attachments */}
+            <div className="mt-10 border-t pt-5">
+              <IssueAttachments
+                issueId={issue.id}
+                attachments={attachments}
+                enabled={attachmentsEnabled}
+              />
+            </div>
+
             {/* Activity & comments */}
             <div className="mt-10 border-t pt-5">
               <IssueTimeline
@@ -232,7 +247,7 @@ export function IssueDetail({
         </div>
 
         {/* Properties */}
-        <aside className="w-64 shrink-0 border-l bg-muted/20 p-4">
+        <aside className="w-full shrink-0 border-b bg-muted/20 p-4 md:w-64 md:border-b-0 md:border-l">
           <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Properties
           </h3>

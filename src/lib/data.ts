@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth/server";
 import { db } from "@/db";
 import {
   activity,
+  attachments,
   comments,
   cycles,
   databaseFields,
@@ -18,6 +19,7 @@ import {
   issuePageLinks,
   issues,
   labels,
+  notifications,
   pages,
   projects,
   teamMembers,
@@ -470,6 +472,69 @@ export async function getIssueTimeline(
   ];
   items.sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime());
   return items;
+}
+
+// ---- Attachments ----
+
+export async function getAttachments(
+  issueId: string,
+): Promise<import("@/lib/types").Attachment[]> {
+  const rows = await db.query.attachments.findMany({
+    where: eq(attachments.issueId, issueId),
+    orderBy: [desc(attachments.createdAt)],
+    with: { uploader: true },
+  });
+  return rows.map((a) => ({
+    id: a.id,
+    name: a.name,
+    url: a.url,
+    contentType: a.contentType,
+    size: a.size,
+    createdAt: a.createdAt,
+    uploader: a.uploader,
+  }));
+}
+
+// ---- Notifications ----
+
+export async function getNotifications(
+  workspaceId: string,
+): Promise<import("@/lib/types").NotificationItem[]> {
+  const me = await getCurrentUser(workspaceId);
+  const rows = await db.query.notifications.findMany({
+    where: and(
+      eq(notifications.workspaceId, workspaceId),
+      eq(notifications.userId, me.id),
+    ),
+    orderBy: [desc(notifications.createdAt)],
+    limit: 50,
+    with: { actor: true },
+  });
+  return rows.map((n) => ({
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    body: n.body,
+    read: n.read,
+    issueId: n.issueId,
+    createdAt: n.createdAt,
+    actor: n.actor,
+  }));
+}
+
+export async function getUnreadCount(workspaceId: string): Promise<number> {
+  const me = await getCurrentUser(workspaceId);
+  const rows = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.workspaceId, workspaceId),
+        eq(notifications.userId, me.id),
+        isNull(notifications.read),
+      ),
+    );
+  return rows.length;
 }
 
 // ---- Teams ----

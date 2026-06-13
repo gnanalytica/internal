@@ -38,9 +38,11 @@ import {
 export function InitiativeDetail({
   initiative,
   allProjects,
+  isAdmin,
 }: {
   initiative: Initiative & { projects: ProjectWithIssueCount[] };
   allProjects: Project[];
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -67,27 +69,29 @@ export function InitiativeDetail({
           { label: name || "Untitled" },
         ]}
         actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon" className="size-7" />}
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  persist(async () => {
-                    await deleteInitiative(initiative.id);
-                    toast.success("Initiative deleted");
-                    router.push("/initiatives");
-                  })
-                }
-                className="gap-2 text-destructive focus:text-destructive"
+          isAdmin ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon" className="size-7" />}
               >
-                <Trash2 className="size-4" /> Delete initiative
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    persist(async () => {
+                      await deleteInitiative(initiative.id);
+                      toast.success("Initiative deleted");
+                      router.push("/initiatives");
+                    })
+                  }
+                  className="gap-2 text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="size-4" /> Delete initiative
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : undefined
         }
       />
 
