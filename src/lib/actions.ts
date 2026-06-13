@@ -2,7 +2,6 @@
 
 import { and, eq, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 
 import { db } from "@/db";
 import {
@@ -13,16 +12,6 @@ import {
 } from "@/db/schema";
 import { getCurrentUser, getWorkspace } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
-
-/** Switch the active user (minimal session). */
-export async function setCurrentUser(userId: string) {
-  (await cookies()).set("uid", userId, {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax",
-  });
-  revalidatePath("/", "layout");
-}
 
 // ---- Issues ----
 

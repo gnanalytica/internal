@@ -1,8 +1,9 @@
 import "server-only";
 
 import { and, asc, desc, eq } from "drizzle-orm";
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
+import { auth } from "@/lib/auth/server";
 import { db } from "@/db";
 import {
   issueLabels,
@@ -57,11 +58,51 @@ export async function getMembers(workspaceId: string): Promise<Member[]> {
   return rows.map((r) => r.user);
 }
 
-/** Minimal session: current user is read from the `uid` cookie, else first member. */
+const AVATAR_COLORS = [
+  "#6366f1", "#ec4899", "#10b981", "#f59e0b", "#3b82f6",
+  "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#8b5cf6",
+];
+
+function pickColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+/**
+ * Resolve the current user from the Neon Auth session, bridging it to our own
+ * `users` table by email (find-or-create) and ensuring workspace membership.
+ * Seeded users (e.g. sandeep@gnanalytica.com) map to the matching real login.
+ */
 export async function getCurrentUser(workspaceId: string): Promise<Member> {
-  const members = await getMembers(workspaceId);
-  const uid = (await cookies()).get("uid")?.value;
-  return members.find((m) => m.id === uid) ?? members[0];
+  const { data: session } = await auth.getSession();
+  const sUser = session?.user;
+  if (!sUser?.email) redirect("/auth/sign-in");
+
+  const existing = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, sUser.email))
+    .limit(1);
+
+  let user = existing[0];
+  if (!user) {
+    [user] = await db
+      .insert(users)
+      .values({
+        name: sUser.name?.trim() || sUser.email.split("@")[0],
+        email: sUser.email,
+        avatarColor: pickColor(sUser.email),
+      })
+      .returning();
+  }
+
+  await db
+    .insert(workspaceMembers)
+    .values({ workspaceId, userId: user.id, role: "member" })
+    .onConflictDoNothing();
+
+  return user;
 }
 
 export async function getProjects(workspaceId: string): Promise<Project[]> {

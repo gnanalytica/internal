@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CircleDot,
   FileText,
+  LogOut,
   Plus,
   PenSquare,
   Search,
@@ -19,12 +20,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { createPage, setCurrentUser } from "@/lib/actions";
+import { createPage } from "@/lib/actions";
+import { authClient } from "@/lib/auth/client";
 import type { Label, Member, PageNode, Project } from "@/lib/types";
 import type { workspaces } from "@/db/schema";
 import { cn } from "@/lib/utils";
@@ -52,9 +53,10 @@ export function Sidebar({
   const [showProjects, setShowProjects] = useState(true);
   const [showPages, setShowPages] = useState(true);
 
-  function switchUser(id: string) {
+  function signOut() {
     startTransition(async () => {
-      await setCurrentUser(id);
+      await authClient.signOut();
+      router.push("/auth/sign-in");
       router.refresh();
     });
   }
@@ -80,10 +82,10 @@ export function Sidebar({
             <ChevronDown className="ml-auto size-3.5 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+            <div className="px-2 pt-1.5 text-[11px] text-muted-foreground">
               Signed in as
-            </DropdownMenuLabel>
-            <div className="flex items-center gap-2 px-2 pb-1.5">
+            </div>
+            <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
               <UserAvatar name={currentUser.name} color={currentUser.avatarColor} />
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">{currentUser.name}</div>
@@ -93,22 +95,10 @@ export function Sidebar({
               </div>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[11px] text-muted-foreground">
-              Switch user (demo)
-            </DropdownMenuLabel>
-            {members.map((m) => (
-              <DropdownMenuItem
-                key={m.id}
-                onClick={() => switchUser(m.id)}
-                className="gap-2 text-sm"
-              >
-                <UserAvatar name={m.name} color={m.avatarColor} className="size-5" />
-                <span className="flex-1">{m.name}</span>
-                {m.id === currentUser.id && (
-                  <span className="size-1.5 rounded-full bg-brand" />
-                )}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem onClick={signOut} className="gap-2 text-sm">
+              <LogOut className="size-4" />
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
