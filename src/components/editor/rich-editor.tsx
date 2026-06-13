@@ -1,0 +1,73 @@
+"use client";
+
+import Placeholder from "@tiptap/extension-placeholder";
+import TaskItem from "@tiptap/extension-task-item";
+import TaskList from "@tiptap/extension-task-list";
+import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { useEffect, useRef } from "react";
+
+import { SlashCommand } from "./slash-command";
+import { cn } from "@/lib/utils";
+
+export function RichEditor({
+  content,
+  editable = true,
+  placeholder = "Type '/' for commands…",
+  onChange,
+  className,
+}: {
+  content?: JSONContent | null;
+  editable?: boolean;
+  placeholder?: string;
+  onChange?: (json: JSONContent) => void;
+  className?: string;
+}) {
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    editable,
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        link: {
+          openOnClick: false,
+          HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+        },
+      }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Placeholder.configure({
+        placeholder: ({ node }) =>
+          node.type.name === "heading" ? "Heading" : placeholder,
+        includeChildren: true,
+      }),
+      SlashCommand,
+    ],
+    content: content ?? undefined,
+    editorProps: {
+      attributes: {
+        class: cn("tiptap focus:outline-none", className),
+      },
+    },
+    onUpdate: ({ editor }) => {
+      if (!onChange) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => onChange(editor.getJSON()), 600);
+    },
+  });
+
+  // Keep editable in sync if it changes.
+  useEffect(() => {
+    editor?.setEditable(editable);
+  }, [editable, editor]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
+
+  return <EditorContent editor={editor} />;
+}
