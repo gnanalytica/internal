@@ -4,7 +4,7 @@ import type { JSONContent } from "@tiptap/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Link2, MoreHorizontal, Trash2, X } from "lucide-react";
+import { Download, Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AiGenerateIssues } from "@/components/ai-generate-issues";
@@ -47,6 +47,8 @@ import type {
   Page,
 } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
+import { docToMarkdown } from "@/lib/markdown";
+import { downloadText, slugifyFilename } from "@/lib/download";
 import type { StatusId } from "@/lib/constants";
 
 const EMOJIS = ["📄", "📝", "📚", "🛠️", "🚀", "🏗️", "📌", "💡", "🎯", "🔥", "✅", "📁", "🧭", "🗂️", "⭐", "🧪"];
@@ -123,6 +125,15 @@ export function PageView({
                 <MoreHorizontal className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    const md = `# ${title || "Untitled"}\n\n${docToMarkdown(page.content)}`;
+                    downloadText(`${slugifyFilename(title)}.md`, md, "text/markdown");
+                  }}
+                  className="gap-2"
+                >
+                  <Download className="size-4" /> Export Markdown
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={onDelete}
                   className="gap-2 text-destructive focus:text-destructive"

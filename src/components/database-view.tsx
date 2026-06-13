@@ -381,6 +381,85 @@ function Cell({
     );
   }
 
+  if (field.type === "url" || field.type === "email") {
+    const str = raw == null ? "" : String(raw);
+    const href = field.type === "email" ? `mailto:${str}` : str;
+    return (
+      <div className="flex items-center gap-1 px-1">
+        <input
+          type={field.type === "email" ? "email" : "url"}
+          defaultValue={str}
+          onBlur={(e) => {
+            if (e.target.value !== str) commit(e.target.value);
+          }}
+          placeholder={field.type === "email" ? "name@example.com" : "https://…"}
+          className="w-full bg-transparent px-2 py-1.5 text-sm outline-none focus:bg-brand/5"
+        />
+        {str && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 px-1 text-muted-foreground hover:text-brand"
+            aria-label="Open"
+          >
+            ↗
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (field.type === "multiSelect") {
+    const options = (field.options as SelectOption[] | null) ?? [];
+    const selected = Array.isArray(raw) ? (raw as string[]) : [];
+    const toggle = (label: string) =>
+      commit(
+        selected.includes(label)
+          ? selected.filter((s) => s !== label)
+          : [...selected, label],
+      );
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger className="flex min-h-[2rem] w-full flex-wrap items-center gap-1 px-3 py-1.5 text-left text-xs hover:bg-accent/40">
+          {selected.length === 0 ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            selected.map((label) => {
+              const o = options.find((x) => x.label === label);
+              return (
+                <span
+                  key={label}
+                  className="rounded-full px-1.5 py-0.5 text-[11px] font-medium"
+                  style={{
+                    color: o?.color ?? "#64748b",
+                    backgroundColor: `color-mix(in oklch, ${o?.color ?? "#64748b"} 14%, transparent)`,
+                  }}
+                >
+                  {label}
+                </span>
+              );
+            })
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-44">
+          {options.map((o) => (
+            <DropdownMenuItem
+              key={o.label}
+              onClick={() => toggle(o.label)}
+              className="gap-2 text-xs"
+              closeOnClick={false}
+            >
+              <span className="size-2 rounded-full" style={{ backgroundColor: o.color }} />
+              <span className="flex-1">{o.label}</span>
+              {selected.includes(o.label) && <Check className="size-3.5 opacity-70" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   if (field.type === "select") {
     const options = (field.options as SelectOption[] | null) ?? [];
     const current = options.find((o) => o.label === raw);

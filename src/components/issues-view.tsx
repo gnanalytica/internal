@@ -6,6 +6,8 @@ import {
   ArrowUpDown,
   Check,
   Columns3,
+  Download,
+  Layers,
   List as ListIcon,
   ListFilter,
   Plus,
@@ -36,11 +38,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/glyphs";
 import { deleteIssue, updateIssue } from "@/lib/actions";
+import { issuesToCsv } from "@/lib/csv";
+import { downloadText } from "@/lib/download";
 import { PRIORITIES, STATUSES, type StatusId } from "@/lib/constants";
 import {
+  GROUP_BYS,
   SORTS,
   filterIssues,
+  groupIssues,
   issueComparator,
+  type GroupBy,
   type SortId,
 } from "@/lib/issue-filters";
 import type { IssueWithRelations, Label, Member, Project } from "@/lib/types";
@@ -75,6 +82,7 @@ export function IssuesView({
   const [fAssignee, setFAssignee] = useState<Set<string>>(new Set());
   const [fLabel, setFLabel] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortId>("manual");
+  const [groupBy, setGroupBy] = useState<GroupBy>("status");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   function toggleSelect(id: string) {
@@ -124,6 +132,7 @@ export function IssuesView({
           if (Array.isArray(s.assignee)) setFAssignee(new Set(s.assignee));
           if (Array.isArray(s.label)) setFLabel(new Set(s.label));
           if (typeof s.sort === "string") setSort(s.sort as SortId);
+          if (typeof s.groupBy === "string") setGroupBy(s.groupBy as GroupBy);
           if (s.view === "list" || s.view === "board") setView(s.view);
         }
       } catch {
@@ -148,13 +157,14 @@ export function IssuesView({
           assignee: [...fAssignee],
           label: [...fLabel],
           sort,
+          groupBy,
           view,
         }),
       );
     } catch {
       // Storage may be unavailable (private mode); ignore.
     }
-  }, [storageKey, fStatus, fPriority, fAssignee, fLabel, sort, view]);
+  }, [storageKey, fStatus, fPriority, fAssignee, fLabel, sort, groupBy, view]);
 
   function persist(changed: { id: string; status: StatusId; sortKey: string }[]) {
     startTransition(async () => {
@@ -189,10 +199,10 @@ export function IssuesView({
 
   const compare = useMemo(() => issueComparator(sort), [sort]);
 
-  const grouped = STATUSES.map((s) => ({
-    status: s,
-    items: visible.filter((i) => i.status === s.id).slice().sort(compare),
-  })).filter((g) => g.items.length > 0);
+  const grouped = groupIssues(visible, groupBy, { members, projects }).map((g) => ({
+    ...g,
+    items: g.items.slice().sort(compare),
+  }));
 
   function clearFilters() {
     setFStatus(new Set());
@@ -268,6 +278,26 @@ export function IssuesView({
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
             >
+              <Layers className="size-3.5" />
+              {GROUP_BYS.find((g) => g.id === groupBy)?.label}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {GROUP_BYS.map((g) => (
+                <DropdownMenuItem
+                  key={g.id}
+                  onClick={() => setGroupBy(g.id)}
+                  className="gap-2 text-xs"
+                >
+                  <span className="flex-1">{g.label}</span>
+                  {groupBy === g.id && <Check className="size-3.5 opacity-70" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
+            >
               <ArrowUpDown className="size-3.5" />
               {SORTS.find((s) => s.id === sort)?.label}
             </DropdownMenuTrigger>
@@ -285,6 +315,17 @@ export function IssuesView({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-xs"
+            onClick={() =>
+              downloadText(`issues-${heading.toLowerCase().replace(/\s+/g, "-")}.csv`, issuesToCsv(visible), "text/csv")
+            }
+            title="Export visible issues to CSV"
+          >
+            <Download className="size-3.5" /> Export
+          </Button>
           <div className="flex items-center rounded-md border p-0.5">
             <ViewButton active={view === "list"} onClick={() => setView("list")}>
               <ListIcon className="size-3.5" /> List
@@ -316,10 +357,14 @@ export function IssuesView({
       ) : view === "list" ? (
         <div className="scrollbar-thin flex-1 overflow-y-auto">
           {grouped.map((g) => (
-            <div key={g.status.id}>
+            <div key={g.key}>
               <div className="sticky top-0 z-10 flex items-center gap-2 bg-muted/60 px-4 py-1.5 backdrop-blur">
-                <StatusIcon status={g.status.id} />
-                <span className="text-xs font-semibold">{g.status.label}</span>
+                {groupBy === "status" ? (
+                  <StatusIcon status={g.key as StatusId} />
+                ) : g.color ? (
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                ) : null}
+                <span className="text-xs font-semibold">{g.label}</span>
                 <span className="text-xs text-muted-foreground">{g.items.length}</span>
               </div>
               {g.items.map((issue) => (

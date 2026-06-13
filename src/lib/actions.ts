@@ -1026,7 +1026,7 @@ export async function addField(
     type: input.type,
     position: `a${Date.now()}`,
     options:
-      input.type === "select"
+      input.type === "select" || input.type === "multiSelect"
         ? [{ label: "Option 1", color: "#6366f1" }]
         : null,
     relationDatabaseId:

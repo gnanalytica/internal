@@ -9,6 +9,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Info,
   List,
   ListFilter,
   ListOrdered,
@@ -98,6 +99,19 @@ const COMMANDS: Cmd[] = [
     icon: createElement(Minus, { className: "size-4" }),
     keywords: "divider hr rule separator",
     run: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run(),
+  },
+  {
+    title: "Callout",
+    description: "Highlighted callout box",
+    icon: createElement(Info, { className: "size-4" }),
+    keywords: "callout note info tip box",
+    run: (e, r) =>
+      e
+        .chain()
+        .focus()
+        .deleteRange(r)
+        .insertContent({ type: "callout", content: [{ type: "paragraph" }] })
+        .run(),
   },
   {
     title: "Issue view",

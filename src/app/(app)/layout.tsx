@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { CommandPalette } from "@/components/command-palette";
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { Sidebar } from "@/components/sidebar";
 import {
   getCurrentUser,
@@ -52,6 +53,7 @@ export default async function AppLayout({
         {children}
       </AppShell>
       <CommandPalette />
+      <KeyboardShortcuts projects={projects} members={members} labels={labels} />
     </div>
   );
 }

@@ -149,9 +149,12 @@ export const FIELD_TYPES = [
   { id: "text", label: "Text", icon: "T" },
   { id: "number", label: "Number", icon: "#" },
   { id: "select", label: "Select", icon: "▾" },
+  { id: "multiSelect", label: "Multi-select", icon: "≣" },
   { id: "checkbox", label: "Checkbox", icon: "☑" },
   { id: "date", label: "Date", icon: "📅" },
-  { id: "relation", label: "Relation", icon: "🔗" },
+  { id: "url", label: "URL", icon: "🔗" },
+  { id: "email", label: "Email", icon: "@" },
+  { id: "relation", label: "Relation", icon: "⛓" },
   { id: "rollup", label: "Rollup", icon: "Σ" },
 ] as const;
 

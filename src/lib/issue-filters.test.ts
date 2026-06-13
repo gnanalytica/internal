@@ -5,6 +5,7 @@ import {
   activeFilterCount,
   emptyFilters,
   filterIssues,
+  groupIssues,
   issueComparator,
   matchesFilters,
   type IssueFilters,
@@ -139,5 +140,39 @@ describe("issueComparator", () => {
     const apple = makeIssue({ title: "Apple" });
     const banana = makeIssue({ title: "Banana" });
     expect(cmp(apple, banana)).toBeLessThan(0);
+  });
+});
+
+describe("groupIssues", () => {
+  const members = [
+    { id: "u1", name: "Alex", avatarColor: "#000" },
+    { id: "u2", name: "Sam", avatarColor: "#111" },
+  ] as unknown as import("@/lib/types").Member[];
+  const projects = [
+    { id: "p1", name: "Web", color: "#222" },
+  ] as unknown as import("@/lib/types").Project[];
+
+  it("groups by status (non-empty, ordered)", () => {
+    const issues = [
+      makeIssue({ id: "a", status: "todo" }),
+      makeIssue({ id: "b", status: "done" }),
+    ];
+    const g = groupIssues(issues, "status", { members, projects });
+    expect(g.map((x) => x.key)).toEqual(["todo", "done"]);
+  });
+
+  it("groups by assignee with an Unassigned bucket", () => {
+    const issues = [
+      makeIssue({ id: "a", assigneeId: "u1" }),
+      makeIssue({ id: "b", assigneeId: null }),
+    ];
+    const g = groupIssues(issues, "assignee", { members, projects });
+    expect(g.map((x) => x.label)).toEqual(["Alex", "Unassigned"]);
+  });
+
+  it("returns a single group for none", () => {
+    const g = groupIssues([makeIssue({ id: "a" })], "none", { members, projects });
+    expect(g).toHaveLength(1);
+    expect(g[0].key).toBe("all");
   });
 });

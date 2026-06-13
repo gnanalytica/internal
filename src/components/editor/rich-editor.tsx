@@ -8,6 +8,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
 
 import type { MentionItem } from "@/lib/types";
+import { Callout } from "./callout";
 import { EntityRef } from "./mention";
 import { IssueEmbed } from "./issue-embed";
 import { SlashCommand } from "./slash-command";
@@ -54,6 +55,7 @@ export function RichEditor({
         includeChildren: true,
       }),
       SlashCommand,
+      Callout,
       IssueEmbed,
       // The ref's stable identity bridges live mention data into ProseMirror;
       // the extension only reads it inside suggestion callbacks, never in render.

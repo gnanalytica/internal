@@ -186,6 +186,20 @@ a.entity-ref {
 .tiptap a.entity-ref:hover {
   background-color: color-mix(in oklch, var(--brand) 20%, transparent);
 }
+.tiptap .callout {
+  margin: 0.5rem 0;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  background-color: color-mix(in oklch, var(--brand) 5%, transparent);
+  padding: 0.6rem 0.85rem;
+}
+.tiptap .callout > :first-child {
+  margin-top: 0;
+}
+.tiptap .callout > :last-child {
+  margin-bottom: 0;
+}
 .tiptap p {
   margin: 0.18rem 0;
   line-height: 1.7;

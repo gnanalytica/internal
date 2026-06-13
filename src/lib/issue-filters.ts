@@ -1,5 +1,5 @@
-import { PRIORITIES } from "@/lib/constants";
-import type { IssueWithRelations } from "@/lib/types";
+import { PRIORITIES, STATUSES } from "@/lib/constants";
+import type { IssueWithRelations, Member, Project } from "@/lib/types";
 
 /** Active issue filters. Empty set = no constraint for that dimension. */
 export type IssueFilters = {
@@ -58,6 +58,83 @@ export function filterIssues<T extends IssueWithRelations>(
 }
 
 /** Comparator for the chosen sort. "manual" falls back to the persisted sortKey. */
+export type GroupBy = "status" | "priority" | "assignee" | "project" | "none";
+
+export const GROUP_BYS: { id: GroupBy; label: string }[] = [
+  { id: "status", label: "Status" },
+  { id: "priority", label: "Priority" },
+  { id: "assignee", label: "Assignee" },
+  { id: "project", label: "Project" },
+  { id: "none", label: "None" },
+];
+
+export type IssueGroup = {
+  key: string;
+  label: string;
+  color?: string;
+  items: IssueWithRelations[];
+};
+
+/** Partition issues into ordered, non-empty groups by the chosen dimension. */
+export function groupIssues(
+  issues: IssueWithRelations[],
+  groupBy: GroupBy,
+  ctx: { members: Member[]; projects: Project[] },
+): IssueGroup[] {
+  let defs: { key: string; label: string; color?: string; match: (i: IssueWithRelations) => boolean }[];
+
+  switch (groupBy) {
+    case "priority":
+      defs = PRIORITIES.map((p) => ({
+        key: p.id,
+        label: p.label,
+        match: (i) => i.priority === p.id,
+      }));
+      break;
+    case "assignee":
+      defs = [
+        ...ctx.members.map((m) => ({
+          key: m.id,
+          label: m.name,
+          color: m.avatarColor,
+          match: (i: IssueWithRelations) => i.assigneeId === m.id,
+        })),
+        { key: "none", label: "Unassigned", match: (i) => !i.assigneeId },
+      ];
+      break;
+    case "project":
+      defs = [
+        ...ctx.projects.map((p) => ({
+          key: p.id,
+          label: p.name,
+          color: p.color,
+          match: (i: IssueWithRelations) => i.projectId === p.id,
+        })),
+        { key: "none", label: "No project", match: (i) => !i.projectId },
+      ];
+      break;
+    case "none":
+      defs = [{ key: "all", label: "All issues", match: () => true }];
+      break;
+    default:
+      defs = STATUSES.map((s) => ({
+        key: s.id,
+        label: s.label,
+        color: s.color,
+        match: (i) => i.status === s.id,
+      }));
+  }
+
+  return defs
+    .map((d) => ({
+      key: d.key,
+      label: d.label,
+      color: d.color,
+      items: issues.filter(d.match),
+    }))
+    .filter((g) => g.items.length > 0);
+}
+
 export function issueComparator(
   sort: SortId,
 ): (a: IssueWithRelations, b: IssueWithRelations) => number {
