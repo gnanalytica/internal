@@ -9,5 +9,8 @@ export const auth = createNeonAuth({
   baseUrl: process.env.NEON_AUTH_BASE_URL!,
   cookies: {
     secret: process.env.NEON_AUTH_COOKIE_SECRET!,
+    // 'lax' lets the session cookie survive the top-level cross-site redirect
+    // back from an OAuth provider (Google/GitHub). Default 'strict' drops it.
+    sameSite: "lax",
   },
 });
