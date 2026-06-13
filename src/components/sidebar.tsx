@@ -28,16 +28,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { createPage } from "@/lib/actions";
+import { createPage, setActiveWorkspace } from "@/lib/actions";
 import { authClient } from "@/lib/auth/client";
-import type { Label, Member, PageNode, Project } from "@/lib/types";
-import type { workspaces } from "@/db/schema";
+import type {
+  Label,
+  Member,
+  PageNode,
+  Project,
+  Workspace,
+  WorkspaceWithRole,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-type Workspace = typeof workspaces.$inferSelect;
 
 export function Sidebar({
   workspace,
+  workspaces,
   members,
   currentUser,
   projects,
@@ -45,6 +50,7 @@ export function Sidebar({
   labels,
 }: {
   workspace: Workspace;
+  workspaces: WorkspaceWithRole[];
   members: Member[];
   currentUser: Member;
   projects: Project[];
@@ -61,6 +67,14 @@ export function Sidebar({
     startTransition(async () => {
       await authClient.signOut();
       router.push("/auth/sign-in");
+      router.refresh();
+    });
+  }
+
+  function switchWorkspace(id: string) {
+    if (id === workspace.id) return;
+    startTransition(async () => {
+      await setActiveWorkspace(id);
       router.refresh();
     });
   }
@@ -85,8 +99,34 @@ export function Sidebar({
             <span className="text-sm font-semibold">{workspace.name}</span>
             <ChevronDown className="ml-auto size-3.5 text-muted-foreground" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" className="w-60">
             <div className="px-2 pt-1.5 text-[11px] text-muted-foreground">
+              Workspaces
+            </div>
+            {workspaces.map((w) => (
+              <DropdownMenuItem
+                key={w.id}
+                onClick={() => switchWorkspace(w.id)}
+                className="gap-2 text-sm"
+              >
+                <span className="grid size-5 place-items-center rounded bg-brand text-[10px] font-bold text-brand-foreground">
+                  {w.name[0]}
+                </span>
+                <span className="flex-1 truncate">{w.name}</span>
+                {w.id === workspace.id && (
+                  <span className="size-1.5 rounded-full bg-brand" />
+                )}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem
+              onClick={() => router.push("/onboarding")}
+              className="gap-2 text-sm text-muted-foreground"
+            >
+              <Plus className="size-4" />
+              New workspace
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <div className="px-2 pt-1 text-[11px] text-muted-foreground">
               Signed in as
             </div>
             <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">

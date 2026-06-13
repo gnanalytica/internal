@@ -3,6 +3,7 @@ import {
   getCurrentUser,
   getLabels,
   getMembers,
+  getMyWorkspaces,
   getPageTree,
   getProjects,
   getWorkspace,
@@ -14,18 +15,20 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const ws = await getWorkspace();
-  const [members, me, projects, pageTree, labels] = await Promise.all([
+  const [members, me, projects, pageTree, labels, myWorkspaces] = await Promise.all([
     getMembers(ws.id),
     getCurrentUser(ws.id),
     getProjects(ws.id),
     getPageTree(ws.id),
     getLabels(ws.id),
+    getMyWorkspaces(),
   ]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar
         workspace={ws}
+        workspaces={myWorkspaces}
         members={members}
         currentUser={me}
         projects={projects}

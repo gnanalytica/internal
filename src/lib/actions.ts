@@ -2,6 +2,7 @@
 
 import { and, eq, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 import { db } from "@/db";
 import {
@@ -14,6 +15,7 @@ import {
   projects,
   users,
   workspaceMembers,
+  workspaces,
 } from "@/db/schema";
 import {
   getCurrentUser,
@@ -22,6 +24,62 @@ import {
   pickColor,
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
+
+// ---- Workspaces (multi-tenancy) ----
+
+function slugify(name: string): string {
+  const base = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32) || "workspace";
+  return `${base}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** Create a new workspace; the creator becomes its admin and it becomes active. */
+export async function createWorkspace(input: { name: string }) {
+  const me = await getCurrentUser();
+  const name = input.name.trim() || "New workspace";
+  const [ws] = await db
+    .insert(workspaces)
+    .values({ name, slug: slugify(name) })
+    .returning();
+  await db
+    .insert(workspaceMembers)
+    .values({ workspaceId: ws.id, userId: me.id, role: "admin" });
+  await db
+    .insert(projects)
+    .values({ workspaceId: ws.id, name: "General", key: "GEN", color: "#6366f1" });
+  (await cookies()).set("active_ws", ws.id, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  revalidatePath("/", "layout");
+  return ws;
+}
+
+/** Switch the active workspace (validated against membership). */
+export async function setActiveWorkspace(workspaceId: string) {
+  const me = await getCurrentUser();
+  const [m] = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        eq(workspaceMembers.userId, me.id),
+      ),
+    )
+    .limit(1);
+  if (!m) throw new Error("You are not a member of that workspace.");
+  (await cookies()).set("active_ws", workspaceId, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  revalidatePath("/", "layout");
+}
 
 // ---- Members & access ----
 

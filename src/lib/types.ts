@@ -6,7 +6,11 @@ import type {
   pages,
   projects,
   users,
+  workspaces,
 } from "@/db/schema";
+
+export type Workspace = typeof workspaces.$inferSelect;
+export type WorkspaceWithRole = Workspace & { role: string };
 
 // Shared, client-safe types and helpers (no server-only imports here).
 

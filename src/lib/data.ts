@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, asc, desc, eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth/server";
@@ -34,6 +35,8 @@ import type {
   Project,
   ProjectWithIssueCount,
   Role,
+  Workspace,
+  WorkspaceWithRole,
 } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 
@@ -54,14 +57,55 @@ export type {
   Project,
   ProjectWithIssueCount,
   Role,
+  Workspace,
+  WorkspaceWithRole,
 } from "@/lib/types";
 export { issueIdentifier } from "@/lib/types";
 
-/** The single workspace for v1. */
-export async function getWorkspace() {
-  const ws = await db.query.workspaces.findFirst();
-  if (!ws) throw new Error("No workspace found. Run `npm run db:seed`.");
-  return ws;
+/** Resolve the app user from the Neon Auth session (create on first sign-in). */
+async function resolveSessionUser(): Promise<Member> {
+  const { data: session } = await auth.getSession();
+  const sUser = session?.user;
+  if (!sUser?.email) redirect("/auth/sign-in");
+  const existing = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, sUser.email))
+    .limit(1);
+  if (existing[0]) return existing[0];
+  const [created] = await db
+    .insert(users)
+    .values({
+      name: sUser.name?.trim() || sUser.email.split("@")[0],
+      email: sUser.email,
+      avatarColor: pickColor(sUser.email),
+    })
+    .returning();
+  return created;
+}
+
+/** All workspaces the current user is a member of, with their role. */
+export async function getMyWorkspaces(): Promise<WorkspaceWithRole[]> {
+  const me = await resolveSessionUser();
+  const rows = await db
+    .select({ ws: workspaces, role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+    .where(eq(workspaceMembers.userId, me.id))
+    .orderBy(asc(workspaces.name));
+  return rows.map((r) => ({ ...r.ws, role: r.role }));
+}
+
+/**
+ * The active workspace for the current user, chosen by the `active_ws` cookie
+ * (validated against membership) or the first workspace they belong to.
+ * Users with no workspace are sent to onboarding.
+ */
+export async function getWorkspace(): Promise<Workspace> {
+  const mine = await getMyWorkspaces();
+  if (mine.length === 0) redirect("/onboarding");
+  const activeId = (await cookies()).get("active_ws")?.value;
+  return mine.find((w) => w.id === activeId) ?? mine[0];
 }
 
 export async function getMembers(workspaceId: string): Promise<Member[]> {
@@ -85,52 +129,11 @@ export function pickColor(seed: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-/**
- * Resolve the current user from the Neon Auth session, bridging it to our own
- * `users` table by email. New users auto-join (open sign-up). Existing users
- * who were removed from the workspace have no membership and are sent to
- * /no-access — so removing a member actually keeps them out.
- */
-export async function getCurrentUser(workspaceId: string): Promise<Member> {
-  const { data: session } = await auth.getSession();
-  const sUser = session?.user;
-  if (!sUser?.email) redirect("/auth/sign-in");
-
-  const existing = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, sUser.email))
-    .limit(1);
-
-  if (existing[0]) {
-    const [m] = await db
-      .select({ userId: workspaceMembers.userId })
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.workspaceId, workspaceId),
-          eq(workspaceMembers.userId, existing[0].id),
-        ),
-      )
-      .limit(1);
-    if (!m) redirect("/no-access");
-    return existing[0];
-  }
-
-  // First sign-in for this email → create the user and auto-join.
-  const [created] = await db
-    .insert(users)
-    .values({
-      name: sUser.name?.trim() || sUser.email.split("@")[0],
-      email: sUser.email,
-      avatarColor: pickColor(sUser.email),
-    })
-    .returning();
-  await db
-    .insert(workspaceMembers)
-    .values({ workspaceId, userId: created.id, role: "member" })
-    .onConflictDoNothing();
-  return created;
+/** The current app user (membership is enforced by getWorkspace). */
+export async function getCurrentUser(
+  _workspaceId?: string,
+): Promise<Member> {
+  return resolveSessionUser();
 }
 
 export async function getMembersWithRole(
