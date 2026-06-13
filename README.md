@@ -4,7 +4,7 @@ A self-built, Vercel-friendly internal tool that fuses **Notion-style docs** wit
 **Linear-style issue tracking** in one workspace. Built from scratch (no Huly/Plane)
 to run on **Vercel free tier + Neon Postgres**.
 
-**Live:** https://notion-coral-delta.vercel.app
+**Live:** https://internal.gnanalytica.com (custom domain) — Vercel project `gnanalytica/internal`.
 Pushes to `main` auto-deploy to production via Vercel.
 
 ## Stack
