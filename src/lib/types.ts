@@ -75,6 +75,31 @@ export type ProjectDetail = Project & {
   issues: IssueWithRelations[];
 };
 
+export const PROJECT_HEALTH = [
+  { id: "on_track", label: "On track", color: "#5e9b51" },
+  { id: "at_risk", label: "At risk", color: "#f2c94c" },
+  { id: "off_track", label: "Off track", color: "#eb5757" },
+] as const;
+
+export type ProjectHealth = (typeof PROJECT_HEALTH)[number]["id"];
+
+export type StatusUpdateItem = {
+  id: string;
+  health: string;
+  body: string;
+  createdAt: Date;
+  author: Member | null;
+};
+
+export type Insights = {
+  total: number;
+  completed: number;
+  statusCounts: Record<string, number>;
+  priorityCounts: Record<string, number>;
+  assignees: { id: string; name: string; color: string; open: number }[];
+  cycles: { id: string; name: string; total: number; done: number }[];
+};
+
 /** Cycle status derived from its date range relative to `now`. */
 export function cycleStatus(
   c: { startDate: Date | string; endDate: Date | string },

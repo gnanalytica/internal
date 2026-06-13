@@ -5,6 +5,7 @@ import {
   getMembers,
   getMyRole,
   getProject,
+  getStatusUpdates,
   getWorkspace,
   isFavorite,
 } from "@/lib/data";
@@ -18,10 +19,11 @@ export default async function ProjectRoute({
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
-  const [members, role, favorited] = await Promise.all([
+  const [members, role, favorited, statusUpdates] = await Promise.all([
     getMembers(ws.id),
     getMyRole(ws.id),
     isFavorite(ws.id, "project", id),
+    getStatusUpdates(ws.id, id),
   ]);
 
   return (
@@ -30,6 +32,7 @@ export default async function ProjectRoute({
       members={members}
       isAdmin={role === "admin"}
       favorited={favorited}
+      statusUpdates={statusUpdates}
     />
   );
 }

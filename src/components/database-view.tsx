@@ -4,8 +4,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
   ArrowUpDown,
+  CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Columns3,
+  LayoutGrid,
   MoreHorizontal,
   Plus,
   Search,
@@ -42,6 +46,7 @@ import {
 } from "@/lib/actions";
 import { filterRows, sortRows, type SortDir } from "@/lib/database-filters";
 import { computeRollup, relationCellIds, rowLabel } from "@/lib/database-rollup";
+import { WEEKDAYS, monthMatrix } from "@/lib/calendar";
 import {
   FIELD_TYPES,
   type DatabaseField,
@@ -53,7 +58,7 @@ import {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type View = "table" | "board";
+type View = "table" | "board" | "gallery" | "calendar";
 
 export function DatabaseView({
   database,
@@ -80,6 +85,7 @@ export function DatabaseView({
     });
 
   const firstSelect = database.fields.find((f) => f.type === "select");
+  const firstDate = database.fields.find((f) => f.type === "date");
   const sortField = database.fields.find((f) => f.id === sortFieldId) ?? null;
 
   const rows = useMemo(
@@ -103,6 +109,16 @@ export function DatabaseView({
                 disabled={!firstSelect}
               >
                 <Columns3 className="size-3.5" /> Board
+              </ViewBtn>
+              <ViewBtn active={view === "gallery"} onClick={() => setView("gallery")}>
+                <LayoutGrid className="size-3.5" /> Gallery
+              </ViewBtn>
+              <ViewBtn
+                active={view === "calendar"}
+                onClick={() => setView("calendar")}
+                disabled={!firstDate}
+              >
+                <CalendarDays className="size-3.5" /> Calendar
               </ViewBtn>
             </div>
             {isAdmin && (
@@ -205,8 +221,12 @@ export function DatabaseView({
             persist={persist}
             allDatabases={allDatabases}
           />
-        ) : (
+        ) : view === "board" ? (
           <BoardView database={database} rows={rows} field={firstSelect!} persist={persist} />
+        ) : view === "gallery" ? (
+          <GalleryView database={database} rows={rows} />
+        ) : (
+          <CalendarView database={database} rows={rows} field={firstDate!} />
         )}
       </div>
     </div>
@@ -716,6 +736,163 @@ function BoardView({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function cellText(row: DatabaseRow, field: DatabaseField): string {
+  const v = (row.values as Record<string, unknown>)?.[field.id];
+  if (v == null || v === "") return "";
+  if (field.type === "checkbox") return v ? "✓" : "";
+  if (Array.isArray(v)) return `${v.length}`;
+  return String(v);
+}
+
+function GalleryView({
+  database,
+  rows,
+}: {
+  database: DatabaseWithSchema;
+  rows: DatabaseRow[];
+}) {
+  const titleField =
+    database.fields.find((f) => f.type === "text") ?? database.fields[0];
+  const detailFields = database.fields.filter((f) => f.id !== titleField?.id).slice(0, 4);
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {rows.map((row) => {
+        const title = titleField ? cellText(row, titleField) : "";
+        return (
+          <div
+            key={row.id}
+            className="rounded-xl border bg-background p-3 shadow-sm transition-colors hover:border-foreground/20"
+          >
+            <div className="mb-2 truncate text-sm font-medium">{title || "Untitled"}</div>
+            <div className="space-y-1">
+              {detailFields.map((f) => {
+                const text = cellText(row, f);
+                if (!text) return null;
+                return (
+                  <div key={f.id} className="flex items-center gap-2 text-xs">
+                    <span className="w-20 shrink-0 truncate text-muted-foreground">{f.name}</span>
+                    <span className="truncate">{text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CalendarView({
+  database,
+  rows,
+  field,
+}: {
+  database: DatabaseWithSchema;
+  rows: DatabaseRow[];
+  field: DatabaseField;
+}) {
+  const [view, setView] = useState(() => {
+    const d = new Date();
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth() };
+  });
+  const titleField =
+    database.fields.find((f) => f.type === "text" && f.id !== field.id) ??
+    database.fields.find((f) => f.id !== field.id) ??
+    field;
+
+  const weeks = monthMatrix(view.year, view.month);
+
+  // Bucket rows by their date value (yyyy-mm-dd prefix).
+  const byDay = new Map<string, DatabaseRow[]>();
+  for (const r of rows) {
+    const raw = (r.values as Record<string, unknown>)?.[field.id];
+    if (typeof raw !== "string" || raw === "") continue;
+    const key = raw.slice(0, 10);
+    const arr = byDay.get(key) ?? [];
+    arr.push(r);
+    byDay.set(key, arr);
+  }
+
+  const monthName = new Date(Date.UTC(view.year, view.month, 1)).toLocaleDateString(
+    undefined,
+    { month: "long", year: "numeric", timeZone: "UTC" },
+  );
+
+  function shift(delta: number) {
+    setView((v) => {
+      const d = new Date(Date.UTC(v.year, v.month + delta, 1));
+      return { year: d.getUTCFullYear(), month: d.getUTCMonth() };
+    });
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          onClick={() => shift(-1)}
+          className="grid size-7 place-items-center rounded-md border hover:bg-accent"
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        <span className="text-sm font-medium">{monthName}</span>
+        <button
+          onClick={() => shift(1)}
+          className="grid size-7 place-items-center rounded-md border hover:bg-accent"
+          aria-label="Next month"
+        >
+          <ChevronRight className="size-4" />
+        </button>
+        <span className="ml-2 text-xs text-muted-foreground">by {field.name}</span>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border">
+        <div className="grid grid-cols-7 border-b bg-muted/40">
+          {WEEKDAYS.map((d) => (
+            <div key={d} className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {weeks.flat().map((cell) => {
+            const items = byDay.get(cell.key) ?? [];
+            return (
+              <div
+                key={cell.key}
+                className={cn(
+                  "min-h-24 border-b border-r p-1.5 last:border-r-0",
+                  !cell.inMonth && "bg-muted/20 text-muted-foreground",
+                )}
+              >
+                <div className="mb-1 text-[11px]">{cell.day}</div>
+                <div className="space-y-1">
+                  {items.slice(0, 4).map((r) => (
+                    <div
+                      key={r.id}
+                      className="truncate rounded bg-brand/10 px-1.5 py-0.5 text-[11px] text-brand"
+                      title={cellText(r, titleField)}
+                    >
+                      {cellText(r, titleField) || "Untitled"}
+                    </div>
+                  ))}
+                  {items.length > 4 && (
+                    <div className="px-1 text-[10px] text-muted-foreground">
+                      +{items.length - 4} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

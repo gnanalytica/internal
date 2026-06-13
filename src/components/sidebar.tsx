@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
+  BarChart3,
   Bell,
   ChevronDown,
   ChevronRight,
@@ -260,6 +261,12 @@ export function Sidebar({
           active={pathname.startsWith("/roadmap")}
           icon={<MapIcon className="size-4" />}
           label="Roadmap"
+        />
+        <NavItem
+          href="/insights"
+          active={pathname.startsWith("/insights")}
+          icon={<BarChart3 className="size-4" />}
+          label="Insights"
         />
         <NavItem
           href="/teams"

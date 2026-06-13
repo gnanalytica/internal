@@ -22,6 +22,7 @@ import {
   issueRelations,
   issues,
   notifications,
+  projectStatusUpdates,
   pages,
   projects,
   teamMembers,
@@ -811,6 +812,39 @@ export async function updateProject(
   revalidatePath(`/projects/${id}`);
   revalidatePath("/roadmap");
   revalidatePath("/", "layout");
+}
+
+const HEALTH = new Set(["on_track", "at_risk", "off_track"]);
+
+export async function addStatusUpdate(
+  projectId: string,
+  health: string,
+  body: string,
+) {
+  if (!HEALTH.has(health)) throw new Error("Invalid health value.");
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  await db.insert(projectStatusUpdates).values({
+    workspaceId: ws.id,
+    projectId,
+    authorId: me.id,
+    health,
+    body: body.trim(),
+  });
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function deleteStatusUpdate(id: string, projectId: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(projectStatusUpdates)
+    .where(
+      and(
+        eq(projectStatusUpdates.workspaceId, ws.id),
+        eq(projectStatusUpdates.id, id),
+      ),
+    );
+  revalidatePath(`/projects/${projectId}`);
 }
 
 export async function deleteProject(id: string) {

@@ -23,6 +23,7 @@ import {
   labels,
   notifications,
   pages,
+  projectStatusUpdates,
   projects,
   teamMembers,
   teams,
@@ -214,6 +215,27 @@ export async function getProjectsWithCounts(
     ...p,
     issueCount: p.issues.length,
     doneCount: p.issues.filter((i) => i.status === "done").length,
+  }));
+}
+
+export async function getStatusUpdates(
+  workspaceId: string,
+  projectId: string,
+): Promise<import("@/lib/types").StatusUpdateItem[]> {
+  const rows = await db.query.projectStatusUpdates.findMany({
+    where: and(
+      eq(projectStatusUpdates.workspaceId, workspaceId),
+      eq(projectStatusUpdates.projectId, projectId),
+    ),
+    orderBy: [desc(projectStatusUpdates.createdAt)],
+    with: { author: true },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    health: r.health,
+    body: r.body,
+    createdAt: r.createdAt,
+    author: r.author,
   }));
 }
 
@@ -803,6 +825,76 @@ export async function getAttachments(
     createdAt: a.createdAt,
     uploader: a.uploader,
   }));
+}
+
+// ---- Insights / analytics ----
+
+export async function getInsights(
+  workspaceId: string,
+): Promise<import("@/lib/types").Insights> {
+  const [issueRows, members, cycleRows] = await Promise.all([
+    db
+      .select({
+        status: issues.status,
+        priority: issues.priority,
+        assigneeId: issues.assigneeId,
+        cycleId: issues.cycleId,
+      })
+      .from(issues)
+      .where(eq(issues.workspaceId, workspaceId)),
+    getMembers(workspaceId),
+    db
+      .select({ id: cycles.id, name: cycles.name })
+      .from(cycles)
+      .where(eq(cycles.workspaceId, workspaceId)),
+  ]);
+
+  const statusCounts: Record<string, number> = {};
+  const priorityCounts: Record<string, number> = {};
+  const openByAssignee: Record<string, number> = {};
+  const cycleTotals: Record<string, { total: number; done: number }> = {};
+
+  for (const i of issueRows) {
+    statusCounts[i.status] = (statusCounts[i.status] ?? 0) + 1;
+    priorityCounts[i.priority] = (priorityCounts[i.priority] ?? 0) + 1;
+    const open = i.status !== "done" && i.status !== "canceled";
+    if (open && i.assigneeId) {
+      openByAssignee[i.assigneeId] = (openByAssignee[i.assigneeId] ?? 0) + 1;
+    }
+    if (i.cycleId) {
+      const c = (cycleTotals[i.cycleId] ??= { total: 0, done: 0 });
+      c.total += 1;
+      if (i.status === "done") c.done += 1;
+    }
+  }
+
+  const assignees = members
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      color: m.avatarColor,
+      open: openByAssignee[m.id] ?? 0,
+    }))
+    .filter((a) => a.open > 0)
+    .sort((a, b) => b.open - a.open);
+
+  const cycleStats = cycleRows
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      total: cycleTotals[c.id]?.total ?? 0,
+      done: cycleTotals[c.id]?.done ?? 0,
+    }))
+    .filter((c) => c.total > 0);
+
+  return {
+    total: issueRows.length,
+    completed: statusCounts["done"] ?? 0,
+    statusCounts,
+    priorityCounts,
+    assignees,
+    cycles: cycleStats,
+  };
 }
 
 // ---- Notifications ----

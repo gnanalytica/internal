@@ -394,6 +394,25 @@ export const issueRelations = pgTable(
   (t) => [index("issue_relations_issue_idx").on(t.issueId)],
 );
 
+/** Linear-style project status updates (on track / at risk / off track). */
+export const projectStatusUpdates = pgTable(
+  "project_status_updates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    health: text("health").notNull(), // on_track | at_risk | off_track
+    body: text("body").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("project_status_updates_project_idx").on(t.projectId)],
+);
+
 /** Per-user favorites (issues, pages, projects). */
 export const favorites = pgTable(
   "favorites",
@@ -583,6 +602,20 @@ export const issueRelationsRelations = relations(issueRelations, ({ one }) => ({
 export const favoritesRelations = relations(favorites, ({ one }) => ({
   user: one(users, { fields: [favorites.userId], references: [users.id] }),
 }));
+
+export const projectStatusUpdatesRelations = relations(
+  projectStatusUpdates,
+  ({ one }) => ({
+    project: one(projects, {
+      fields: [projectStatusUpdates.projectId],
+      references: [projects.id],
+    }),
+    author: one(users, {
+      fields: [projectStatusUpdates.authorId],
+      references: [users.id],
+    }),
+  }),
+);
 
 export const activityRelations = relations(activity, ({ one }) => ({
   issue: one(issues, { fields: [activity.issueId], references: [issues.id] }),
