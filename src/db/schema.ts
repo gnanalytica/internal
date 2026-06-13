@@ -228,6 +228,48 @@ export const issuePageLinks = pgTable(
   (t) => [primaryKey({ columns: [t.issueId, t.pageId] })],
 );
 
+/** A user-defined database (Notion-style). */
+export const databases = pgTable("databases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull().default("Untitled database"),
+  icon: text("icon").notNull().default("🗃️"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** A column/property of a database. */
+export const databaseFields = pgTable(
+  "database_fields",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    databaseId: uuid("database_id")
+      .notNull()
+      .references(() => databases.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: text("type").notNull().default("text"), // text|number|select|checkbox|date
+    options: jsonb("options"), // for select: [{ label, color }]
+    position: text("position").notNull().default("a0"),
+  },
+  (t) => [index("database_fields_db_idx").on(t.databaseId)],
+);
+
+/** A row of a database; cell values stored as { [fieldId]: value }. */
+export const databaseRows = pgTable(
+  "database_rows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    databaseId: uuid("database_id")
+      .notNull()
+      .references(() => databases.id, { onDelete: "cascade" }),
+    values: jsonb("values").notNull().default({}),
+    position: text("position").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("database_rows_db_idx").on(t.databaseId)],
+);
+
 /** Comments on an issue. */
 export const comments = pgTable(
   "comments",
@@ -353,6 +395,29 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   pageLinks: many(issuePageLinks),
   comments: many(comments),
   activity: many(activity),
+}));
+
+export const databasesRelations = relations(databases, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [databases.workspaceId],
+    references: [workspaces.id],
+  }),
+  fields: many(databaseFields),
+  rows: many(databaseRows),
+}));
+
+export const databaseFieldsRelations = relations(databaseFields, ({ one }) => ({
+  database: one(databases, {
+    fields: [databaseFields.databaseId],
+    references: [databases.id],
+  }),
+}));
+
+export const databaseRowsRelations = relations(databaseRows, ({ one }) => ({
+  database: one(databases, {
+    fields: [databaseRows.databaseId],
+    references: [databases.id],
+  }),
 }));
 
 export const commentsRelations = relations(comments, ({ one }) => ({

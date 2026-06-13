@@ -10,6 +10,9 @@ import {
   activity,
   comments,
   cycles,
+  databaseFields,
+  databaseRows,
+  databases,
   initiatives,
   issueLabels,
   issuePageLinks,
@@ -27,6 +30,8 @@ import {
 import type {
   Cycle,
   CycleWithCount,
+  Database,
+  DatabaseWithSchema,
   FlatIssue,
   Initiative,
   InitiativeWithCount,
@@ -50,6 +55,10 @@ import { issueIdentifier } from "@/lib/types";
 export type {
   Cycle,
   CycleWithCount,
+  Database,
+  DatabaseField,
+  DatabaseRow,
+  DatabaseWithSchema,
   FlatIssue,
   FlatPage,
   Initiative,
@@ -394,6 +403,30 @@ export async function getInitiative(
       doneCount: p.issues.filter((i) => i.status === "done").length,
     })),
   };
+}
+
+// ---- Databases ----
+
+export async function getDatabases(workspaceId: string): Promise<Database[]> {
+  return db
+    .select()
+    .from(databases)
+    .where(eq(databases.workspaceId, workspaceId))
+    .orderBy(asc(databases.name));
+}
+
+export async function getDatabase(
+  workspaceId: string,
+  id: string,
+): Promise<DatabaseWithSchema | null> {
+  const row = await db.query.databases.findFirst({
+    where: and(eq(databases.workspaceId, workspaceId), eq(databases.id, id)),
+    with: {
+      fields: { orderBy: [asc(databaseFields.position)] },
+      rows: { orderBy: [asc(databaseRows.position)] },
+    },
+  });
+  return row ?? null;
 }
 
 // ---- Comments & activity timeline ----

@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDot,
+  Database,
   FileText,
   LogOut,
   Plus,
@@ -213,6 +214,12 @@ export function Sidebar({
           active={pathname.startsWith("/teams")}
           icon={<Users className="size-4" />}
           label="Teams"
+        />
+        <NavItem
+          href="/databases"
+          active={pathname.startsWith("/databases")}
+          icon={<Database className="size-4" />}
+          label="Databases"
         />
 
         {/* Projects */}

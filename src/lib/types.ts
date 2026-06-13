@@ -1,5 +1,8 @@
 import type {
   cycles,
+  databaseFields,
+  databaseRows,
+  databases,
   initiatives,
   issues,
   labels,
@@ -54,6 +57,30 @@ export function cycleStatus(
   if (t > end) return "completed";
   return "active";
 }
+
+export type Database = typeof databases.$inferSelect;
+export type DatabaseField = typeof databaseFields.$inferSelect;
+export type DatabaseRow = typeof databaseRows.$inferSelect;
+export type DatabaseWithSchema = Database & {
+  fields: DatabaseField[];
+  rows: DatabaseRow[];
+};
+export type SelectOption = { label: string; color: string };
+
+export const FIELD_TYPES = [
+  { id: "text", label: "Text", icon: "T" },
+  { id: "number", label: "Number", icon: "#" },
+  { id: "select", label: "Select", icon: "▾" },
+  { id: "checkbox", label: "Checkbox", icon: "☑" },
+  { id: "date", label: "Date", icon: "📅" },
+] as const;
+
+export type FieldType = (typeof FIELD_TYPES)[number]["id"];
+
+export const SELECT_COLORS = [
+  "#6366f1", "#ec4899", "#10b981", "#f59e0b", "#3b82f6",
+  "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#64748b",
+];
 
 export type CommentItem = {
   kind: "comment";

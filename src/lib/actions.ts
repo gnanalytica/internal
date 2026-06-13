@@ -9,6 +9,9 @@ import {
   activity,
   comments,
   cycles,
+  databaseFields,
+  databaseRows,
+  databases,
   initiatives,
   issueLabels,
   issuePageLinks,
@@ -543,4 +546,116 @@ export async function removeTeamMember(teamId: string, userId: string) {
     .delete(teamMembers)
     .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
   revalidatePath(`/teams/${teamId}`);
+}
+
+// ---- Databases ----
+
+export async function createDatabase(input: { name?: string }) {
+  const ws = await getWorkspace();
+  const [database] = await db
+    .insert(databases)
+    .values({ workspaceId: ws.id, name: input.name?.trim() || "Untitled database" })
+    .returning();
+  // Default schema: a Name (text) and Status (select) field, plus a few rows.
+  await db.insert(databaseFields).values([
+    { databaseId: database.id, name: "Name", type: "text", position: "a0" },
+    {
+      databaseId: database.id,
+      name: "Status",
+      type: "select",
+      position: "a1",
+      options: [
+        { label: "Todo", color: "#64748b" },
+        { label: "In progress", color: "#f59e0b" },
+        { label: "Done", color: "#10b981" },
+      ],
+    },
+  ]);
+  await db.insert(databaseRows).values([
+    { databaseId: database.id, values: {}, position: "a0" },
+    { databaseId: database.id, values: {}, position: "a1" },
+    { databaseId: database.id, values: {}, position: "a2" },
+  ]);
+  revalidatePath("/databases");
+  return database;
+}
+
+export async function updateDatabase(
+  id: string,
+  patch: Partial<{ name: string; icon: string }>,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(databases)
+    .set(patch)
+    .where(and(eq(databases.workspaceId, ws.id), eq(databases.id, id)));
+  revalidatePath("/databases");
+  revalidatePath(`/databases/${id}`);
+}
+
+export async function deleteDatabase(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(databases)
+    .where(and(eq(databases.workspaceId, ws.id), eq(databases.id, id)));
+  revalidatePath("/databases");
+}
+
+export async function addField(
+  databaseId: string,
+  input: { name: string; type: string },
+) {
+  await db.insert(databaseFields).values({
+    databaseId,
+    name: input.name.trim() || "Field",
+    type: input.type,
+    position: `a${Date.now()}`,
+    options:
+      input.type === "select"
+        ? [{ label: "Option 1", color: "#6366f1" }]
+        : null,
+  });
+  revalidatePath(`/databases/${databaseId}`);
+}
+
+export async function updateField(
+  id: string,
+  databaseId: string,
+  patch: Partial<{ name: string; type: string; options: unknown }>,
+) {
+  await db.update(databaseFields).set(patch).where(eq(databaseFields.id, id));
+  revalidatePath(`/databases/${databaseId}`);
+}
+
+export async function deleteField(id: string, databaseId: string) {
+  await db.delete(databaseFields).where(eq(databaseFields.id, id));
+  revalidatePath(`/databases/${databaseId}`);
+}
+
+export async function addRow(databaseId: string) {
+  await db
+    .insert(databaseRows)
+    .values({ databaseId, values: {}, position: `a${Date.now()}` });
+  revalidatePath(`/databases/${databaseId}`);
+}
+
+export async function updateCell(
+  rowId: string,
+  databaseId: string,
+  fieldId: string,
+  value: unknown,
+) {
+  const [row] = await db
+    .select({ values: databaseRows.values })
+    .from(databaseRows)
+    .where(eq(databaseRows.id, rowId))
+    .limit(1);
+  const next = { ...((row?.values as Record<string, unknown>) ?? {}), [fieldId]: value };
+  await db.update(databaseRows).set({ values: next }).where(eq(databaseRows.id, rowId));
+  revalidatePath(`/databases/${databaseId}`);
+}
+
+export async function deleteRow(id: string, databaseId: string) {
+  await db.delete(databaseRows).where(eq(databaseRows.id, id));
+  revalidatePath(`/databases/${databaseId}`);
 }
