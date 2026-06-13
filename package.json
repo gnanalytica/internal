@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx --env-file=.env.local src/db/seed.ts",
+    "db:seed-org": "tsx --env-file=.env.local src/db/seed-org.ts",
     "db:reset": "tsx --env-file=.env.local src/db/reset.ts"
   },
   "dependencies": {
