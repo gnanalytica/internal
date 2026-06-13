@@ -7,6 +7,8 @@ import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
 
+import type { MentionItem } from "@/lib/types";
+import { EntityRef } from "./mention";
 import { SlashCommand } from "./slash-command";
 import { cn } from "@/lib/utils";
 
@@ -16,14 +18,21 @@ export function RichEditor({
   placeholder = "Type '/' for commands…",
   onChange,
   className,
+  mentionItems,
 }: {
   content?: JSONContent | null;
   editable?: boolean;
   placeholder?: string;
   onChange?: (json: JSONContent) => void;
   className?: string;
+  mentionItems?: MentionItem[];
 }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Read the latest items at suggestion time without recreating the editor.
+  const itemsRef = useRef<MentionItem[]>(mentionItems ?? []);
+  useEffect(() => {
+    itemsRef.current = mentionItems ?? [];
+  }, [mentionItems]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -44,6 +53,10 @@ export function RichEditor({
         includeChildren: true,
       }),
       SlashCommand,
+      // The ref's stable identity bridges live mention data into ProseMirror;
+      // the extension only reads it inside suggestion callbacks, never in render.
+      // eslint-disable-next-line react-hooks/refs
+      EntityRef.configure({ itemsRef }),
     ],
     content: content ?? undefined,
     editorProps: {

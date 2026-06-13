@@ -232,6 +232,22 @@ export type SearchResult = {
   href: string;
 };
 
+/** An entity that can be @-mentioned inside a rich-text body. */
+export type MentionItem = {
+  kind: "issue" | "page" | "project";
+  id: string;
+  label: string;
+  hint?: string;
+};
+
+/** An incoming reference shown in a backlinks panel. */
+export type BacklinkItem = {
+  kind: "issue" | "page";
+  id: string;
+  title: string;
+  href: string;
+};
+
 export type NotificationItem = {
   id: string;
   type: string;

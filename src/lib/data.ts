@@ -24,6 +24,7 @@ import {
   notifications,
   pages,
   projectStatusUpdates,
+  references,
   projects,
   teamMembers,
   teams,
@@ -825,6 +826,112 @@ export async function getAttachments(
     createdAt: a.createdAt,
     uploader: a.uploader,
   }));
+}
+
+// ---- References / backlinks (the graph) ----
+
+export async function getMentionItems(
+  workspaceId: string,
+): Promise<import("@/lib/types").MentionItem[]> {
+  const [issueRows, pageRows, projectRows] = await Promise.all([
+    db
+      .select({
+        id: issues.id,
+        title: issues.title,
+        number: issues.number,
+        projectKey: projects.key,
+      })
+      .from(issues)
+      .leftJoin(projects, eq(issues.projectId, projects.id))
+      .where(eq(issues.workspaceId, workspaceId))
+      .orderBy(desc(issues.createdAt))
+      .limit(200),
+    db
+      .select({ id: pages.id, title: pages.title })
+      .from(pages)
+      .where(and(eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)))
+      .orderBy(asc(pages.title))
+      .limit(200),
+    db
+      .select({ id: projects.id, name: projects.name, key: projects.key })
+      .from(projects)
+      .where(eq(projects.workspaceId, workspaceId))
+      .orderBy(asc(projects.name)),
+  ]);
+
+  const items: import("@/lib/types").MentionItem[] = [];
+  for (const r of issueRows) {
+    items.push({
+      kind: "issue",
+      id: r.id,
+      label: r.title,
+      hint: r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`,
+    });
+  }
+  for (const r of pageRows) {
+    items.push({ kind: "page", id: r.id, label: r.title || "Untitled", hint: "Page" });
+  }
+  for (const r of projectRows) {
+    items.push({ kind: "project", id: r.id, label: r.name, hint: r.key });
+  }
+  return items;
+}
+
+export async function getBacklinks(
+  workspaceId: string,
+  targetType: string,
+  targetId: string,
+): Promise<import("@/lib/types").BacklinkItem[]> {
+  const rows = await db
+    .select({ sourceType: references.sourceType, sourceId: references.sourceId })
+    .from(references)
+    .where(
+      and(
+        eq(references.workspaceId, workspaceId),
+        eq(references.targetType, targetType),
+        eq(references.targetId, targetId),
+      ),
+    );
+  if (rows.length === 0) return [];
+
+  const issueIds = rows.filter((r) => r.sourceType === "issue").map((r) => r.sourceId);
+  const pageIds = rows.filter((r) => r.sourceType === "page").map((r) => r.sourceId);
+
+  const [issueRows, pageRows] = await Promise.all([
+    issueIds.length
+      ? db
+          .select({
+            id: issues.id,
+            title: issues.title,
+            number: issues.number,
+            projectKey: projects.key,
+          })
+          .from(issues)
+          .leftJoin(projects, eq(issues.projectId, projects.id))
+          .where(inArray(issues.id, issueIds))
+      : Promise.resolve([]),
+    pageIds.length
+      ? db
+          .select({ id: pages.id, title: pages.title, deletedAt: pages.deletedAt })
+          .from(pages)
+          .where(inArray(pages.id, pageIds))
+      : Promise.resolve([]),
+  ]);
+
+  const items: import("@/lib/types").BacklinkItem[] = [];
+  for (const r of issueRows) {
+    items.push({
+      kind: "issue",
+      id: r.id,
+      title: `${r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`} ${r.title}`,
+      href: `/issues/${r.id}`,
+    });
+  }
+  for (const r of pageRows) {
+    if (r.deletedAt) continue;
+    items.push({ kind: "page", id: r.id, title: r.title || "Untitled", href: `/pages/${r.id}` });
+  }
+  return items;
 }
 
 // ---- Insights / analytics ----

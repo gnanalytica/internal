@@ -23,6 +23,7 @@ import {
   issues,
   notifications,
   projectStatusUpdates,
+  references,
   pages,
   projects,
   teamMembers,
@@ -41,7 +42,40 @@ import {
 import { isPriority, isStatus } from "@/lib/constants";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import { isRelationType } from "@/lib/issue-relations";
+import { extractReferences } from "@/lib/references";
 import { snippetAround } from "@/lib/snippet";
+
+/** Rewrite the reference graph for a body (issue/page) from its document JSON. */
+async function syncReferences(
+  workspaceId: string,
+  sourceType: "issue" | "page",
+  sourceId: string,
+  doc: unknown,
+) {
+  const refs = extractReferences(doc).filter((r) => r.targetId !== sourceId);
+  await db
+    .delete(references)
+    .where(
+      and(
+        eq(references.sourceType, sourceType),
+        eq(references.sourceId, sourceId),
+      ),
+    );
+  if (refs.length) {
+    await db
+      .insert(references)
+      .values(
+        refs.map((r) => ({
+          workspaceId,
+          sourceType,
+          sourceId,
+          targetType: r.targetType,
+          targetId: r.targetId,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+}
 import { isBlobConfigured, MAX_ATTACHMENT_BYTES } from "@/lib/blob";
 import { notifySlack } from "@/lib/slack";
 import { createGithubIssue, verifyGithubRepo } from "@/lib/github";
@@ -406,7 +440,10 @@ export async function updateIssue(
   const values: Record<string, unknown> = { updatedAt: new Date() };
 
   if (patch.title !== undefined) values.title = patch.title;
-  if (patch.description !== undefined) values.description = patch.description;
+  if (patch.description !== undefined) {
+    values.description = patch.description;
+    await syncReferences(ws.id, "issue", id, patch.description);
+  }
   if (patch.status !== undefined && isStatus(patch.status)) values.status = patch.status;
   if (patch.priority !== undefined && isPriority(patch.priority))
     values.priority = patch.priority;
@@ -514,6 +551,7 @@ export async function updatePage(
   if (patch.content !== undefined) {
     values.content = patch.content;
     values.contentText = docToText(patch.content).slice(0, 20000);
+    await syncReferences(ws.id, "page", id, patch.content);
   }
 
   await db

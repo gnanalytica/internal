@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { Backlinks } from "@/components/backlinks";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { StatusIcon } from "@/components/glyphs";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -37,7 +38,13 @@ import {
   unlinkIssueFromPage,
   updatePage,
 } from "@/lib/actions";
-import type { FlatIssue, IssueWithRelations, Page } from "@/lib/types";
+import type {
+  BacklinkItem,
+  FlatIssue,
+  IssueWithRelations,
+  MentionItem,
+  Page,
+} from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import type { StatusId } from "@/lib/constants";
 
@@ -47,10 +54,14 @@ export function PageView({
   page,
   allIssues,
   favorited,
+  mentionItems,
+  backlinks,
 }: {
   page: Page & { linkedIssues: IssueWithRelations[] };
   allIssues: FlatIssue[];
   favorited: boolean;
+  mentionItems: MentionItem[];
+  backlinks: BacklinkItem[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -165,6 +176,8 @@ export function PageView({
             <RichEditor
               content={(page.content as JSONContent) ?? null}
               onChange={saveContent}
+              placeholder="Write something… ('/' for blocks, '@' to link)"
+              mentionItems={mentionItems}
             />
           </div>
 
@@ -239,6 +252,13 @@ export function PageView({
               </div>
             )}
           </div>
+
+          {/* Backlinks */}
+          {backlinks.length > 0 && (
+            <div className="mt-10 border-t pt-5">
+              <Backlinks items={backlinks} />
+            </div>
+          )}
         </div>
       </div>
     </div>

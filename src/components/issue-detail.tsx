@@ -62,14 +62,17 @@ import {
 import { isOverdue } from "@/lib/issue-dates";
 import { cn } from "@/lib/utils";
 import { issueIdentifier } from "@/lib/types";
+import { Backlinks } from "@/components/backlinks";
 import type {
   Attachment,
+  BacklinkItem,
   Cycle,
   FlatIssue,
   IssueDetail as IssueDetailData,
   IssueWithRelations,
   Label,
   Member,
+  MentionItem,
   Page,
   Project,
   RelationItem,
@@ -100,6 +103,8 @@ export function IssueDetail({
   favorited,
   relations,
   allIssues,
+  mentionItems,
+  backlinks,
 }: {
   issue: IssueDetailData;
   projects: Project[];
@@ -115,6 +120,8 @@ export function IssueDetail({
   favorited: boolean;
   relations: RelationItem[];
   allIssues: FlatIssue[];
+  mentionItems: MentionItem[];
+  backlinks: BacklinkItem[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -197,8 +204,9 @@ export function IssueDetail({
             <div className="mt-3 text-[15px]">
               <RichEditor
                 content={(issue.description as JSONContent) ?? null}
-                placeholder="Add a description… (type '/' for commands)"
+                placeholder="Add a description… ('/' for blocks, '@' to link)"
                 onChange={(json) => void updateIssue(issue.id, { description: json })}
+                mentionItems={mentionItems}
               />
             </div>
 
@@ -296,6 +304,13 @@ export function IssueDetail({
                 enabled={attachmentsEnabled}
               />
             </div>
+
+            {/* Backlinks */}
+            {backlinks.length > 0 && (
+              <div className="mt-10 border-t pt-5">
+                <Backlinks items={backlinks} />
+              </div>
+            )}
 
             {/* Activity & comments */}
             <div className="mt-10 border-t pt-5">

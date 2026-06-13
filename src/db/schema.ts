@@ -394,6 +394,36 @@ export const issueRelations = pgTable(
   (t) => [index("issue_relations_issue_idx").on(t.issueId)],
 );
 
+/**
+ * Cross-entity references extracted from rich-text bodies (the "graph" that
+ * ties docs and work together). A reference points FROM a body (issue or page)
+ * TO an entity (issue, page, or project).
+ */
+export const references = pgTable(
+  "references",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sourceType: text("source_type").notNull(), // issue | page
+    sourceId: uuid("source_id").notNull(),
+    targetType: text("target_type").notNull(), // issue | page | project
+    targetId: uuid("target_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("references_unique_idx").on(
+      t.sourceType,
+      t.sourceId,
+      t.targetType,
+      t.targetId,
+    ),
+    index("references_target_idx").on(t.workspaceId, t.targetType, t.targetId),
+    index("references_source_idx").on(t.sourceType, t.sourceId),
+  ],
+);
+
 /** Linear-style project status updates (on track / at risk / off track). */
 export const projectStatusUpdates = pgTable(
   "project_status_updates",

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ProjectDetail } from "@/components/project-detail";
 import {
+  getBacklinks,
   getMembers,
   getMyRole,
   getProject,
@@ -19,11 +20,12 @@ export default async function ProjectRoute({
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
-  const [members, role, favorited, statusUpdates] = await Promise.all([
+  const [members, role, favorited, statusUpdates, backlinks] = await Promise.all([
     getMembers(ws.id),
     getMyRole(ws.id),
     isFavorite(ws.id, "project", id),
     getStatusUpdates(ws.id, id),
+    getBacklinks(ws.id, "project", id),
   ]);
 
   return (
@@ -33,6 +35,7 @@ export default async function ProjectRoute({
       isAdmin={role === "admin"}
       favorited={favorited}
       statusUpdates={statusUpdates}
+      backlinks={backlinks}
     />
   );
 }

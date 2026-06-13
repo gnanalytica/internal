@@ -167,6 +167,25 @@
 .tiptap :first-child {
   margin-top: 0;
 }
+.tiptap a.entity-ref,
+a.entity-ref {
+  display: inline;
+  border-radius: 0.25rem;
+  background-color: color-mix(in oklch, var(--brand) 12%, transparent);
+  padding: 0 0.25rem;
+  font-weight: 500;
+  color: var(--brand);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tiptap a.entity-ref::before {
+  content: "@";
+  opacity: 0.6;
+}
+.tiptap a.entity-ref:hover {
+  background-color: color-mix(in oklch, var(--brand) 20%, transparent);
+}
 .tiptap p {
   margin: 0.18rem 0;
   line-height: 1.7;

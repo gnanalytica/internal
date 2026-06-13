@@ -6,12 +6,14 @@ import { isGithubConnected } from "@/lib/github";
 import {
   getAttachments,
   getCyclesFlat,
+  getBacklinks,
   getIssue,
   getIssueRelations,
   getIssuesFlat,
   getIssueTimeline,
   getLabels,
   getMembers,
+  getMentionItems,
   getPagesFlat,
   getProjects,
   getTeamsFlat,
@@ -54,7 +56,11 @@ export default async function IssueRoute({
     getIssuesFlat(ws.id),
   ]);
   if (!issue) notFound();
-  const favorited = await isFavorite(ws.id, "issue", id);
+  const [favorited, mentionItems, backlinks] = await Promise.all([
+    isFavorite(ws.id, "issue", id),
+    getMentionItems(ws.id),
+    getBacklinks(ws.id, "issue", id),
+  ]);
 
   return (
     <IssueDetail
@@ -72,6 +78,8 @@ export default async function IssueRoute({
       favorited={favorited}
       relations={relations}
       allIssues={allIssues}
+      mentionItems={mentionItems}
+      backlinks={backlinks}
     />
   );
 }

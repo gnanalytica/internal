@@ -7,6 +7,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { MoreHorizontal, Target, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { Backlinks } from "@/components/backlinks";
 import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
 import { IssueRow } from "@/components/issue-row";
@@ -27,6 +28,7 @@ import {
 import { STATUSES } from "@/lib/constants";
 import {
   PROJECT_HEALTH,
+  type BacklinkItem,
   type Member,
   type ProjectDetail as ProjectDetailType,
   type ProjectHealth,
@@ -39,12 +41,14 @@ export function ProjectDetail({
   isAdmin,
   favorited,
   statusUpdates,
+  backlinks,
 }: {
   project: ProjectDetailType;
   members: Member[];
   isAdmin: boolean;
   favorited: boolean;
   statusUpdates: StatusUpdateItem[];
+  backlinks: BacklinkItem[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -233,6 +237,13 @@ export function ProjectDetail({
                   ))}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Backlinks */}
+          {backlinks.length > 0 && (
+            <div className="mt-8">
+              <Backlinks items={backlinks} />
             </div>
           )}
         </div>
