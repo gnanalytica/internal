@@ -56,6 +56,13 @@ export type IssueDetail = IssueWithRelations & {
   subIssues: IssueWithRelations[];
 };
 
+export type RelationItem = {
+  relationId: string;
+  type: "blocks" | "related" | "duplicate";
+  direction: "outgoing" | "incoming";
+  issue: { id: string; number: number; title: string; status: string; project: Project | null };
+};
+
 export type CycleWithCount = Cycle & { issueCount: number; doneCount: number };
 export type InitiativeWithCount = Initiative & { projectCount: number };
 export type ProjectWithIssueCount = Project & {
@@ -105,12 +112,19 @@ export const SELECT_COLORS = [
   "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#64748b",
 ];
 
+export type ReactionSummary = {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+};
+
 export type CommentItem = {
   kind: "comment";
   id: string;
   createdAt: Date;
   author: Member | null;
   body: string;
+  reactions: ReactionSummary[];
 };
 
 export type ActivityItem = {
@@ -177,6 +191,17 @@ export type NotificationItem = {
   issueId: string | null;
   createdAt: Date;
   actor: Member | null;
+};
+
+export type FavoriteKind = "issue" | "page" | "project";
+
+export type FavoriteItem = {
+  id: string;
+  kind: FavoriteKind;
+  targetId: string;
+  title: string;
+  icon: string | null;
+  href: string;
 };
 
 export type Attachment = {

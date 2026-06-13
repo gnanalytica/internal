@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -11,12 +11,14 @@ import {
   attachments,
   comments,
   cycles,
+  favorites,
   databaseFields,
   databaseRows,
   databases,
   initiatives,
   issueLabels,
   issuePageLinks,
+  issueRelations,
   issues,
   labels,
   notifications,
@@ -313,11 +315,70 @@ export async function getIssue(
   };
 }
 
+export async function getIssueRelations(
+  workspaceId: string,
+  issueId: string,
+): Promise<import("@/lib/types").RelationItem[]> {
+  const select = {
+    relationId: issueRelations.id,
+    type: issueRelations.type,
+    issueId: issues.id,
+    number: issues.number,
+    title: issues.title,
+    status: issues.status,
+    project: projects,
+  };
+
+  const [outgoing, incoming] = await Promise.all([
+    db
+      .select(select)
+      .from(issueRelations)
+      .innerJoin(issues, eq(issues.id, issueRelations.relatedIssueId))
+      .leftJoin(projects, eq(projects.id, issues.projectId))
+      .where(
+        and(
+          eq(issueRelations.workspaceId, workspaceId),
+          eq(issueRelations.issueId, issueId),
+        ),
+      ),
+    db
+      .select(select)
+      .from(issueRelations)
+      .innerJoin(issues, eq(issues.id, issueRelations.issueId))
+      .leftJoin(projects, eq(projects.id, issues.projectId))
+      .where(
+        and(
+          eq(issueRelations.workspaceId, workspaceId),
+          eq(issueRelations.relatedIssueId, issueId),
+        ),
+      ),
+  ]);
+
+  const map = (
+    rows: typeof outgoing,
+    direction: "outgoing" | "incoming",
+  ): import("@/lib/types").RelationItem[] =>
+    rows.map((r) => ({
+      relationId: r.relationId,
+      type: r.type as "blocks" | "related" | "duplicate",
+      direction,
+      issue: {
+        id: r.issueId,
+        number: r.number,
+        title: r.title,
+        status: r.status,
+        project: r.project,
+      },
+    }));
+
+  return [...map(outgoing, "outgoing"), ...map(incoming, "incoming")];
+}
+
 export async function getPageTree(workspaceId: string): Promise<PageNode[]> {
   const all = await db
     .select()
     .from(pages)
-    .where(eq(pages.workspaceId, workspaceId))
+    .where(and(eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)))
     .orderBy(asc(pages.position), asc(pages.createdAt));
 
   const byParent = new Map<string | null, Page[]>();
@@ -358,8 +419,24 @@ export async function getPagesFlat(
   return db
     .select({ id: pages.id, title: pages.title, icon: pages.icon })
     .from(pages)
-    .where(eq(pages.workspaceId, workspaceId))
+    .where(and(eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)))
     .orderBy(asc(pages.title));
+}
+
+/** Trashed pages for the workspace, most recently deleted first. */
+export async function getTrashedPages(
+  workspaceId: string,
+): Promise<Pick<Page, "id" | "title" | "icon" | "deletedAt">[]> {
+  return db
+    .select({
+      id: pages.id,
+      title: pages.title,
+      icon: pages.icon,
+      deletedAt: pages.deletedAt,
+    })
+    .from(pages)
+    .where(and(eq(pages.workspaceId, workspaceId), isNotNull(pages.deletedAt)))
+    .orderBy(desc(pages.deletedAt));
 }
 
 export async function getPage(
@@ -505,10 +582,11 @@ export async function getDatabase(
 export async function getIssueTimeline(
   issueId: string,
 ): Promise<TimelineItem[]> {
+  const me = await getCurrentUser();
   const [cs, as] = await Promise.all([
     db.query.comments.findMany({
       where: eq(comments.issueId, issueId),
-      with: { author: true },
+      with: { author: true, reactions: true },
     }),
     db.query.activity.findMany({
       where: eq(activity.issueId, issueId),
@@ -516,13 +594,28 @@ export async function getIssueTimeline(
     }),
   ]);
   const items: TimelineItem[] = [
-    ...cs.map((c) => ({
-      kind: "comment" as const,
-      id: c.id,
-      createdAt: c.createdAt,
-      author: c.author,
-      body: c.body,
-    })),
+    ...cs.map((c) => {
+      // Aggregate reactions by emoji, preserving first-seen order.
+      const byEmoji = new Map<string, { count: number; reactedByMe: boolean }>();
+      for (const r of c.reactions) {
+        const cur = byEmoji.get(r.emoji) ?? { count: 0, reactedByMe: false };
+        cur.count += 1;
+        if (r.userId === me.id) cur.reactedByMe = true;
+        byEmoji.set(r.emoji, cur);
+      }
+      return {
+        kind: "comment" as const,
+        id: c.id,
+        createdAt: c.createdAt,
+        author: c.author,
+        body: c.body,
+        reactions: [...byEmoji.entries()].map(([emoji, v]) => ({
+          emoji,
+          count: v.count,
+          reactedByMe: v.reactedByMe,
+        })),
+      };
+    }),
     ...as.map((a) => ({
       kind: "activity" as const,
       id: a.id,
@@ -533,6 +626,114 @@ export async function getIssueTimeline(
     })),
   ];
   items.sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime());
+  return items;
+}
+
+// ---- Favorites ----
+
+export async function isFavorite(
+  workspaceId: string,
+  kind: string,
+  targetId: string,
+): Promise<boolean> {
+  const me = await getCurrentUser(workspaceId);
+  const [row] = await db
+    .select({ id: favorites.id })
+    .from(favorites)
+    .where(
+      and(
+        eq(favorites.userId, me.id),
+        eq(favorites.kind, kind),
+        eq(favorites.targetId, targetId),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+export async function getFavorites(
+  workspaceId: string,
+): Promise<import("@/lib/types").FavoriteItem[]> {
+  const me = await getCurrentUser(workspaceId);
+  const favs = await db
+    .select()
+    .from(favorites)
+    .where(and(eq(favorites.workspaceId, workspaceId), eq(favorites.userId, me.id)))
+    .orderBy(asc(favorites.createdAt));
+  if (favs.length === 0) return [];
+
+  const issueIds = favs.filter((f) => f.kind === "issue").map((f) => f.targetId);
+  const pageIds = favs.filter((f) => f.kind === "page").map((f) => f.targetId);
+  const projectIds = favs.filter((f) => f.kind === "project").map((f) => f.targetId);
+
+  const [issueRows, pageRows, projectRows] = await Promise.all([
+    issueIds.length
+      ? db
+          .select({
+            id: issues.id,
+            title: issues.title,
+            number: issues.number,
+            projectKey: projects.key,
+          })
+          .from(issues)
+          .leftJoin(projects, eq(issues.projectId, projects.id))
+          .where(inArray(issues.id, issueIds))
+      : Promise.resolve([]),
+    pageIds.length
+      ? db
+          .select({ id: pages.id, title: pages.title, icon: pages.icon, deletedAt: pages.deletedAt })
+          .from(pages)
+          .where(inArray(pages.id, pageIds))
+      : Promise.resolve([]),
+    projectIds.length
+      ? db
+          .select({ id: projects.id, name: projects.name })
+          .from(projects)
+          .where(inArray(projects.id, projectIds))
+      : Promise.resolve([]),
+  ]);
+
+  const issueMap = new Map(issueRows.map((r) => [r.id, r]));
+  const pageMap = new Map(pageRows.map((r) => [r.id, r]));
+  const projectMap = new Map(projectRows.map((r) => [r.id, r]));
+
+  const items: import("@/lib/types").FavoriteItem[] = [];
+  for (const f of favs) {
+    if (f.kind === "issue") {
+      const r = issueMap.get(f.targetId);
+      if (!r) continue;
+      items.push({
+        id: f.id,
+        kind: "issue",
+        targetId: f.targetId,
+        title: r.title,
+        icon: r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`,
+        href: `/issues/${f.targetId}`,
+      });
+    } else if (f.kind === "page") {
+      const r = pageMap.get(f.targetId);
+      if (!r || r.deletedAt) continue;
+      items.push({
+        id: f.id,
+        kind: "page",
+        targetId: f.targetId,
+        title: r.title || "Untitled",
+        icon: r.icon,
+        href: `/pages/${f.targetId}`,
+      });
+    } else if (f.kind === "project") {
+      const r = projectMap.get(f.targetId);
+      if (!r) continue;
+      items.push({
+        id: f.id,
+        kind: "project",
+        targetId: f.targetId,
+        title: r.name,
+        icon: null,
+        href: `/projects/${f.targetId}`,
+      });
+    }
+  }
   return items;
 }
 

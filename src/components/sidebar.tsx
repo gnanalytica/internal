@@ -17,14 +17,17 @@ import {
   PenSquare,
   Search,
   Settings,
+  Star,
   Target,
   Timer,
+  Trash2,
   Users,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
 import { GitHubIcon } from "@/components/auth/provider-icons";
 import { NewIssueDialog } from "@/components/new-issue-dialog";
+import { ThemeToggleItem } from "@/components/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { createPage, setActiveWorkspace } from "@/lib/actions";
 import { authClient } from "@/lib/auth/client";
 import type {
+  FavoriteItem,
   Label,
   Member,
   PageNode,
@@ -54,6 +58,7 @@ export function Sidebar({
   pageTree,
   labels,
   unreadCount = 0,
+  favorites = [],
 }: {
   workspace: Workspace;
   workspaces: WorkspaceWithRole[];
@@ -63,12 +68,14 @@ export function Sidebar({
   pageTree: PageNode[];
   labels: Label[];
   unreadCount?: number;
+  favorites?: FavoriteItem[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [, startTransition] = useTransition();
   const [showProjects, setShowProjects] = useState(true);
   const [showPages, setShowPages] = useState(true);
+  const [showFavorites, setShowFavorites] = useState(true);
 
   function signOut() {
     startTransition(async () => {
@@ -174,6 +181,7 @@ export function Sidebar({
               <Settings className="size-4" />
               Account settings
             </DropdownMenuItem>
+            <ThemeToggleItem />
             <DropdownMenuItem onClick={signOut} className="gap-2 text-sm">
               <LogOut className="size-4" />
               Sign out
@@ -259,6 +267,31 @@ export function Sidebar({
           label="Databases"
         />
 
+        {/* Favorites */}
+        {favorites.length > 0 && (
+          <Section
+            title="Favorites"
+            open={showFavorites}
+            onToggle={() => setShowFavorites((v) => !v)}
+          >
+            {favorites.map((f) => (
+              <NavItem
+                key={f.id}
+                href={f.href}
+                active={pathname === f.href}
+                icon={
+                  f.kind === "issue" ? (
+                    <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                  ) : (
+                    <span className="text-sm leading-none">{f.icon ?? "📁"}</span>
+                  )
+                }
+                label={f.title}
+              />
+            ))}
+          </Section>
+        )}
+
         {/* Projects */}
         <Section
           title="Projects"
@@ -297,6 +330,14 @@ export function Sidebar({
           open={showPages}
           onToggle={() => setShowPages((v) => !v)}
           action={
+            <>
+            <Link
+              href="/trash"
+              className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              aria-label="Trash"
+            >
+              <Trash2 className="size-3.5" />
+            </Link>
             <button
               onClick={() => newPage(null)}
               className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
@@ -304,6 +345,7 @@ export function Sidebar({
             >
               <Plus className="size-3.5" />
             </button>
+            </>
           }
         >
           {pageTree.length === 0 && (
@@ -384,7 +426,9 @@ function Section({
           />
           {title}
         </button>
-        <div className="ml-auto opacity-0 group-hover:opacity-100">{action}</div>
+        <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+          {action}
+        </div>
       </div>
       {open && <div className="mt-0.5">{children}</div>}
     </div>

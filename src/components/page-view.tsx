@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { RichEditor } from "@/components/editor/rich-editor";
 import { StatusIcon } from "@/components/glyphs";
+import { FavoriteButton } from "@/components/favorite-button";
 import { Topbar } from "@/components/topbar";
 import {
   Command,
@@ -45,9 +46,11 @@ const EMOJIS = ["📄", "📝", "📚", "🛠️", "🚀", "🏗️", "📌", "�
 export function PageView({
   page,
   allIssues,
+  favorited,
 }: {
   page: Page & { linkedIssues: IssueWithRelations[] };
   allIssues: FlatIssue[];
+  favorited: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -96,21 +99,24 @@ export function PageView({
       <Topbar
         breadcrumb={[{ label: "Pages" }, { label: title || "Untitled" }]}
         actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon" className="size-7" />}
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="gap-2 text-destructive focus:text-destructive"
+          <>
+            <FavoriteButton kind="page" targetId={page.id} initial={favorited} />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon" className="size-7" />}
               >
-                <Trash2 className="size-4" /> Delete page
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="gap-2 text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="size-4" /> Move to trash
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         }
       />
 

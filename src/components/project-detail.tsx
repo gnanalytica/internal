@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { MoreHorizontal, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon } from "@/components/glyphs";
 import { IssueRow } from "@/components/issue-row";
 import { Topbar } from "@/components/topbar";
@@ -24,10 +25,12 @@ export function ProjectDetail({
   project,
   members,
   isAdmin,
+  favorited,
 }: {
   project: ProjectDetailType;
   members: Member[];
   isAdmin: boolean;
+  favorited: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -57,29 +60,32 @@ export function ProjectDetail({
           { label: name || "Untitled" },
         ]}
         actions={
-          isAdmin ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon" className="size-7" />}
-              >
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() =>
-                    persist(async () => {
-                      await deleteProject(project.id);
-                      toast.success("Project deleted");
-                      router.push("/projects");
-                    })
-                  }
-                  className="gap-2 text-destructive focus:text-destructive"
+          <>
+            <FavoriteButton kind="project" targetId={project.id} initial={favorited} />
+            {isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button variant="ghost" size="icon" className="size-7" />}
                 >
-                  <Trash2 className="size-4" /> Delete project
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : undefined
+                  <MoreHorizontal className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      persist(async () => {
+                        await deleteProject(project.id);
+                        toast.success("Project deleted");
+                        router.push("/projects");
+                      })
+                    }
+                    className="gap-2 text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="size-4" /> Delete project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </>
         }
       />
 

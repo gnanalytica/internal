@@ -173,6 +173,8 @@ export const issues = pgTable(
     }),
     // Fractional sort key for ordering within a board column / list.
     sortKey: text("sort_key").notNull().default("a0"),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    estimate: integer("estimate"),
     githubUrl: text("github_url"),
     githubNumber: integer("github_number"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -210,11 +212,14 @@ export const pages = pgTable(
     icon: text("icon").notNull().default("📄"),
     // TipTap JSON document for the page body.
     content: jsonb("content"),
+    // Plain-text extraction of `content` for full-text search.
+    contentText: text("content_text").notNull().default(""),
     // Fractional sort key for ordering siblings in the page tree.
     position: text("position").notNull().default("a0"),
     creatorId: uuid("creator_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -363,6 +368,67 @@ export const attachments = pgTable(
   (t) => [index("attachments_issue_idx").on(t.issueId)],
 );
 
+/** Directed relations between issues (blocks / related / duplicate). */
+export const issueRelations = pgTable(
+  "issue_relations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    relatedIssueId: uuid("related_issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // blocks | related | duplicate
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("issue_relations_issue_idx").on(t.issueId)],
+);
+
+/** Per-user favorites (issues, pages, projects). */
+export const favorites = pgTable(
+  "favorites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // issue | page | project
+    targetId: uuid("target_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("favorites_unique_idx").on(t.userId, t.kind, t.targetId),
+    index("favorites_user_idx").on(t.workspaceId, t.userId),
+  ],
+);
+
+/** Emoji reactions on comments. */
+export const commentReactions = pgTable(
+  "comment_reactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("comment_reactions_unique_idx").on(t.commentId, t.userId, t.emoji),
+    index("comment_reactions_comment_idx").on(t.commentId),
+  ],
+);
+
 // ---- Relations (for drizzle query API) ----
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -481,9 +547,35 @@ export const databaseRowsRelations = relations(databaseRows, ({ one }) => ({
   }),
 }));
 
-export const commentsRelations = relations(comments, ({ one }) => ({
+export const commentsRelations = relations(comments, ({ one, many }) => ({
   issue: one(issues, { fields: [comments.issueId], references: [issues.id] }),
   author: one(users, { fields: [comments.authorId], references: [users.id] }),
+  reactions: many(commentReactions),
+}));
+
+export const commentReactionsRelations = relations(commentReactions, ({ one }) => ({
+  comment: one(comments, {
+    fields: [commentReactions.commentId],
+    references: [comments.id],
+  }),
+  user: one(users, { fields: [commentReactions.userId], references: [users.id] }),
+}));
+
+export const issueRelationsRelations = relations(issueRelations, ({ one }) => ({
+  issue: one(issues, {
+    fields: [issueRelations.issueId],
+    references: [issues.id],
+    relationName: "relation_from",
+  }),
+  relatedIssue: one(issues, {
+    fields: [issueRelations.relatedIssueId],
+    references: [issues.id],
+    relationName: "relation_to",
+  }),
+}));
+
+export const favoritesRelations = relations(favorites, ({ one }) => ({
+  user: one(users, { fields: [favorites.userId], references: [users.id] }),
 }));
 
 export const activityRelations = relations(activity, ({ one }) => ({

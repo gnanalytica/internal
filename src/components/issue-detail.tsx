@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 import { RichEditor } from "@/components/editor/rich-editor";
 import { GitHubIcon } from "@/components/auth/provider-icons";
+import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
 import { IssueAttachments } from "@/components/issue-attachments";
 import { IssueTimeline } from "@/components/issue-timeline";
@@ -48,27 +49,38 @@ import {
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  addIssueRelation,
   createIssue,
   deleteIssue,
   linkIssueToPage,
   pushIssueToGithub,
+  removeIssueRelation,
   setIssueLabels,
   unlinkIssueFromPage,
   updateIssue,
 } from "@/lib/actions";
+import { isOverdue } from "@/lib/issue-dates";
+import { cn } from "@/lib/utils";
 import { issueIdentifier } from "@/lib/types";
 import type {
   Attachment,
   Cycle,
+  FlatIssue,
   IssueDetail as IssueDetailData,
   IssueWithRelations,
   Label,
   Member,
   Page,
   Project,
+  RelationItem,
   Team,
   TimelineItem,
 } from "@/lib/types";
+import {
+  RELATION_TYPES,
+  relationLabel,
+  type RelationType,
+} from "@/lib/issue-relations";
 import type { PriorityId, StatusId } from "@/lib/constants";
 
 type FlatPage = Pick<Page, "id" | "title" | "icon">;
@@ -85,6 +97,9 @@ export function IssueDetail({
   githubConnected,
   attachments,
   attachmentsEnabled,
+  favorited,
+  relations,
+  allIssues,
 }: {
   issue: IssueDetailData;
   projects: Project[];
@@ -97,6 +112,9 @@ export function IssueDetail({
   githubConnected: boolean;
   attachments: Attachment[];
   attachmentsEnabled: boolean;
+  favorited: boolean;
+  relations: RelationItem[];
+  allIssues: FlatIssue[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -120,6 +138,8 @@ export function IssueDetail({
           { label: issueIdentifier(issue) },
         ]}
         actions={
+          <>
+          <FavoriteButton kind="issue" targetId={issue.id} initial={favorited} />
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon" className="size-7" />}
@@ -141,6 +161,7 @@ export function IssueDetail({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </>
         }
       />
 
@@ -187,6 +208,16 @@ export function IssueDetail({
                 parentId={issue.id}
                 parentProjectId={issue.projectId}
                 subIssues={issue.subIssues}
+                onChange={() => router.refresh()}
+              />
+            </div>
+
+            {/* Relations */}
+            <div className="mt-10 border-t pt-5">
+              <IssueRelations
+                issueId={issue.id}
+                relations={relations}
+                allIssues={allIssues}
                 onChange={() => router.refresh()}
               />
             </div>
@@ -330,6 +361,45 @@ export function IssueDetail({
                 onChange={(ids) => persist(() => setIssueLabels(issue.id, ids))}
               />
             </PropRow>
+            <PropRow label="Due">
+              <input
+                type="date"
+                value={
+                  issue.dueDate
+                    ? new Date(issue.dueDate).toISOString().slice(0, 10)
+                    : ""
+                }
+                onChange={(e) =>
+                  persist(() =>
+                    updateIssue(issue.id, { dueDate: e.target.value || null }),
+                  )
+                }
+                className={cn(
+                  "w-full rounded-md border bg-transparent px-2 py-1 text-xs outline-none focus:border-brand",
+                  isOverdue(issue.dueDate, issue.status) && "border-destructive/50 text-destructive",
+                )}
+              />
+            </PropRow>
+            <PropRow label="Estimate">
+              <select
+                value={issue.estimate ?? ""}
+                onChange={(e) =>
+                  persist(() =>
+                    updateIssue(issue.id, {
+                      estimate: e.target.value === "" ? null : Number(e.target.value),
+                    }),
+                  )
+                }
+                className="w-full rounded-md border bg-transparent px-2 py-1 text-xs outline-none focus:border-brand"
+              >
+                <option value="">—</option>
+                {[1, 2, 3, 5, 8, 13].map((n) => (
+                  <option key={n} value={n}>
+                    {n} {n === 1 ? "point" : "points"}
+                  </option>
+                ))}
+              </select>
+            </PropRow>
           </div>
 
           {issue.labels.length > 0 && (
@@ -385,6 +455,146 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
     <div className="flex items-center gap-2 py-1">
       <span className="w-16 shrink-0 text-xs text-muted-foreground">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function flatIdentifier(i: FlatIssue): string {
+  return i.projectKey ? `${i.projectKey}-${i.number}` : `#${i.number}`;
+}
+
+function IssueRelations({
+  issueId,
+  relations,
+  allIssues,
+  onChange,
+}: {
+  issueId: string;
+  relations: RelationItem[];
+  allIssues: FlatIssue[];
+  onChange: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<RelationType>("blocks");
+  const [, startTransition] = useTransition();
+
+  const relatedIds = new Set<string>([issueId, ...relations.map((r) => r.issue.id)]);
+  const pickable = allIssues.filter((i) => !relatedIds.has(i.id));
+
+  // Group by the human label (e.g. "Blocking", "Blocked by", "Related").
+  const groups = new Map<string, RelationItem[]>();
+  for (const r of relations) {
+    const label = relationLabel(r.type, r.direction);
+    const arr = groups.get(label) ?? [];
+    arr.push(r);
+    groups.set(label, arr);
+  }
+
+  function add(relatedIssueId: string) {
+    setOpen(false);
+    startTransition(async () => {
+      await addIssueRelation(issueId, relatedIssueId, type);
+      onChange();
+    });
+  }
+
+  function remove(relationId: string) {
+    startTransition(async () => {
+      await removeIssueRelation(relationId, issueId);
+      onChange();
+    });
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Relations
+        </h3>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={<Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" />}
+          >
+            <Plus className="size-3.5" /> Add relation
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-72 p-0">
+            <div className="flex gap-1 border-b p-1.5">
+              {RELATION_TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setType(t.id)}
+                  className={cn(
+                    "flex-1 rounded-md px-2 py-1 text-xs",
+                    type === t.id
+                      ? "bg-brand/10 font-medium text-brand"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <Command>
+              <CommandInput placeholder="Search issues…" className="h-9" />
+              <CommandList>
+                <CommandEmpty>No issues.</CommandEmpty>
+                <CommandGroup>
+                  {pickable.map((i) => (
+                    <CommandItem
+                      key={i.id}
+                      value={`${flatIdentifier(i)} ${i.title}`}
+                      onSelect={() => add(i.id)}
+                      className="gap-2"
+                    >
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {flatIdentifier(i)}
+                      </span>
+                      <span className="truncate">{i.title}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {relations.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Link blocking, related, or duplicate issues.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {[...groups.entries()].map(([label, items]) => (
+            <div key={label}>
+              <div className="mb-1 text-[11px] font-medium text-muted-foreground">{label}</div>
+              <div className="space-y-0.5">
+                {items.map((r) => (
+                  <div
+                    key={r.relationId}
+                    className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+                  >
+                    <StatusIcon status={r.issue.status as StatusId} />
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {issueIdentifier(r.issue)}
+                    </span>
+                    <Link href={`/issues/${r.issue.id}`} className="flex-1 truncate hover:underline">
+                      {r.issue.title}
+                    </Link>
+                    <button
+                      onClick={() => remove(r.relationId)}
+                      className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-black/5 hover:text-foreground group-hover:opacity-100"
+                      aria-label="Remove relation"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

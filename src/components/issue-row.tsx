@@ -11,17 +11,24 @@ import {
   StatusPicker,
 } from "@/components/pickers";
 import { updateIssue } from "@/lib/actions";
+import { formatDue, isOverdue } from "@/lib/issue-dates";
 import type { IssueWithRelations, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import { CalendarClock } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 
 export function IssueRow({
   issue,
   members,
+  selected,
+  onToggleSelect,
 }: {
   issue: IssueWithRelations;
   members: Member[];
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -33,7 +40,21 @@ export function IssueRow({
     });
 
   return (
-    <div className="group flex items-center gap-2 border-b border-border/60 px-4 py-2 hover:bg-accent/40">
+    <div
+      className={cn(
+        "group flex items-center gap-2 border-b border-border/60 px-4 py-2 hover:bg-accent/40",
+        selected && "bg-brand/5",
+      )}
+    >
+      {onToggleSelect && (
+        <input
+          type="checkbox"
+          checked={selected ?? false}
+          onChange={onToggleSelect}
+          className="size-3.5 shrink-0 accent-[var(--brand)]"
+          aria-label="Select issue"
+        />
+      )}
       <PriorityPicker
         value={issue.priority as PriorityId}
         onChange={(v) => persist(() => updateIssue(issue.id, { priority: v }))}
@@ -53,6 +74,26 @@ export function IssueRow({
       >
         {issue.title}
       </Link>
+
+      {issue.estimate != null && (
+        <span className="hidden shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
+          {issue.estimate}
+        </span>
+      )}
+
+      {issue.dueDate && (
+        <span
+          className={cn(
+            "hidden shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] sm:flex",
+            isOverdue(issue.dueDate, issue.status)
+              ? "bg-destructive/10 text-destructive"
+              : "text-muted-foreground",
+          )}
+        >
+          <CalendarClock className="size-3" />
+          {formatDue(issue.dueDate)}
+        </span>
+      )}
 
       <div className="hidden items-center gap-1 sm:flex">
         {issue.labels.slice(0, 3).map((l) => (

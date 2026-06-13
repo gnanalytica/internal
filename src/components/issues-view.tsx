@@ -9,6 +9,7 @@ import {
   List as ListIcon,
   ListFilter,
   Plus,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -33,7 +34,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { updateIssue } from "@/lib/actions";
+import { UserAvatar } from "@/components/glyphs";
+import { deleteIssue, updateIssue } from "@/lib/actions";
 import { PRIORITIES, STATUSES, type StatusId } from "@/lib/constants";
 import {
   SORTS,
@@ -73,6 +75,25 @@ export function IssuesView({
   const [fAssignee, setFAssignee] = useState<Set<string>>(new Set());
   const [fLabel, setFLabel] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortId>("manual");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function bulkApply(fn: (id: string) => Promise<unknown>) {
+    const ids = [...selected];
+    startTransition(async () => {
+      await Promise.all(ids.map(fn));
+      setSelected(new Set());
+      router.refresh();
+    });
+  }
 
   // Persist filter/sort/view per project scope so it survives reloads.
   const storageKey = `issues-view:${defaultProjectId ?? "all"}`;
@@ -302,7 +323,13 @@ export function IssuesView({
                 <span className="text-xs text-muted-foreground">{g.items.length}</span>
               </div>
               {g.items.map((issue) => (
-                <IssueRow key={issue.id} issue={issue} members={members} />
+                <IssueRow
+                  key={issue.id}
+                  issue={issue}
+                  members={members}
+                  selected={selected.has(issue.id)}
+                  onToggleSelect={() => toggleSelect(issue.id)}
+                />
               ))}
             </div>
           ))}
@@ -315,6 +342,80 @@ export function IssuesView({
             onChange={onBoardChange}
             persist={persist}
           />
+        </div>
+      )}
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+          <div className="pointer-events-auto flex items-center gap-1.5 rounded-xl border bg-popover px-2 py-1.5 shadow-lg">
+            <span className="px-1.5 text-xs font-medium">{selected.size} selected</span>
+            <div className="mx-1 h-4 w-px bg-border" />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
+              >
+                <StatusIcon status="todo" /> Status
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {STATUSES.map((s) => (
+                  <DropdownMenuItem
+                    key={s.id}
+                    onClick={() => bulkApply((id) => updateIssue(id, { status: s.id }))}
+                    className="gap-2 text-xs"
+                  >
+                    <StatusIcon status={s.id} />
+                    {s.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
+              >
+                Assignee
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                <DropdownMenuItem
+                  onClick={() => bulkApply((id) => updateIssue(id, { assigneeId: null }))}
+                  className="gap-2 text-xs text-muted-foreground"
+                >
+                  Unassign
+                </DropdownMenuItem>
+                {members.map((m) => (
+                  <DropdownMenuItem
+                    key={m.id}
+                    onClick={() => bulkApply((id) => updateIssue(id, { assigneeId: m.id }))}
+                    className="gap-2 text-xs"
+                  >
+                    <UserAvatar name={m.name} color={m.avatarColor} className="size-4 text-[8px]" />
+                    {m.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive"
+              onClick={() => bulkApply((id) => deleteIssue(id))}
+            >
+              <Trash2 className="size-3.5" /> Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={() => setSelected(new Set())}
+              aria-label="Clear selection"
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ilike, isNull, max, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, isNull, max, or } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -9,14 +9,17 @@ import { db } from "@/db";
 import {
   activity,
   attachments,
+  commentReactions,
   comments,
   cycles,
   databaseFields,
   databaseRows,
   databases,
+  favorites,
   initiatives,
   issueLabels,
   issuePageLinks,
+  issueRelations,
   issues,
   notifications,
   pages,
@@ -36,6 +39,8 @@ import {
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
 import { findMentionedMemberIds } from "@/lib/mentions";
+import { isRelationType } from "@/lib/issue-relations";
+import { snippetAround } from "@/lib/snippet";
 import { isBlobConfigured, MAX_ATTACHMENT_BYTES } from "@/lib/blob";
 import { notifySlack } from "@/lib/slack";
 import { createGithubIssue, verifyGithubRepo } from "@/lib/github";
@@ -326,6 +331,44 @@ export async function addComment(issueId: string, body: string) {
   revalidatePath(`/issues/${issueId}`);
 }
 
+const REACTION_EMOJI = new Set(["👍", "❤️", "🎉", "😄", "🚀", "👀", "✅"]);
+
+export async function toggleReaction(commentId: string, emoji: string) {
+  if (!REACTION_EMOJI.has(emoji)) throw new Error("Unsupported reaction.");
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+
+  // Scope the comment to the workspace and grab its issue for revalidation.
+  const [c] = await db
+    .select({ issueId: comments.issueId })
+    .from(comments)
+    .where(and(eq(comments.workspaceId, ws.id), eq(comments.id, commentId)))
+    .limit(1);
+  if (!c) throw new Error("Comment not found.");
+
+  const [existing] = await db
+    .select({ id: commentReactions.id })
+    .from(commentReactions)
+    .where(
+      and(
+        eq(commentReactions.commentId, commentId),
+        eq(commentReactions.userId, me.id),
+        eq(commentReactions.emoji, emoji),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    await db.delete(commentReactions).where(eq(commentReactions.id, existing.id));
+  } else {
+    await db
+      .insert(commentReactions)
+      .values({ commentId, userId: me.id, emoji })
+      .onConflictDoNothing();
+  }
+  revalidatePath(`/issues/${c.issueId}`);
+}
+
 export async function deleteComment(id: string, issueId: string) {
   const ws = await getWorkspace();
   await db
@@ -346,6 +389,8 @@ export async function updateIssue(
     cycleId: string | null;
     teamId: string | null;
     parentId: string | null;
+    dueDate: string | null;
+    estimate: number | null;
     sortKey: string;
   }>,
 ) {
@@ -369,6 +414,9 @@ export async function updateIssue(
   if (patch.cycleId !== undefined) values.cycleId = patch.cycleId;
   if (patch.teamId !== undefined) values.teamId = patch.teamId;
   if (patch.parentId !== undefined) values.parentId = patch.parentId;
+  if (patch.dueDate !== undefined)
+    values.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
+  if (patch.estimate !== undefined) values.estimate = patch.estimate;
   if (patch.sortKey !== undefined) values.sortKey = patch.sortKey;
 
   await db
@@ -462,7 +510,10 @@ export async function updatePage(
   const values: Record<string, unknown> = { updatedAt: new Date() };
   if (patch.title !== undefined) values.title = patch.title;
   if (patch.icon !== undefined) values.icon = patch.icon;
-  if (patch.content !== undefined) values.content = patch.content;
+  if (patch.content !== undefined) {
+    values.content = patch.content;
+    values.contentText = docToText(patch.content).slice(0, 20000);
+  }
 
   await db
     .update(pages)
@@ -473,10 +524,105 @@ export async function updatePage(
   revalidatePath(`/pages/${id}`);
 }
 
+/** Soft-delete: move a page (and its descendants) to the trash. */
 export async function deletePage(id: string) {
   const ws = await getWorkspace();
-  await db.delete(pages).where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
+  const now = new Date();
+
+  // Collect the page and all descendants so a deleted subtree stays consistent.
+  const all = await db
+    .select({ id: pages.id, parentId: pages.parentId })
+    .from(pages)
+    .where(eq(pages.workspaceId, ws.id));
+  const childrenOf = new Map<string | null, string[]>();
+  for (const p of all) {
+    const arr = childrenOf.get(p.parentId) ?? [];
+    arr.push(p.id);
+    childrenOf.set(p.parentId, arr);
+  }
+  const ids: string[] = [];
+  const stack = [id];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    ids.push(cur);
+    for (const child of childrenOf.get(cur) ?? []) stack.push(child);
+  }
+
+  await db
+    .update(pages)
+    .set({ deletedAt: now })
+    .where(and(eq(pages.workspaceId, ws.id), inArray(pages.id, ids)));
   revalidatePath("/", "layout");
+  revalidatePath("/trash");
+}
+
+export async function restorePage(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .update(pages)
+    .set({ deletedAt: null })
+    .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
+  revalidatePath("/", "layout");
+  revalidatePath("/trash");
+}
+
+/** Permanently delete a trashed page. */
+export async function deletePageForever(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(pages).where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
+  revalidatePath("/trash");
+  revalidatePath("/", "layout");
+}
+
+// ---- Issue relations ----
+
+export async function addIssueRelation(
+  issueId: string,
+  relatedIssueId: string,
+  type: string,
+) {
+  if (issueId === relatedIssueId) throw new Error("An issue can't relate to itself.");
+  if (!isRelationType(type)) throw new Error("Invalid relation type.");
+  const ws = await getWorkspace();
+  // Avoid duplicates in either direction for the same type.
+  const existing = await db
+    .select({ id: issueRelations.id })
+    .from(issueRelations)
+    .where(
+      and(
+        eq(issueRelations.workspaceId, ws.id),
+        eq(issueRelations.type, type),
+        or(
+          and(
+            eq(issueRelations.issueId, issueId),
+            eq(issueRelations.relatedIssueId, relatedIssueId),
+          ),
+          and(
+            eq(issueRelations.issueId, relatedIssueId),
+            eq(issueRelations.relatedIssueId, issueId),
+          ),
+        ),
+      ),
+    )
+    .limit(1);
+  if (existing.length) return;
+
+  await db.insert(issueRelations).values({
+    workspaceId: ws.id,
+    issueId,
+    relatedIssueId,
+    type,
+  });
+  revalidatePath(`/issues/${issueId}`);
+  revalidatePath(`/issues/${relatedIssueId}`);
+}
+
+export async function removeIssueRelation(relationId: string, issueId: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(issueRelations)
+    .where(and(eq(issueRelations.workspaceId, ws.id), eq(issueRelations.id, relationId)));
+  revalidatePath(`/issues/${issueId}`);
 }
 
 // ---- Issue <-> Page links ----
@@ -969,6 +1115,45 @@ export async function deleteAttachment(id: string, issueId: string) {
   revalidatePath(`/issues/${issueId}`);
 }
 
+// ---- Favorites ----
+
+const FAVORITE_KINDS = new Set(["issue", "page", "project"]);
+
+/** Toggle a favorite for the current user; returns the new favorited state. */
+export async function toggleFavorite(
+  kind: string,
+  targetId: string,
+): Promise<boolean> {
+  if (!FAVORITE_KINDS.has(kind)) throw new Error("Invalid favorite kind.");
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [existing] = await db
+    .select({ id: favorites.id })
+    .from(favorites)
+    .where(
+      and(
+        eq(favorites.userId, me.id),
+        eq(favorites.kind, kind),
+        eq(favorites.targetId, targetId),
+      ),
+    )
+    .limit(1);
+
+  let favorited: boolean;
+  if (existing) {
+    await db.delete(favorites).where(eq(favorites.id, existing.id));
+    favorited = false;
+  } else {
+    await db
+      .insert(favorites)
+      .values({ workspaceId: ws.id, userId: me.id, kind, targetId })
+      .onConflictDoNothing();
+    favorited = true;
+  }
+  revalidatePath("/", "layout");
+  return favorited;
+}
+
 // ---- Notifications ----
 
 export async function markNotificationRead(id: string) {
@@ -1038,9 +1223,20 @@ export async function searchWorkspace(
       .where(and(eq(issues.workspaceId, ws.id), ilike(issues.title, term)))
       .limit(LIMIT),
     db
-      .select({ id: pages.id, title: pages.title, icon: pages.icon })
+      .select({
+        id: pages.id,
+        title: pages.title,
+        icon: pages.icon,
+        contentText: pages.contentText,
+      })
       .from(pages)
-      .where(and(eq(pages.workspaceId, ws.id), ilike(pages.title, term)))
+      .where(
+        and(
+          eq(pages.workspaceId, ws.id),
+          isNull(pages.deletedAt),
+          or(ilike(pages.title, term), ilike(pages.contentText, term)),
+        ),
+      )
       .limit(LIMIT),
     db
       .select({ id: projects.id, name: projects.name, key: projects.key })
@@ -1095,6 +1291,7 @@ export async function searchWorkspace(
       kind: "page",
       id: r.id,
       title: r.title || "Untitled",
+      subtitle: snippetAround(r.contentText, q),
       icon: r.icon,
       href: `/pages/${r.id}`,
     });

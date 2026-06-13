@@ -3,6 +3,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { Sidebar } from "@/components/sidebar";
 import {
   getCurrentUser,
+  getFavorites,
   getLabels,
   getMembers,
   getMyWorkspaces,
@@ -18,7 +19,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const ws = await getWorkspace();
-  const [members, me, projects, pageTree, labels, myWorkspaces, unreadCount] =
+  const [members, me, projects, pageTree, labels, myWorkspaces, unreadCount, favorites] =
     await Promise.all([
       getMembers(ws.id),
       getCurrentUser(ws.id),
@@ -27,6 +28,7 @@ export default async function AppLayout({
       getLabels(ws.id),
       getMyWorkspaces(),
       getUnreadCount(ws.id),
+      getFavorites(ws.id),
     ]);
 
   return (
@@ -43,6 +45,7 @@ export default async function AppLayout({
             pageTree={pageTree}
             labels={labels}
             unreadCount={unreadCount}
+            favorites={favorites}
           />
         }
       >

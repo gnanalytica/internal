@@ -5,12 +5,18 @@ import { useRef, useState, useTransition } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { X } from "lucide-react";
 
+import { SmilePlus } from "lucide-react";
+
 import { UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
-import { addComment, deleteComment } from "@/lib/actions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { addComment, deleteComment, toggleReaction } from "@/lib/actions";
 import { PRIORITY_MAP, STATUS_MAP, type PriorityId, type StatusId } from "@/lib/constants";
 import { isMentionToken, mentionKeysForMember } from "@/lib/mentions";
-import type { Member, TimelineItem } from "@/lib/types";
+import type { Member, ReactionSummary, TimelineItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const REACTION_EMOJIS = ["👍", "❤️", "🎉", "😄", "🚀", "👀", "✅"];
 
 function describe(
   type: string,
@@ -52,6 +58,61 @@ function CommentBody({ body, members }: { body: string; members: Member[] }) {
   );
 }
 
+function ReactionBar({
+  reactions,
+  onToggle,
+}: {
+  reactions: ReactionSummary[];
+  onToggle: (emoji: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      {reactions.map((r) => (
+        <button
+          key={r.emoji}
+          onClick={() => onToggle(r.emoji)}
+          className={cn(
+            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors",
+            r.reactedByMe
+              ? "border-brand/40 bg-brand/10 text-brand"
+              : "border-border text-muted-foreground hover:bg-accent",
+          )}
+        >
+          <span>{r.emoji}</span>
+          <span className="tabular-nums">{r.count}</span>
+        </button>
+      ))}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <button
+              className="rounded-full border border-transparent px-1 py-0.5 text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
+              aria-label="Add reaction"
+            />
+          }
+        >
+          <SmilePlus className="size-3.5" />
+        </PopoverTrigger>
+        <PopoverContent align="start" className="flex w-auto gap-0.5 p-1">
+          {REACTION_EMOJIS.map((e) => (
+            <button
+              key={e}
+              onClick={() => {
+                setOpen(false);
+                onToggle(e);
+              }}
+              className="rounded p-1 text-base hover:bg-accent"
+            >
+              {e}
+            </button>
+          ))}
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 export function IssueTimeline({
   issueId,
   timeline,
@@ -78,6 +139,13 @@ export function IssueTimeline({
               : mentionKeysForMember(m).some((k) => k.startsWith(mentionQuery)),
           )
           .slice(0, 5);
+
+  function react(commentId: string, emoji: string) {
+    startTransition(async () => {
+      await toggleReaction(commentId, emoji);
+      router.refresh();
+    });
+  }
 
   function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
@@ -146,6 +214,10 @@ export function IssueTimeline({
                   </button>
                 </div>
                 <CommentBody body={item.body} members={members} />
+                <ReactionBar
+                  reactions={item.reactions}
+                  onToggle={(emoji) => react(item.id, emoji)}
+                />
               </div>
             </div>
           ) : (

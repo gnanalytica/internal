@@ -7,6 +7,8 @@ import {
   getAttachments,
   getCyclesFlat,
   getIssue,
+  getIssueRelations,
+  getIssuesFlat,
   getIssueTimeline,
   getLabels,
   getMembers,
@@ -14,6 +16,7 @@ import {
   getProjects,
   getTeamsFlat,
   getWorkspace,
+  isFavorite,
 } from "@/lib/data";
 
 export default async function IssueRoute({
@@ -34,6 +37,8 @@ export default async function IssueRoute({
     timeline,
     githubConnected,
     attachments,
+    relations,
+    allIssues,
   ] = await Promise.all([
     getIssue(ws.id, id),
     getProjects(ws.id),
@@ -45,8 +50,11 @@ export default async function IssueRoute({
     getIssueTimeline(id),
     isGithubConnected(ws.id),
     getAttachments(id),
+    getIssueRelations(ws.id, id),
+    getIssuesFlat(ws.id),
   ]);
   if (!issue) notFound();
+  const favorited = await isFavorite(ws.id, "issue", id);
 
   return (
     <IssueDetail
@@ -61,6 +69,9 @@ export default async function IssueRoute({
       githubConnected={githubConnected}
       attachments={attachments}
       attachmentsEnabled={isBlobConfigured()}
+      favorited={favorited}
+      relations={relations}
+      allIssues={allIssues}
     />
   );
 }

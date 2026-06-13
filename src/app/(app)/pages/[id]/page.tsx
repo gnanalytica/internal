@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PageView } from "@/components/page-view";
-import { getIssuesFlat, getPage, getWorkspace } from "@/lib/data";
+import { getIssuesFlat, getPage, getWorkspace, isFavorite } from "@/lib/data";
 
 export default async function PageRoute({
   params,
@@ -12,7 +12,10 @@ export default async function PageRoute({
   const ws = await getWorkspace();
   const page = await getPage(ws.id, id);
   if (!page) notFound();
-  const allIssues = await getIssuesFlat(ws.id);
+  const [allIssues, favorited] = await Promise.all([
+    getIssuesFlat(ws.id),
+    isFavorite(ws.id, "page", id),
+  ]);
 
-  return <PageView page={page} allIssues={allIssues} />;
+  return <PageView page={page} allIssues={allIssues} favorited={favorited} />;
 }
