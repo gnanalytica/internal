@@ -6,6 +6,8 @@ import { cookies } from "next/headers";
 
 import { db } from "@/db";
 import {
+  activity,
+  comments,
   cycles,
   initiatives,
   issueLabels,
@@ -208,8 +210,40 @@ export async function createIssue(input: {
     })
     .returning();
 
+  await db.insert(activity).values({
+    workspaceId: ws.id,
+    issueId: created.id,
+    actorId: me.id,
+    type: "created",
+    data: null,
+  });
+
   revalidatePath("/issues");
   return created;
+}
+
+// ---- Comments ----
+
+export async function addComment(issueId: string, body: string) {
+  const text = body.trim();
+  if (!text) return;
+  const ws = await getWorkspace();
+  const me = await getCurrentUser();
+  await db.insert(comments).values({
+    workspaceId: ws.id,
+    issueId,
+    authorId: me.id,
+    body: text,
+  });
+  revalidatePath(`/issues/${issueId}`);
+}
+
+export async function deleteComment(id: string, issueId: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(comments)
+    .where(and(eq(comments.workspaceId, ws.id), eq(comments.id, id)));
+  revalidatePath(`/issues/${issueId}`);
 }
 
 export async function updateIssue(
@@ -227,6 +261,13 @@ export async function updateIssue(
   }>,
 ) {
   const ws = await getWorkspace();
+  const me = await getCurrentUser();
+  const [before] = await db
+    .select()
+    .from(issues)
+    .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, id)))
+    .limit(1);
+
   const values: Record<string, unknown> = { updatedAt: new Date() };
 
   if (patch.title !== undefined) values.title = patch.title;
@@ -244,6 +285,28 @@ export async function updateIssue(
     .update(issues)
     .set(values)
     .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, id)));
+
+  // Log meaningful changes to the activity timeline.
+  if (before) {
+    const acts: { type: string; data: { from: string | null; to: string | null } }[] = [];
+    if (patch.status !== undefined && isStatus(patch.status) && before.status !== patch.status)
+      acts.push({ type: "status", data: { from: before.status, to: patch.status } });
+    if (patch.priority !== undefined && isPriority(patch.priority) && before.priority !== patch.priority)
+      acts.push({ type: "priority", data: { from: before.priority, to: patch.priority } });
+    if (patch.assigneeId !== undefined && before.assigneeId !== patch.assigneeId)
+      acts.push({ type: "assignee", data: { from: before.assigneeId, to: patch.assigneeId } });
+    if (acts.length) {
+      await db.insert(activity).values(
+        acts.map((a) => ({
+          workspaceId: ws.id,
+          issueId: id,
+          actorId: me.id,
+          type: a.type,
+          data: a.data,
+        })),
+      );
+    }
+  }
 
   revalidatePath("/issues");
   revalidatePath(`/issues/${id}`);

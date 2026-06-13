@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/db";
 import {
+  activity,
+  comments,
   cycles,
   initiatives,
   issueLabels,
@@ -39,6 +41,7 @@ import type {
   Role,
   Team,
   TeamWithCount,
+  TimelineItem,
   Workspace,
   WorkspaceWithRole,
 } from "@/lib/types";
@@ -63,6 +66,7 @@ export type {
   Role,
   Team,
   TeamWithCount,
+  TimelineItem,
   Workspace,
   WorkspaceWithRole,
 } from "@/lib/types";
@@ -390,6 +394,42 @@ export async function getInitiative(
       doneCount: p.issues.filter((i) => i.status === "done").length,
     })),
   };
+}
+
+// ---- Comments & activity timeline ----
+
+export async function getIssueTimeline(
+  issueId: string,
+): Promise<TimelineItem[]> {
+  const [cs, as] = await Promise.all([
+    db.query.comments.findMany({
+      where: eq(comments.issueId, issueId),
+      with: { author: true },
+    }),
+    db.query.activity.findMany({
+      where: eq(activity.issueId, issueId),
+      with: { actor: true },
+    }),
+  ]);
+  const items: TimelineItem[] = [
+    ...cs.map((c) => ({
+      kind: "comment" as const,
+      id: c.id,
+      createdAt: c.createdAt,
+      author: c.author,
+      body: c.body,
+    })),
+    ...as.map((a) => ({
+      kind: "activity" as const,
+      id: a.id,
+      createdAt: a.createdAt,
+      actor: a.actor,
+      type: a.type,
+      data: a.data as { from?: string | null; to?: string | null } | null,
+    })),
+  ];
+  items.sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime());
+  return items;
 }
 
 // ---- Teams ----

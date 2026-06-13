@@ -8,6 +8,7 @@ import { FileText, Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { RichEditor } from "@/components/editor/rich-editor";
+import { IssueTimeline } from "@/components/issue-timeline";
 import {
   AssigneePicker,
   CyclePicker,
@@ -51,6 +52,7 @@ import type {
   Page,
   Project,
   Team,
+  TimelineItem,
 } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 
@@ -64,6 +66,7 @@ export function IssueDetail({
   allPages,
   cycles,
   teams,
+  timeline,
 }: {
   issue: IssueWithRelations & { linkedPages: Page[] };
   projects: Project[];
@@ -72,6 +75,7 @@ export function IssueDetail({
   allPages: FlatPage[];
   cycles: Cycle[];
   teams: Team[];
+  timeline: TimelineItem[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -210,6 +214,15 @@ export function IssueDetail({
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Activity & comments */}
+            <div className="mt-10 border-t pt-5">
+              <IssueTimeline
+                issueId={issue.id}
+                timeline={timeline}
+                members={members}
+              />
             </div>
           </div>
         </div>

@@ -228,6 +228,45 @@ export const issuePageLinks = pgTable(
   (t) => [primaryKey({ columns: [t.issueId, t.pageId] })],
 );
 
+/** Comments on an issue. */
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("comments_issue_idx").on(t.issueId)],
+);
+
+/** Activity log of issue events (status/assignee/etc. changes). */
+export const activity = pgTable(
+  "activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type").notNull(), // created | status | assignee | priority | title
+    data: jsonb("data"), // { from, to }
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("activity_issue_idx").on(t.issueId)],
+);
+
 // ---- Relations (for drizzle query API) ----
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -312,6 +351,18 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   }),
   labels: many(issueLabels),
   pageLinks: many(issuePageLinks),
+  comments: many(comments),
+  activity: many(activity),
+}));
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  issue: one(issues, { fields: [comments.issueId], references: [issues.id] }),
+  author: one(users, { fields: [comments.authorId], references: [users.id] }),
+}));
+
+export const activityRelations = relations(activity, ({ one }) => ({
+  issue: one(issues, { fields: [activity.issueId], references: [issues.id] }),
+  actor: one(users, { fields: [activity.actorId], references: [users.id] }),
 }));
 
 export const labelsRelations = relations(labels, ({ many }) => ({

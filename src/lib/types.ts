@@ -55,6 +55,25 @@ export function cycleStatus(
   return "active";
 }
 
+export type CommentItem = {
+  kind: "comment";
+  id: string;
+  createdAt: Date;
+  author: Member | null;
+  body: string;
+};
+
+export type ActivityItem = {
+  kind: "activity";
+  id: string;
+  createdAt: Date;
+  actor: Member | null;
+  type: string;
+  data: { from?: string | null; to?: string | null } | null;
+};
+
+export type TimelineItem = CommentItem | ActivityItem;
+
 export const INITIATIVE_STATUSES = [
   { id: "planned", label: "Planned", color: "#bec2c8" },
   { id: "active", label: "Active", color: "#5e6ad2" },
