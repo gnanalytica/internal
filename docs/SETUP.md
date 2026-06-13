@@ -11,8 +11,6 @@ it needs.
 | **valytica** | AI valuation management (Indian valuers) | Next.js 16 · Supabase | Vercel (`bom1`) + Supabase |
 | **standup-ai** | Autonomous standup bot (Meet → Slack/Linear) | FastAPI · React/Vite · AWS | EC2 + S3 + CloudFront |
 | **ai-workshop** | SaaS LMS for a 30-day AI workshop | Next.js 15 · Supabase (RLS) | Vercel + Supabase |
-| **airdosa** | Marketing site ("dosas by drone") | Next.js 16 | Vercel |
-| **valytica-old** | Legacy microservices valuation platform | Docker Compose · Terraform | AWS |
 
 Common prerequisites: Node ≥ 20 (22 for some), `pnpm`/`npm`, and for a few:
 Docker, the Supabase CLI, `uv` (Python), Terraform.
@@ -146,28 +144,3 @@ Env (`web/.env.example`): `NEXT_PUBLIC_SUPABASE_URL`,
 `EDGE_FUNCTION_SHARED_SECRET`, `RESEND_API_KEY`, `NEXT_PUBLIC_SITE_URL`.
 Checks: `pnpm typecheck && pnpm lint && pnpm test && pnpm e2e && pnpm build`.
 Deploy: Vercel (root `web/`) + Supabase. Content in `web/content/day-01..30.mdx`.
-
----
-
-## airdosa — marketing site
-
-```bash
-npm install
-npm run dev                       # http://localhost:3000
-```
-
-No env. Plain Next.js 16 — deploy to Vercel.
-
----
-
-## valytica-old — legacy microservices (Docker)
-
-```bash
-cp .env.example .env
-make install
-make up                           # frontend :3000 · API gateway :8000/docs · logs :8080
-```
-
-Other: `make down`, `make restart`, `make logs`, `make reset` (full reset),
-`make deploy ENV=dev|prod` (Terraform + GitHub Actions). Microservices:
-api-gateway, case-service, document-service, ai-service.
