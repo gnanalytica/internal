@@ -208,6 +208,12 @@ export function Sidebar({
           icon={<Target className="size-4" />}
           label="Initiatives"
         />
+        <NavItem
+          href="/teams"
+          active={pathname.startsWith("/teams")}
+          icon={<Users className="size-4" />}
+          label="Teams"
+        />
 
         {/* Projects */}
         <Section

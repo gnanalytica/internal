@@ -8,6 +8,7 @@ import {
   getMembers,
   getPagesFlat,
   getProjects,
+  getTeamsFlat,
   getWorkspace,
 } from "@/lib/data";
 
@@ -18,14 +19,16 @@ export default async function IssueRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const [issue, projects, members, labels, pages, cycles] = await Promise.all([
-    getIssue(ws.id, id),
-    getProjects(ws.id),
-    getMembers(ws.id),
-    getLabels(ws.id),
-    getPagesFlat(ws.id),
-    getCyclesFlat(ws.id),
-  ]);
+  const [issue, projects, members, labels, pages, cycles, teams] =
+    await Promise.all([
+      getIssue(ws.id, id),
+      getProjects(ws.id),
+      getMembers(ws.id),
+      getLabels(ws.id),
+      getPagesFlat(ws.id),
+      getCyclesFlat(ws.id),
+      getTeamsFlat(ws.id),
+    ]);
   if (!issue) notFound();
 
   return (
@@ -36,6 +39,7 @@ export default async function IssueRoute({
       labels={labels}
       allPages={pages}
       cycles={cycles}
+      teams={teams}
     />
   );
 }

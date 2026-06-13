@@ -5,6 +5,7 @@ import type {
   labels,
   pages,
   projects,
+  teams,
   users,
   workspaces,
 } from "@/db/schema";
@@ -23,10 +24,13 @@ export type Issue = typeof issues.$inferSelect;
 export type Page = typeof pages.$inferSelect;
 export type Cycle = typeof cycles.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
+export type Team = typeof teams.$inferSelect;
+export type TeamWithCount = Team & { issueCount: number; memberCount: number };
 
 export type IssueWithRelations = Issue & {
   project: Project | null;
   cycle: Cycle | null;
+  team: Team | null;
   assignee: Member | null;
   labels: Label[];
 };

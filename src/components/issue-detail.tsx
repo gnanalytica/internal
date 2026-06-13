@@ -16,6 +16,7 @@ import {
   PriorityPicker,
   ProjectPicker,
   StatusPicker,
+  TeamPicker,
 } from "@/components/pickers";
 import { Topbar } from "@/components/topbar";
 import {
@@ -49,6 +50,7 @@ import type {
   Member,
   Page,
   Project,
+  Team,
 } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 
@@ -61,6 +63,7 @@ export function IssueDetail({
   labels,
   allPages,
   cycles,
+  teams,
 }: {
   issue: IssueWithRelations & { linkedPages: Page[] };
   projects: Project[];
@@ -68,6 +71,7 @@ export function IssueDetail({
   labels: Label[];
   allPages: FlatPage[];
   cycles: Cycle[];
+  teams: Team[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -247,6 +251,13 @@ export function IssueDetail({
                 cycles={cycles}
                 value={issue.cycleId}
                 onChange={(v) => persist(() => updateIssue(issue.id, { cycleId: v }))}
+              />
+            </PropRow>
+            <PropRow label="Team">
+              <TeamPicker
+                teams={teams}
+                value={issue.teamId}
+                onChange={(v) => persist(() => updateIssue(issue.id, { teamId: v }))}
               />
             </PropRow>
             <PropRow label="Labels">

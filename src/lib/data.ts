@@ -15,6 +15,8 @@ import {
   labels,
   pages,
   projects,
+  teamMembers,
+  teams,
   users,
   workspaceMembers,
   workspaces,
@@ -35,6 +37,8 @@ import type {
   Project,
   ProjectWithIssueCount,
   Role,
+  Team,
+  TeamWithCount,
   Workspace,
   WorkspaceWithRole,
 } from "@/lib/types";
@@ -57,6 +61,8 @@ export type {
   Project,
   ProjectWithIssueCount,
   Role,
+  Team,
+  TeamWithCount,
   Workspace,
   WorkspaceWithRole,
 } from "@/lib/types";
@@ -189,6 +195,7 @@ export async function getIssues(
     with: {
       project: true,
       cycle: true,
+      team: true,
       assignee: true,
       labels: { with: { label: true } },
     },
@@ -208,6 +215,7 @@ export async function getIssue(
     with: {
       project: true,
       cycle: true,
+      team: true,
       assignee: true,
       labels: { with: { label: true } },
       pageLinks: { with: { page: true } },
@@ -283,6 +291,7 @@ export async function getPage(
             with: {
               project: true,
               cycle: true,
+              team: true,
               assignee: true,
               labels: { with: { label: true } },
             },
@@ -328,6 +337,7 @@ export async function getCycle(
         with: {
           project: true,
           cycle: true,
+          team: true,
           assignee: true,
           labels: { with: { label: true } },
         },
@@ -380,6 +390,60 @@ export async function getInitiative(
       doneCount: p.issues.filter((i) => i.status === "done").length,
     })),
   };
+}
+
+// ---- Teams ----
+
+export async function getTeams(workspaceId: string): Promise<TeamWithCount[]> {
+  const rows = await db.query.teams.findMany({
+    where: eq(teams.workspaceId, workspaceId),
+    orderBy: [asc(teams.name)],
+    with: {
+      issues: { columns: { id: true } },
+      members: { columns: { userId: true } },
+    },
+  });
+  return rows.map((t) => ({
+    ...t,
+    issueCount: t.issues.length,
+    memberCount: t.members.length,
+  }));
+}
+
+export async function getTeam(
+  workspaceId: string,
+  id: string,
+): Promise<(Team & { issues: IssueWithRelations[]; members: Member[] }) | null> {
+  const row = await db.query.teams.findFirst({
+    where: and(eq(teams.workspaceId, workspaceId), eq(teams.id, id)),
+    with: {
+      issues: {
+        orderBy: [asc(issues.sortKey)],
+        with: {
+          project: true,
+          cycle: true,
+          team: true,
+          assignee: true,
+          labels: { with: { label: true } },
+        },
+      },
+      members: { with: { user: true } },
+    },
+  });
+  if (!row) return null;
+  return {
+    ...row,
+    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
+    members: row.members.map((m) => m.user),
+  };
+}
+
+export async function getTeamsFlat(workspaceId: string): Promise<Team[]> {
+  return db
+    .select()
+    .from(teams)
+    .where(eq(teams.workspaceId, workspaceId))
+    .orderBy(asc(teams.name));
 }
 
 // Re-export table objects used by actions.
