@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth/server";
 import { db } from "@/db";
 import {
   activity,
+  apiKeys,
   attachments,
   comments,
   cycles,
@@ -827,6 +828,30 @@ export async function getAttachments(
     createdAt: a.createdAt,
     uploader: a.uploader,
   }));
+}
+
+// ---- API keys ----
+
+export type ApiKeyRow = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  lastUsedAt: Date | null;
+  createdAt: Date;
+};
+
+export async function getApiKeys(workspaceId: string): Promise<ApiKeyRow[]> {
+  return db
+    .select({
+      id: apiKeys.id,
+      name: apiKeys.name,
+      keyPrefix: apiKeys.keyPrefix,
+      lastUsedAt: apiKeys.lastUsedAt,
+      createdAt: apiKeys.createdAt,
+    })
+    .from(apiKeys)
+    .where(eq(apiKeys.workspaceId, workspaceId))
+    .orderBy(desc(apiKeys.createdAt));
 }
 
 // ---- Saved views ----

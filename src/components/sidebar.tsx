@@ -12,6 +12,7 @@ import {
   Database,
   FileText,
   Folder,
+  KeyRound,
   LogOut,
   Map as MapIcon,
   MessageSquare,
@@ -176,6 +177,13 @@ export function Sidebar({
             >
               <GitHubIcon className="size-4" />
               GitHub
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => router.push("/settings/api")}
+              className="gap-2 text-sm"
+            >
+              <KeyRound className="size-4" />
+              API &amp; MCP
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => router.push("/settings")}

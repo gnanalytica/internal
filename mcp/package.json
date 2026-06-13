@@ -1,0 +1,16 @@
+{
+  "name": "internal-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the Internal (Notion + Linear) workspace API.",
+  "type": "module",
+  "bin": {
+    "internal-mcp": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  }
+}

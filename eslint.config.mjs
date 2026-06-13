@@ -12,8 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // The Expo app has its own toolchain.
+    // The Expo app and MCP server have their own toolchains.
     "mobile/**",
+    "mcp/**",
   ]),
 ]);
 

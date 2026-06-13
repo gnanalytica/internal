@@ -443,6 +443,24 @@ export const projectStatusUpdates = pgTable(
   (t) => [index("project_status_updates_project_idx").on(t.projectId)],
 );
 
+/** Workspace API keys for programmatic + AI-agent access. */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    keyHash: text("key_hash").notNull().unique(),
+    keyPrefix: text("key_prefix").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("api_keys_workspace_idx").on(t.workspaceId)],
+);
+
 /** Named, workspace-shared issue views (filters + sort + grouping + layout). */
 export const savedViews = pgTable(
   "saved_views",

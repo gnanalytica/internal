@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import { db } from "@/db";
 import {
   activity,
+  apiKeys,
   attachments,
   commentReactions,
   comments,
@@ -43,6 +44,7 @@ import {
 import { isPriority, isStatus } from "@/lib/constants";
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
+import { generateApiKey } from "@/lib/api/keys";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import { isRelationType } from "@/lib/issue-relations";
 import { extractReferences } from "@/lib/references";
@@ -1507,6 +1509,33 @@ export async function queryEmbeddedIssues(filter: {
     status: r.status,
     identifier: r.projectKey ? `${r.projectKey}-${r.number}` : `#${r.number}`,
   }));
+}
+
+// ---- API keys ----
+
+export async function createApiKey(
+  name: string,
+): Promise<{ key: string; prefix: string }> {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const me = await getCurrentUser(ws.id);
+  const { key, hash, prefix } = generateApiKey();
+  await db.insert(apiKeys).values({
+    workspaceId: ws.id,
+    name: name.trim().slice(0, 60) || "API key",
+    keyHash: hash,
+    keyPrefix: prefix,
+    createdBy: me.id,
+  });
+  revalidatePath("/settings/api");
+  return { key, prefix };
+}
+
+export async function revokeApiKey(id: string) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  await db.delete(apiKeys).where(and(eq(apiKeys.workspaceId, ws.id), eq(apiKeys.id, id)));
+  revalidatePath("/settings/api");
 }
 
 // ---- Saved views ----
