@@ -29,11 +29,13 @@ import {
 } from "@/db/schema";
 import {
   getCurrentUser,
+  getMembers,
   getMyRole,
   getWorkspace,
   pickColor,
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
+import { findMentionedMemberIds } from "@/lib/mentions";
 import { isBlobConfigured, MAX_ATTACHMENT_BYTES } from "@/lib/blob";
 import { notifySlack } from "@/lib/slack";
 import { createGithubIssue, verifyGithubRepo } from "@/lib/github";
@@ -272,7 +274,9 @@ export async function addComment(issueId: string, body: string) {
     body: text,
   });
 
-  // Notify the issue's assignee and creator (excluding the comment author).
+  // Notify mentioned members, plus the issue's assignee and creator
+  // (excluding the comment author). A mention takes precedence over the
+  // generic "commented" notice so nobody is notified twice.
   const [issue] = await db
     .select({
       title: issues.title,
@@ -283,24 +287,37 @@ export async function addComment(issueId: string, body: string) {
     .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)))
     .limit(1);
   if (issue) {
-    const recipients = new Set(
+    const members = await getMembers(ws.id);
+    const mentioned = new Set(
+      findMentionedMemberIds(text, members).filter((uid) => uid !== me.id),
+    );
+    const commented = new Set(
       [issue.assigneeId, issue.creatorId].filter(
-        (uid): uid is string => Boolean(uid) && uid !== me.id,
+        (uid): uid is string => uid != null && uid !== me.id && !mentioned.has(uid),
       ),
     );
-    if (recipients.size) {
-      await db.insert(notifications).values(
-        [...recipients].map((userId) => ({
-          workspaceId: ws.id,
-          userId,
-          actorId: me.id,
-          type: "commented",
-          issueId,
-          title: `${me.name} commented on ${issue.title}`,
-          body: text.slice(0, 140),
-        })),
-      );
-    }
+
+    const rows = [
+      ...[...mentioned].map((userId) => ({
+        workspaceId: ws.id,
+        userId,
+        actorId: me.id,
+        type: "mentioned",
+        issueId,
+        title: `${me.name} mentioned you on ${issue.title}`,
+        body: text.slice(0, 140),
+      })),
+      ...[...commented].map((userId) => ({
+        workspaceId: ws.id,
+        userId,
+        actorId: me.id,
+        type: "commented",
+        issueId,
+        title: `${me.name} commented on ${issue.title}`,
+        body: text.slice(0, 140),
+      })),
+    ];
+    if (rows.length) await db.insert(notifications).values(rows);
   }
 
   revalidatePath(`/issues/${issueId}`);
@@ -576,6 +593,77 @@ export async function setProjectInitiative(
     .set({ initiativeId })
     .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, projectId)));
   revalidatePath("/initiatives");
+}
+
+const PROJECT_COLORS = [
+  "#6366f1", "#ec4899", "#10b981", "#f59e0b", "#3b82f6",
+  "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#8b5cf6",
+];
+
+/** Create a project, deriving a unique key prefix from its name. */
+export async function createProject(input: { name: string; key?: string }) {
+  const ws = await getWorkspace();
+  const name = input.name.trim() || "New project";
+  const base =
+    (input.key?.trim() || name.replace(/[^A-Za-z0-9]/g, "").slice(0, 4) || "PRJ")
+      .toUpperCase()
+      .slice(0, 6) || "PRJ";
+
+  const existing = await db
+    .select({ key: projects.key })
+    .from(projects)
+    .where(eq(projects.workspaceId, ws.id));
+  const taken = new Set(existing.map((p) => p.key));
+  let key = base;
+  let n = 1;
+  while (taken.has(key)) key = `${base}${n++}`;
+
+  const [created] = await db
+    .insert(projects)
+    .values({
+      workspaceId: ws.id,
+      name,
+      key,
+      color: PROJECT_COLORS[taken.size % PROJECT_COLORS.length],
+    })
+    .returning();
+  revalidatePath("/projects");
+  revalidatePath("/", "layout");
+  return created;
+}
+
+export async function updateProject(
+  id: string,
+  patch: Partial<{ name: string; description: string; color: string }>,
+) {
+  const ws = await getWorkspace();
+  const values: Record<string, unknown> = {};
+  if (patch.name !== undefined) values.name = patch.name.trim() || "Untitled project";
+  if (patch.description !== undefined) values.description = patch.description;
+  if (patch.color !== undefined) values.color = patch.color;
+  if (Object.keys(values).length === 0) return;
+  await db
+    .update(projects)
+    .set(values)
+    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
+  revalidatePath("/", "layout");
+}
+
+export async function deleteProject(id: string) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  // Detach issues from the project rather than deleting them.
+  await db
+    .update(issues)
+    .set({ projectId: null })
+    .where(and(eq(issues.workspaceId, ws.id), eq(issues.projectId, id)));
+  await db
+    .delete(projects)
+    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
+  revalidatePath("/projects");
+  revalidatePath("/", "layout");
 }
 
 // ---- Teams ----
@@ -1012,7 +1100,7 @@ export async function searchWorkspace(
       id: r.id,
       title: r.name,
       subtitle: r.key,
-      href: `/issues?project=${r.id}`,
+      href: `/projects/${r.id}`,
     });
   }
   for (const r of initiativeRows) {

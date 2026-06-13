@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { X } from "lucide-react";
 
@@ -9,6 +9,7 @@ import { UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
 import { addComment, deleteComment } from "@/lib/actions";
 import { PRIORITY_MAP, STATUS_MAP, type PriorityId, type StatusId } from "@/lib/constants";
+import { isMentionToken, mentionKeysForMember } from "@/lib/mentions";
 import type { Member, TimelineItem } from "@/lib/types";
 
 function describe(
@@ -34,14 +35,11 @@ function describe(
 
 /** Render comment body with @mentions highlighted. */
 function CommentBody({ body, members }: { body: string; members: Member[] }) {
-  const names = new Set(
-    members.flatMap((m) => [m.name.split(" ")[0].toLowerCase(), m.email.split("@")[0].toLowerCase()]),
-  );
-  const parts = body.split(/(@[\w]+)/g);
+  const parts = body.split(/(@[\w.-]+)/g);
   return (
     <p className="whitespace-pre-wrap text-sm leading-relaxed">
       {parts.map((p, i) => {
-        if (p.startsWith("@") && names.has(p.slice(1).toLowerCase())) {
+        if (p.startsWith("@") && isMentionToken(p.slice(1), members)) {
           return (
             <span key={i} className="rounded bg-brand/10 px-0.5 font-medium text-brand">
               {p}
@@ -66,12 +64,49 @@ export function IssueTimeline({
   const router = useRouter();
   const [body, setBody] = useState("");
   const [pending, startTransition] = useTransition();
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  // The partial @token currently being typed (null when not mentioning).
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+
+  const suggestions =
+    mentionQuery === null
+      ? []
+      : members
+          .filter((m) =>
+            mentionQuery === ""
+              ? true
+              : mentionKeysForMember(m).some((k) => k.startsWith(mentionQuery)),
+          )
+          .slice(0, 5);
+
+  function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value;
+    setBody(val);
+    const caret = e.target.selectionStart ?? val.length;
+    const before = val.slice(0, caret);
+    const m = before.match(/(?:^|\s)@([\w.-]*)$/);
+    setMentionQuery(m ? m[1].toLowerCase() : null);
+  }
+
+  function insertMention(member: Member) {
+    const ta = taRef.current;
+    const caret = ta?.selectionStart ?? body.length;
+    const before = body.slice(0, caret).replace(/@([\w.-]*)$/, `@${mentionKeysForMember(member)[0]} `);
+    const next = before + body.slice(caret);
+    setBody(next);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      ta?.focus();
+      ta?.setSelectionRange(before.length, before.length);
+    });
+  }
 
   function submit() {
     if (!body.trim()) return;
     startTransition(async () => {
       await addComment(issueId, body);
       setBody("");
+      setMentionQuery(null);
       router.refresh();
     });
   }
@@ -138,11 +173,38 @@ export function IssueTimeline({
       </div>
 
       {/* Composer */}
-      <div className="mt-4 rounded-lg border focus-within:border-brand">
+      <div className="relative mt-4 rounded-lg border focus-within:border-brand">
+        {suggestions.length > 0 && (
+          <div className="absolute bottom-full left-0 z-20 mb-1 w-60 overflow-hidden rounded-lg border bg-popover py-1 shadow-md">
+            {suggestions.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  insertMention(m);
+                }}
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent"
+              >
+                <UserAvatar name={m.name} color={m.avatarColor} className="size-5 text-[9px]" />
+                <span className="truncate">{m.name}</span>
+                <span className="ml-auto truncate text-[11px] text-muted-foreground">
+                  @{mentionKeysForMember(m)[0]}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
+          ref={taRef}
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={onChange}
           onKeyDown={(e) => {
+            if (e.key === "Escape" && mentionQuery !== null) {
+              e.preventDefault();
+              setMentionQuery(null);
+              return;
+            }
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
           }}
           placeholder="Leave a comment… (@ to mention)"

@@ -200,6 +200,48 @@ export async function getProjects(workspaceId: string): Promise<Project[]> {
     .orderBy(asc(projects.name));
 }
 
+export async function getProjectsWithCounts(
+  workspaceId: string,
+): Promise<ProjectWithIssueCount[]> {
+  const rows = await db.query.projects.findMany({
+    where: eq(projects.workspaceId, workspaceId),
+    orderBy: [asc(projects.name)],
+    with: { issues: { columns: { id: true, status: true } } },
+  });
+  return rows.map((p) => ({
+    ...p,
+    issueCount: p.issues.length,
+    doneCount: p.issues.filter((i) => i.status === "done").length,
+  }));
+}
+
+export async function getProject(
+  workspaceId: string,
+  id: string,
+): Promise<import("@/lib/types").ProjectDetail | null> {
+  const row = await db.query.projects.findFirst({
+    where: and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)),
+    with: {
+      initiative: true,
+      issues: {
+        orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
+        with: {
+          project: true,
+          cycle: true,
+          team: true,
+          assignee: true,
+          labels: { with: { label: true } },
+        },
+      },
+    },
+  });
+  if (!row) return null;
+  return {
+    ...row,
+    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
+  };
+}
+
 export async function getLabels(workspaceId: string): Promise<Label[]> {
   return db
     .select()

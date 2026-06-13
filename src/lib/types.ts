@@ -50,6 +50,11 @@ export type ProjectWithIssueCount = Project & {
   doneCount: number;
 };
 
+export type ProjectDetail = Project & {
+  initiative: Initiative | null;
+  issues: IssueWithRelations[];
+};
+
 /** Cycle status derived from its date range relative to `now`. */
 export function cycleStatus(
   c: { startDate: Date | string; endDate: Date | string },

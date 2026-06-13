@@ -215,7 +215,7 @@ export function InitiativeDetail({
                       style={{ backgroundColor: p.color }}
                     />
                     <Link
-                      href={`/issues?project=${p.id}`}
+                      href={`/projects/${p.id}`}
                       className="flex-1 truncate text-sm hover:underline"
                     >
                       {p.name}

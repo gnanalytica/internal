@@ -10,6 +10,7 @@ import {
   CircleDot,
   Database,
   FileText,
+  Folder,
   LogOut,
   MessageSquare,
   Plus,
@@ -263,12 +264,21 @@ export function Sidebar({
           title="Projects"
           open={showProjects}
           onToggle={() => setShowProjects((v) => !v)}
+          action={
+            <Link
+              href="/projects"
+              className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              aria-label="All projects"
+            >
+              <Folder className="size-3.5" />
+            </Link>
+          }
         >
           {projects.map((p) => (
             <NavItem
               key={p.id}
-              href={`/issues?project=${p.id}`}
-              active={pathname === "/issues" && false}
+              href={`/projects/${p.id}`}
+              active={pathname === `/projects/${p.id}`}
               icon={
                 <span
                   className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"

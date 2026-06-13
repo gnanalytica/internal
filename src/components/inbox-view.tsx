@@ -3,7 +3,7 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Bell, CheckCheck, CircleDot, MessageSquare, UserPlus } from "lucide-react";
+import { AtSign, Bell, CheckCheck, CircleDot, MessageSquare, UserPlus } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
 import { Topbar } from "@/components/topbar";
@@ -16,6 +16,8 @@ function typeIcon(type: string) {
   switch (type) {
     case "assigned":
       return <UserPlus className="size-4 text-brand" />;
+    case "mentioned":
+      return <AtSign className="size-4 text-brand" />;
     case "commented":
       return <MessageSquare className="size-4 text-brand" />;
     case "status":
