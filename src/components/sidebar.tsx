@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
+import { GitHubIcon } from "@/components/auth/provider-icons";
 import { NewIssueDialog } from "@/components/new-issue-dialog";
 import {
   DropdownMenu,
@@ -154,6 +155,13 @@ export function Sidebar({
             >
               <MessageSquare className="size-4" />
               Slack
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => router.push("/settings/github")}
+              className="gap-2 text-sm"
+            >
+              <GitHubIcon className="size-4" />
+              GitHub
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => router.push("/settings")}

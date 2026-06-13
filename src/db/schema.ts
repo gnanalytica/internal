@@ -22,6 +22,8 @@ export const workspaces = pgTable("workspaces", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   slackWebhookUrl: text("slack_webhook_url"),
+  githubRepo: text("github_repo"), // "owner/repo"
+  githubToken: text("github_token"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -169,6 +171,8 @@ export const issues = pgTable(
     }),
     // Fractional sort key for ordering within a board column / list.
     sortKey: text("sort_key").notNull().default("a0"),
+    githubUrl: text("github_url"),
+    githubNumber: integer("github_number"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

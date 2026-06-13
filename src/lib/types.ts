@@ -13,7 +13,12 @@ import type {
   workspaces,
 } from "@/db/schema";
 
-export type Workspace = typeof workspaces.$inferSelect;
+// Client-facing workspace shape — deliberately EXCLUDES secrets
+// (slackWebhookUrl, githubToken) so they never reach the browser.
+export type Workspace = Pick<
+  typeof workspaces.$inferSelect,
+  "id" | "name" | "slug" | "githubRepo" | "createdAt"
+>;
 export type WorkspaceWithRole = Workspace & { role: string };
 
 // Shared, client-safe types and helpers (no server-only imports here).

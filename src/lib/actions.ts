@@ -32,6 +32,7 @@ import {
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
 import { notifySlack } from "@/lib/slack";
+import { createGithubIssue, verifyGithubRepo } from "@/lib/github";
 
 // ---- Slack ----
 
@@ -686,4 +687,68 @@ export async function updateCell(
 export async function deleteRow(id: string, databaseId: string) {
   await db.delete(databaseRows).where(eq(databaseRows.id, id));
   revalidatePath(`/databases/${databaseId}`);
+}
+
+// ---- GitHub issue sync ----
+
+function docToText(doc: unknown): string {
+  if (!doc || typeof doc !== "object") return "";
+  const node = doc as { type?: string; text?: string; content?: unknown[] };
+  if (typeof node.text === "string") return node.text;
+  if (Array.isArray(node.content)) {
+    const sep = node.type === "doc" || node.type === "bulletList" || node.type === "orderedList" ? "\n" : "";
+    return node.content.map(docToText).join(sep);
+  }
+  return "";
+}
+
+export async function setGithubConfig(input: { repo: string; token: string }) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const repo = input.repo.trim();
+  const token = input.token.trim();
+  if (repo && token) {
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo))
+      throw new Error("Repository must be in the form owner/repo.");
+    const ok = await verifyGithubRepo(repo, token);
+    if (!ok)
+      throw new Error("Couldn't access that repo. Check the name and that the token has 'repo' (or Issues: write) scope.");
+  }
+  await db
+    .update(workspaces)
+    .set({ githubRepo: repo || null, githubToken: token || null })
+    .where(eq(workspaces.id, ws.id));
+  revalidatePath("/settings/github");
+}
+
+export async function disconnectGithub() {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  await db
+    .update(workspaces)
+    .set({ githubRepo: null, githubToken: null })
+    .where(eq(workspaces.id, ws.id));
+  revalidatePath("/settings/github");
+}
+
+/** Push an internal issue to GitHub and link it back. */
+export async function pushIssueToGithub(issueId: string) {
+  const ws = await getWorkspace();
+  const [issue] = await db
+    .select()
+    .from(issues)
+    .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)))
+    .limit(1);
+  if (!issue) throw new Error("Issue not found.");
+  if (issue.githubUrl) return;
+  const body = docToText(issue.description) || "_Created from the internal workspace._";
+  const { number, htmlUrl } = await createGithubIssue(ws.id, {
+    title: issue.title,
+    body,
+  });
+  await db
+    .update(issues)
+    .set({ githubUrl: htmlUrl, githubNumber: number })
+    .where(eq(issues.id, issueId));
+  revalidatePath(`/issues/${issueId}`);
 }

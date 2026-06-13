@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { IssueDetail } from "@/components/issue-detail";
+import { isGithubConnected } from "@/lib/github";
 import {
   getCyclesFlat,
   getIssue,
@@ -20,7 +21,7 @@ export default async function IssueRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const [issue, projects, members, labels, pages, cycles, teams, timeline] =
+  const [issue, projects, members, labels, pages, cycles, teams, timeline, githubConnected] =
     await Promise.all([
       getIssue(ws.id, id),
       getProjects(ws.id),
@@ -30,6 +31,7 @@ export default async function IssueRoute({
       getCyclesFlat(ws.id),
       getTeamsFlat(ws.id),
       getIssueTimeline(id),
+      isGithubConnected(ws.id),
     ]);
   if (!issue) notFound();
 
@@ -43,6 +45,7 @@ export default async function IssueRoute({
       cycles={cycles}
       teams={teams}
       timeline={timeline}
+      githubConnected={githubConnected}
     />
   );
 }

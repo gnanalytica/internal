@@ -107,12 +107,19 @@ async function resolveSessionUser(): Promise<Member> {
 export async function getMyWorkspaces(): Promise<WorkspaceWithRole[]> {
   const me = await resolveSessionUser();
   const rows = await db
-    .select({ ws: workspaces, role: workspaceMembers.role })
+    .select({
+      id: workspaces.id,
+      name: workspaces.name,
+      slug: workspaces.slug,
+      githubRepo: workspaces.githubRepo,
+      createdAt: workspaces.createdAt,
+      role: workspaceMembers.role,
+    })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
     .where(eq(workspaceMembers.userId, me.id))
     .orderBy(asc(workspaces.name));
-  return rows.map((r) => ({ ...r.ws, role: r.role }));
+  return rows.map(({ role, ...ws }) => ({ ...ws, role }));
 }
 
 /**

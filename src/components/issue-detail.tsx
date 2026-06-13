@@ -8,6 +8,7 @@ import { FileText, Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { RichEditor } from "@/components/editor/rich-editor";
+import { GitHubIcon } from "@/components/auth/provider-icons";
 import { IssueTimeline } from "@/components/issue-timeline";
 import {
   AssigneePicker,
@@ -39,6 +40,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   deleteIssue,
   linkIssueToPage,
+  pushIssueToGithub,
   setIssueLabels,
   unlinkIssueFromPage,
   updateIssue,
@@ -67,6 +69,7 @@ export function IssueDetail({
   cycles,
   teams,
   timeline,
+  githubConnected,
 }: {
   issue: IssueWithRelations & { linkedPages: Page[] };
   projects: Project[];
@@ -76,6 +79,7 @@ export function IssueDetail({
   cycles: Cycle[];
   teams: Team[];
   timeline: TimelineItem[];
+  githubConnected: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -297,6 +301,33 @@ export function IssueDetail({
               {issue.linkedPages.length === 1 ? "" : "s"}
             </div>
           </div>
+
+          {/* GitHub */}
+          {issue.githubUrl ? (
+            <a
+              href={issue.githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center gap-1.5 text-xs text-brand hover:underline"
+            >
+              <GitHubIcon className="size-3.5" />
+              View on GitHub #{issue.githubNumber}
+            </a>
+          ) : githubConnected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full gap-1.5"
+              onClick={() =>
+                persist(async () => {
+                  await pushIssueToGithub(issue.id);
+                  toast.success("Pushed to GitHub");
+                })
+              }
+            >
+              <GitHubIcon className="size-4" /> Push to GitHub
+            </Button>
+          ) : null}
         </aside>
       </div>
     </div>
