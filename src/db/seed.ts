@@ -2,6 +2,8 @@ import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
+import { inArray } from "drizzle-orm";
+
 import { db, schema } from "./index";
 
 /** Minimal TipTap doc helper. */
@@ -25,6 +27,8 @@ async function main() {
   await db.delete(schema.pages);
   await db.delete(schema.labels);
   await db.delete(schema.projects);
+  await db.delete(schema.cycles);
+  await db.delete(schema.initiatives);
   await db.delete(schema.workspaceMembers);
   await db.delete(schema.users);
   await db.delete(schema.workspaces);
@@ -49,10 +53,27 @@ async function main() {
     { workspaceId: ws.id, userId: mia.id, role: "member" },
   ]);
 
+  const [initiative] = await db
+    .insert(schema.initiatives)
+    .values({
+      workspaceId: ws.id,
+      name: "Q3 Platform Revamp",
+      description: "Modernize the core platform and developer experience.",
+      status: "active",
+      color: "#8b5cf6",
+    })
+    .returning();
+
   const [eng, design] = await db
     .insert(schema.projects)
     .values([
-      { workspaceId: ws.id, name: "Engineering", key: "ENG", color: "#6366f1" },
+      {
+        workspaceId: ws.id,
+        name: "Engineering",
+        key: "ENG",
+        color: "#6366f1",
+        initiativeId: initiative.id,
+      },
       { workspaceId: ws.id, name: "Design", key: "DES", color: "#ec4899" },
     ])
     .returning();
@@ -103,6 +124,30 @@ async function main() {
     { issueId: createdIssues[1].id, labelId: bug.id },
     { issueId: createdIssues[2].id, labelId: improvement.id },
   ]);
+
+  // A current 2-week cycle with a few issues assigned.
+  const cycleStart = new Date();
+  const cycleEnd = new Date(cycleStart.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const [cycle] = await db
+    .insert(schema.cycles)
+    .values({
+      workspaceId: ws.id,
+      name: "Sprint 1",
+      number: 1,
+      startDate: cycleStart,
+      endDate: cycleEnd,
+    })
+    .returning();
+  await db
+    .update(schema.issues)
+    .set({ cycleId: cycle.id })
+    .where(
+      inArray(schema.issues.id, [
+        createdIssues[0].id,
+        createdIssues[1].id,
+        createdIssues[3].id,
+      ]),
+    );
 
   const [welcome] = await db
     .insert(schema.pages)

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { IssueDetail } from "@/components/issue-detail";
 import {
+  getCyclesFlat,
   getIssue,
   getLabels,
   getMembers,
@@ -17,12 +18,13 @@ export default async function IssueRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const [issue, projects, members, labels, pages] = await Promise.all([
+  const [issue, projects, members, labels, pages, cycles] = await Promise.all([
     getIssue(ws.id, id),
     getProjects(ws.id),
     getMembers(ws.id),
     getLabels(ws.id),
     getPagesFlat(ws.id),
+    getCyclesFlat(ws.id),
   ]);
   if (!issue) notFound();
 
@@ -33,6 +35,7 @@ export default async function IssueRoute({
       members={members}
       labels={labels}
       allPages={pages}
+      cycles={cycles}
     />
   );
 }

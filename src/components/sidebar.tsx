@@ -13,6 +13,8 @@ import {
   PenSquare,
   Search,
   Settings,
+  Target,
+  Timer,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -145,6 +147,18 @@ export function Sidebar({
           active={pathname === "/issues"}
           icon={<CircleDot className="size-4" />}
           label="Issues"
+        />
+        <NavItem
+          href="/cycles"
+          active={pathname.startsWith("/cycles")}
+          icon={<Timer className="size-4" />}
+          label="Cycles"
+        />
+        <NavItem
+          href="/initiatives"
+          active={pathname.startsWith("/initiatives")}
+          icon={<Target className="size-4" />}
+          label="Initiatives"
         />
 
         {/* Projects */}

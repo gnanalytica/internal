@@ -5,10 +5,13 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import {
+  cycles,
+  initiatives,
   issueLabels,
   issuePageLinks,
   issues,
   pages,
+  projects,
 } from "@/db/schema";
 import { getCurrentUser, getWorkspace } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
@@ -62,6 +65,7 @@ export async function updateIssue(
     priority: string;
     assigneeId: string | null;
     projectId: string | null;
+    cycleId: string | null;
     sortKey: string;
   }>,
 ) {
@@ -75,6 +79,7 @@ export async function updateIssue(
     values.priority = patch.priority;
   if (patch.assigneeId !== undefined) values.assigneeId = patch.assigneeId;
   if (patch.projectId !== undefined) values.projectId = patch.projectId;
+  if (patch.cycleId !== undefined) values.cycleId = patch.cycleId;
   if (patch.sortKey !== undefined) values.sortKey = patch.sortKey;
 
   await db
@@ -159,4 +164,108 @@ export async function unlinkIssueFromPage(issueId: string, pageId: string) {
     .where(and(eq(issuePageLinks.issueId, issueId), eq(issuePageLinks.pageId, pageId)));
   revalidatePath(`/issues/${issueId}`);
   revalidatePath(`/pages/${pageId}`);
+}
+
+// ---- Cycles ----
+
+export async function createCycle(input: {
+  name?: string;
+  startDate: string;
+  endDate: string;
+}) {
+  const ws = await getWorkspace();
+  const [{ value: maxNumber }] = await db
+    .select({ value: max(cycles.number) })
+    .from(cycles)
+    .where(eq(cycles.workspaceId, ws.id));
+  const number = (maxNumber ?? 0) + 1;
+  const [created] = await db
+    .insert(cycles)
+    .values({
+      workspaceId: ws.id,
+      name: input.name?.trim() || `Cycle ${number}`,
+      number,
+      startDate: new Date(input.startDate),
+      endDate: new Date(input.endDate),
+    })
+    .returning();
+  revalidatePath("/cycles");
+  return created;
+}
+
+export async function updateCycle(
+  id: string,
+  patch: Partial<{ name: string; startDate: string; endDate: string }>,
+) {
+  const ws = await getWorkspace();
+  const values: Record<string, unknown> = {};
+  if (patch.name !== undefined) values.name = patch.name;
+  if (patch.startDate !== undefined) values.startDate = new Date(patch.startDate);
+  if (patch.endDate !== undefined) values.endDate = new Date(patch.endDate);
+  await db
+    .update(cycles)
+    .set(values)
+    .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
+  revalidatePath("/cycles");
+  revalidatePath(`/cycles/${id}`);
+}
+
+export async function deleteCycle(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(cycles).where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
+  revalidatePath("/cycles");
+}
+
+// ---- Initiatives ----
+
+export async function createInitiative(input: { name?: string }) {
+  const ws = await getWorkspace();
+  const [created] = await db
+    .insert(initiatives)
+    .values({
+      workspaceId: ws.id,
+      name: input.name?.trim() || "New initiative",
+    })
+    .returning();
+  revalidatePath("/initiatives");
+  return created;
+}
+
+export async function updateInitiative(
+  id: string,
+  patch: Partial<{
+    name: string;
+    description: string;
+    status: string;
+    color: string;
+  }>,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(initiatives)
+    .set(patch)
+    .where(and(eq(initiatives.workspaceId, ws.id), eq(initiatives.id, id)));
+  revalidatePath("/initiatives");
+  revalidatePath(`/initiatives/${id}`);
+}
+
+export async function deleteInitiative(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(initiatives)
+    .where(and(eq(initiatives.workspaceId, ws.id), eq(initiatives.id, id)));
+  revalidatePath("/initiatives");
+}
+
+/** Move a project into (or out of) an initiative. */
+export async function setProjectInitiative(
+  projectId: string,
+  initiativeId: string | null,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(projects)
+    .set({ initiativeId })
+    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, projectId)));
+  revalidatePath("/initiatives");
 }

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { RichEditor } from "@/components/editor/rich-editor";
 import {
   AssigneePicker,
+  CyclePicker,
   LabelChip,
   LabelPicker,
   PriorityPicker,
@@ -41,7 +42,14 @@ import {
   updateIssue,
 } from "@/lib/actions";
 import { issueIdentifier } from "@/lib/types";
-import type { IssueWithRelations, Label, Member, Page, Project } from "@/lib/types";
+import type {
+  Cycle,
+  IssueWithRelations,
+  Label,
+  Member,
+  Page,
+  Project,
+} from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 
 type FlatPage = Pick<Page, "id" | "title" | "icon">;
@@ -52,12 +60,14 @@ export function IssueDetail({
   members,
   labels,
   allPages,
+  cycles,
 }: {
   issue: IssueWithRelations & { linkedPages: Page[] };
   projects: Project[];
   members: Member[];
   labels: Label[];
   allPages: FlatPage[];
+  cycles: Cycle[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -230,6 +240,13 @@ export function IssueDetail({
                 projects={projects}
                 value={issue.projectId}
                 onChange={(v) => persist(() => updateIssue(issue.id, { projectId: v }))}
+              />
+            </PropRow>
+            <PropRow label="Cycle">
+              <CyclePicker
+                cycles={cycles}
+                value={issue.cycleId}
+                onChange={(v) => persist(() => updateIssue(issue.id, { cycleId: v }))}
               />
             </PropRow>
             <PropRow label="Labels">

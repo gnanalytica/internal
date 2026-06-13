@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { db } from "@/db";
 import {
+  cycles,
+  initiatives,
   issueLabels,
   issuePageLinks,
   issues,
@@ -18,19 +20,28 @@ import {
 } from "@/db/schema";
 
 import type {
+  Cycle,
+  CycleWithCount,
   FlatIssue,
+  Initiative,
+  InitiativeWithCount,
   IssueWithRelations,
   Label,
   Member,
   Page,
   PageNode,
   Project,
+  ProjectWithIssueCount,
 } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 
 export type {
+  Cycle,
+  CycleWithCount,
   FlatIssue,
   FlatPage,
+  Initiative,
+  InitiativeWithCount,
   Issue,
   IssueWithRelations,
   Label,
@@ -38,6 +49,7 @@ export type {
   Page,
   PageNode,
   Project,
+  ProjectWithIssueCount,
 } from "@/lib/types";
 export { issueIdentifier } from "@/lib/types";
 
@@ -129,6 +141,7 @@ export async function getIssues(
     orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
     with: {
       project: true,
+      cycle: true,
       assignee: true,
       labels: { with: { label: true } },
     },
@@ -147,6 +160,7 @@ export async function getIssue(
     where: and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)),
     with: {
       project: true,
+      cycle: true,
       assignee: true,
       labels: { with: { label: true } },
       pageLinks: { with: { page: true } },
@@ -219,7 +233,12 @@ export async function getPage(
       issueLinks: {
         with: {
           issue: {
-            with: { project: true, assignee: true, labels: { with: { label: true } } },
+            with: {
+              project: true,
+              cycle: true,
+              assignee: true,
+              labels: { with: { label: true } },
+            },
           },
         },
       },
@@ -235,5 +254,96 @@ export async function getPage(
   };
 }
 
+// ---- Cycles ----
+
+export async function getCycles(workspaceId: string): Promise<CycleWithCount[]> {
+  const rows = await db.query.cycles.findMany({
+    where: eq(cycles.workspaceId, workspaceId),
+    orderBy: [desc(cycles.startDate)],
+    with: { issues: { columns: { id: true, status: true } } },
+  });
+  return rows.map((c) => ({
+    ...c,
+    issueCount: c.issues.length,
+    doneCount: c.issues.filter((i) => i.status === "done").length,
+  }));
+}
+
+export async function getCycle(
+  workspaceId: string,
+  id: string,
+): Promise<(Cycle & { issues: IssueWithRelations[] }) | null> {
+  const row = await db.query.cycles.findFirst({
+    where: and(eq(cycles.workspaceId, workspaceId), eq(cycles.id, id)),
+    with: {
+      issues: {
+        orderBy: [asc(issues.sortKey)],
+        with: {
+          project: true,
+          cycle: true,
+          assignee: true,
+          labels: { with: { label: true } },
+        },
+      },
+    },
+  });
+  if (!row) return null;
+  return {
+    ...row,
+    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
+  };
+}
+
+/** Cycles as a flat list for pickers. */
+export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
+  return db
+    .select()
+    .from(cycles)
+    .where(eq(cycles.workspaceId, workspaceId))
+    .orderBy(desc(cycles.startDate));
+}
+
+// ---- Initiatives ----
+
+export async function getInitiatives(
+  workspaceId: string,
+): Promise<InitiativeWithCount[]> {
+  const rows = await db.query.initiatives.findMany({
+    where: eq(initiatives.workspaceId, workspaceId),
+    orderBy: [asc(initiatives.name)],
+    with: { projects: { columns: { id: true } } },
+  });
+  return rows.map((i) => ({ ...i, projectCount: i.projects.length }));
+}
+
+export async function getInitiative(
+  workspaceId: string,
+  id: string,
+): Promise<(Initiative & { projects: ProjectWithIssueCount[] }) | null> {
+  const row = await db.query.initiatives.findFirst({
+    where: and(eq(initiatives.workspaceId, workspaceId), eq(initiatives.id, id)),
+    with: { projects: { with: { issues: { columns: { id: true, status: true } } } } },
+  });
+  if (!row) return null;
+  return {
+    ...row,
+    projects: row.projects.map((p) => ({
+      ...p,
+      issueCount: p.issues.length,
+      doneCount: p.issues.filter((i) => i.status === "done").length,
+    })),
+  };
+}
+
 // Re-export table objects used by actions.
-export { issues, pages, projects, labels, issueLabels, issuePageLinks, workspaces };
+export {
+  cycles,
+  initiatives,
+  issues,
+  pages,
+  projects,
+  labels,
+  issueLabels,
+  issuePageLinks,
+  workspaces,
+};

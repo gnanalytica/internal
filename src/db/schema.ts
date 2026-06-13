@@ -47,6 +47,20 @@ export const workspaceMembers = pgTable(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );
 
+/** Strategic groupings that contain projects (Linear-style initiatives). */
+export const initiatives = pgTable("initiatives", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("active"), // planned | active | completed
+  color: text("color").notNull().default("#8b5cf6"),
+  targetDate: timestamp("target_date", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const projects = pgTable(
   "projects",
   {
@@ -59,6 +73,9 @@ export const projects = pgTable(
     key: text("key").notNull(),
     description: text("description"),
     color: text("color").notNull().default("#6366f1"),
+    initiativeId: uuid("initiative_id").references(() => initiatives.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("projects_workspace_key_idx").on(t.workspaceId, t.key)],
@@ -73,6 +90,23 @@ export const labels = pgTable("labels", {
   color: text("color").notNull().default("#a1a1aa"),
 });
 
+/** Time-boxed iterations (Linear-style cycles / sprints). */
+export const cycles = pgTable(
+  "cycles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    number: integer("number").notNull(),
+    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+    endDate: timestamp("end_date", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("cycles_workspace_idx").on(t.workspaceId)],
+);
+
 export const issues = pgTable(
   "issues",
   {
@@ -81,6 +115,9 @@ export const issues = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    cycleId: uuid("cycle_id").references(() => cycles.id, {
       onDelete: "set null",
     }),
     // Per-project incrementing number, combined with project key for display.
@@ -173,10 +210,30 @@ export const usersRelations = relations(users, ({ many }) => ({
   assignedIssues: many(issues),
 }));
 
+export const initiativesRelations = relations(initiatives, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [initiatives.workspaceId],
+    references: [workspaces.id],
+  }),
+  projects: many(projects),
+}));
+
+export const cyclesRelations = relations(cycles, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [cycles.workspaceId],
+    references: [workspaces.id],
+  }),
+  issues: many(issues),
+}));
+
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [projects.workspaceId],
     references: [workspaces.id],
+  }),
+  initiative: one(initiatives, {
+    fields: [projects.initiativeId],
+    references: [initiatives.id],
   }),
   issues: many(issues),
 }));
@@ -189,6 +246,10 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   project: one(projects, {
     fields: [issues.projectId],
     references: [projects.id],
+  }),
+  cycle: one(cycles, {
+    fields: [issues.cycleId],
+    references: [cycles.id],
   }),
   assignee: one(users, {
     fields: [issues.assigneeId],

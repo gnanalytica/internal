@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Timer } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -17,7 +17,7 @@ import {
   type PriorityId,
   type StatusId,
 } from "@/lib/constants";
-import type { Label, Member, Project } from "@/lib/types";
+import type { Cycle, Initiative, Label, Member, Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const triggerCls =
@@ -226,6 +226,96 @@ export function LabelPicker({
             {value.includes(lb.id) && <Check className="size-3.5 opacity-70" />}
           </DropdownMenuItem>
         ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function CyclePicker({
+  cycles,
+  value,
+  onChange,
+  compact,
+}: {
+  cycles: Cycle[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+  compact?: boolean;
+}) {
+  const c = cycles.find((x) => x.id === value) ?? null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={triggerCls} aria-label="Set cycle">
+        <Timer className={cn("size-3.5", c ? "text-foreground" : "text-muted-foreground")} />
+        {!compact && <span>{c ? c.name : "No cycle"}</span>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-52">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+          <Timer className="size-3.5 text-muted-foreground" />
+          <span className="flex-1">No cycle</span>
+          {!value && <Check className="size-3.5 opacity-70" />}
+        </DropdownMenuItem>
+        {cycles.map((cy) => (
+          <DropdownMenuItem
+            key={cy.id}
+            onClick={() => onChange(cy.id)}
+            className="gap-2 text-xs"
+          >
+            <Timer className="size-3.5" />
+            <span className="flex-1 truncate">{cy.name}</span>
+            {value === cy.id && <Check className="size-3.5 opacity-70" />}
+          </DropdownMenuItem>
+        ))}
+        {cycles.length === 0 && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No cycles yet</div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function InitiativePicker({
+  initiatives,
+  value,
+  onChange,
+  compact,
+}: {
+  initiatives: Initiative[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+  compact?: boolean;
+}) {
+  const init = initiatives.find((x) => x.id === value) ?? null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={triggerCls} aria-label="Set initiative">
+        {init ? (
+          <Dot color={init.color} />
+        ) : (
+          <span className="size-2.5 rounded-full border border-dashed border-muted-foreground/60" />
+        )}
+        {!compact && <span>{init ? init.name : "No initiative"}</span>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-52">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+          <span className="size-2.5 rounded-full border border-dashed border-muted-foreground/60" />
+          <span className="flex-1">No initiative</span>
+          {!value && <Check className="size-3.5 opacity-70" />}
+        </DropdownMenuItem>
+        {initiatives.map((it) => (
+          <DropdownMenuItem
+            key={it.id}
+            onClick={() => onChange(it.id)}
+            className="gap-2 text-xs"
+          >
+            <Dot color={it.color} />
+            <span className="flex-1 truncate">{it.name}</span>
+            {value === it.id && <Check className="size-3.5 opacity-70" />}
+          </DropdownMenuItem>
+        ))}
+        {initiatives.length === 0 && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No initiatives yet</div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
