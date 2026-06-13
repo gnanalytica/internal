@@ -44,13 +44,36 @@ For the Play Store, use `--profile production` (builds an `.aab`) then
   to test against staging.
 - **Package id** — `app.json` → `expo.android.package`
   (`com.gnanalytica.internal`).
-- **App icon / splash image** — drop `icon.png` (1024×1024) and an adaptive icon
-  into `assets/`, then reference them under `expo.android.adaptiveIcon` /
-  `expo.icon`. Until then the branded in-app launch screen covers first paint.
 
-## Known caveat: Google sign-in inside a WebView
+## App icon, adaptive icon & splash
 
-Google blocks OAuth in embedded WebViews ("disallowed_useragent"). In the app,
-use **email/password** or **GitHub** sign-in, which work in a WebView. To enable
-native Google sign-in later, route it through the system browser with
-`expo-auth-session` / `expo-web-browser` — happy to wire that up when needed.
+Generated programmatically (no design tool needed) into `assets/`:
+
+```bash
+node scripts/make-icons.mjs   # writes icon.png, adaptive-icon.png, splash-icon.png, favicon.png
+```
+
+`app.json` wires `icon`, `android.adaptiveIcon` (white "i" on brand `#5e6ad2`),
+and an `expo-splash-screen` plugin splash. Tweak the colors/mark in
+`scripts/make-icons.mjs` and re-run to rebrand.
+
+## Sign-in / OAuth
+
+The app now handles OAuth inside the WebView:
+
+- A clean Chrome user-agent + inline popup handling
+  (`setSupportMultipleWindows={false}`) let **Google**, **GitHub**, and
+  **email/password** sign-in complete in the app — the session cookie is set in
+  the same WebView that runs the app.
+- Genuinely external links (anything not your app or an OAuth provider) open in
+  the device's system browser via `expo-web-browser`.
+
+Why not a pure "open the login in the system browser" handoff? The app's auth is
+an **httpOnly session cookie**, and Android Custom Tabs use a **separate cookie
+jar** from the WebView — so a cookie set in the system browser never reaches the
+app. Keeping the OAuth flow inside the WebView is what actually shares the
+session. If Google ever hard-blocks the embedded flow, the fully-native
+alternative is: native Google Sign-In → ID token → a backend "sign in with ID
+token" endpoint → set the returned session cookie in the WebView via
+`@react-native-cookies/cookies`. That needs an Android OAuth client (with the
+EAS build's SHA-1) and a small backend endpoint — happy to add it if needed.

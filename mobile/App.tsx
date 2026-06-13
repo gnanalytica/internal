@@ -1,9 +1,11 @@
 import Constants from "expo-constants";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,13 +16,43 @@ import {
   SafeAreaProvider,
   SafeAreaView,
 } from "react-native-safe-area-context";
-import { WebView, type WebViewNavigation } from "react-native-webview";
+import {
+  WebView,
+  type ShouldStartLoadRequest,
+  type WebViewNavigation,
+} from "react-native-webview";
 
 const APP_URL: string =
   (Constants.expoConfig?.extra?.appUrl as string) ??
   "https://internal.gnanalytica.com";
 
 const BRAND = "#5e6ad2";
+
+function hostOf(url: string): string {
+  const m = /^[a-z]+:\/\/([^/?#]+)/i.exec(url);
+  return m ? m[1].toLowerCase().replace(/:\d+$/, "") : "";
+}
+
+const APP_HOST = hostOf(APP_URL);
+
+// Hosts that must stay inside the WebView so the session cookie is shared —
+// the app itself plus the OAuth providers' sign-in pages.
+const IN_APP_SUFFIXES = [
+  "google.com",
+  "googleusercontent.com",
+  "googleapis.com",
+  "gstatic.com",
+  "github.com",
+  "githubassets.com",
+  "githubusercontent.com",
+];
+
+function stayInApp(url: string): boolean {
+  const host = hostOf(url);
+  if (!host) return true;
+  if (host === APP_HOST || host.endsWith(`.${APP_HOST}`)) return true;
+  return IN_APP_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`));
+}
 
 // A desktop-ish Chrome UA helps some embedded auth flows render correctly.
 const USER_AGENT =
@@ -52,6 +84,21 @@ export default function App() {
     canGoBack.current = nav.canGoBack;
   }, []);
 
+  // Keep the app + OAuth provider pages in the WebView (so the session cookie
+  // is shared); send any other link to the system browser.
+  const onShouldStart = useCallback((req: ShouldStartLoadRequest) => {
+    if (req.isTopFrame === false) return true;
+    const url = req.url;
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      if (stayInApp(url)) return true;
+      WebBrowser.openBrowserAsync(url).catch(() => {});
+      return false;
+    }
+    // mailto:, tel:, intent:, etc.
+    Linking.openURL(url).catch(() => {});
+    return false;
+  }, []);
+
   const reload = useCallback(() => {
     setError(false);
     setLoading(true);
@@ -73,6 +120,11 @@ export default function App() {
             thirdPartyCookiesEnabled
             domStorageEnabled
             javaScriptEnabled
+            // OAuth: load Google's sign-in popup inline (it opens target=_blank),
+            // and route only truly-external links to the system browser.
+            setSupportMultipleWindows={false}
+            javaScriptCanOpenWindowsAutomatically
+            onShouldStartLoadWithRequest={onShouldStart}
             // UX
             allowsBackForwardNavigationGestures
             pullToRefreshEnabled
