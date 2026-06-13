@@ -10,6 +10,7 @@ import {
   Database,
   FileText,
   LogOut,
+  MessageSquare,
   Plus,
   PenSquare,
   Search,
@@ -146,6 +147,13 @@ export function Sidebar({
             >
               <Users className="size-4" />
               Members
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => router.push("/settings/slack")}
+              className="gap-2 text-sm"
+            >
+              <MessageSquare className="size-4" />
+              Slack
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => router.push("/settings")}

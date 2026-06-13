@@ -31,6 +31,29 @@ import {
   pickColor,
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
+import { notifySlack } from "@/lib/slack";
+
+// ---- Slack ----
+
+export async function setSlackWebhook(url: string) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const clean = url.trim();
+  if (clean && !clean.startsWith("https://hooks.slack.com/")) {
+    throw new Error("That doesn't look like a Slack Incoming Webhook URL.");
+  }
+  await db
+    .update(workspaces)
+    .set({ slackWebhookUrl: clean || null })
+    .where(eq(workspaces.id, ws.id));
+  revalidatePath("/settings/slack");
+}
+
+export async function sendTestSlack() {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  await notifySlack(ws.id, `:wave: Test from *${ws.name}* — Slack is connected.`);
+}
 
 // ---- Workspaces (multi-tenancy) ----
 
@@ -220,6 +243,11 @@ export async function createIssue(input: {
     type: "created",
     data: null,
   });
+
+  await notifySlack(
+    ws.id,
+    `:memo: *${me.name}* created an issue: *${created.title}*`,
+  );
 
   revalidatePath("/issues");
   return created;
