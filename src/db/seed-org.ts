@@ -5,6 +5,7 @@ config({ path: ".env.local" });
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "./index";
+import { seedCrm } from "./seed-crm-data";
 
 /**
  * Provision the Gnanalytica company hub structure (per docs/ORG.md):
@@ -87,6 +88,8 @@ async function main() {
     { workspaceId: ws.id, name: "Admin", key: "ADM", icon: "🗂️", color: "#94a3b8" },
     { workspaceId: ws.id, name: "People (HR)", key: "HR", icon: "👥", color: "#ec4899" },
     { workspaceId: ws.id, name: "Finance", key: "FIN", icon: "💶", color: "#f59e0b" },
+    { workspaceId: ws.id, name: "Sales", key: "SAL", icon: "📈", color: "#0ea5e9" },
+    { workspaceId: ws.id, name: "Marketing", key: "MKT", icon: "📣", color: "#f43f5e" },
   ]);
 
   // ---- Initiatives ----
@@ -291,6 +294,9 @@ async function main() {
       h(2, "Providers"), bullets(["Bookkeeper/accountant: …", "Payroll / EOR: …", "Bank (EUR): …"]),
     ),
   );
+
+  // ---- Sales / Marketing / CRM layer ----
+  await seedCrm(ws, owner);
 
   console.log("Done — Gnanalytica hub provisioned.");
 }
