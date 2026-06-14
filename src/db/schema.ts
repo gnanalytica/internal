@@ -760,3 +760,340 @@ export const issuePageLinksRelations = relations(issuePageLinks, ({ one }) => ({
     references: [pages.id],
   }),
 }));
+
+/**
+ * ---- CRM / Sales / Marketing (the Product × Department matrix) ----
+ *
+ * Products are `projects`. Every department record carries `productId` — that
+ * single link is the matrix: filter by product for the product lens, omit it
+ * (and group by product) for the company-wide department lens. Accounts &
+ * contacts are the shared CRM layer (workspace-wide) that Sales and Marketing
+ * both read from (HubSpot-style). Enum-like columns are plain text validated in
+ * the app (see src/lib/departments.ts), matching the issues/status convention.
+ */
+
+/** Shared CRM layer: companies / organisations. */
+export const crmAccounts = pgTable(
+  "crm_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    website: text("website"),
+    industry: text("industry"),
+    type: text("type").notNull().default("prospect"), // prospect | customer | partner | churned
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    entity: text("entity").notNull().default("Global"), // India | Netherlands | Global
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("crm_accounts_ws_idx").on(t.workspaceId)],
+);
+
+/** Shared CRM layer: people at accounts (leads/prospects/customers). */
+export const crmContacts = pgTable(
+  "crm_contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").references(() => crmAccounts.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    email: text("email"),
+    title: text("title"),
+    phone: text("phone"),
+    lifecycleStage: text("lifecycle_stage").notNull().default("lead"), // lead | qualified | customer
+    source: text("source"), // where the contact came from (campaign, referral, …)
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    entity: text("entity").notNull().default("Global"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("crm_contacts_ws_idx").on(t.workspaceId)],
+);
+
+/** Sales pipeline: a deal/opportunity, scoped to one product. */
+export const deals = pgTable(
+  "deals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    accountId: uuid("account_id").references(() => crmAccounts.id, {
+      onDelete: "set null",
+    }),
+    contactId: uuid("contact_id").references(() => crmContacts.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    stage: text("stage").notNull().default("lead"), // lead|qualified|proposal|negotiation|won|lost
+    value: integer("value").notNull().default(0),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    expectedClose: timestamp("expected_close", { withTimezone: true }),
+    entity: text("entity").notNull().default("Global"),
+    // Fractional sort key for ordering within a pipeline column.
+    sortKey: text("sort_key").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("deals_ws_idx").on(t.workspaceId),
+    index("deals_product_idx").on(t.productId),
+  ],
+);
+
+/** CRM/Sales timeline entry (note, call, email, task, meeting). */
+export const crmActivities = pgTable(
+  "crm_activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    accountId: uuid("account_id").references(() => crmAccounts.id, {
+      onDelete: "cascade",
+    }),
+    contactId: uuid("contact_id").references(() => crmContacts.id, {
+      onDelete: "cascade",
+    }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    type: text("type").notNull().default("note"), // note|call|email|task|meeting
+    body: text("body"),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    done: boolean("done").notNull().default(false),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("crm_activities_ws_idx").on(t.workspaceId),
+    index("crm_activities_deal_idx").on(t.dealId),
+  ],
+);
+
+/** Marketing campaign, scoped to one product. */
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    channel: text("channel").notNull().default("email"), // email|linkedin|events|content|paid|referral
+    status: text("status").notNull().default("planned"), // planned|active|done
+    startDate: timestamp("start_date", { withTimezone: true }),
+    endDate: timestamp("end_date", { withTimezone: true }),
+    budget: integer("budget").notNull().default(0),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    entity: text("entity").notNull().default("Global"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("campaigns_ws_idx").on(t.workspaceId),
+    index("campaigns_product_idx").on(t.productId),
+  ],
+);
+
+/** Marketing content-calendar item, optionally attached to a campaign. */
+export const contentItems = pgTable(
+  "content_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    channel: text("channel"),
+    status: text("status").notNull().default("idea"), // idea|draft|scheduled|published
+    publishDate: timestamp("publish_date", { withTimezone: true }),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("content_items_ws_idx").on(t.workspaceId),
+    index("content_items_product_idx").on(t.productId),
+  ],
+);
+
+export const crmAccountsRelations = relations(crmAccounts, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [crmAccounts.workspaceId],
+    references: [workspaces.id],
+  }),
+  owner: one(users, { fields: [crmAccounts.ownerId], references: [users.id] }),
+  contacts: many(crmContacts),
+  deals: many(deals),
+}));
+
+export const crmContactsRelations = relations(crmContacts, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [crmContacts.workspaceId],
+    references: [workspaces.id],
+  }),
+  account: one(crmAccounts, {
+    fields: [crmContacts.accountId],
+    references: [crmAccounts.id],
+  }),
+  owner: one(users, { fields: [crmContacts.ownerId], references: [users.id] }),
+}));
+
+export const dealsRelations = relations(deals, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [deals.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, { fields: [deals.productId], references: [projects.id] }),
+  account: one(crmAccounts, {
+    fields: [deals.accountId],
+    references: [crmAccounts.id],
+  }),
+  contact: one(crmContacts, {
+    fields: [deals.contactId],
+    references: [crmContacts.id],
+  }),
+  owner: one(users, { fields: [deals.ownerId], references: [users.id] }),
+  activities: many(crmActivities),
+}));
+
+export const crmActivitiesRelations = relations(crmActivities, ({ one }) => ({
+  deal: one(deals, { fields: [crmActivities.dealId], references: [deals.id] }),
+  account: one(crmAccounts, {
+    fields: [crmActivities.accountId],
+    references: [crmAccounts.id],
+  }),
+  contact: one(crmContacts, {
+    fields: [crmActivities.contactId],
+    references: [crmContacts.id],
+  }),
+  actor: one(users, { fields: [crmActivities.actorId], references: [users.id] }),
+}));
+
+export const campaignsRelations = relations(campaigns, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [campaigns.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, {
+    fields: [campaigns.productId],
+    references: [projects.id],
+  }),
+  owner: one(users, { fields: [campaigns.ownerId], references: [users.id] }),
+  content: many(contentItems),
+}));
+
+export const contentItemsRelations = relations(contentItems, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [contentItems.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, {
+    fields: [contentItems.productId],
+    references: [projects.id],
+  }),
+  campaign: one(campaigns, {
+    fields: [contentItems.campaignId],
+    references: [campaigns.id],
+  }),
+  owner: one(users, { fields: [contentItems.ownerId], references: [users.id] }),
+}));
+
+/**
+ * ---- Finance (the 4th department module) ----
+ *
+ * Product-level revenue tracking: invoices (optionally tied to a CRM account)
+ * and expenses. This is the coordination/P&L layer per product — the regulated
+ * statutory books stay per-entity in external tools (see docs/ORG.md).
+ */
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    accountId: uuid("account_id").references(() => crmAccounts.id, {
+      onDelete: "set null",
+    }),
+    number: text("number"),
+    status: text("status").notNull().default("draft"), // draft|sent|paid|overdue
+    amount: integer("amount").notNull().default(0),
+    entity: text("entity").notNull().default("Global"),
+    issueDate: timestamp("issue_date", { withTimezone: true }),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("invoices_ws_idx").on(t.workspaceId),
+    index("invoices_product_idx").on(t.productId),
+  ],
+);
+
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    vendor: text("vendor"),
+    category: text("category").notNull().default("other"), // tooling|contractors|marketing|infra|other
+    amount: integer("amount").notNull().default(0),
+    status: text("status").notNull().default("planned"), // planned|paid
+    entity: text("entity").notNull().default("Global"),
+    spentDate: timestamp("spent_date", { withTimezone: true }),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("expenses_ws_idx").on(t.workspaceId),
+    index("expenses_product_idx").on(t.productId),
+  ],
+);
+
+export const invoicesRelations = relations(invoices, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [invoices.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, { fields: [invoices.productId], references: [projects.id] }),
+  account: one(crmAccounts, {
+    fields: [invoices.accountId],
+    references: [crmAccounts.id],
+  }),
+  owner: one(users, { fields: [invoices.ownerId], references: [users.id] }),
+}));
+
+export const expensesRelations = relations(expenses, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [expenses.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, { fields: [expenses.productId], references: [projects.id] }),
+  owner: one(users, { fields: [expenses.ownerId], references: [users.id] }),
+}));

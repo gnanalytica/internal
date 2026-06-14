@@ -10,13 +10,21 @@ import {
   activity,
   apiKeys,
   attachments,
+  campaigns,
   comments,
+  contentItems,
+  crmAccounts,
+  crmActivities,
+  crmContacts,
   cycles,
+  deals,
+  expenses,
   favorites,
   databaseFields,
   databaseRows,
   databases,
   initiatives,
+  invoices,
   issueLabels,
   issuePageLinks,
   issueRelations,
@@ -37,13 +45,21 @@ import {
 } from "@/db/schema";
 
 import type {
+  AccountDetail,
+  CampaignWithRelations,
+  ContactWithAccount,
+  ContentItemWithCampaign,
+  CrmAccount,
   Cycle,
   CycleWithCount,
   Database,
   DatabaseWithSchema,
+  DealWithRelations,
+  ExpenseWithRelations,
   FlatIssue,
   Initiative,
   InitiativeWithCount,
+  InvoiceWithRelations,
   IssueWithRelations,
   Label,
   Member,
@@ -51,6 +67,7 @@ import type {
   Page,
   PageNode,
   Project,
+  ProductSummary,
   ProjectWithIssueCount,
   Role,
   Team,
@@ -1264,6 +1281,189 @@ export async function getTeamsFlat(workspaceId: string): Promise<Team[]> {
     .from(teams)
     .where(eq(teams.workspaceId, workspaceId))
     .orderBy(asc(teams.name));
+}
+
+// ---- CRM / Sales / Marketing (Product × Department matrix) ----
+
+/** A product is a project; this is a thin alias for clarity at call sites. */
+export async function getProduct(
+  workspaceId: string,
+  id: string,
+): Promise<Project | null> {
+  const [row] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Deals with relations. Pass `productId` for the product lens (one product's
+ * pipeline); omit it for the company-wide Sales lens (all products).
+ */
+export async function getDeals(
+  workspaceId: string,
+  productId?: string,
+): Promise<DealWithRelations[]> {
+  const rows = await db.query.deals.findMany({
+    where: productId
+      ? and(eq(deals.workspaceId, workspaceId), eq(deals.productId, productId))
+      : eq(deals.workspaceId, workspaceId),
+    orderBy: [asc(deals.sortKey), desc(deals.createdAt)],
+    with: { account: true, contact: true, owner: true, product: true },
+  });
+  return rows;
+}
+
+export async function getAccounts(workspaceId: string): Promise<CrmAccount[]> {
+  return db
+    .select()
+    .from(crmAccounts)
+    .where(eq(crmAccounts.workspaceId, workspaceId))
+    .orderBy(asc(crmAccounts.name));
+}
+
+export async function getContacts(
+  workspaceId: string,
+): Promise<ContactWithAccount[]> {
+  return db.query.crmContacts.findMany({
+    where: eq(crmContacts.workspaceId, workspaceId),
+    orderBy: [asc(crmContacts.name)],
+    with: { account: true, owner: true },
+  });
+}
+
+export async function getAccount(
+  workspaceId: string,
+  id: string,
+): Promise<AccountDetail | null> {
+  const row = await db.query.crmAccounts.findFirst({
+    where: and(eq(crmAccounts.workspaceId, workspaceId), eq(crmAccounts.id, id)),
+    with: {
+      owner: true,
+      contacts: { orderBy: [asc(crmContacts.name)] },
+      deals: { orderBy: [asc(deals.sortKey)] },
+    },
+  });
+  if (!row) return null;
+  const activities = await db.query.crmActivities.findMany({
+    where: eq(crmActivities.accountId, id),
+    orderBy: [desc(crmActivities.createdAt)],
+    with: { actor: true },
+  });
+  return { ...row, activities };
+}
+
+/** Campaigns with content counts. Pass `productId` for the product lens. */
+export async function getCampaigns(
+  workspaceId: string,
+  productId?: string,
+): Promise<CampaignWithRelations[]> {
+  const rows = await db.query.campaigns.findMany({
+    where: productId
+      ? and(
+          eq(campaigns.workspaceId, workspaceId),
+          eq(campaigns.productId, productId),
+        )
+      : eq(campaigns.workspaceId, workspaceId),
+    orderBy: [desc(campaigns.createdAt)],
+    with: { owner: true, product: true, content: { columns: { id: true } } },
+  });
+  return rows.map(({ content, ...c }) => ({ ...c, contentCount: content.length }));
+}
+
+export async function getContentItems(
+  workspaceId: string,
+  productId?: string,
+): Promise<ContentItemWithCampaign[]> {
+  return db.query.contentItems.findMany({
+    where: productId
+      ? and(
+          eq(contentItems.workspaceId, workspaceId),
+          eq(contentItems.productId, productId),
+        )
+      : eq(contentItems.workspaceId, workspaceId),
+    orderBy: [asc(contentItems.publishDate), desc(contentItems.createdAt)],
+    with: { campaign: true, owner: true },
+  });
+}
+
+/** Per-product rollup counts for the products list / hub cards. */
+export async function getProductSummaries(
+  workspaceId: string,
+): Promise<ProductSummary[]> {
+  const [products, allDeals, allIssues, allCampaigns, allInvoices] = await Promise.all([
+    getProjects(workspaceId),
+    db
+      .select({
+        productId: deals.productId,
+        stage: deals.stage,
+        value: deals.value,
+      })
+      .from(deals)
+      .where(eq(deals.workspaceId, workspaceId)),
+    db
+      .select({ projectId: issues.projectId, status: issues.status })
+      .from(issues)
+      .where(eq(issues.workspaceId, workspaceId)),
+    db
+      .select({ productId: campaigns.productId, status: campaigns.status })
+      .from(campaigns)
+      .where(eq(campaigns.workspaceId, workspaceId)),
+    db
+      .select({ productId: invoices.productId, status: invoices.status, amount: invoices.amount })
+      .from(invoices)
+      .where(eq(invoices.workspaceId, workspaceId)),
+  ]);
+
+  const openStages = new Set(["lead", "qualified", "proposal", "negotiation"]);
+  return products.map((p) => {
+    const pDeals = allDeals.filter((d) => d.productId === p.id);
+    const open = pDeals.filter((d) => openStages.has(d.stage));
+    return {
+      ...p,
+      openDeals: open.length,
+      pipelineValue: open.reduce((sum, d) => sum + (d.value ?? 0), 0),
+      openIssues: allIssues.filter(
+        (i) => i.projectId === p.id && i.status !== "done" && i.status !== "canceled",
+      ).length,
+      activeCampaigns: allCampaigns.filter(
+        (c) => c.productId === p.id && c.status === "active",
+      ).length,
+      revenue: allInvoices
+        .filter((inv) => inv.productId === p.id && inv.status === "paid")
+        .reduce((sum, inv) => sum + (inv.amount ?? 0), 0),
+    };
+  });
+}
+
+/** Invoices with relations. Pass `productId` for the product lens. */
+export async function getInvoices(
+  workspaceId: string,
+  productId?: string,
+): Promise<InvoiceWithRelations[]> {
+  return db.query.invoices.findMany({
+    where: productId
+      ? and(eq(invoices.workspaceId, workspaceId), eq(invoices.productId, productId))
+      : eq(invoices.workspaceId, workspaceId),
+    orderBy: [desc(invoices.issueDate), desc(invoices.createdAt)],
+    with: { account: true, product: true, owner: true },
+  });
+}
+
+/** Expenses with relations. Pass `productId` for the product lens. */
+export async function getExpenses(
+  workspaceId: string,
+  productId?: string,
+): Promise<ExpenseWithRelations[]> {
+  return db.query.expenses.findMany({
+    where: productId
+      ? and(eq(expenses.workspaceId, workspaceId), eq(expenses.productId, productId))
+      : eq(expenses.workspaceId, workspaceId),
+    orderBy: [desc(expenses.spentDate), desc(expenses.createdAt)],
+    with: { product: true, owner: true },
+  });
 }
 
 // Re-export table objects used by actions.

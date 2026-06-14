@@ -6,15 +6,16 @@ import { useState, useTransition } from "react";
 import {
   BarChart3,
   Bell,
+  Boxes,
   ChevronDown,
   ChevronRight,
   CircleDot,
   Database,
-  FileText,
   Folder,
   KeyRound,
   LogOut,
   Map as MapIcon,
+  Megaphone,
   MessageSquare,
   Plus,
   PenSquare,
@@ -25,7 +26,9 @@ import {
   Target,
   Timer,
   Trash2,
+  TrendingUp,
   Users,
+  Wallet,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -296,6 +299,32 @@ export function Sidebar({
           label="Databases"
         />
 
+        {/* Departments — the company-wide lens across all products */}
+        <NavItem
+          href="/products"
+          active={pathname === "/products"}
+          icon={<Boxes className="size-4" />}
+          label="Products"
+        />
+        <NavItem
+          href="/sales"
+          active={pathname.startsWith("/sales")}
+          icon={<TrendingUp className="size-4" />}
+          label="Sales"
+        />
+        <NavItem
+          href="/marketing"
+          active={pathname.startsWith("/marketing")}
+          icon={<Megaphone className="size-4" />}
+          label="Marketing"
+        />
+        <NavItem
+          href="/finance"
+          active={pathname.startsWith("/finance")}
+          icon={<Wallet className="size-4" />}
+          label="Finance"
+        />
+
         {/* Favorites */}
         {favorites.length > 0 && (
           <Section
@@ -321,35 +350,23 @@ export function Sidebar({
           </Section>
         )}
 
-        {/* Projects */}
+        {/* Products — each expands to its department modules */}
         <Section
-          title="Projects"
+          title="Products"
           open={showProjects}
           onToggle={() => setShowProjects((v) => !v)}
           action={
             <Link
-              href="/projects"
+              href="/products"
               className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              aria-label="All projects"
+              aria-label="All products"
             >
               <Folder className="size-3.5" />
             </Link>
           }
         >
           {projects.map((p) => (
-            <NavItem
-              key={p.id}
-              href={`/projects/${p.id}`}
-              active={pathname === `/projects/${p.id}`}
-              icon={
-                <span
-                  className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
-                  style={{ backgroundColor: p.color }}
-                />
-              }
-              label={p.name}
-              trailing={<span className="font-mono text-[10px] text-muted-foreground">{p.key}</span>}
-            />
+            <ProductNavItem key={p.id} product={p} pathname={pathname} />
           ))}
         </Section>
 
@@ -427,6 +444,67 @@ function NavItem({
       <span className="flex-1 truncate">{label}</span>
       {trailing}
     </Link>
+  );
+}
+
+function ProductNavItem({
+  product,
+  pathname,
+}: {
+  product: Project;
+  pathname: string;
+}) {
+  const base = `/products/${product.id}`;
+  const [open, setOpen] = useState(pathname.startsWith(base));
+  const depts = [
+    { href: `${base}/engineering`, icon: <CircleDot className="size-3.5" />, label: "Engineering" },
+    { href: `${base}/sales`, icon: <TrendingUp className="size-3.5" />, label: "Sales" },
+    { href: `${base}/marketing`, icon: <Megaphone className="size-3.5" />, label: "Marketing" },
+    { href: `${base}/finance`, icon: <Wallet className="size-3.5" />, label: "Finance" },
+  ];
+  return (
+    <div>
+      <div
+        className={cn(
+          "group/prod flex items-center gap-1 rounded-md pr-1 text-sm transition-colors",
+          pathname === base
+            ? "bg-sidebar-accent font-medium text-foreground"
+            : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+        )}
+      >
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:bg-black/5"
+          aria-label={open ? "Collapse" : "Expand"}
+        >
+          <ChevronRight className={cn("size-3 transition-transform", open && "rotate-90")} />
+        </button>
+        <Link href={base} className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
+          <span
+            className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+            style={{ backgroundColor: product.color }}
+          />
+          <span className="flex-1 truncate">{product.name}</span>
+          <span className="font-mono text-[10px] text-muted-foreground">{product.key}</span>
+        </Link>
+      </div>
+      {open &&
+        depts.map((d) => (
+          <Link
+            key={d.href}
+            href={d.href}
+            className={cn(
+              "flex items-center gap-2 rounded-md py-1.5 pl-7 pr-2 text-sm transition-colors",
+              pathname === d.href
+                ? "bg-sidebar-accent font-medium text-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            )}
+          >
+            <span className="shrink-0">{d.icon}</span>
+            <span className="truncate">{d.label}</span>
+          </Link>
+        ))}
+    </div>
   );
 }
 
