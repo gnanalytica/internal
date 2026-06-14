@@ -162,6 +162,12 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       { workspaceId: ws.id, productId: productId("Healthytica"), vendor: "Vercel", category: "infra", amount: 200, status: "paid", entity: "Global", ownerId: owner.id },
       { workspaceId: ws.id, productId: productId("Valytica"), vendor: "Design contractor", category: "contractors", amount: 1500, status: "planned", entity: "India", ownerId: owner.id },
     ]);
+
+    // Support: a couple of tickets.
+    await db.insert(schema.tickets).values([
+      { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Apollo Hospitals"), subject: "Report PDF export is blank", status: "open", priority: "high", requesterEmail: "reddy@apollo.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
+      { workspaceId: ws.id, productId: productId("Valytica"), accountId: accId("Mumbai Valuers LLP"), subject: "Add bulk valuation import", status: "pending", priority: "normal", requesterEmail: "anita@mumbaivaluers.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
+    ]);
   }
 
   // ---- Wiki: Sales & Marketing Playbook (under Company Handbook if present) ----

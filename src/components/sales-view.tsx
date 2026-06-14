@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
 
 import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
@@ -199,6 +200,12 @@ function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: ()
         onBlur={(e) => e.target.value !== (account.website ?? "") && upd({ website: e.target.value || null })}
         className={fieldCls + " w-40"}
       />
+      <Link
+        href={`/accounts/${account.id}`}
+        className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
+      >
+        Open <ArrowUpRight className="size-3.5" />
+      </Link>
       <button
         onClick={() => start(async () => { await deleteAccount(account.id); onChanged(); })}
         className="text-xs text-muted-foreground hover:text-destructive"

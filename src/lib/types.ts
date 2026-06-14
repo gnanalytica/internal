@@ -17,6 +17,8 @@ import type {
   pages,
   projects,
   teams,
+  ticketComments,
+  tickets,
   users,
   workspaces,
 } from "@/db/schema";
@@ -100,6 +102,18 @@ export type ExpenseWithRelations = Expense & {
   owner: Member | null;
 };
 
+export type Ticket = typeof tickets.$inferSelect;
+export type TicketComment = typeof ticketComments.$inferSelect;
+
+export type TicketWithRelations = Ticket & {
+  account: CrmAccount | null;
+  contact: CrmContact | null;
+  assignee: Member | null;
+  product: Project | null;
+};
+
+export type TicketCommentWithAuthor = TicketComment & { author: Member | null };
+
 /** A product (project) plus the counts shown on the product hub cards. */
 export type ProductSummary = Project & {
   openDeals: number;
@@ -107,6 +121,7 @@ export type ProductSummary = Project & {
   openIssues: number;
   activeCampaigns: number;
   revenue: number; // sum of paid invoices
+  openTickets: number;
 };
 
 export type IssueParentRef = {

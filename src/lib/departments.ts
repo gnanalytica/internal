@@ -9,7 +9,12 @@
  * department lens (`/sales`).
  */
 
-export type DepartmentSlug = "engineering" | "sales" | "marketing" | "finance";
+export type DepartmentSlug =
+  | "engineering"
+  | "sales"
+  | "marketing"
+  | "finance"
+  | "support";
 
 export const DEPARTMENTS = [
   {
@@ -40,6 +45,13 @@ export const DEPARTMENTS = [
     icon: "💶",
     color: "#22c55e",
     tool: "Invoices & expenses (books stay external)",
+  },
+  {
+    slug: "support",
+    label: "Support",
+    icon: "🎧",
+    color: "#f97316",
+    tool: "Zendesk / Intercom-style tickets",
   },
 ] as const;
 
@@ -136,6 +148,26 @@ export const EXPENSE_CATEGORIES = [
   { id: "marketing", label: "Marketing", color: "#f43f5e" },
   { id: "infra", label: "Infrastructure", color: "#0ea5e9" },
   { id: "other", label: "Other", color: "#94a3b8" },
+] as const;
+
+// ---- Support: ticket queue (order = board columns) ----
+export const TICKET_STATUSES = [
+  { id: "open", label: "Open", color: "#ef4444" },
+  { id: "pending", label: "Pending", color: "#f59e0b" },
+  { id: "solved", label: "Solved", color: "#10b981" },
+  { id: "closed", label: "Closed", color: "#94a3b8" },
+] as const;
+
+export type TicketStatusId = (typeof TICKET_STATUSES)[number]["id"];
+export const isTicketStatus = (v: string): v is TicketStatusId =>
+  TICKET_STATUSES.some((s) => s.id === v);
+export const OPEN_TICKET_STATUSES: TicketStatusId[] = ["open", "pending"];
+
+export const TICKET_PRIORITIES = [
+  { id: "urgent", label: "Urgent", color: "#ef4444" },
+  { id: "high", label: "High", color: "#f59e0b" },
+  { id: "normal", label: "Normal", color: "#6366f1" },
+  { id: "low", label: "Low", color: "#94a3b8" },
 ] as const;
 
 export const ENTITIES = [

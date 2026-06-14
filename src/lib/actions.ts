@@ -38,6 +38,8 @@ import {
   projects,
   teamMembers,
   teams,
+  ticketComments,
+  tickets,
   users,
   webhooks,
   workspaceMembers,
@@ -1802,6 +1804,7 @@ function revalidateMatrix(productId?: string | null) {
   revalidatePath("/sales");
   revalidatePath("/marketing");
   revalidatePath("/finance");
+  revalidatePath("/support");
   revalidatePath("/products");
   if (productId) revalidatePath(`/products/${productId}`, "layout");
   revalidatePath("/", "layout");
@@ -2297,4 +2300,110 @@ export async function deleteExpense(id: string) {
   const ws = await getWorkspace();
   await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.workspaceId, ws.id)));
   revalidateMatrix();
+}
+
+// ---- Support: tickets ----
+export async function createTicket(input: {
+  productId: string | null;
+  subject?: string;
+  body?: string | null;
+  status?: string;
+  priority?: string;
+  accountId?: string | null;
+  contactId?: string | null;
+  assigneeId?: string | null;
+  requesterEmail?: string | null;
+  entity?: string;
+}) {
+  const ws = await getWorkspace();
+  const [created] = await db
+    .insert(tickets)
+    .values({
+      workspaceId: ws.id,
+      productId: input.productId,
+      subject: input.subject?.trim() || "New ticket",
+      body: input.body ?? null,
+      status: input.status ?? "open",
+      priority: input.priority ?? "normal",
+      accountId: input.accountId ?? null,
+      contactId: input.contactId ?? null,
+      assigneeId: input.assigneeId ?? null,
+      requesterEmail: input.requesterEmail ?? null,
+      entity: input.entity ?? "Global",
+      sortKey: `z${Date.now()}`,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+export async function updateTicket(
+  id: string,
+  patch: Partial<{
+    subject: string;
+    body: string | null;
+    status: string;
+    priority: string;
+    accountId: string | null;
+    contactId: string | null;
+    assigneeId: string | null;
+    requesterEmail: string | null;
+    entity: string;
+  }>,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(tickets)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(tickets.id, id), eq(tickets.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+/** Persist ticket board drag-and-drop: a batch of {id, status, sortKey}. */
+export async function moveTickets(changed: { id: string; status: string; sortKey: string }[]) {
+  const ws = await getWorkspace();
+  await Promise.all(
+    changed.map((c) =>
+      db
+        .update(tickets)
+        .set({ status: c.status, sortKey: c.sortKey, updatedAt: new Date() })
+        .where(and(eq(tickets.id, c.id), eq(tickets.workspaceId, ws.id))),
+    ),
+  );
+  revalidateMatrix();
+}
+
+export async function deleteTicket(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(tickets).where(and(eq(tickets.id, id), eq(tickets.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function loadTicketComments(ticketId: string) {
+  const ws = await getWorkspace();
+  return db.query.ticketComments.findMany({
+    where: and(
+      eq(ticketComments.workspaceId, ws.id),
+      eq(ticketComments.ticketId, ticketId),
+    ),
+    orderBy: (c, { asc }) => [asc(c.createdAt)],
+    with: { author: true },
+  });
+}
+
+export async function addTicketComment(ticketId: string, body: string) {
+  const text = body?.trim();
+  if (!text) return;
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  await db.insert(ticketComments).values({
+    workspaceId: ws.id,
+    ticketId,
+    authorId: me.id,
+    body: text,
+  });
+  await db
+    .update(tickets)
+    .set({ updatedAt: new Date() })
+    .where(and(eq(tickets.id, ticketId), eq(tickets.workspaceId, ws.id)));
 }
