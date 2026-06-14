@@ -51,7 +51,8 @@ async function main() {
     .where(eq(schema.workspaces.slug, "gnanalytica"))
     .limit(1);
   if (existing[0]) {
-    console.log("Gnanalytica workspace already exists — nothing to do.");
+    console.log("Gnanalytica workspace already exists — syncing admins only.");
+    await ensureWorkspaceAdmins(existing[0].id);
     return;
   }
 
