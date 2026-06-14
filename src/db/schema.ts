@@ -80,6 +80,9 @@ export const projects = pgTable(
     initiativeId: uuid("initiative_id").references(() => initiatives.id, {
       onDelete: "set null",
     }),
+    // Which department modules are enabled for this product. null = all enabled
+    // (the auto-spawn default); an explicit array restricts to those slugs.
+    enabledDepartments: jsonb("enabled_departments").$type<string[] | null>(),
     startDate: timestamp("start_date", { withTimezone: true }),
     targetDate: timestamp("target_date", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

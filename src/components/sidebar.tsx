@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { createPage, setActiveWorkspace } from "@/lib/actions";
+import { enabledDepartments, type DepartmentSlug } from "@/lib/departments";
 import { authClient } from "@/lib/auth/client";
 import type {
   FavoriteItem,
@@ -463,13 +464,18 @@ function ProductNavItem({
 }) {
   const base = `/products/${product.id}`;
   const [open, setOpen] = useState(pathname.startsWith(base));
-  const depts = [
-    { href: `${base}/engineering`, icon: <CircleDot className="size-3.5" />, label: "Engineering" },
-    { href: `${base}/sales`, icon: <TrendingUp className="size-3.5" />, label: "Sales" },
-    { href: `${base}/marketing`, icon: <Megaphone className="size-3.5" />, label: "Marketing" },
-    { href: `${base}/finance`, icon: <Wallet className="size-3.5" />, label: "Finance" },
-    { href: `${base}/support`, icon: <LifeBuoy className="size-3.5" />, label: "Support" },
-  ];
+  const deptIcons: Record<DepartmentSlug, React.ReactNode> = {
+    engineering: <CircleDot className="size-3.5" />,
+    sales: <TrendingUp className="size-3.5" />,
+    marketing: <Megaphone className="size-3.5" />,
+    finance: <Wallet className="size-3.5" />,
+    support: <LifeBuoy className="size-3.5" />,
+  };
+  const depts = enabledDepartments(product.enabledDepartments).map((d) => ({
+    href: `${base}/${d.slug}`,
+    icon: deptIcons[d.slug],
+    label: d.label,
+  }));
   return (
     <div>
       <div

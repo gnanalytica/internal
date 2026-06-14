@@ -6,7 +6,9 @@ import {
   DEPARTMENTS,
   OPEN_DEAL_STAGES,
   OPEN_TICKET_STATUSES,
+  enabledDepartments,
   isDealStage,
+  isDepartmentEnabled,
   isTicketStatus,
   optionMeta,
 } from "@/lib/departments";
@@ -52,6 +54,28 @@ describe("ticket statuses", () => {
     expect(isTicketStatus("pending")).toBe(true);
     expect(isTicketStatus("archived")).toBe(false);
     expect(OPEN_TICKET_STATUSES).toEqual(["open", "pending"]);
+  });
+});
+
+describe("per-product department config", () => {
+  it("treats null as all departments enabled (auto-spawn default)", () => {
+    expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
+      "engineering",
+      "sales",
+      "marketing",
+      "finance",
+      "support",
+    ]);
+    expect(isDepartmentEnabled(null, "support")).toBe(true);
+  });
+
+  it("restricts to an explicit list, preserving canonical order", () => {
+    expect(enabledDepartments(["support", "engineering"]).map((d) => d.slug)).toEqual([
+      "engineering",
+      "support",
+    ]);
+    expect(isDepartmentEnabled(["engineering"], "sales")).toBe(false);
+    expect(isDepartmentEnabled(["engineering", "sales"], "sales")).toBe(true);
   });
 });
 

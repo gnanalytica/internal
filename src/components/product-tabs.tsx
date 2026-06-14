@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { enabledDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
@@ -12,11 +13,10 @@ export function ProductTabs({ product }: { product: Project }) {
   const base = `/products/${product.id}`;
   const tabs = [
     { href: base, label: "Overview" },
-    { href: `${base}/engineering`, label: "Engineering" },
-    { href: `${base}/sales`, label: "Sales" },
-    { href: `${base}/marketing`, label: "Marketing" },
-    { href: `${base}/finance`, label: "Finance" },
-    { href: `${base}/support`, label: "Support" },
+    ...enabledDepartments(product.enabledDepartments).map((d) => ({
+      href: `${base}/${d.slug}`,
+      label: d.label,
+    })),
   ];
   return (
     <div className="flex items-center gap-1 border-b px-4 pt-2.5">

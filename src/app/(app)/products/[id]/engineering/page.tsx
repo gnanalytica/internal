@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { IssuesView } from "@/components/issues-view";
+import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getIssues,
   getLabels,
@@ -20,6 +21,7 @@ export default async function ProductEngineeringPage({
   const ws = await getWorkspace();
   const product = await getProduct(ws.id, id);
   if (!product) notFound();
+  if (!isDepartmentEnabled(product.enabledDepartments, "engineering")) notFound();
 
   const [allIssues, projects, members, labels, savedViews] = await Promise.all([
     getIssues(ws.id),

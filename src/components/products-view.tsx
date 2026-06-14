@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { CircleDot, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
 
+import { enabledDepartments, type DepartmentSlug } from "@/lib/departments";
 import { formatMoney } from "@/lib/matrix-format";
 import type { ProductSummary } from "@/lib/types";
+
+const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
+  engineering: <CircleDot className="size-3.5" />,
+  sales: <TrendingUp className="size-3.5" />,
+  marketing: <Megaphone className="size-3.5" />,
+  finance: <Wallet className="size-3.5" />,
+  support: <LifeBuoy className="size-3.5" />,
+};
 
 /**
  * The products hub: every product is a project, and each card links into that
@@ -40,11 +49,14 @@ export function ProductsView({ products }: { products: ProductSummary[] }) {
             </div>
 
             <div className="mt-3 flex flex-wrap gap-1.5">
-              <DeptLink href={`/products/${p.id}/engineering`} icon={<CircleDot className="size-3.5" />} label="Engineering" />
-              <DeptLink href={`/products/${p.id}/sales`} icon={<TrendingUp className="size-3.5" />} label="Sales" />
-              <DeptLink href={`/products/${p.id}/marketing`} icon={<Megaphone className="size-3.5" />} label="Marketing" />
-              <DeptLink href={`/products/${p.id}/finance`} icon={<Wallet className="size-3.5" />} label="Finance" />
-              <DeptLink href={`/products/${p.id}/support`} icon={<LifeBuoy className="size-3.5" />} label="Support" />
+              {enabledDepartments(p.enabledDepartments).map((d) => (
+                <DeptLink
+                  key={d.slug}
+                  href={`/products/${p.id}/${d.slug}`}
+                  icon={DEPT_ICONS[d.slug]}
+                  label={d.label}
+                />
+              ))}
             </div>
           </div>
         ))}

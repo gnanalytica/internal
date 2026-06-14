@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { SupportView } from "@/components/support-view";
+import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getAccounts,
   getContacts,
@@ -20,6 +21,7 @@ export default async function ProductSupportPage({
   const ws = await getWorkspace();
   const product = await getProduct(ws.id, id);
   if (!product) notFound();
+  if (!isDepartmentEnabled(product.enabledDepartments, "support")) notFound();
 
   const [tickets, accounts, contacts, members, products] = await Promise.all([
     getTickets(ws.id, id),

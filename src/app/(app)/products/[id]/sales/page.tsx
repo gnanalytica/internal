@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { SalesView } from "@/components/sales-view";
+import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getAccounts,
   getContacts,
@@ -20,6 +21,7 @@ export default async function ProductSalesPage({
   const ws = await getWorkspace();
   const product = await getProduct(ws.id, id);
   if (!product) notFound();
+  if (!isDepartmentEnabled(product.enabledDepartments, "sales")) notFound();
 
   const [deals, accounts, contacts, members, products] = await Promise.all([
     getDeals(ws.id, id),

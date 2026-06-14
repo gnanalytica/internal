@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { MarketingView } from "@/components/marketing-view";
+import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getCampaigns,
   getContentItems,
@@ -18,6 +19,7 @@ export default async function ProductMarketingPage({
   const ws = await getWorkspace();
   const product = await getProduct(ws.id, id);
   if (!product) notFound();
+  if (!isDepartmentEnabled(product.enabledDepartments, "marketing")) notFound();
 
   const [campaigns, content, products] = await Promise.all([
     getCampaigns(ws.id, id),

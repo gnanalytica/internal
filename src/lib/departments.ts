@@ -59,6 +59,27 @@ export const DEPARTMENT_MAP = Object.fromEntries(
   DEPARTMENTS.map((d) => [d.slug, d]),
 ) as Record<DepartmentSlug, (typeof DEPARTMENTS)[number]>;
 
+export const ALL_DEPARTMENT_SLUGS = DEPARTMENTS.map((d) => d.slug);
+
+/**
+ * The departments enabled for a product. `null`/`undefined` means all are on
+ * (the auto-spawn default); an explicit array restricts to those slugs while
+ * preserving the canonical order.
+ */
+export function enabledDepartments(
+  enabled: string[] | null | undefined,
+): (typeof DEPARTMENTS)[number][] {
+  if (enabled == null) return [...DEPARTMENTS];
+  return DEPARTMENTS.filter((d) => enabled.includes(d.slug));
+}
+
+export function isDepartmentEnabled(
+  enabled: string[] | null | undefined,
+  slug: DepartmentSlug,
+): boolean {
+  return enabled == null || enabled.includes(slug);
+}
+
 // ---- Sales: pipeline stages (order = board columns) ----
 export const DEAL_STAGES = [
   { id: "lead", label: "Lead", color: "#94a3b8" },
