@@ -36,6 +36,7 @@ const plain = (n: Node): string =>
 export const ADMINS = [
   { name: "Sandeep", email: "sandeep@gnanalytica.com", avatarColor: "#5e6ad2" },
   { name: "Jayasaagar", email: "jayasaagar@gnanalytica.com", avatarColor: "#0ea5e9" },
+  { name: "Shravani", email: "shravani@gnanalytica.com", avatarColor: "#ec4899" },
 ];
 
 /**
