@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CircleDot, Megaphone, TrendingUp, Wallet } from "lucide-react";
+import { CircleDot, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
 
 import { formatMoney } from "@/lib/matrix-format";
 import type { ProductSummary } from "@/lib/types";
@@ -31,11 +31,12 @@ export function ProductsView({ products }: { products: ProductSummary[] }) {
               <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
             )}
 
-            <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+            <div className="mt-3 grid grid-cols-5 gap-2 text-center">
               <Stat value={String(p.openIssues)} label="Issues" />
               <Stat value={formatMoney(p.pipelineValue)} label={`${p.openDeals} deals`} />
               <Stat value={String(p.activeCampaigns)} label="Campaigns" />
               <Stat value={formatMoney(p.revenue)} label="Revenue" />
+              <Stat value={String(p.openTickets)} label="Tickets" />
             </div>
 
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -43,6 +44,7 @@ export function ProductsView({ products }: { products: ProductSummary[] }) {
               <DeptLink href={`/products/${p.id}/sales`} icon={<TrendingUp className="size-3.5" />} label="Sales" />
               <DeptLink href={`/products/${p.id}/marketing`} icon={<Megaphone className="size-3.5" />} label="Marketing" />
               <DeptLink href={`/products/${p.id}/finance`} icon={<Wallet className="size-3.5" />} label="Finance" />
+              <DeptLink href={`/products/${p.id}/support`} icon={<LifeBuoy className="size-3.5" />} label="Support" />
             </div>
           </div>
         ))}

@@ -1097,3 +1097,83 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
   product: one(projects, { fields: [expenses.productId], references: [projects.id] }),
   owner: one(users, { fields: [expenses.ownerId], references: [users.id] }),
 }));
+
+/**
+ * ---- Support (the 5th department module) ----
+ *
+ * Zendesk/Intercom-style ticket queue, product-scoped, on the shared CRM layer:
+ * a ticket can link to a CRM account/contact. Conversation lives in
+ * ticket_comments.
+ */
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    accountId: uuid("account_id").references(() => crmAccounts.id, {
+      onDelete: "set null",
+    }),
+    contactId: uuid("contact_id").references(() => crmContacts.id, {
+      onDelete: "set null",
+    }),
+    subject: text("subject").notNull(),
+    body: text("body"),
+    status: text("status").notNull().default("open"), // open|pending|solved|closed
+    priority: text("priority").notNull().default("normal"), // urgent|high|normal|low
+    assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
+    requesterEmail: text("requester_email"),
+    entity: text("entity").notNull().default("Global"),
+    sortKey: text("sort_key").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("tickets_ws_idx").on(t.workspaceId),
+    index("tickets_product_idx").on(t.productId),
+  ],
+);
+
+export const ticketComments = pgTable(
+  "ticket_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ticket_comments_ticket_idx").on(t.ticketId)],
+);
+
+export const ticketsRelations = relations(tickets, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [tickets.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, { fields: [tickets.productId], references: [projects.id] }),
+  account: one(crmAccounts, {
+    fields: [tickets.accountId],
+    references: [crmAccounts.id],
+  }),
+  contact: one(crmContacts, {
+    fields: [tickets.contactId],
+    references: [crmContacts.id],
+  }),
+  assignee: one(users, { fields: [tickets.assigneeId], references: [users.id] }),
+  comments: many(ticketComments),
+}));
+
+export const ticketCommentsRelations = relations(ticketComments, ({ one }) => ({
+  ticket: one(tickets, { fields: [ticketComments.ticketId], references: [tickets.id] }),
+  author: one(users, { fields: [ticketComments.authorId], references: [users.id] }),
+}));

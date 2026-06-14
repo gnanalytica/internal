@@ -69,6 +69,15 @@ reminders.
 - A per-entity reference page each: registration details, registered address,
   and a **statutory-filing calendar**.
 
+**Product × Department modules** — within the hub, every product (project) now
+has its own department sections — **Engineering, Sales, Marketing, Finance,
+Support** — and each department also rolls up company-wide across all products
+(e.g. `Sales` shows every product's pipeline). They're linked by a `product`
+field on each record, so you can view the product lens or the department lens of
+the same data. These are coordination tools (CRM/pipeline/campaigns/invoices/
+tickets), deliberately *not* the regulated systems below — outbound email
+sending and statutory books still live in external tools.
+
 ### 2. Entity layer — per-country systems of record (buy, don't build)
 
 These never go in the hub — they're regulated and per-entity.

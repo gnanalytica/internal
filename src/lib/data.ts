@@ -38,6 +38,8 @@ import {
   projects,
   teamMembers,
   teams,
+  ticketComments,
+  tickets,
   users,
   webhooks,
   workspaceMembers,
@@ -72,6 +74,7 @@ import type {
   Role,
   Team,
   TeamWithCount,
+  TicketWithRelations,
   TimelineItem,
   Workspace,
   WorkspaceWithRole,
@@ -1393,7 +1396,7 @@ export async function getContentItems(
 export async function getProductSummaries(
   workspaceId: string,
 ): Promise<ProductSummary[]> {
-  const [products, allDeals, allIssues, allCampaigns, allInvoices] = await Promise.all([
+  const [products, allDeals, allIssues, allCampaigns, allInvoices, allTickets] = await Promise.all([
     getProjects(workspaceId),
     db
       .select({
@@ -1415,9 +1418,14 @@ export async function getProductSummaries(
       .select({ productId: invoices.productId, status: invoices.status, amount: invoices.amount })
       .from(invoices)
       .where(eq(invoices.workspaceId, workspaceId)),
+    db
+      .select({ productId: tickets.productId, status: tickets.status })
+      .from(tickets)
+      .where(eq(tickets.workspaceId, workspaceId)),
   ]);
 
   const openStages = new Set(["lead", "qualified", "proposal", "negotiation"]);
+  const openTicketStatuses = new Set(["open", "pending"]);
   return products.map((p) => {
     const pDeals = allDeals.filter((d) => d.productId === p.id);
     const open = pDeals.filter((d) => openStages.has(d.stage));
@@ -1434,6 +1442,9 @@ export async function getProductSummaries(
       revenue: allInvoices
         .filter((inv) => inv.productId === p.id && inv.status === "paid")
         .reduce((sum, inv) => sum + (inv.amount ?? 0), 0),
+      openTickets: allTickets.filter(
+        (t) => t.productId === p.id && openTicketStatuses.has(t.status),
+      ).length,
     };
   });
 }
@@ -1466,6 +1477,20 @@ export async function getExpenses(
   });
 }
 
+/** Support tickets with relations. Pass `productId` for the product lens. */
+export async function getTickets(
+  workspaceId: string,
+  productId?: string,
+): Promise<TicketWithRelations[]> {
+  return db.query.tickets.findMany({
+    where: productId
+      ? and(eq(tickets.workspaceId, workspaceId), eq(tickets.productId, productId))
+      : eq(tickets.workspaceId, workspaceId),
+    orderBy: [asc(tickets.sortKey), desc(tickets.createdAt)],
+    with: { account: true, contact: true, assignee: true, product: true },
+  });
+}
+
 // Re-export table objects used by actions.
 export {
   cycles,
@@ -1476,5 +1501,7 @@ export {
   labels,
   issueLabels,
   issuePageLinks,
+  ticketComments,
+  tickets,
   workspaces,
 };

@@ -53,6 +53,25 @@ A `null` cursor means there are no more results. Other list endpoints
 | `POST`   | `/pages`                      | Create a doc page                             |
 | `GET`    | `/pages/{id}`                 | Get a page (with markdown)                    |
 | `GET`    | `/search?q=`                  | Search issues, pages, projects                |
+| `GET`    | `/deals`                      | List sales deals (`?product=`)                |
+| `POST`   | `/deals`                      | Create a deal                                 |
+| `GET`    | `/accounts`                   | List CRM accounts                             |
+| `POST`   | `/accounts`                   | Create an account                             |
+| `GET`    | `/contacts`                   | List CRM contacts                             |
+| `POST`   | `/contacts`                   | Create a contact                              |
+| `GET`    | `/campaigns`                  | List marketing campaigns (`?product=`)        |
+| `POST`   | `/campaigns`                  | Create a campaign                             |
+| `GET`    | `/invoices`                   | List invoices (`?product=`)                   |
+| `POST`   | `/invoices`                   | Create an invoice                             |
+| `GET`    | `/expenses`                   | List expenses (`?product=`)                   |
+| `POST`   | `/expenses`                   | Create an expense                             |
+| `GET`    | `/tickets`                    | List support tickets (`?product=`)            |
+| `POST`   | `/tickets`                    | Create a ticket                               |
+
+The CRM / Sales / Marketing / Finance / Support endpoints belong to the
+**Product × Department matrix**: every record carries a product, so `?product=<id>`
+gives the product lens and omitting it gives the company-wide department lens.
+These list endpoints return the full set as `{ "data": [...], "count": n }`.
 
 ### Create an issue
 

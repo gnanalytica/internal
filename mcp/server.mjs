@@ -153,6 +153,81 @@ tool(
   (a) => api("/pages", { method: "POST", body: a }),
 );
 
+// ---- CRM / Sales (deals, accounts, contacts) ----
+const withProduct = (path, a) => {
+  const q = a.product ? `?product=${encodeURIComponent(a.product)}` : "";
+  return api(`${path}${q}`);
+};
+
+tool(
+  "list_deals",
+  "List sales deals, optionally filtered by product id. Stages: lead|qualified|proposal|negotiation|won|lost.",
+  { product: z.string().optional() },
+  (a) => withProduct("/deals", a),
+);
+tool(
+  "create_deal",
+  "Create a sales deal. Stage defaults to lead.",
+  {
+    name: z.string(),
+    productId: z.string().optional(),
+    accountId: z.string().optional(),
+    stage: z.string().optional(),
+    value: z.number().optional(),
+    entity: z.string().optional(),
+    expectedClose: z.string().optional(),
+  },
+  (a) => api("/deals", { method: "POST", body: a }),
+);
+tool("list_accounts", "List CRM accounts (companies).", {}, () => api("/accounts"));
+tool(
+  "create_account",
+  "Create a CRM account. type: prospect|customer|partner|churned.",
+  { name: z.string(), website: z.string().optional(), industry: z.string().optional(), type: z.string().optional(), entity: z.string().optional() },
+  (a) => api("/accounts", { method: "POST", body: a }),
+);
+tool("list_contacts", "List CRM contacts (people).", {}, () => api("/contacts"));
+tool(
+  "create_contact",
+  "Create a CRM contact, optionally linked to an account.",
+  { name: z.string(), email: z.string().optional(), title: z.string().optional(), accountId: z.string().optional(), entity: z.string().optional() },
+  (a) => api("/contacts", { method: "POST", body: a }),
+);
+
+// ---- Marketing ----
+tool("list_campaigns", "List marketing campaigns, optionally by product id.", { product: z.string().optional() }, (a) => withProduct("/campaigns", a));
+tool(
+  "create_campaign",
+  "Create a marketing campaign. channel: email|linkedin|events|content|paid|referral.",
+  { name: z.string(), productId: z.string().optional(), channel: z.string().optional(), status: z.string().optional(), budget: z.number().optional(), entity: z.string().optional() },
+  (a) => api("/campaigns", { method: "POST", body: a }),
+);
+
+// ---- Finance ----
+tool("list_invoices", "List invoices, optionally by product id.", { product: z.string().optional() }, (a) => withProduct("/invoices", a));
+tool(
+  "create_invoice",
+  "Create an invoice. status: draft|sent|paid|overdue.",
+  { number: z.string().optional(), productId: z.string().optional(), accountId: z.string().optional(), status: z.string().optional(), amount: z.number().optional(), entity: z.string().optional(), dueDate: z.string().optional() },
+  (a) => api("/invoices", { method: "POST", body: a }),
+);
+tool("list_expenses", "List expenses, optionally by product id.", { product: z.string().optional() }, (a) => withProduct("/expenses", a));
+tool(
+  "create_expense",
+  "Create an expense. category: tooling|contractors|marketing|infra|other.",
+  { vendor: z.string().optional(), productId: z.string().optional(), category: z.string().optional(), amount: z.number().optional(), status: z.string().optional(), entity: z.string().optional(), spentDate: z.string().optional() },
+  (a) => api("/expenses", { method: "POST", body: a }),
+);
+
+// ---- Support ----
+tool("list_tickets", "List support tickets, optionally by product id. status: open|pending|solved|closed.", { product: z.string().optional() }, (a) => withProduct("/tickets", a));
+tool(
+  "create_ticket",
+  "Create a support ticket. priority: urgent|high|normal|low.",
+  { subject: z.string(), productId: z.string().optional(), accountId: z.string().optional(), status: z.string().optional(), priority: z.string().optional(), requesterEmail: z.string().optional(), entity: z.string().optional() },
+  (a) => api("/tickets", { method: "POST", body: a }),
+);
+
 // ---- Search ----
 tool(
   "search",

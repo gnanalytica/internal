@@ -13,6 +13,7 @@ import {
   Database,
   Folder,
   KeyRound,
+  LifeBuoy,
   LogOut,
   Map as MapIcon,
   Megaphone,
@@ -324,6 +325,12 @@ export function Sidebar({
           icon={<Wallet className="size-4" />}
           label="Finance"
         />
+        <NavItem
+          href="/support"
+          active={pathname.startsWith("/support")}
+          icon={<LifeBuoy className="size-4" />}
+          label="Support"
+        />
 
         {/* Favorites */}
         {favorites.length > 0 && (
@@ -461,6 +468,7 @@ function ProductNavItem({
     { href: `${base}/sales`, icon: <TrendingUp className="size-3.5" />, label: "Sales" },
     { href: `${base}/marketing`, icon: <Megaphone className="size-3.5" />, label: "Marketing" },
     { href: `${base}/finance`, icon: <Wallet className="size-3.5" />, label: "Finance" },
+    { href: `${base}/support`, icon: <LifeBuoy className="size-3.5" />, label: "Support" },
   ];
   return (
     <div>
