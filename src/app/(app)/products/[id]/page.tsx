@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleDot, Megaphone, TrendingUp } from "lucide-react";
+import { CircleDot, Megaphone, TrendingUp, Wallet } from "lucide-react";
 
 import { getProductSummaries, getWorkspace } from "@/lib/data";
 import { formatMoney } from "@/lib/matrix-format";
@@ -37,6 +37,13 @@ export default async function ProductOverview({
       stat: `${product.activeCampaigns} active campaigns`,
       tool: "Campaigns & content calendar",
     },
+    {
+      href: `/products/${id}/finance`,
+      icon: <Wallet className="size-4" />,
+      label: "Finance",
+      stat: `${formatMoney(product.revenue)} revenue`,
+      tool: "Invoices & expenses",
+    },
   ];
 
   return (
@@ -44,7 +51,7 @@ export default async function ProductOverview({
       {product.description && (
         <p className="mb-4 max-w-2xl text-sm text-muted-foreground">{product.description}</p>
       )}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
           <Link
             key={c.href}

@@ -22,8 +22,10 @@ import {
   databaseRows,
   databases,
   deals,
+  expenses,
   favorites,
   initiatives,
+  invoices,
   issueLabels,
   issuePageLinks,
   issueRelations,
@@ -1799,6 +1801,7 @@ export async function searchWorkspace(
 function revalidateMatrix(productId?: string | null) {
   revalidatePath("/sales");
   revalidatePath("/marketing");
+  revalidatePath("/finance");
   revalidatePath("/products");
   if (productId) revalidatePath(`/products/${productId}`, "layout");
   revalidatePath("/", "layout");
@@ -2171,5 +2174,127 @@ export async function deleteContent(id: string) {
   await db
     .delete(contentItems)
     .where(and(eq(contentItems.id, id), eq(contentItems.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Finance: invoices ----
+export async function createInvoice(input: {
+  productId: string | null;
+  number?: string | null;
+  accountId?: string | null;
+  status?: string;
+  amount?: number;
+  entity?: string;
+  issueDate?: string | null;
+  dueDate?: string | null;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(invoices)
+    .values({
+      workspaceId: ws.id,
+      productId: input.productId,
+      number: input.number ?? null,
+      accountId: input.accountId ?? null,
+      status: input.status ?? "draft",
+      amount: input.amount ?? 0,
+      entity: input.entity ?? "Global",
+      issueDate: toDate(input.issueDate),
+      dueDate: toDate(input.dueDate),
+      ownerId: me.id,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+export async function updateInvoice(
+  id: string,
+  patch: Partial<{
+    number: string | null;
+    accountId: string | null;
+    status: string;
+    amount: number;
+    entity: string;
+    issueDate: string | null;
+    dueDate: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  const { issueDate, dueDate, ...rest } = patch;
+  await db
+    .update(invoices)
+    .set({
+      ...rest,
+      ...(issueDate !== undefined ? { issueDate: toDate(issueDate) } : {}),
+      ...(dueDate !== undefined ? { dueDate: toDate(dueDate) } : {}),
+    })
+    .where(and(eq(invoices.id, id), eq(invoices.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteInvoice(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(invoices).where(and(eq(invoices.id, id), eq(invoices.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Finance: expenses ----
+export async function createExpense(input: {
+  productId: string | null;
+  vendor?: string | null;
+  category?: string;
+  amount?: number;
+  status?: string;
+  entity?: string;
+  spentDate?: string | null;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(expenses)
+    .values({
+      workspaceId: ws.id,
+      productId: input.productId,
+      vendor: input.vendor ?? null,
+      category: input.category ?? "other",
+      amount: input.amount ?? 0,
+      status: input.status ?? "planned",
+      entity: input.entity ?? "Global",
+      spentDate: toDate(input.spentDate),
+      ownerId: me.id,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+export async function updateExpense(
+  id: string,
+  patch: Partial<{
+    vendor: string | null;
+    category: string;
+    amount: number;
+    status: string;
+    entity: string;
+    spentDate: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  const { spentDate, ...rest } = patch;
+  await db
+    .update(expenses)
+    .set({
+      ...rest,
+      ...(spentDate !== undefined ? { spentDate: toDate(spentDate) } : {}),
+    })
+    .where(and(eq(expenses.id, id), eq(expenses.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteExpense(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.workspaceId, ws.id)));
   revalidateMatrix();
 }

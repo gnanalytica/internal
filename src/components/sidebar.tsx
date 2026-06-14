@@ -28,6 +28,7 @@ import {
   Trash2,
   TrendingUp,
   Users,
+  Wallet,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -317,6 +318,12 @@ export function Sidebar({
           icon={<Megaphone className="size-4" />}
           label="Marketing"
         />
+        <NavItem
+          href="/finance"
+          active={pathname.startsWith("/finance")}
+          icon={<Wallet className="size-4" />}
+          label="Finance"
+        />
 
         {/* Favorites */}
         {favorites.length > 0 && (
@@ -453,6 +460,7 @@ function ProductNavItem({
     { href: `${base}/engineering`, icon: <CircleDot className="size-3.5" />, label: "Engineering" },
     { href: `${base}/sales`, icon: <TrendingUp className="size-3.5" />, label: "Sales" },
     { href: `${base}/marketing`, icon: <Megaphone className="size-3.5" />, label: "Marketing" },
+    { href: `${base}/finance`, icon: <Wallet className="size-3.5" />, label: "Finance" },
   ];
   return (
     <div>

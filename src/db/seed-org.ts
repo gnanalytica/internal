@@ -5,7 +5,7 @@ config({ path: ".env.local" });
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "./index";
-import { seedCrm } from "./seed-crm-data";
+import { ensureWorkspaceAdmins, seedCrm } from "./seed-crm-data";
 
 /**
  * Provision the Gnanalytica company hub structure (per docs/ORG.md):
@@ -78,6 +78,9 @@ async function main() {
     .insert(schema.workspaceMembers)
     .values({ workspaceId: ws.id, userId: owner.id, role: "admin" })
     .onConflictDoNothing();
+
+  // Additional workspace admins (Sandeep + Jayasaagar).
+  await ensureWorkspaceAdmins(ws.id);
 
   // ---- Teams ----
   await db.insert(schema.teams).values([

@@ -15,6 +15,7 @@ export function ProductTabs({ product }: { product: Project }) {
     { href: `${base}/engineering`, label: "Engineering" },
     { href: `${base}/sales`, label: "Sales" },
     { href: `${base}/marketing`, label: "Marketing" },
+    { href: `${base}/finance`, label: "Finance" },
   ];
   return (
     <div className="flex items-center gap-1 border-b px-4 pt-2.5">

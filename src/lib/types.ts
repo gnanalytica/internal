@@ -9,7 +9,9 @@ import type {
   databaseRows,
   databases,
   deals,
+  expenses,
   initiatives,
+  invoices,
   issues,
   labels,
   pages,
@@ -84,12 +86,27 @@ export type ContentItemWithCampaign = ContentItem & {
   owner: Member | null;
 };
 
+export type Invoice = typeof invoices.$inferSelect;
+export type Expense = typeof expenses.$inferSelect;
+
+export type InvoiceWithRelations = Invoice & {
+  account: CrmAccount | null;
+  product: Project | null;
+  owner: Member | null;
+};
+
+export type ExpenseWithRelations = Expense & {
+  product: Project | null;
+  owner: Member | null;
+};
+
 /** A product (project) plus the counts shown on the product hub cards. */
 export type ProductSummary = Project & {
   openDeals: number;
   pipelineValue: number;
   openIssues: number;
   activeCampaigns: number;
+  revenue: number; // sum of paid invoices
 };
 
 export type IssueParentRef = {

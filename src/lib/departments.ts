@@ -9,7 +9,7 @@
  * department lens (`/sales`).
  */
 
-export type DepartmentSlug = "engineering" | "sales" | "marketing";
+export type DepartmentSlug = "engineering" | "sales" | "marketing" | "finance";
 
 export const DEPARTMENTS = [
   {
@@ -33,6 +33,13 @@ export const DEPARTMENTS = [
     icon: "📣",
     color: "#f43f5e",
     tool: "HubSpot",
+  },
+  {
+    slug: "finance",
+    label: "Finance",
+    icon: "💶",
+    color: "#22c55e",
+    tool: "Invoices & expenses (books stay external)",
   },
 ] as const;
 
@@ -108,6 +115,27 @@ export const CONTENT_STATUSES = [
   { id: "draft", label: "Draft", color: "#f59e0b" },
   { id: "scheduled", label: "Scheduled", color: "#6366f1" },
   { id: "published", label: "Published", color: "#10b981" },
+] as const;
+
+// ---- Finance ----
+export const INVOICE_STATUSES = [
+  { id: "draft", label: "Draft", color: "#94a3b8" },
+  { id: "sent", label: "Sent", color: "#6366f1" },
+  { id: "paid", label: "Paid", color: "#10b981" },
+  { id: "overdue", label: "Overdue", color: "#ef4444" },
+] as const;
+
+export const EXPENSE_STATUSES = [
+  { id: "planned", label: "Planned", color: "#94a3b8" },
+  { id: "paid", label: "Paid", color: "#10b981" },
+] as const;
+
+export const EXPENSE_CATEGORIES = [
+  { id: "tooling", label: "Tooling / SaaS", color: "#6366f1" },
+  { id: "contractors", label: "Contractors", color: "#a855f7" },
+  { id: "marketing", label: "Marketing", color: "#f43f5e" },
+  { id: "infra", label: "Infrastructure", color: "#0ea5e9" },
+  { id: "other", label: "Other", color: "#94a3b8" },
 ] as const;
 
 export const ENTITIES = [

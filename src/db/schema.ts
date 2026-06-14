@@ -1015,3 +1015,85 @@ export const contentItemsRelations = relations(contentItems, ({ one }) => ({
   }),
   owner: one(users, { fields: [contentItems.ownerId], references: [users.id] }),
 }));
+
+/**
+ * ---- Finance (the 4th department module) ----
+ *
+ * Product-level revenue tracking: invoices (optionally tied to a CRM account)
+ * and expenses. This is the coordination/P&L layer per product — the regulated
+ * statutory books stay per-entity in external tools (see docs/ORG.md).
+ */
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    accountId: uuid("account_id").references(() => crmAccounts.id, {
+      onDelete: "set null",
+    }),
+    number: text("number"),
+    status: text("status").notNull().default("draft"), // draft|sent|paid|overdue
+    amount: integer("amount").notNull().default(0),
+    entity: text("entity").notNull().default("Global"),
+    issueDate: timestamp("issue_date", { withTimezone: true }),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("invoices_ws_idx").on(t.workspaceId),
+    index("invoices_product_idx").on(t.productId),
+  ],
+);
+
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    vendor: text("vendor"),
+    category: text("category").notNull().default("other"), // tooling|contractors|marketing|infra|other
+    amount: integer("amount").notNull().default(0),
+    status: text("status").notNull().default("planned"), // planned|paid
+    entity: text("entity").notNull().default("Global"),
+    spentDate: timestamp("spent_date", { withTimezone: true }),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("expenses_ws_idx").on(t.workspaceId),
+    index("expenses_product_idx").on(t.productId),
+  ],
+);
+
+export const invoicesRelations = relations(invoices, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [invoices.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, { fields: [invoices.productId], references: [projects.id] }),
+  account: one(crmAccounts, {
+    fields: [invoices.accountId],
+    references: [crmAccounts.id],
+  }),
+  owner: one(users, { fields: [invoices.ownerId], references: [users.id] }),
+}));
+
+export const expensesRelations = relations(expenses, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [expenses.workspaceId],
+    references: [workspaces.id],
+  }),
+  product: one(projects, { fields: [expenses.productId], references: [projects.id] }),
+  owner: one(users, { fields: [expenses.ownerId], references: [users.id] }),
+}));

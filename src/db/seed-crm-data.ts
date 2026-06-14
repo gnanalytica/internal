@@ -32,6 +32,44 @@ const doc = (...nodes: Node[]): Node => ({ type: "doc", content: nodes });
 const plain = (n: Node): string =>
   n.type === "text" ? (n.text ?? "") : (n.content ?? []).map(plain).join(" ");
 
+/** Workspace admins, provisioned (idempotently) on both fresh and live hubs. */
+export const ADMINS = [
+  { name: "Sandeep", email: "sandeep@gnanalytica.com", avatarColor: "#5e6ad2" },
+  { name: "Jayasaagar", email: "jayasaagar@gnanalytica.com", avatarColor: "#0ea5e9" },
+];
+
+/**
+ * Ensure each admin has a user row and an admin membership in the workspace.
+ * Matched by email on first login, so seeding the membership ahead of time
+ * lands them straight in this workspace as an admin. Idempotent: existing
+ * members are upgraded to admin, never duplicated.
+ */
+export async function ensureWorkspaceAdmins(
+  wsId: string,
+  admins: { name: string; email: string; avatarColor?: string }[] = ADMINS,
+) {
+  for (const a of admins) {
+    let [user] = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.email, a.email))
+      .limit(1);
+    if (!user) {
+      [user] = await db
+        .insert(schema.users)
+        .values({ name: a.name, email: a.email, avatarColor: a.avatarColor ?? "#6366f1" })
+        .returning({ id: schema.users.id });
+    }
+    await db
+      .insert(schema.workspaceMembers)
+      .values({ workspaceId: wsId, userId: user.id, role: "admin" })
+      .onConflictDoUpdate({
+        target: [schema.workspaceMembers.workspaceId, schema.workspaceMembers.userId],
+        set: { role: "admin" },
+      });
+  }
+}
+
 export async function seedCrm(ws: { id: string }, owner: { id: string }) {
   // ---- Teams (insert only the ones missing) ----
   const existingTeams = await db
@@ -113,6 +151,16 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       { workspaceId: ws.id, productId: productId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Biomarker explainer thread", channel: "linkedin", status: "published", ownerId: owner.id },
       { workspaceId: ws.id, productId: productId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Customer story: cardiology pilot", channel: "content", status: "draft", ownerId: owner.id },
       { workspaceId: ws.id, productId: productId("Valytica"), title: "Webinar landing page", channel: "content", status: "idea", ownerId: owner.id },
+    ]);
+
+    // Finance: invoices + expenses (product-level revenue tracking).
+    await db.insert(schema.invoices).values([
+      { workspaceId: ws.id, productId: productId("Valytica"), accountId: accId("Mumbai Valuers LLP"), number: "INV-001", status: "paid", amount: 8000, entity: "India", ownerId: owner.id },
+      { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Apollo Hospitals"), number: "INV-002", status: "sent", amount: 6000, entity: "India", ownerId: owner.id },
+    ]);
+    await db.insert(schema.expenses).values([
+      { workspaceId: ws.id, productId: productId("Healthytica"), vendor: "Vercel", category: "infra", amount: 200, status: "paid", entity: "Global", ownerId: owner.id },
+      { workspaceId: ws.id, productId: productId("Valytica"), vendor: "Design contractor", category: "contractors", amount: 1500, status: "planned", entity: "India", ownerId: owner.id },
     ]);
   }
 

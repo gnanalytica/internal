@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CircleDot, Megaphone, TrendingUp } from "lucide-react";
+import { CircleDot, Megaphone, TrendingUp, Wallet } from "lucide-react";
 
 import { formatMoney } from "@/lib/matrix-format";
 import type { ProductSummary } from "@/lib/types";
@@ -31,16 +31,18 @@ export function ProductsView({ products }: { products: ProductSummary[] }) {
               <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
             )}
 
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <Stat value={String(p.openIssues)} label="Open issues" />
+            <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+              <Stat value={String(p.openIssues)} label="Issues" />
               <Stat value={formatMoney(p.pipelineValue)} label={`${p.openDeals} deals`} />
               <Stat value={String(p.activeCampaigns)} label="Campaigns" />
+              <Stat value={formatMoney(p.revenue)} label="Revenue" />
             </div>
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               <DeptLink href={`/products/${p.id}/engineering`} icon={<CircleDot className="size-3.5" />} label="Engineering" />
               <DeptLink href={`/products/${p.id}/sales`} icon={<TrendingUp className="size-3.5" />} label="Sales" />
               <DeptLink href={`/products/${p.id}/marketing`} icon={<Megaphone className="size-3.5" />} label="Marketing" />
+              <DeptLink href={`/products/${p.id}/finance`} icon={<Wallet className="size-3.5" />} label="Finance" />
             </div>
           </div>
         ))}

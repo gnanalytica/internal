@@ -5,7 +5,7 @@ config({ path: ".env.local" });
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "./index";
-import { seedCrm } from "./seed-crm-data";
+import { ensureWorkspaceAdmins, seedCrm } from "./seed-crm-data";
 
 /**
  * Add the Sales / Marketing / CRM layer to an already-provisioned Gnanalytica
@@ -36,8 +36,9 @@ async function main() {
   }
 
   console.log("Provisioning Sales / Marketing / CRM…");
+  await ensureWorkspaceAdmins(ws.id);
   await seedCrm(ws, owner);
-  console.log("Done — CRM layer provisioned.");
+  console.log("Done — CRM layer provisioned, admins ensured.");
 }
 
 main()
