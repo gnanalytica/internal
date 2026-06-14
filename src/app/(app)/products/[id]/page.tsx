@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDot, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
 
+import { ProductModulesConfig } from "@/components/product-modules-config";
+import { isDepartmentEnabled } from "@/lib/departments";
 import { getProductSummaries, getWorkspace } from "@/lib/data";
 import { formatMoney } from "@/lib/matrix-format";
 
@@ -17,6 +19,7 @@ export default async function ProductOverview({
 
   const cards = [
     {
+      slug: "engineering" as const,
       href: `/products/${id}/engineering`,
       icon: <CircleDot className="size-4" />,
       label: "Engineering",
@@ -24,6 +27,7 @@ export default async function ProductOverview({
       tool: "Linear-style issues",
     },
     {
+      slug: "sales" as const,
       href: `/products/${id}/sales`,
       icon: <TrendingUp className="size-4" />,
       label: "Sales",
@@ -31,6 +35,7 @@ export default async function ProductOverview({
       tool: "Apollo / HubSpot-style pipeline",
     },
     {
+      slug: "marketing" as const,
       href: `/products/${id}/marketing`,
       icon: <Megaphone className="size-4" />,
       label: "Marketing",
@@ -38,6 +43,7 @@ export default async function ProductOverview({
       tool: "Campaigns & content calendar",
     },
     {
+      slug: "finance" as const,
       href: `/products/${id}/finance`,
       icon: <Wallet className="size-4" />,
       label: "Finance",
@@ -45,19 +51,25 @@ export default async function ProductOverview({
       tool: "Invoices & expenses",
     },
     {
+      slug: "support" as const,
       href: `/products/${id}/support`,
       icon: <LifeBuoy className="size-4" />,
       label: "Support",
       stat: `${product.openTickets} open tickets`,
       tool: "Zendesk-style ticket queue",
     },
-  ];
+  ].filter((c) => isDepartmentEnabled(product.enabledDepartments, c.slug));
 
   return (
     <div className="overflow-auto p-4">
-      {product.description && (
-        <p className="mb-4 max-w-2xl text-sm text-muted-foreground">{product.description}</p>
-      )}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        {product.description ? (
+          <p className="max-w-2xl text-sm text-muted-foreground">{product.description}</p>
+        ) : (
+          <span />
+        )}
+        <ProductModulesConfig productId={id} enabled={product.enabledDepartments} />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
           <Link

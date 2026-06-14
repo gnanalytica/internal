@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { FinanceView } from "@/components/finance-view";
+import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getAccounts,
   getExpenses,
@@ -19,6 +20,7 @@ export default async function ProductFinancePage({
   const ws = await getWorkspace();
   const product = await getProduct(ws.id, id);
   if (!product) notFound();
+  if (!isDepartmentEnabled(product.enabledDepartments, "finance")) notFound();
 
   const [invoices, expenses, accounts, products] = await Promise.all([
     getInvoices(ws.id, id),

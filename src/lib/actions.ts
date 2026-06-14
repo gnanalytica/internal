@@ -53,6 +53,7 @@ import {
   pickColor,
 } from "@/lib/data";
 import { isPriority, isStatus } from "@/lib/constants";
+import { ALL_DEPARTMENT_SLUGS } from "@/lib/departments";
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
@@ -1811,6 +1812,24 @@ function revalidateMatrix(productId?: string | null) {
 }
 
 const toDate = (v?: string | null): Date | null => (v ? new Date(v) : null);
+
+/**
+ * Configure which department modules a product shows. Pass the enabled slugs;
+ * when every department is enabled we store `null` to keep the "all on by
+ * default" (auto-spawn) semantics. Engineering/Sales/Marketing/Finance/Support.
+ */
+export async function setProductDepartments(productId: string, slugs: string[]) {
+  const ws = await getWorkspace();
+  const valid = ALL_DEPARTMENT_SLUGS.filter((s) => slugs.includes(s));
+  const value = valid.length === ALL_DEPARTMENT_SLUGS.length ? null : valid;
+  await db
+    .update(projects)
+    .set({ enabledDepartments: value })
+    .where(and(eq(projects.id, productId), eq(projects.workspaceId, ws.id)));
+  revalidatePath("/products");
+  revalidatePath(`/products/${productId}`, "layout");
+  revalidatePath("/", "layout");
+}
 
 // ---- CRM: accounts ----
 export async function createAccount(input: {
