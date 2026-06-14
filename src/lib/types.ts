@@ -1,8 +1,14 @@
 import type {
+  campaigns,
+  contentItems,
+  crmAccounts,
+  crmActivities,
+  crmContacts,
   cycles,
   databaseFields,
   databaseRows,
   databases,
+  deals,
   initiatives,
   issues,
   labels,
@@ -34,6 +40,57 @@ export type Cycle = typeof cycles.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type TeamWithCount = Team & { issueCount: number; memberCount: number };
+
+// ---- CRM / Sales / Marketing (Product × Department matrix) ----
+export type CrmAccount = typeof crmAccounts.$inferSelect;
+export type CrmContact = typeof crmContacts.$inferSelect;
+export type Deal = typeof deals.$inferSelect;
+export type CrmActivity = typeof crmActivities.$inferSelect;
+export type Campaign = typeof campaigns.$inferSelect;
+export type ContentItem = typeof contentItems.$inferSelect;
+
+export type DealWithRelations = Deal & {
+  account: CrmAccount | null;
+  contact: CrmContact | null;
+  owner: Member | null;
+  product: Project | null;
+};
+
+export type ContactWithAccount = CrmContact & {
+  account: CrmAccount | null;
+  owner: Member | null;
+};
+
+export type AccountWithRelations = CrmAccount & {
+  owner: Member | null;
+  contacts: CrmContact[];
+  deals: Deal[];
+};
+
+export type ActivityWithActor = CrmActivity & { actor: Member | null };
+
+export type AccountDetail = AccountWithRelations & {
+  activities: ActivityWithActor[];
+};
+
+export type CampaignWithRelations = Campaign & {
+  owner: Member | null;
+  product: Project | null;
+  contentCount: number;
+};
+
+export type ContentItemWithCampaign = ContentItem & {
+  campaign: Campaign | null;
+  owner: Member | null;
+};
+
+/** A product (project) plus the counts shown on the product hub cards. */
+export type ProductSummary = Project & {
+  openDeals: number;
+  pipelineValue: number;
+  openIssues: number;
+  activeCampaigns: number;
+};
 
 export type IssueParentRef = {
   id: string;

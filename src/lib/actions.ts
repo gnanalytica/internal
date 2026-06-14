@@ -10,12 +10,18 @@ import {
   activity,
   apiKeys,
   attachments,
+  campaigns,
   commentReactions,
   comments,
+  contentItems,
+  crmAccounts,
+  crmActivities,
+  crmContacts,
   cycles,
   databaseFields,
   databaseRows,
   databases,
+  deals,
   favorites,
   initiatives,
   issueLabels,
@@ -1783,4 +1789,387 @@ export async function searchWorkspace(
   }
 
   return results;
+}
+
+// ============================================================================
+// CRM / Sales / Marketing (the Product × Department matrix)
+// ============================================================================
+
+/** Revalidate both lenses (product-scoped + company-wide) after a mutation. */
+function revalidateMatrix(productId?: string | null) {
+  revalidatePath("/sales");
+  revalidatePath("/marketing");
+  revalidatePath("/products");
+  if (productId) revalidatePath(`/products/${productId}`, "layout");
+  revalidatePath("/", "layout");
+}
+
+const toDate = (v?: string | null): Date | null => (v ? new Date(v) : null);
+
+// ---- CRM: accounts ----
+export async function createAccount(input: {
+  name?: string;
+  website?: string | null;
+  industry?: string | null;
+  type?: string;
+  entity?: string;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(crmAccounts)
+    .values({
+      workspaceId: ws.id,
+      name: input.name?.trim() || "New account",
+      website: input.website ?? null,
+      industry: input.industry ?? null,
+      type: input.type ?? "prospect",
+      entity: input.entity ?? "Global",
+      ownerId: me.id,
+    })
+    .returning();
+  revalidateMatrix();
+  return created;
+}
+
+export async function updateAccount(
+  id: string,
+  patch: Partial<{
+    name: string;
+    website: string | null;
+    industry: string | null;
+    type: string;
+    entity: string;
+    ownerId: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(crmAccounts)
+    .set(patch)
+    .where(and(eq(crmAccounts.id, id), eq(crmAccounts.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteAccount(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(crmAccounts)
+    .where(and(eq(crmAccounts.id, id), eq(crmAccounts.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- CRM: contacts ----
+export async function createContact(input: {
+  name?: string;
+  email?: string | null;
+  title?: string | null;
+  phone?: string | null;
+  accountId?: string | null;
+  lifecycleStage?: string;
+  source?: string | null;
+  entity?: string;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(crmContacts)
+    .values({
+      workspaceId: ws.id,
+      name: input.name?.trim() || "New contact",
+      email: input.email ?? null,
+      title: input.title ?? null,
+      phone: input.phone ?? null,
+      accountId: input.accountId ?? null,
+      lifecycleStage: input.lifecycleStage ?? "lead",
+      source: input.source ?? null,
+      entity: input.entity ?? "Global",
+      ownerId: me.id,
+    })
+    .returning();
+  revalidateMatrix();
+  return created;
+}
+
+export async function updateContact(
+  id: string,
+  patch: Partial<{
+    name: string;
+    email: string | null;
+    title: string | null;
+    phone: string | null;
+    accountId: string | null;
+    lifecycleStage: string;
+    source: string | null;
+    entity: string;
+  }>,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(crmContacts)
+    .set(patch)
+    .where(and(eq(crmContacts.id, id), eq(crmContacts.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteContact(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(crmContacts)
+    .where(and(eq(crmContacts.id, id), eq(crmContacts.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Sales: deals ----
+export async function createDeal(input: {
+  productId: string | null;
+  name?: string;
+  accountId?: string | null;
+  contactId?: string | null;
+  stage?: string;
+  value?: number;
+  entity?: string;
+  expectedClose?: string | null;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(deals)
+    .values({
+      workspaceId: ws.id,
+      productId: input.productId,
+      name: input.name?.trim() || "New deal",
+      accountId: input.accountId ?? null,
+      contactId: input.contactId ?? null,
+      stage: input.stage ?? "lead",
+      value: input.value ?? 0,
+      entity: input.entity ?? "Global",
+      expectedClose: toDate(input.expectedClose),
+      ownerId: me.id,
+      sortKey: `z${Date.now()}`,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+export async function updateDeal(
+  id: string,
+  patch: Partial<{
+    name: string;
+    accountId: string | null;
+    contactId: string | null;
+    stage: string;
+    value: number;
+    entity: string;
+    ownerId: string | null;
+    expectedClose: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  const { expectedClose, ...rest } = patch;
+  await db
+    .update(deals)
+    .set({
+      ...rest,
+      ...(expectedClose !== undefined ? { expectedClose: toDate(expectedClose) } : {}),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(deals.id, id), eq(deals.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+/** Persist pipeline drag-and-drop: a batch of {id, stage, sortKey}. */
+export async function moveDeals(changed: { id: string; stage: string; sortKey: string }[]) {
+  const ws = await getWorkspace();
+  await Promise.all(
+    changed.map((c) =>
+      db
+        .update(deals)
+        .set({ stage: c.stage, sortKey: c.sortKey, updatedAt: new Date() })
+        .where(and(eq(deals.id, c.id), eq(deals.workspaceId, ws.id))),
+    ),
+  );
+  revalidateMatrix();
+}
+
+export async function deleteDeal(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(deals).where(and(eq(deals.id, id), eq(deals.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- CRM/Sales: activities ----
+export async function logActivity(input: {
+  type: string;
+  body?: string | null;
+  accountId?: string | null;
+  contactId?: string | null;
+  dealId?: string | null;
+  productId?: string | null;
+  dueDate?: string | null;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(crmActivities)
+    .values({
+      workspaceId: ws.id,
+      type: input.type,
+      body: input.body ?? null,
+      accountId: input.accountId ?? null,
+      contactId: input.contactId ?? null,
+      dealId: input.dealId ?? null,
+      productId: input.productId ?? null,
+      dueDate: toDate(input.dueDate),
+      actorId: me.id,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+/** Load a deal's activity timeline (newest first) for the deal dialog. */
+export async function loadDealActivities(dealId: string) {
+  const ws = await getWorkspace();
+  return db.query.crmActivities.findMany({
+    where: and(
+      eq(crmActivities.workspaceId, ws.id),
+      eq(crmActivities.dealId, dealId),
+    ),
+    orderBy: (a, { desc }) => [desc(a.createdAt)],
+    with: { actor: true },
+  });
+}
+
+export async function toggleActivityDone(id: string, done: boolean) {
+  const ws = await getWorkspace();
+  await db
+    .update(crmActivities)
+    .set({ done })
+    .where(and(eq(crmActivities.id, id), eq(crmActivities.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Marketing: campaigns ----
+export async function createCampaign(input: {
+  productId: string | null;
+  name?: string;
+  channel?: string;
+  status?: string;
+  budget?: number;
+  entity?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(campaigns)
+    .values({
+      workspaceId: ws.id,
+      productId: input.productId,
+      name: input.name?.trim() || "New campaign",
+      channel: input.channel ?? "email",
+      status: input.status ?? "planned",
+      budget: input.budget ?? 0,
+      entity: input.entity ?? "Global",
+      startDate: toDate(input.startDate),
+      endDate: toDate(input.endDate),
+      ownerId: me.id,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+export async function updateCampaign(
+  id: string,
+  patch: Partial<{
+    name: string;
+    channel: string;
+    status: string;
+    budget: number;
+    entity: string;
+    startDate: string | null;
+    endDate: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  const { startDate, endDate, ...rest } = patch;
+  await db
+    .update(campaigns)
+    .set({
+      ...rest,
+      ...(startDate !== undefined ? { startDate: toDate(startDate) } : {}),
+      ...(endDate !== undefined ? { endDate: toDate(endDate) } : {}),
+    })
+    .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteCampaign(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(campaigns)
+    .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Marketing: content calendar ----
+export async function createContent(input: {
+  productId: string | null;
+  title?: string;
+  channel?: string | null;
+  status?: string;
+  campaignId?: string | null;
+  publishDate?: string | null;
+}) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [created] = await db
+    .insert(contentItems)
+    .values({
+      workspaceId: ws.id,
+      productId: input.productId,
+      title: input.title?.trim() || "Untitled content",
+      channel: input.channel ?? null,
+      status: input.status ?? "idea",
+      campaignId: input.campaignId ?? null,
+      publishDate: toDate(input.publishDate),
+      ownerId: me.id,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+export async function updateContent(
+  id: string,
+  patch: Partial<{
+    title: string;
+    channel: string | null;
+    status: string;
+    campaignId: string | null;
+    publishDate: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  const { publishDate, ...rest } = patch;
+  await db
+    .update(contentItems)
+    .set({
+      ...rest,
+      ...(publishDate !== undefined ? { publishDate: toDate(publishDate) } : {}),
+    })
+    .where(and(eq(contentItems.id, id), eq(contentItems.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteContent(id: string) {
+  const ws = await getWorkspace();
+  await db
+    .delete(contentItems)
+    .where(and(eq(contentItems.id, id), eq(contentItems.workspaceId, ws.id)));
+  revalidateMatrix();
 }

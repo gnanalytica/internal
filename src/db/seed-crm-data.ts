@@ -3,27 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "./index";
 
 /**
- * Provision the Sales / Marketing / CRM layer for an existing Gnanalytica
- * workspace: the Sales & Marketing teams plus the Entity-tagged CRM databases
- * (Accounts, Contacts, Deals, Campaigns) and a "Sales & Marketing Playbook"
- * wiki page.
+ * Provision the Sales / Marketing / CRM layer (the Product × Department matrix)
+ * for an existing Gnanalytica workspace: the Sales & Marketing teams, the
+ * bespoke CRM/Sales/Marketing records (accounts, contacts, deals, campaigns,
+ * content) scoped to products, and a "Sales & Marketing Playbook" wiki page.
  *
- * Idempotent: skips teams/databases/page that already exist, so it is safe to
- * run on a live hub and is also invoked from seed-org.ts for fresh installs.
+ * Idempotent: skips anything already present, so it is safe to run on a live
+ * hub and is also invoked from seed-org.ts for fresh installs. Records are
+ * attached to products (projects) by name where those products exist.
  */
-
-// ---- shared option sets ----
-type Opt = { label: string; color: string };
-const ENTITY: Opt[] = [
-  { label: "India", color: "#f59e0b" },
-  { label: "Netherlands", color: "#f97316" },
-  { label: "Global", color: "#94a3b8" },
-];
-const PRODUCTS: Opt[] = [
-  { label: "Healthytica", color: "#10b981" },
-  { label: "Valytica", color: "#6366f1" },
-  { label: "AI Workshop", color: "#a855f7" },
-];
 
 // ---- tiny TipTap helpers (kept local so this module is self-contained) ----
 type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string };
@@ -44,13 +32,6 @@ const doc = (...nodes: Node[]): Node => ({ type: "doc", content: nodes });
 const plain = (n: Node): string =>
   n.type === "text" ? (n.text ?? "") : (n.content ?? []).map(plain).join(" ");
 
-type FieldDef = {
-  name: string;
-  type: string;
-  options?: Opt[];
-  relationTo?: string; // database name this relation field links to
-};
-
 export async function seedCrm(ws: { id: string }, owner: { id: string }) {
   // ---- Teams (insert only the ones missing) ----
   const existingTeams = await db
@@ -64,242 +45,75 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
   ].filter((t) => !haveTeam.has(t.name));
   if (newTeams.length) await db.insert(schema.teams).values(newTeams);
 
-  // ---- CRM databases ----
-  // Skip the whole block if it has already been provisioned (keyed on "Deals").
-  const existingDbs = await db
-    .select({ id: schema.databases.id, name: schema.databases.name })
-    .from(schema.databases)
-    .where(eq(schema.databases.workspaceId, ws.id));
-  const crmAlreadySeeded = existingDbs.some((d) => d.name === "Deals");
+  // ---- CRM / Sales / Marketing records (keyed on "any deal exists") ----
+  const existingDeal = await db
+    .select({ id: schema.deals.id })
+    .from(schema.deals)
+    .where(eq(schema.deals.workspaceId, ws.id))
+    .limit(1);
 
-  if (!crmAlreadySeeded) {
-    // Create the four database shells first so relation fields can resolve their
-    // target ids before any fields are inserted.
-    const dbIds: Record<string, string> = {};
-    for (const [name, icon] of [
-      ["Accounts", "🏢"],
-      ["Contacts", "👤"],
-      ["Deals", "💰"],
-      ["Campaigns", "📣"],
-    ] as const) {
-      const [d] = await db
-        .insert(schema.databases)
-        .values({ workspaceId: ws.id, name, icon })
-        .returning();
-      dbIds[name] = d.id;
-    }
+  if (!existingDeal[0]) {
+    // Map products (projects) by name so records can be attached to them.
+    const products = await db
+      .select({ id: schema.projects.id, name: schema.projects.name })
+      .from(schema.projects)
+      .where(eq(schema.projects.workspaceId, ws.id));
+    const productId = (name: string) =>
+      products.find((p) => p.name === name)?.id ?? null;
 
-    // field id lookup: fieldId[dbName][fieldName]
-    const fieldId: Record<string, Record<string, string>> = {};
-    async function addFields(dbName: string, fields: FieldDef[]) {
-      const inserted = await db
-        .insert(schema.databaseFields)
-        .values(
-          fields.map((f, i) => ({
-            databaseId: dbIds[dbName],
-            name: f.name,
-            type: f.type,
-            options: f.type === "select" ? (f.options ?? []) : null,
-            relationDatabaseId: f.relationTo ? dbIds[f.relationTo] : null,
-            position: `a${i}`,
-          })),
-        )
-        .returning();
-      fieldId[dbName] = Object.fromEntries(inserted.map((f) => [f.name, f.id]));
-    }
-
-    await addFields("Accounts", [
-      { name: "Name", type: "text" },
-      { name: "Website", type: "url" },
-      { name: "Industry", type: "select", options: [
-        { label: "Health", color: "#10b981" },
-        { label: "Real Estate", color: "#6366f1" },
-        { label: "Education", color: "#a855f7" },
-        { label: "Finance", color: "#f59e0b" },
-        { label: "Other", color: "#94a3b8" },
-      ] },
-      { name: "Type", type: "select", options: [
-        { label: "Prospect", color: "#6366f1" },
-        { label: "Customer", color: "#10b981" },
-        { label: "Partner", color: "#a855f7" },
-        { label: "Churned", color: "#ef4444" },
-      ] },
-      { name: "Owner", type: "text" },
-      { name: "Entity", type: "select", options: ENTITY },
-      { name: "Deals", type: "relation", relationTo: "Deals" },
-    ]);
-
-    await addFields("Contacts", [
-      { name: "Name", type: "text" },
-      { name: "Email", type: "email" },
-      { name: "Title", type: "text" },
-      { name: "Phone", type: "text" },
-      { name: "Account", type: "relation", relationTo: "Accounts" },
-      { name: "Owner", type: "text" },
-      { name: "Entity", type: "select", options: ENTITY },
-    ]);
-
-    await addFields("Deals", [
-      { name: "Name", type: "text" },
-      { name: "Account", type: "relation", relationTo: "Accounts" },
-      { name: "Stage", type: "select", options: [
-        { label: "Lead", color: "#94a3b8" },
-        { label: "Qualified", color: "#6366f1" },
-        { label: "Proposal", color: "#a855f7" },
-        { label: "Negotiation", color: "#f59e0b" },
-        { label: "Won", color: "#10b981" },
-        { label: "Lost", color: "#ef4444" },
-      ] },
-      { name: "Value", type: "number" },
-      { name: "Product", type: "select", options: PRODUCTS },
-      { name: "Owner", type: "text" },
-      { name: "Expected close", type: "date" },
-      { name: "Entity", type: "select", options: ENTITY },
-    ]);
-
-    await addFields("Campaigns", [
-      { name: "Name", type: "text" },
-      { name: "Channel", type: "select", options: [
-        { label: "Email", color: "#6366f1" },
-        { label: "LinkedIn", color: "#0ea5e9" },
-        { label: "Events", color: "#a855f7" },
-        { label: "Content", color: "#10b981" },
-        { label: "Paid", color: "#f59e0b" },
-        { label: "Referral", color: "#ec4899" },
-      ] },
-      { name: "Status", type: "select", options: [
-        { label: "Planned", color: "#94a3b8" },
-        { label: "Active", color: "#10b981" },
-        { label: "Done", color: "#6366f1" },
-      ] },
-      { name: "Start date", type: "date" },
-      { name: "End date", type: "date" },
-      { name: "Budget", type: "number" },
-      { name: "Owner", type: "text" },
-      { name: "Entity", type: "select", options: ENTITY },
-    ]);
-
-    // Rollup on Accounts: total pipeline = sum of related Deals' Value.
-    await db.insert(schema.databaseFields).values({
-      databaseId: dbIds["Accounts"],
-      name: "Pipeline value",
-      type: "rollup",
-      config: {
-        relationFieldId: fieldId["Accounts"]["Deals"],
-        targetFieldId: fieldId["Deals"]["Value"],
-        fn: "sum",
-      },
-      position: "a7",
-    });
-
-    // ---- Rows (cell values are keyed by field id; relations hold row-id arrays) ----
-    const f = (dbName: string, field: string) => fieldId[dbName][field];
-
-    // Accounts first so contacts/deals can point at them.
-    const accountSeed = [
-      { Name: "Apollo Hospitals", Website: "https://apollohospitals.com", Industry: "Health", Type: "Prospect", Owner: "Sandeep", Entity: "India" },
-      { Name: "Mumbai Valuers LLP", Industry: "Real Estate", Type: "Customer", Owner: "Sandeep", Entity: "India" },
-      { Name: "Erasmus MC", Website: "https://erasmusmc.nl", Industry: "Health", Type: "Prospect", Owner: "Sandeep", Entity: "Netherlands" },
-    ];
+    // Accounts (shared CRM layer).
     const accountRows = await db
-      .insert(schema.databaseRows)
-      .values(
-        accountSeed.map((a, i) => ({
-          databaseId: dbIds["Accounts"],
-          position: `a${i}`,
-          values: Object.fromEntries(
-            Object.entries(a).map(([k, v]) => [f("Accounts", k), v]),
-          ),
-        })),
-      )
+      .insert(schema.crmAccounts)
+      .values([
+        { workspaceId: ws.id, name: "Apollo Hospitals", website: "https://apollohospitals.com", industry: "Health", type: "prospect", entity: "India", ownerId: owner.id },
+        { workspaceId: ws.id, name: "Mumbai Valuers LLP", industry: "Real Estate", type: "customer", entity: "India", ownerId: owner.id },
+        { workspaceId: ws.id, name: "Erasmus MC", website: "https://erasmusmc.nl", industry: "Health", type: "prospect", entity: "Netherlands", ownerId: owner.id },
+      ])
       .returning();
-    const accountId = new Map(
-      accountRows.map((r) => [
-        String((r.values as Record<string, unknown>)[f("Accounts", "Name")]),
-        r.id,
-      ]),
-    );
+    const accId = (name: string) => accountRows.find((a) => a.name === name)!.id;
 
-    // Contacts → Account relation.
-    const contactSeed = [
-      { Name: "Dr. Reddy", Email: "reddy@apollo.example", Title: "Chief of Cardiology", Account: "Apollo Hospitals", Owner: "Sandeep", Entity: "India" },
-      { Name: "Anita Sharma", Email: "anita@mumbaivaluers.example", Title: "Managing Partner", Account: "Mumbai Valuers LLP", Owner: "Sandeep", Entity: "India" },
-      { Name: "Jan de Vries", Email: "jan@erasmusmc.example", Title: "Research Lead", Account: "Erasmus MC", Owner: "Sandeep", Entity: "Netherlands" },
-    ];
-    await db.insert(schema.databaseRows).values(
-      contactSeed.map((c, i) => ({
-        databaseId: dbIds["Contacts"],
-        position: `a${i}`,
-        values: {
-          [f("Contacts", "Name")]: c.Name,
-          [f("Contacts", "Email")]: c.Email,
-          [f("Contacts", "Title")]: c.Title,
-          [f("Contacts", "Account")]: [accountId.get(c.Account)],
-          [f("Contacts", "Owner")]: c.Owner,
-          [f("Contacts", "Entity")]: c.Entity,
-        },
-      })),
-    );
+    // Contacts (shared CRM layer).
+    await db.insert(schema.crmContacts).values([
+      { workspaceId: ws.id, accountId: accId("Apollo Hospitals"), name: "Dr. Reddy", email: "reddy@apollo.example", title: "Chief of Cardiology", lifecycleStage: "qualified", entity: "India", ownerId: owner.id },
+      { workspaceId: ws.id, accountId: accId("Mumbai Valuers LLP"), name: "Anita Sharma", email: "anita@mumbaivaluers.example", title: "Managing Partner", lifecycleStage: "customer", entity: "India", ownerId: owner.id },
+      { workspaceId: ws.id, accountId: accId("Erasmus MC"), name: "Jan de Vries", email: "jan@erasmusmc.example", title: "Research Lead", lifecycleStage: "lead", entity: "Netherlands", ownerId: owner.id },
+    ]);
 
-    // Deals → Account relation; capture ids per account for the reverse link.
-    const dealSeed = [
-      { Name: "Apollo — Healthytica pilot", Account: "Apollo Hospitals", Stage: "Proposal", Value: 12000, Product: "Healthytica", Owner: "Sandeep", "Expected close": "2026-08-15", Entity: "India" },
-      { Name: "Mumbai Valuers — Valytica annual", Account: "Mumbai Valuers LLP", Stage: "Won", Value: 8000, Product: "Valytica", Owner: "Sandeep", "Expected close": "2026-05-01", Entity: "India" },
-      { Name: "Erasmus MC — Healthytica eval", Account: "Erasmus MC", Stage: "Qualified", Value: 20000, Product: "Healthytica", Owner: "Sandeep", "Expected close": "2026-09-30", Entity: "Netherlands" },
-      { Name: "Apollo — Workshop cohort", Account: "Apollo Hospitals", Stage: "Lead", Value: 5000, Product: "AI Workshop", Owner: "Sandeep", "Expected close": "2026-10-01", Entity: "India" },
-    ];
+    // Deals (Sales, product-scoped). sortKey orders within a pipeline column.
     const dealRows = await db
-      .insert(schema.databaseRows)
-      .values(
-        dealSeed.map((d, i) => ({
-          databaseId: dbIds["Deals"],
-          position: `a${i}`,
-          values: {
-            [f("Deals", "Name")]: d.Name,
-            [f("Deals", "Account")]: [accountId.get(d.Account)],
-            [f("Deals", "Stage")]: d.Stage,
-            [f("Deals", "Value")]: d.Value,
-            [f("Deals", "Product")]: d.Product,
-            [f("Deals", "Owner")]: d.Owner,
-            [f("Deals", "Expected close")]: d["Expected close"],
-            [f("Deals", "Entity")]: d.Entity,
-          },
-        })),
-      )
+      .insert(schema.deals)
+      .values([
+        { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Apollo Hospitals"), name: "Apollo — Healthytica pilot", stage: "proposal", value: 12000, entity: "India", ownerId: owner.id, sortKey: "a0" },
+        { workspaceId: ws.id, productId: productId("Valytica"), accountId: accId("Mumbai Valuers LLP"), name: "Mumbai Valuers — Valytica annual", stage: "won", value: 8000, entity: "India", ownerId: owner.id, sortKey: "a0" },
+        { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Erasmus MC"), name: "Erasmus MC — Healthytica eval", stage: "qualified", value: 20000, entity: "Netherlands", ownerId: owner.id, sortKey: "a0" },
+        { workspaceId: ws.id, productId: productId("AI Workshop"), accountId: accId("Apollo Hospitals"), name: "Apollo — Workshop cohort", stage: "lead", value: 5000, entity: "India", ownerId: owner.id, sortKey: "a1" },
+      ])
       .returning();
 
-    // Reverse-link each Account's "Deals" relation so the rollup can sum them.
-    const dealsByAccount = new Map<string, string[]>();
-    for (const r of dealRows) {
-      const acc = ((r.values as Record<string, unknown>)[f("Deals", "Account")] as string[])?.[0];
-      if (!acc) continue;
-      dealsByAccount.set(acc, [...(dealsByAccount.get(acc) ?? []), r.id]);
-    }
-    for (const a of accountRows) {
-      const linked = dealsByAccount.get(a.id);
-      if (!linked) continue;
-      await db
-        .update(schema.databaseRows)
-        .set({
-          values: { ...(a.values as Record<string, unknown>), [f("Accounts", "Deals")]: linked },
-        })
-        .where(eq(schema.databaseRows.id, a.id));
+    // A couple of activities on the lead deal.
+    const pilot = dealRows.find((d) => d.name === "Apollo — Healthytica pilot");
+    if (pilot) {
+      await db.insert(schema.crmActivities).values([
+        { workspaceId: ws.id, dealId: pilot.id, accountId: pilot.accountId, productId: pilot.productId, type: "call", body: "Intro call — strong interest from cardiology.", actorId: owner.id },
+        { workspaceId: ws.id, dealId: pilot.id, accountId: pilot.accountId, productId: pilot.productId, type: "email", body: "Sent proposal v1 for the 3-month pilot.", actorId: owner.id },
+      ]);
     }
 
-    // Campaigns.
-    const campaignSeed = [
-      { Name: "FY26 LinkedIn — Healthytica", Channel: "LinkedIn", Status: "Active", "Start date": "2026-04-01", Budget: 3000, Owner: "Sandeep", Entity: "Global" },
-      { Name: "Valuer webinar series", Channel: "Events", Status: "Planned", "Start date": "2026-07-01", Budget: 1500, Owner: "Sandeep", Entity: "India" },
-    ];
-    await db.insert(schema.databaseRows).values(
-      campaignSeed.map((c, i) => ({
-        databaseId: dbIds["Campaigns"],
-        position: `a${i}`,
-        values: Object.fromEntries(
-          Object.entries(c).map(([k, v]) => [f("Campaigns", k), v]),
-        ),
-      })),
-    );
+    // Campaigns (Marketing, product-scoped) + content.
+    const campaignRows = await db
+      .insert(schema.campaigns)
+      .values([
+        { workspaceId: ws.id, productId: productId("Healthytica"), name: "FY26 LinkedIn — Healthytica", channel: "linkedin", status: "active", budget: 3000, entity: "Global", ownerId: owner.id },
+        { workspaceId: ws.id, productId: productId("Valytica"), name: "Valuer webinar series", channel: "events", status: "planned", budget: 1500, entity: "India", ownerId: owner.id },
+      ])
+      .returning();
+    const linkedin = campaignRows.find((c) => c.name === "FY26 LinkedIn — Healthytica");
+
+    await db.insert(schema.contentItems).values([
+      { workspaceId: ws.id, productId: productId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Biomarker explainer thread", channel: "linkedin", status: "published", ownerId: owner.id },
+      { workspaceId: ws.id, productId: productId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Customer story: cardiology pilot", channel: "content", status: "draft", ownerId: owner.id },
+      { workspaceId: ws.id, productId: productId("Valytica"), title: "Webinar landing page", channel: "content", status: "idea", ownerId: owner.id },
+    ]);
   }
 
   // ---- Wiki: Sales & Marketing Playbook (under Company Handbook if present) ----
@@ -316,7 +130,7 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       .limit(1);
     const content = doc(
       h(1, "Sales & Marketing Playbook"),
-      p("How we run go-to-market in the hub. The CRM here is the system-of-record for accounts, contacts, deals and campaigns; outbound sending stays in dedicated tools."),
+      p("Go-to-market lives in the Product × Department matrix. Each product has its own Sales and Marketing sections, and the top-level Sales / Marketing pages roll the same records up across all products."),
       h(2, "Pipeline stages (Deals)"),
       bullets([
         "Lead — identified, not yet engaged.",
@@ -326,16 +140,16 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
         "Won — closed and signed.",
         "Lost — closed, no deal.",
       ]),
-      h(2, "Flow"),
+      h(2, "How the two lenses link"),
       bullets([
-        "Capture a company in Accounts and its people in Contacts.",
-        "Open a Deal linked to the Account; move it across stages on the board.",
-        "Track demand-gen in Campaigns; attribute the source on the Account.",
-        "Account → Pipeline value rolls up the sum of its open deals automatically.",
+        "Every deal/campaign carries a product — that link is the matrix.",
+        "Product lens: Products → a product → Sales/Marketing shows only its records.",
+        "Department lens: top-level Sales/Marketing shows every product together.",
+        "Accounts & contacts are a shared CRM layer both Sales and Marketing read from.",
       ]),
       h(2, "What the hub holds vs. what stays external"),
       bullets([
-        "Hub (build): accounts, contacts, deals, pipeline, campaigns — your coordination data.",
+        "Hub (build): accounts, contacts, deals, pipeline, campaigns, content — your coordination data.",
         "External (buy): Apollo-style email sequencing and HubSpot-style marketing email sending; integrate via a connector if needed, don't replicate here.",
       ]),
       h(2, "Entity convention"),
