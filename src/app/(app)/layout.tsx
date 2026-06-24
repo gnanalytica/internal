@@ -14,6 +14,12 @@ import {
   getWorkspace,
 } from "@/lib/data";
 
+// Every page in this segment reads the current user's session and workspace
+// data, so the whole authenticated app is rendered per-request. This also keeps
+// `next build` from trying to statically prerender these pages (which would
+// require auth/database access at build time).
+export const dynamic = "force-dynamic";
+
 export default async function AppLayout({
   children,
 }: {
