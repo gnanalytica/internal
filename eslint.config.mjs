@@ -16,6 +16,21 @@ const eslintConfig = defineConfig([
     "mobile/**",
     "mcp/**",
   ]),
+  {
+    // Treat a leading underscore as "intentionally unused" (params kept for
+    // signature/compatibility, ignored destructured siblings, unused catch vars).
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

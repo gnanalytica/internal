@@ -36,7 +36,6 @@ import {
   references,
   savedViews,
   projects,
-  teamMembers,
   teams,
   ticketComments,
   tickets,
@@ -79,7 +78,6 @@ import type {
   Workspace,
   WorkspaceWithRole,
 } from "@/lib/types";
-import { issueIdentifier } from "@/lib/types";
 
 export type {
   Cycle,
