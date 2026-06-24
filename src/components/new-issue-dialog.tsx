@@ -13,7 +13,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   AssigneePicker,
   LabelPicker,
@@ -143,8 +142,7 @@ export function NewIssueDialog({
           <LabelPicker labels={labels} value={labelIds} onChange={setLabelIds} />
         </div>
 
-        <Separator />
-        <DialogFooter className="px-3 py-2.5">
+        <DialogFooter className="mx-0 mb-0 px-3 py-2.5">
           <span className="mr-auto self-center text-[11px] text-muted-foreground">
             <kbd className="rounded bg-muted px-1 py-0.5 font-mono">⌘↵</kbd> to create
           </span>
