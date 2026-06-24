@@ -99,10 +99,6 @@ function TicketForm({
   }, [ticket]);
 
   function save() {
-    if (!productId) {
-      toast.error("Pick a product for this ticket.");
-      return;
-    }
     startTransition(async () => {
       if (ticket) {
         await updateTicket(ticket.id, {
@@ -178,7 +174,7 @@ function TicketForm({
               disabled={!!scopeProductId}
               onChange={(e) => setProductId(e.target.value || null)}
             >
-              <option value="">Select…</option>
+              <option value="">No product</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
