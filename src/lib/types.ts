@@ -161,6 +161,7 @@ export type ProjectWithIssueCount = Project & {
 
 export type ProjectDetail = Project & {
   initiative: Initiative | null;
+  ownerTeam: Team | null;
   issues: IssueWithRelations[];
 };
 
