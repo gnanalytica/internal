@@ -83,6 +83,13 @@ export const projects = pgTable(
     // Which department modules are enabled for this product. null = all enabled
     // (the auto-spawn default); an explicit array restricts to those slugs.
     enabledDepartments: jsonb("enabled_departments").$type<string[] | null>(),
+    // 'product' = something we build (gets department modules + CRM);
+    // 'ops' = back-office (no departments, no CRM).
+    kind: text("kind").$type<"product" | "ops">().notNull().default("product"),
+    // Owning pod (cross-functional team). null for ops projects.
+    ownerTeamId: uuid("owner_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
     startDate: timestamp("start_date", { withTimezone: true }),
     targetDate: timestamp("target_date", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -595,6 +602,10 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   initiative: one(initiatives, {
     fields: [projects.initiativeId],
     references: [initiatives.id],
+  }),
+  ownerTeam: one(teams, {
+    fields: [projects.ownerTeamId],
+    references: [teams.id],
   }),
   issues: many(issues),
 }));
