@@ -72,17 +72,8 @@ export async function ensureWorkspaceAdmins(
 }
 
 export async function seedCrm(ws: { id: string }, owner: { id: string }) {
-  // ---- Teams (insert only the ones missing) ----
-  const existingTeams = await db
-    .select({ name: schema.teams.name })
-    .from(schema.teams)
-    .where(eq(schema.teams.workspaceId, ws.id));
-  const haveTeam = new Set(existingTeams.map((t) => t.name));
-  const newTeams = [
-    { workspaceId: ws.id, name: "Sales", key: "SAL", icon: "📈", color: "#0ea5e9" },
-    { workspaceId: ws.id, name: "Marketing", key: "MKT", icon: "📣", color: "#f43f5e" },
-  ].filter((t) => !haveTeam.has(t.name));
-  if (newTeams.length) await db.insert(schema.teams).values(newTeams);
+  // Sales & Marketing are department lenses (per-product modules), not teams —
+  // so no teams are seeded here. CRM records key on products (projects) below.
 
   // ---- CRM / Sales / Marketing records (keyed on "any deal exists") ----
   const existingDeal = await db

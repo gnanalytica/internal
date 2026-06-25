@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { MoreHorizontal, Trash2, UserPlus, X } from "lucide-react";
@@ -38,7 +39,11 @@ export function TeamDetail({
   allMembers,
   isAdmin,
 }: {
-  team: Team & { issues: IssueWithRelations[]; members: Member[] };
+  team: Team & {
+    issues: IssueWithRelations[];
+    members: Member[];
+    ownedProducts: { id: string; name: string; color: string }[];
+  };
   allMembers: Member[];
   isAdmin: boolean;
 }) {
@@ -109,6 +114,30 @@ export function TeamDetail({
               {team.key}
             </span>
           </div>
+
+          {/* Owned products */}
+          {team.ownedProducts.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Owns
+              </h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {team.ownedProducts.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/products/${p.id}`}
+                    className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <span
+                      className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
+                      style={{ backgroundColor: p.color }}
+                    />
+                    {p.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Members */}
           <div className="mt-8 flex items-center justify-between">

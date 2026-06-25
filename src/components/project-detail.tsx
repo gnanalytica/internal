@@ -176,6 +176,18 @@ export function ProjectDetail({
                 {project.initiative.name}
               </Link>
             )}
+            {project.kind === "product" && project.ownerTeam && (
+              <Link
+                href={`/teams/${project.ownerTeam.id}`}
+                className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <span
+                  className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
+                  style={{ backgroundColor: project.ownerTeam.color }}
+                />
+                {project.ownerTeam.name}
+              </Link>
+            )}
             <div className="flex items-center gap-2">
               <label className="text-xs text-muted-foreground">Start</label>
               <input

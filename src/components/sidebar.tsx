@@ -83,6 +83,7 @@ export function Sidebar({
   const pathname = usePathname();
   const [, startTransition] = useTransition();
   const [showProjects, setShowProjects] = useState(true);
+  const [showOps, setShowOps] = useState(true);
   const [showPages, setShowPages] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
 
@@ -373,10 +374,41 @@ export function Sidebar({
             </Link>
           }
         >
-          {projects.map((p) => (
-            <ProductNavItem key={p.id} product={p} pathname={pathname} />
-          ))}
+          {projects
+            .filter((p) => p.kind === "product")
+            .map((p) => (
+              <ProductNavItem key={p.id} product={p} pathname={pathname} />
+            ))}
         </Section>
+
+        {/* Operations — back-office projects, no department modules */}
+        {projects.some((p) => p.kind === "ops") && (
+          <Section
+            title="Operations"
+            open={showOps}
+            onToggle={() => setShowOps((v) => !v)}
+          >
+            {projects
+              .filter((p) => p.kind === "ops")
+              .map((p) => (
+                <NavItem
+                  key={p.id}
+                  href={`/projects/${p.id}`}
+                  active={pathname === `/projects/${p.id}`}
+                  icon={
+                    <span
+                      className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+                      style={{ backgroundColor: p.color }}
+                    />
+                  }
+                  label={p.name}
+                  trailing={
+                    <span className="font-mono text-[10px] text-muted-foreground">{p.key}</span>
+                  }
+                />
+              ))}
+          </Section>
+        )}
 
         {/* Pages */}
         <Section

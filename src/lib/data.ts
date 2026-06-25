@@ -280,6 +280,7 @@ export async function getProject(
     where: and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)),
     with: {
       initiative: true,
+      ownerTeam: true,
       issues: {
         orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
         with: {
@@ -1248,10 +1249,19 @@ export async function getTeams(workspaceId: string): Promise<TeamWithCount[]> {
   }));
 }
 
+export type OwnedProduct = { id: string; name: string; color: string };
+
 export async function getTeam(
   workspaceId: string,
   id: string,
-): Promise<(Team & { issues: IssueWithRelations[]; members: Member[] }) | null> {
+): Promise<
+  | (Team & {
+      issues: IssueWithRelations[];
+      members: Member[];
+      ownedProducts: OwnedProduct[];
+    })
+  | null
+> {
   const row = await db.query.teams.findFirst({
     where: and(eq(teams.workspaceId, workspaceId), eq(teams.id, id)),
     with: {
@@ -1269,10 +1279,16 @@ export async function getTeam(
     },
   });
   if (!row) return null;
+  const ownedProducts = await db
+    .select({ id: projects.id, name: projects.name, color: projects.color })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.ownerTeamId, id)))
+    .orderBy(asc(projects.name));
   return {
     ...row,
     issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
     members: row.members.map((m) => m.user),
+    ownedProducts,
   };
 }
 
@@ -1424,7 +1440,9 @@ export async function getProductSummaries(
 
   const openStages = new Set(["lead", "qualified", "proposal", "negotiation"]);
   const openTicketStatuses = new Set(["open", "pending"]);
-  return products.map((p) => {
+  return products
+    .filter((p) => p.kind === "product")
+    .map((p) => {
     const pDeals = allDeals.filter((d) => d.productId === p.id);
     const open = pDeals.filter((d) => openStages.has(d.stage));
     return {
