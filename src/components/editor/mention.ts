@@ -1,6 +1,7 @@
 "use client";
 
 import { Node, mergeAttributes } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import { CircleDot, FileText, Folder } from "lucide-react";
@@ -80,6 +81,7 @@ export const EntityRef = Node.create<Options>({
     return [
       Suggestion<MentionItem>({
         editor: this.editor,
+        pluginKey: new PluginKey("entityRefSuggestion"),
         char: "@",
         allowSpaces: true,
         command: ({ editor, range, props }) => {
