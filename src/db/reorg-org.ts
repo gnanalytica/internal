@@ -20,6 +20,68 @@ const POD_META: Record<string, { key: string; icon: string; color: string }> = {
   Platform: { key: "PLAT", icon: "🛠️", color: "#3b82f6" },
 };
 
+/**
+ * Make the live "Tools & Subscriptions" database match the redesigned shape:
+ * ensure the Provider / Renewal date / URL fields exist and that an Odoo row is
+ * present (NL accounting/VAT/payroll system of record). Idempotent.
+ */
+async function ensureToolsAndOdoo(workspaceId: string) {
+  const [toolsDb] = await db
+    .select({ id: schema.databases.id })
+    .from(schema.databases)
+    .where(
+      and(
+        eq(schema.databases.workspaceId, workspaceId),
+        eq(schema.databases.name, "Tools & Subscriptions"),
+      ),
+    )
+    .limit(1);
+  if (!toolsDb) return;
+
+  const fields = await db
+    .select({ id: schema.databaseFields.id, name: schema.databaseFields.name })
+    .from(schema.databaseFields)
+    .where(eq(schema.databaseFields.databaseId, toolsDb.id));
+  const fieldId = new Map(fields.map((f) => [f.name, f.id]));
+
+  let pos = fields.length;
+  for (const f of [
+    { name: "Provider", type: "text" },
+    { name: "Renewal date", type: "date" },
+    { name: "URL", type: "url" },
+  ]) {
+    if (!fieldId.has(f.name)) {
+      const [row] = await db
+        .insert(schema.databaseFields)
+        .values({ databaseId: toolsDb.id, name: f.name, type: f.type, options: null, position: `a${pos++}` })
+        .returning({ id: schema.databaseFields.id });
+      fieldId.set(f.name, row.id);
+    }
+  }
+
+  const toolKey = fieldId.get("Tool");
+  const rows = await db
+    .select({ values: schema.databaseRows.values })
+    .from(schema.databaseRows)
+    .where(eq(schema.databaseRows.databaseId, toolsDb.id));
+  const hasOdoo = rows.some(
+    (r) => toolKey && (r.values as Record<string, unknown>)?.[toolKey] === "Odoo",
+  );
+  if (!hasOdoo) {
+    const values: Record<string, unknown> = {};
+    const set = (name: string, v: unknown) => {
+      const id = fieldId.get(name);
+      if (id) values[id] = v;
+    };
+    set("Tool", "Odoo");
+    set("Provider", "Odoo");
+    set("Entity", "Netherlands");
+    set("Owner", "Sandeep");
+    set("URL", "https://www.odoo.com");
+    await db.insert(schema.databaseRows).values({ databaseId: toolsDb.id, position: "a0", values });
+  }
+}
+
 async function main() {
   const [ws] = await db
     .select({ id: schema.workspaces.id })
@@ -49,13 +111,21 @@ async function main() {
     .from(schema.databases)
     .where(eq(schema.databases.workspaceId, ws.id));
 
+  // Independently idempotent — runs even when the structure is already migrated.
+  await ensureToolsAndOdoo(ws.id);
+
   const plan = planReorg({ teams, projects, databases });
   if (plan.isNoop) {
     console.log("Org already in the redesigned shape — no changes.");
     return;
   }
 
-  await db.transaction(async (tx) => {
+  // neon-http has no interactive transactions, so we apply the steps
+  // sequentially. The script is idempotent (planReorg recomputes from live
+  // state and short-circuits when already done), so a re-run safely completes
+  // any partially-applied migration.
+  const tx = db;
+  {
     // 1. Ensure pods exist; collect their ids by name.
     const podIdByName = new Map<string, string>();
     for (const t of teams) podIdByName.set(t.name, t.id);
@@ -143,7 +213,7 @@ async function main() {
           eq(schema.initiatives.name, "Compliance & Legal"),
         ),
       );
-  });
+  }
 
   console.log("Reorg applied.");
 }
