@@ -54,52 +54,68 @@ export function ProjectsView({
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              {projects.map((p) => {
-                const pct = p.issueCount
-                  ? Math.round((p.doneCount / p.issueCount) * 100)
-                  : 0;
-                return (
-                  <Link
-                    key={p.id}
-                    href={`/projects/${p.id}`}
-                    className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40"
-                  >
-                    <span
-                      className="size-3 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-                      style={{ backgroundColor: p.color }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{p.name}</span>
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {p.key}
-                        </span>
-                      </div>
-                      {p.description && (
-                        <div className="truncate text-xs text-muted-foreground">
-                          {p.description}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex w-32 shrink-0 items-center gap-2">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-brand"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="w-16 text-right text-xs text-muted-foreground">
-                        {p.doneCount}/{p.issueCount}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+            <div className="space-y-8">
+              <ProjectGroup
+                title="Products"
+                projects={projects.filter((p) => p.kind === "product")}
+              />
+              <ProjectGroup
+                title="Operations"
+                projects={projects.filter((p) => p.kind === "ops")}
+              />
             </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function ProjectGroup({
+  title,
+  projects,
+}: {
+  title: string;
+  projects: ProjectWithIssueCount[];
+}) {
+  if (projects.length === 0) return null;
+  return (
+    <section className="space-y-2">
+      <h2 className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h2>
+      {projects.map((p) => {
+        const pct = p.issueCount ? Math.round((p.doneCount / p.issueCount) * 100) : 0;
+        return (
+          <Link
+            key={p.id}
+            href={`/projects/${p.id}`}
+            className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40"
+          >
+            <span
+              className="size-3 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+              style={{ backgroundColor: p.color }}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium">{p.name}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{p.key}</span>
+              </div>
+              {p.description && (
+                <div className="truncate text-xs text-muted-foreground">{p.description}</div>
+              )}
+            </div>
+            <div className="flex w-32 shrink-0 items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="w-16 text-right text-xs text-muted-foreground">
+                {p.doneCount}/{p.issueCount}
+              </span>
+            </div>
+          </Link>
+        );
+      })}
+    </section>
   );
 }
