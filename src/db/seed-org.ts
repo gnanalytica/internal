@@ -83,18 +83,29 @@ async function main() {
   // Additional workspace admins (Sandeep + Jayasaagar).
   await ensureWorkspaceAdmins(ws.id);
 
-  // ---- Teams ----
-  await db.insert(schema.teams).values([
-    { workspaceId: ws.id, name: "Healthytica", key: "HLT", icon: "🩺", color: "#10b981" },
-    { workspaceId: ws.id, name: "Valytica", key: "VLT", icon: "🏠", color: "#6366f1" },
-    { workspaceId: ws.id, name: "AI Workshop", key: "WRK", icon: "🎓", color: "#a855f7" },
-    { workspaceId: ws.id, name: "Internal Tools", key: "ITL", icon: "🛠️", color: "#3b82f6" },
-    { workspaceId: ws.id, name: "Admin", key: "ADM", icon: "🗂️", color: "#94a3b8" },
-    { workspaceId: ws.id, name: "People (HR)", key: "HR", icon: "👥", color: "#ec4899" },
-    { workspaceId: ws.id, name: "Finance", key: "FIN", icon: "💶", color: "#f59e0b" },
-    { workspaceId: ws.id, name: "Sales", key: "SAL", icon: "📈", color: "#0ea5e9" },
-    { workspaceId: ws.id, name: "Marketing", key: "MKT", icon: "📣", color: "#f43f5e" },
-  ]);
+  // ---- Teams (cross-functional pods that own products) ----
+  const podRows = await db
+    .insert(schema.teams)
+    .values([
+      { workspaceId: ws.id, name: "Products", key: "PROD", icon: "🚀", color: "#6366f1" },
+      { workspaceId: ws.id, name: "Platform", key: "PLAT", icon: "🛠️", color: "#3b82f6" },
+    ])
+    .returning({ id: schema.teams.id, name: schema.teams.name });
+  const podId = (name: string) => podRows.find((p) => p.name === name)!.id;
+
+  // Every workspace member belongs to both pods initially (small team).
+  const wsMembers = await db
+    .select({ userId: schema.workspaceMembers.userId })
+    .from(schema.workspaceMembers)
+    .where(eq(schema.workspaceMembers.workspaceId, ws.id));
+  for (const pod of podRows) {
+    for (const m of wsMembers) {
+      await db
+        .insert(schema.teamMembers)
+        .values({ teamId: pod.id, userId: m.userId })
+        .onConflictDoNothing();
+    }
+  }
 
   // ---- Initiatives ----
   const initiatives = await db
@@ -102,22 +113,21 @@ async function main() {
     .values([
       { workspaceId: ws.id, name: "Revenue FY26", color: "#10b981" },
       { workspaceId: ws.id, name: "Hiring", color: "#5e6ad2" },
-      { workspaceId: ws.id, name: "Compliance & Legal", color: "#f59e0b" },
     ])
     .returning();
   const init = (name: string) => initiatives.find((i) => i.name === name)?.id ?? null;
 
   // ---- Projects ----
+  // kind=product → owned by a pod, gets department modules + CRM.
+  // kind=ops → back-office, no pod, no departments.
   await db.insert(schema.projects).values([
-    { workspaceId: ws.id, name: "Healthytica", key: "HLTH", color: "#10b981", initiativeId: init("Revenue FY26"), description: "AI blood-biomarker health intelligence." },
-    { workspaceId: ws.id, name: "Valytica", key: "VAL", color: "#6366f1", initiativeId: init("Revenue FY26"), description: "AI valuation management for Indian valuers." },
-    { workspaceId: ws.id, name: "AI Workshop", key: "AIW", color: "#a855f7", initiativeId: init("Revenue FY26"), description: "SaaS LMS for the 30-day AI workshop." },
-    { workspaceId: ws.id, name: "Internal", key: "INT", color: "#3b82f6", description: "The internal Notion + Linear hub (this app)." },
-    { workspaceId: ws.id, name: "Standup-AI", key: "STDA", color: "#3b82f6", description: "Autonomous standup bot." },
-    { workspaceId: ws.id, name: "Compliance — India", key: "CMPIN", color: "#f59e0b", initiativeId: init("Compliance & Legal"), description: "MCA/ROC, GST, TDS, PF/ESI." },
-    { workspaceId: ws.id, name: "Compliance — Netherlands", key: "CMPNL", color: "#f97316", initiativeId: init("Compliance & Legal"), description: "KvK, BTW/VAT, payroll tax." },
-    { workspaceId: ws.id, name: "Hiring", key: "HIRE", color: "#5e6ad2", initiativeId: init("Hiring"), description: "Open roles across entities." },
-    { workspaceId: ws.id, name: "NL Payroll Setup", key: "PAY", color: "#f97316", initiativeId: init("Compliance & Legal"), description: "Stand up Dutch payroll / EOR." },
+    { workspaceId: ws.id, name: "Healthytica", key: "HLTH", color: "#10b981", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI blood-biomarker health intelligence." },
+    { workspaceId: ws.id, name: "Valytica", key: "VAL", color: "#6366f1", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI valuation management for Indian valuers." },
+    { workspaceId: ws.id, name: "AI Workshop", key: "AIW", color: "#a855f7", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "SaaS LMS for the 30-day AI workshop." },
+    { workspaceId: ws.id, name: "Standup-AI", key: "STDA", color: "#3b82f6", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "Autonomous standup bot." },
+    { workspaceId: ws.id, name: "Internal", key: "INT", color: "#3b82f6", kind: "product", ownerTeamId: podId("Platform"), description: "The internal Notion + Linear hub (this app)." },
+    { workspaceId: ws.id, name: "Hiring", key: "HIRE", color: "#5e6ad2", kind: "ops", initiativeId: init("Hiring"), description: "Open roles across entities." },
+    { workspaceId: ws.id, name: "India Payroll Setup", key: "PAY", color: "#f59e0b", kind: "ops", description: "Stand up India payroll." },
   ]);
 
   // ---- Databases (each Entity-tagged) ----
@@ -175,44 +185,24 @@ async function main() {
     [{ Name: "Sandeep", Role: "Founder", Entity: "Global", Type: "Employee" }],
   );
 
-  await makeDb("Vendors", "🤝", [
-    { name: "Name", type: "text" },
-    { name: "Service", type: "text" },
-    { name: "Entity", type: "select", options: ENTITY },
-    { name: "Owner", type: "text" },
-  ]);
-
-  await makeDb("Contracts", "📜", [
-    { name: "Counterparty", type: "text" },
-    { name: "Type", type: "select", options: [
-      { label: "Customer", color: "#10b981" },
-      { label: "Vendor", color: "#f59e0b" },
-      { label: "Employment", color: "#6366f1" },
-      { label: "NDA", color: "#94a3b8" },
-      { label: "Other", color: "#a855f7" },
-    ] as typeof ENTITY },
-    { name: "Entity", type: "select", options: ENTITY },
-    { name: "Renewal date", type: "date" },
-    { name: "Link", type: "url" },
-  ]);
-
-  await makeDb("Assets", "💻", [
-    { name: "Item", type: "text" },
-    { name: "Assigned to", type: "text" },
-    { name: "Entity", type: "select", options: ENTITY },
-    { name: "Status", type: "select", options: [
-      { label: "In use", color: "#10b981" },
-      { label: "Spare", color: "#94a3b8" },
-      { label: "Retired", color: "#ef4444" },
-    ] as typeof ENTITY },
-  ]);
-
-  await makeDb("Tools & Subscriptions", "🧰", [
-    { name: "Tool", type: "text" },
-    { name: "Monthly cost", type: "number" },
-    { name: "Owner", type: "text" },
-    { name: "Entity", type: "select", options: ENTITY },
-  ]);
+  // Tools & Subscriptions doubles as the vendor list — a vendor is just a tool's
+  // provider. Seeded with Odoo (the NL accounting / VAT / payroll system).
+  await makeDb(
+    "Tools & Subscriptions",
+    "🧰",
+    [
+      { name: "Tool", type: "text" },
+      { name: "Provider", type: "text" },
+      { name: "Monthly cost", type: "number" },
+      { name: "Owner", type: "text" },
+      { name: "Entity", type: "select", options: ENTITY },
+      { name: "Renewal date", type: "date" },
+      { name: "URL", type: "url" },
+    ],
+    [
+      { Tool: "Odoo", Provider: "Odoo", Entity: "Netherlands", Owner: "Sandeep", URL: "https://www.odoo.com" },
+    ],
+  );
 
   // ---- Wiki skeleton ----
   let pos = 0;
@@ -295,7 +285,7 @@ async function main() {
       h(1, "Netherlands — Entity Reference"),
       h(2, "Registration"), bullets(["Legal name & KvK number: …", "Registered address: …", "BTW (VAT) number: …"]),
       h(2, "Statutory calendar"), bullets(["BTW/VAT returns (quarterly).", "Payroll tax (loonheffing) if employees.", "Corporate income tax (Vpb).", "Annual accounts to KvK."]),
-      h(2, "Providers"), bullets(["Bookkeeper/accountant: …", "Payroll / EOR: …", "Bank (EUR): …"]),
+      h(2, "Providers"), bullets(["Accounts / BTW (VAT) / payroll: Odoo — https://www.odoo.com", "Bank (EUR): …"]),
     ),
   );
 
