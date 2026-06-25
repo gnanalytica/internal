@@ -827,7 +827,12 @@ const PROJECT_COLORS = [
 ];
 
 /** Create a project, deriving a unique key prefix from its name. */
-export async function createProject(input: { name: string; key?: string }) {
+export async function createProject(input: {
+  name: string;
+  key?: string;
+  kind?: "product" | "ops";
+  ownerTeamId?: string | null;
+}) {
   const ws = await getWorkspace();
   const name = input.name.trim() || "New project";
   const base =
@@ -851,6 +856,8 @@ export async function createProject(input: { name: string; key?: string }) {
       name,
       key,
       color: PROJECT_COLORS[taken.size % PROJECT_COLORS.length],
+      kind: input.kind ?? "product",
+      ownerTeamId: input.ownerTeamId ?? null,
     })
     .returning();
   await dispatchWebhook(ws.id, "project.created", {
