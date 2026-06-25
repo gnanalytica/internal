@@ -1,6 +1,7 @@
 "use client";
 
 import { Extension, type Editor, type Range } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import {
@@ -135,6 +136,7 @@ export const SlashCommand = Extension.create({
     return [
       Suggestion<Cmd>({
         editor: this.editor,
+        pluginKey: new PluginKey("slashCommandSuggestion"),
         char: "/",
         startOfLine: false,
         command: ({ editor, range, props }) => props.run(editor, range),
