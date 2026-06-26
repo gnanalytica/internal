@@ -132,6 +132,7 @@ export type FeatureWithRelations = Feature & {
   product: Project | null;
   owner: Member | null;
   page: { id: string; title: string; icon: string } | null;
+  progress: { done: number; total: number; pct: number };
 };
 
 export type FeatureDetail = FeatureWithRelations & {

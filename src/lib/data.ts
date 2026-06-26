@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth/server";
+import { featureProgress } from "@/lib/feature-progress";
 import { db } from "@/db";
 import {
   activity,
@@ -1523,7 +1524,7 @@ export async function getFeatures(
   workspaceId: string,
   productId?: string,
 ): Promise<FeatureWithRelations[]> {
-  return db.query.features.findMany({
+  const rows = await db.query.features.findMany({
     where: productId
       ? and(eq(features.workspaceId, workspaceId), eq(features.productId, productId))
       : eq(features.workspaceId, workspaceId),
@@ -1533,6 +1534,37 @@ export async function getFeatures(
       owner: true,
       page: { columns: { id: true, title: true, icon: true } },
     },
+  });
+  if (rows.length === 0) return [];
+
+  // Roll up linked-issue progress per feature in one query (canceled excluded).
+  const counts = await db
+    .select({ featureId: issues.featureId, status: issues.status })
+    .from(issues)
+    .where(
+      and(
+        eq(issues.workspaceId, workspaceId),
+        inArray(
+          issues.featureId,
+          rows.map((r) => r.id),
+        ),
+      ),
+    );
+  const byFeature = new Map<string, { done: number; total: number }>();
+  for (const c of counts) {
+    if (!c.featureId || c.status === "canceled") continue;
+    const e = byFeature.get(c.featureId) ?? { done: 0, total: 0 };
+    e.total += 1;
+    if (c.status === "done") e.done += 1;
+    byFeature.set(c.featureId, e);
+  }
+
+  return rows.map((r) => {
+    const e = byFeature.get(r.id) ?? { done: 0, total: 0 };
+    return {
+      ...r,
+      progress: { done: e.done, total: e.total, pct: e.total ? Math.round((e.done / e.total) * 100) : 0 },
+    };
   });
 }
 
@@ -1562,6 +1594,7 @@ export async function getFeature(
   if (!row) return null;
   return {
     ...row,
+    progress: featureProgress(row.issues),
     issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
   };
 }
