@@ -1099,6 +1099,14 @@ export async function deleteField(id: string, databaseId: string) {
   revalidatePath(`/databases/${databaseId}`);
 }
 
+/** Persist a table column width. No revalidate — the client already shows it. */
+export async function setFieldWidth(id: string, width: number) {
+  await db
+    .update(databaseFields)
+    .set({ width: Math.round(width) })
+    .where(eq(databaseFields.id, id));
+}
+
 export async function addRow(databaseId: string) {
   await db
     .insert(databaseRows)

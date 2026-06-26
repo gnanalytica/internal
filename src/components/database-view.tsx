@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowUpDown,
   CalendarDays,
@@ -41,6 +41,7 @@ import {
   deleteDatabase,
   deleteField,
   deleteRow,
+  setFieldWidth,
   updateCell,
   updateDatabase,
 } from "@/lib/actions";
@@ -59,6 +60,9 @@ import {
 import { cn } from "@/lib/utils";
 
 type View = "table" | "board" | "gallery" | "calendar";
+
+const DEFAULT_COL_W = 180; // px
+const MIN_COL_W = 80; // px
 
 export function DatabaseView({
   database,
@@ -270,6 +274,22 @@ function TableView({
   allDatabases: { id: string; name: string }[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [widths, setWidths] = useState<Record<string, number>>(() =>
+    Object.fromEntries(database.fields.map((f) => [f.id, f.width ?? DEFAULT_COL_W])),
+  );
+  const widthsRef = useRef(widths);
+  widthsRef.current = widths;
+  const resizing = useRef<{ id: string; startX: number; startW: number } | null>(null);
+
+  // Keep widths in sync as fields are added/removed.
+  useEffect(() => {
+    setWidths((prev) => {
+      const next: Record<string, number> = {};
+      for (const f of database.fields) next[f.id] = prev[f.id] ?? f.width ?? DEFAULT_COL_W;
+      return next;
+    });
+  }, [database.fields]);
+
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -285,6 +305,30 @@ function TableView({
       for (const id of ids) await deleteRow(id, database.id);
     });
   };
+
+  const startResize = (e: React.PointerEvent, fieldId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizing.current = { id: fieldId, startX: e.clientX, startW: widths[fieldId] ?? DEFAULT_COL_W };
+    const move = (ev: PointerEvent) => {
+      const r = resizing.current;
+      if (!r) return;
+      const w = Math.max(MIN_COL_W, r.startW + (ev.clientX - r.startX));
+      setWidths((prev) => ({ ...prev, [r.id]: w }));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      const r = resizing.current;
+      resizing.current = null;
+      if (r) void setFieldWidth(r.id, widthsRef.current[r.id] ?? DEFAULT_COL_W);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const tableWidth =
+    36 + database.fields.reduce((s, f) => s + (widths[f.id] ?? DEFAULT_COL_W), 0) + 44;
 
   return (
     <div className="space-y-2">
@@ -305,11 +349,20 @@ function TableView({
           </button>
         </div>
       )}
-      <div className="inline-block min-w-full overflow-hidden rounded-lg border">
-        <table className="text-sm">
+
+      {/* Desktop: resizable table */}
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
+        <table className="table-fixed text-sm" style={{ width: tableWidth }}>
+          <colgroup>
+            <col style={{ width: 36 }} />
+            {database.fields.map((f) => (
+              <col key={f.id} style={{ width: widths[f.id] ?? DEFAULT_COL_W }} />
+            ))}
+            <col style={{ width: 44 }} />
+          </colgroup>
           <thead>
             <tr className="border-b bg-muted/40">
-              <th className="w-9 border-r px-2 py-2">
+              <th className="border-r px-2 py-2">
                 <input
                   type="checkbox"
                   aria-label="Select all rows"
@@ -320,81 +373,130 @@ function TableView({
                   className="size-3.5 align-middle accent-[var(--brand)]"
                 />
               </th>
-            {database.fields.map((f) => (
-              <th
-                key={f.id}
-                className="group/h min-w-[10rem] border-r px-3 py-2 text-left font-medium"
+              {database.fields.map((f) => (
+                <th
+                  key={f.id}
+                  className="group/h relative border-r px-3 py-2 text-left font-medium"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      {FIELD_TYPES.find((t) => t.id === f.type)?.icon}
+                    </span>
+                    <span className="truncate">{f.name}</span>
+                    <button
+                      onClick={() => persist(() => deleteField(f.id, database.id))}
+                      className="ml-auto text-muted-foreground opacity-0 hover:text-destructive group-hover/h:opacity-100"
+                      aria-label="Delete field"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </div>
+                  <span
+                    onPointerDown={(e) => startResize(e, f.id)}
+                    className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize touch-none hover:bg-brand/40"
+                    aria-hidden
+                  />
+                </th>
+              ))}
+              <th className="px-2 py-2">
+                <AddFieldButton database={database} persist={persist} allDatabases={allDatabases} />
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.id}
+                className={cn(
+                  "group/r border-b last:border-0 hover:bg-accent/30",
+                  selected.has(row.id) && "bg-accent/40",
+                )}
               >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    {FIELD_TYPES.find((t) => t.id === f.type)?.icon}
-                  </span>
-                  <span className="truncate">{f.name}</span>
+                <td className="border-r px-2 text-center">
+                  <input
+                    type="checkbox"
+                    aria-label="Select row"
+                    checked={selected.has(row.id)}
+                    onChange={() => toggle(row.id)}
+                    className="size-3.5 align-middle accent-[var(--brand)]"
+                  />
+                </td>
+                {database.fields.map((f) => (
+                  <td key={f.id} className="overflow-hidden border-r p-0">
+                    <Cell field={f} row={row} database={database} persist={persist} />
+                  </td>
+                ))}
+                <td className="px-2 text-center">
                   <button
-                    onClick={() => persist(() => deleteField(f.id, database.id))}
-                    className="ml-auto text-muted-foreground opacity-0 hover:text-destructive group-hover/h:opacity-100"
-                    aria-label="Delete field"
+                    onClick={() => persist(() => deleteRow(row.id, database.id))}
+                    className="text-muted-foreground opacity-0 hover:text-destructive group-hover/r:opacity-100"
+                    aria-label="Delete row"
                   >
                     <Trash2 className="size-3" />
                   </button>
-                </div>
-              </th>
-            ))}
-            <th className="px-2 py-2">
-              <AddFieldButton
-                database={database}
-                persist={persist}
-                allDatabases={allDatabases}
-              />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.id}
-              className={cn(
-                "group/r border-b last:border-0 hover:bg-accent/30",
-                selected.has(row.id) && "bg-accent/40",
-              )}
-            >
-              <td className="border-r px-2 text-center">
-                <input
-                  type="checkbox"
-                  aria-label="Select row"
-                  checked={selected.has(row.id)}
-                  onChange={() => toggle(row.id)}
-                  className="size-3.5 align-middle accent-[var(--brand)]"
-                />
-              </td>
-              {database.fields.map((f) => (
-                <td key={f.id} className="border-r p-0">
-                  <Cell field={f} row={row} database={database} persist={persist} />
                 </td>
-              ))}
-              <td className="px-2 text-center">
+              </tr>
+            ))}
+            <tr>
+              <td colSpan={database.fields.length + 2} className="px-3 py-1.5">
                 <button
-                  onClick={() => persist(() => deleteRow(row.id, database.id))}
-                  className="text-muted-foreground opacity-0 hover:text-destructive group-hover/r:opacity-100"
-                  aria-label="Delete row"
+                  onClick={() => persist(() => addRow(database.id))}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <Trash2 className="size-3" />
+                  <Plus className="size-3.5" /> New row
                 </button>
               </td>
             </tr>
-          ))}
-          <tr>
-            <td colSpan={database.fields.length + 2} className="px-3 py-1.5">
-              <button
-                onClick={() => persist(() => addRow(database.id))}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Plus className="size-3.5" /> New row
-              </button>
-            </td>
-          </tr>
-        </tbody>
+          </tbody>
         </table>
+      </div>
+
+      {/* Mobile: card list */}
+      <div className="space-y-2 md:hidden">
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className={cn(
+              "rounded-lg border p-3",
+              selected.has(row.id) && "ring-1 ring-brand",
+            )}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <input
+                type="checkbox"
+                aria-label="Select row"
+                checked={selected.has(row.id)}
+                onChange={() => toggle(row.id)}
+                className="size-3.5 accent-[var(--brand)]"
+              />
+              <button
+                onClick={() => persist(() => deleteRow(row.id, database.id))}
+                className="ml-auto text-muted-foreground hover:text-destructive"
+                aria-label="Delete row"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {database.fields.map((f) => (
+                <div key={f.id} className="flex items-start gap-2">
+                  <span className="w-24 shrink-0 pt-1.5 text-[11px] text-muted-foreground">
+                    {f.name}
+                  </span>
+                  <div className="min-w-0 flex-1 rounded-md border">
+                    <Cell field={f} row={row} database={database} persist={persist} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        <button
+          onClick={() => persist(() => addRow(database.id))}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Plus className="size-3.5" /> New row
+        </button>
       </div>
     </div>
   );

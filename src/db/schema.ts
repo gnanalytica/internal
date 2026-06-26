@@ -282,6 +282,8 @@ export const databaseFields = pgTable(
     relationDatabaseId: uuid("relation_database_id"),
     // For rollup fields: { relationFieldId, targetFieldId, fn }.
     config: jsonb("config"),
+    // Column width in px for the table view (null = default).
+    width: integer("width"),
     position: text("position").notNull().default("a0"),
   },
   (t) => [index("database_fields_db_idx").on(t.databaseId)],
