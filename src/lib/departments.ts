@@ -14,7 +14,8 @@ export type DepartmentSlug =
   | "sales"
   | "marketing"
   | "finance"
-  | "support";
+  | "support"
+  | "features";
 
 export const DEPARTMENTS = [
   {
@@ -52,6 +53,13 @@ export const DEPARTMENTS = [
     icon: "🎧",
     color: "#f97316",
     tool: "Zendesk / Intercom-style tickets",
+  },
+  {
+    slug: "features",
+    label: "Product",
+    icon: "🧭",
+    color: "#8b5cf6",
+    tool: "Roadmap & specs",
   },
 ] as const;
 
@@ -190,6 +198,21 @@ export const TICKET_PRIORITIES = [
   { id: "normal", label: "Normal", color: "#6366f1" },
   { id: "low", label: "Low", color: "#94a3b8" },
 ] as const;
+
+// ---- Product: feature pipeline (order = board columns) ----
+export const FEATURE_STATUSES = [
+  { id: "idea", label: "Idea", color: "#94a3b8" },
+  { id: "planned", label: "Planned", color: "#6366f1" },
+  { id: "building", label: "Building", color: "#f59e0b" },
+  { id: "shipped", label: "Shipped", color: "#10b981" },
+  { id: "archived", label: "Archived", color: "#64748b" },
+] as const;
+
+export type FeatureStatusId = (typeof FEATURE_STATUSES)[number]["id"];
+export const isFeatureStatus = (v: string): v is FeatureStatusId =>
+  FEATURE_STATUSES.some((s) => s.id === v);
+/** Statuses that count as "open" (still on the roadmap). */
+export const OPEN_FEATURE_STATUSES: FeatureStatusId[] = ["idea", "planned", "building"];
 
 export const ENTITIES = [
   { id: "India", label: "India 🇮🇳", color: "#f59e0b" },
