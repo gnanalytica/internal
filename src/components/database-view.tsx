@@ -269,11 +269,57 @@ function TableView({
   persist: (fn: () => Promise<unknown>) => void;
   allDatabases: { id: string; name: string }[];
 }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const bulkDelete = () => {
+    const ids = [...selected];
+    setSelected(new Set());
+    persist(async () => {
+      for (const id of ids) await deleteRow(id, database.id);
+    });
+  };
+
   return (
-    <div className="inline-block min-w-full overflow-hidden rounded-lg border">
-      <table className="text-sm">
-        <thead>
-          <tr className="border-b bg-muted/40">
+    <div className="space-y-2">
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border bg-accent/40 px-3 py-1.5 text-sm">
+          <span className="font-medium">{selected.size} selected</span>
+          <button
+            onClick={bulkDelete}
+            className="flex items-center gap-1.5 text-destructive hover:underline"
+          >
+            <Trash2 className="size-3.5" /> Delete
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+      <div className="inline-block min-w-full overflow-hidden rounded-lg border">
+        <table className="text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40">
+              <th className="w-9 border-r px-2 py-2">
+                <input
+                  type="checkbox"
+                  aria-label="Select all rows"
+                  checked={allSelected}
+                  onChange={() =>
+                    setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))
+                  }
+                  className="size-3.5 align-middle accent-[var(--brand)]"
+                />
+              </th>
             {database.fields.map((f) => (
               <th
                 key={f.id}
@@ -305,7 +351,22 @@ function TableView({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="group/r border-b last:border-0 hover:bg-accent/30">
+            <tr
+              key={row.id}
+              className={cn(
+                "group/r border-b last:border-0 hover:bg-accent/30",
+                selected.has(row.id) && "bg-accent/40",
+              )}
+            >
+              <td className="border-r px-2 text-center">
+                <input
+                  type="checkbox"
+                  aria-label="Select row"
+                  checked={selected.has(row.id)}
+                  onChange={() => toggle(row.id)}
+                  className="size-3.5 align-middle accent-[var(--brand)]"
+                />
+              </td>
               {database.fields.map((f) => (
                 <td key={f.id} className="border-r p-0">
                   <Cell field={f} row={row} database={database} persist={persist} />
@@ -323,7 +384,7 @@ function TableView({
             </tr>
           ))}
           <tr>
-            <td colSpan={database.fields.length + 1} className="px-3 py-1.5">
+            <td colSpan={database.fields.length + 2} className="px-3 py-1.5">
               <button
                 onClick={() => persist(() => addRow(database.id))}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
@@ -333,7 +394,8 @@ function TableView({
             </td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }
