@@ -2,11 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { LifeBuoy, Plus } from "lucide-react";
 
 import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
+import { EmptyState } from "@/components/empty-state";
 import { TicketBoard } from "@/components/ticket-board";
 import { TicketDialog } from "@/components/ticket-dialog";
+import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { moveTickets } from "@/lib/actions";
 import { OPEN_TICKET_STATUSES, TICKET_PRIORITIES } from "@/lib/departments";
@@ -52,20 +54,24 @@ export function SupportView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b px-4 py-2.5">
-        <h1 className="text-sm font-semibold">{heading}</h1>
-        <span className="text-xs text-muted-foreground">{openCount} open</span>
-        <Button
-          size="sm"
-          className="ml-auto gap-1.5"
-          onClick={() => {
-            setEditing(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="size-4" /> New ticket
-        </Button>
-      </header>
+      <Topbar
+        breadcrumb={[{ label: heading }]}
+        actions={
+          <>
+            <span className="text-xs text-muted-foreground">{openCount} open</span>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus className="size-4" /> New ticket
+            </Button>
+          </>
+        }
+      />
 
       {initialTickets.length > 0 && (
         <div className="px-4 pt-3">
@@ -77,9 +83,24 @@ export function SupportView({
 
       <div className="min-h-0 flex-1">
         {initialTickets.length === 0 ? (
-          <div className="grid h-full place-items-center text-sm text-muted-foreground">
-            No tickets yet. Create one to start the queue.
-          </div>
+          <EmptyState
+            className="h-full"
+            icon={<LifeBuoy className="size-6" />}
+            title="No tickets yet"
+            description="Track customer questions and bugs through an open → solved queue."
+            action={
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  setEditing(null);
+                  setDialogOpen(true);
+                }}
+              >
+                <Plus className="size-4" /> New ticket
+              </Button>
+            }
+          />
         ) : (
           <TicketBoard
             key={boardKey}

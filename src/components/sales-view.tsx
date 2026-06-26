@@ -7,6 +7,7 @@ import { ArrowUpRight, Plus } from "lucide-react";
 
 import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
+import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -88,15 +89,19 @@ export function SalesView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b px-4 py-2.5">
-        <h1 className="text-sm font-semibold">{heading}</h1>
-        <span className="text-xs text-muted-foreground">
-          Open {formatMoney(openValue)} · Won {formatMoney(wonValue)}
-        </span>
-        <Button size="sm" className="ml-auto gap-1.5" onClick={openNew}>
-          <Plus className="size-4" /> New deal
-        </Button>
-      </header>
+      <Topbar
+        breadcrumb={[{ label: heading }]}
+        actions={
+          <>
+            <span className="text-xs text-muted-foreground">
+              Open {formatMoney(openValue)} · Won {formatMoney(wonValue)}
+            </span>
+            <Button size="sm" className="gap-1.5" onClick={openNew}>
+              <Plus className="size-4" /> New deal
+            </Button>
+          </>
+        }
+      />
 
       <Tabs defaultValue="pipeline" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">

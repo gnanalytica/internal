@@ -38,6 +38,14 @@ export function AppShell({
 
   return (
     <>
+      {/* Skip to content (visible on keyboard focus) */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:border focus:bg-background focus:px-3 focus:py-1.5 focus:text-sm focus:shadow-md"
+      >
+        Skip to content
+      </a>
+
       {/* Desktop sidebar (static) */}
       <div className="hidden md:flex">{sidebar}</div>
 
@@ -71,7 +79,9 @@ export function AppShell({
           <span className="truncate text-sm font-semibold">{workspaceName}</span>
         </div>
 
-        <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
+        <main id="main" className="min-w-0 flex-1 overflow-hidden">
+          {children}
+        </main>
       </div>
     </>
   );
