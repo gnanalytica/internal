@@ -1,6 +1,7 @@
 "use client";
 
 import { RoadmapChart, type GanttGroup } from "@/components/roadmap-chart";
+import { updateFeature } from "@/lib/actions";
 import { FEATURE_STATUSES } from "@/lib/departments";
 import type { FeatureWithRelations } from "@/lib/types";
 
@@ -53,6 +54,7 @@ export function FeatureTimeline({
       scale="quarter"
       labelHeader="Feature"
       showGroupHeaders={groupByProduct}
+      onReschedule={(id, dates) => void updateFeature(id, dates)}
       legend={
         <>
           <span className="font-medium uppercase tracking-wide">Status</span>
