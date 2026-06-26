@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 import { FeatureTimeline } from "@/components/feature-timeline";
 import { Topbar } from "@/components/topbar";
@@ -42,7 +42,8 @@ export function FeaturesView({
         actions={
           scopeProductId ? (
             <Button size="sm" className="h-7 gap-1.5" onClick={newFeature} disabled={pending}>
-              <Plus className="size-4" /> New feature
+              {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} New
+              feature
             </Button>
           ) : null
         }

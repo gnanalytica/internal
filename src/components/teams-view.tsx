@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Plus, Users } from "lucide-react";
+import { Loader2, Plus, Users } from "lucide-react";
 
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,8 @@ export function TeamsView({ teams }: { teams: TeamWithCount[] }) {
         breadcrumb={[{ label: "Teams" }]}
         actions={
           <Button size="sm" className="h-7 gap-1.5" onClick={newTeam} disabled={pending}>
-            <Plus className="size-4" /> New team
+            {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} New
+            team
           </Button>
         }
       />
@@ -46,7 +47,8 @@ export function TeamsView({ teams }: { teams: TeamWithCount[] }) {
                 </p>
               </div>
               <Button size="sm" className="gap-1.5" onClick={newTeam} disabled={pending}>
-                <Plus className="size-4" /> New team
+                {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} New
+            team
               </Button>
             </div>
           ) : (
