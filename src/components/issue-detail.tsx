@@ -24,6 +24,7 @@ import { IssueTimeline } from "@/components/issue-timeline";
 import {
   AssigneePicker,
   CyclePicker,
+  FeaturePicker,
   LabelChip,
   LabelPicker,
   PriorityPicker,
@@ -52,6 +53,7 @@ import {
   addIssueRelation,
   createIssue,
   deleteIssue,
+  linkIssueToFeature,
   linkIssueToPage,
   pushIssueToGithub,
   removeIssueRelation,
@@ -96,6 +98,7 @@ export function IssueDetail({
   allPages,
   cycles,
   teams,
+  features,
   timeline,
   githubConnected,
   attachments,
@@ -113,6 +116,7 @@ export function IssueDetail({
   allPages: FlatPage[];
   cycles: Cycle[];
   teams: Team[];
+  features: { id: string; title: string }[];
   timeline: TimelineItem[];
   githubConnected: boolean;
   attachments: Attachment[];
@@ -367,6 +371,13 @@ export function IssueDetail({
                 teams={teams}
                 value={issue.teamId}
                 onChange={(v) => persist(() => updateIssue(issue.id, { teamId: v }))}
+              />
+            </PropRow>
+            <PropRow label="Feature">
+              <FeaturePicker
+                features={features}
+                value={issue.featureId}
+                onChange={(v) => persist(() => linkIssueToFeature(issue.id, v))}
               />
             </PropRow>
             <PropRow label="Labels">
