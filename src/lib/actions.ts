@@ -24,6 +24,7 @@ import {
   deals,
   expenses,
   favorites,
+  features,
   initiatives,
   invoices,
   issueLabels,
@@ -278,6 +279,7 @@ export async function createIssue(input: {
   priority?: string;
   assigneeId?: string | null;
   parentId?: string | null;
+  featureId?: string | null;
 }) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
@@ -297,6 +299,7 @@ export async function createIssue(input: {
       workspaceId: ws.id,
       projectId: input.projectId ?? null,
       parentId: input.parentId ?? null,
+      featureId: input.featureId ?? null,
       number: (maxNumber ?? 0) + 1,
       title: input.title.trim() || "Untitled issue",
       status: input.status && isStatus(input.status) ? input.status : "backlog",
@@ -2382,6 +2385,58 @@ export async function updateTicket(
     .update(tickets)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(tickets.id, id), eq(tickets.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Product department: features ----
+
+export async function createFeature(input: {
+  productId: string | null;
+  title?: string;
+  status?: string;
+}) {
+  const ws = await getWorkspace();
+  const [created] = await db
+    .insert(features)
+    .values({
+      workspaceId: ws.id,
+      productId: input.productId,
+      title: input.title?.trim() || "New feature",
+      status: input.status ?? "idea",
+      sortKey: `z${Date.now()}`,
+    })
+    .returning();
+  revalidateMatrix(input.productId);
+  return created;
+}
+
+export async function updateFeature(
+  id: string,
+  patch: Partial<{
+    title: string;
+    status: string;
+    startDate: Date | null;
+    targetDate: Date | null;
+    spec: unknown;
+    pageId: string | null;
+    ownerId: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(features)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(features.id, id), eq(features.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+/** Link (or unlink) an issue to a feature. */
+export async function linkIssueToFeature(issueId: string, featureId: string | null) {
+  const ws = await getWorkspace();
+  await db
+    .update(issues)
+    .set({ featureId, updatedAt: new Date() })
+    .where(and(eq(issues.id, issueId), eq(issues.workspaceId, ws.id)));
   revalidateMatrix();
 }
 
