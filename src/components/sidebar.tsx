@@ -308,7 +308,7 @@ export function Sidebar({
           href="/products"
           active={pathname === "/products"}
           icon={<Boxes className="size-4" />}
-          label="Products"
+          label="Projects"
         />
         <NavItem
           href="/sales"
@@ -366,16 +366,16 @@ export function Sidebar({
           </Section>
         )}
 
-        {/* Products — each expands to its department modules */}
+        {/* Projects — each expands to its department modules */}
         <Section
-          title="Products"
+          title="Projects"
           open={showProjects}
           onToggle={() => setShowProjects((v) => !v)}
           action={
             <Link
               href="/products"
               className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              aria-label="All products"
+              aria-label="All projects"
             >
               <Folder className="size-3.5" />
             </Link>
