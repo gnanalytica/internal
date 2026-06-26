@@ -66,6 +66,7 @@ const GROUP_ORDER: SearchResultKind[] = [
 
 const NAV = [
   { label: "Issues", href: "/issues", icon: <CircleDot className={ic} /> },
+  { label: "Projects", href: "/products", icon: <Folder className={ic} /> },
   { label: "Insights", href: "/insights", icon: <BarChart3 className={ic} /> },
   { label: "Roadmap", href: "/roadmap", icon: <MapIcon className={ic} /> },
   { label: "Product", href: "/features", icon: <Compass className={ic} /> },

@@ -23,9 +23,9 @@ export function ProductsView({ products }: { products: ProductSummary[] }) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b px-4 py-2.5">
-        <h1 className="text-sm font-semibold">Products</h1>
+        <h1 className="text-sm font-semibold">Projects</h1>
         <span className="text-xs text-muted-foreground">
-          {products.length} products · Engineering · Sales · Marketing per product
+          {products.length} projects · Engineering · Sales · Marketing per project
         </span>
       </header>
 

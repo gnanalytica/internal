@@ -58,7 +58,7 @@ export function ProjectsView({
           ) : (
             <div className="space-y-8">
               <ProjectGroup
-                title="Products"
+                title="Projects"
                 projects={projects.filter((p) => p.kind === "product")}
               />
               <ProjectGroup
