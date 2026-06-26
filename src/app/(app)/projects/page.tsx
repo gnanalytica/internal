@@ -1,8 +1,12 @@
 import { ProjectsView } from "@/components/projects-view";
-import { getProjectsWithCounts, getWorkspace } from "@/lib/data";
+import { getProductSummaries, getProjectsWithCounts, getWorkspace } from "@/lib/data";
 
 export default async function ProjectsPage() {
   const ws = await getWorkspace();
-  const projects = await getProjectsWithCounts(ws.id);
-  return <ProjectsView projects={projects} />;
+  const [products, all] = await Promise.all([
+    getProductSummaries(ws.id),
+    getProjectsWithCounts(ws.id),
+  ]);
+  const ops = all.filter((p) => p.kind === "ops");
+  return <ProjectsView products={products} ops={ops} />;
 }

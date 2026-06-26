@@ -305,8 +305,8 @@ export function Sidebar({
 
         {/* Departments — the company-wide lens across all products */}
         <NavItem
-          href="/products"
-          active={pathname === "/products"}
+          href="/projects"
+          active={pathname === "/projects"}
           icon={<Boxes className="size-4" />}
           label="Projects"
         />
@@ -373,7 +373,7 @@ export function Sidebar({
           onToggle={() => setShowProjects((v) => !v)}
           action={
             <Link
-              href="/products"
+              href="/projects"
               className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
               aria-label="All projects"
             >

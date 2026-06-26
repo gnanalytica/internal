@@ -1,8 +1,6 @@
-import { ProductsView } from "@/components/products-view";
-import { getProductSummaries, getWorkspace } from "@/lib/data";
+import { redirect } from "next/navigation";
 
-export default async function ProductsPage() {
-  const ws = await getWorkspace();
-  const products = await getProductSummaries(ws.id);
-  return <ProductsView products={products} />;
+// The products hub and the projects list were merged into one Projects page.
+export default function ProductsPage() {
+  redirect("/projects");
 }
