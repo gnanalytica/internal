@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CircleDot, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
+import { CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
 
 import { enabledDepartments, type DepartmentSlug } from "@/lib/departments";
 import { formatMoney } from "@/lib/matrix-format";
@@ -11,6 +11,7 @@ const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   marketing: <Megaphone className="size-3.5" />,
   finance: <Wallet className="size-3.5" />,
   support: <LifeBuoy className="size-3.5" />,
+  features: <Compass className="size-3.5" />,
 };
 
 /**

@@ -10,6 +10,7 @@ import type {
   databases,
   deals,
   expenses,
+  features,
   initiatives,
   invoices,
   issues,
@@ -122,6 +123,19 @@ export type ProductSummary = Project & {
   activeCampaigns: number;
   revenue: number; // sum of paid invoices
   openTickets: number;
+  openFeatures: number;
+};
+
+export type Feature = typeof features.$inferSelect;
+
+export type FeatureWithRelations = Feature & {
+  product: Project | null;
+  owner: Member | null;
+  page: { id: string; title: string; icon: string } | null;
+};
+
+export type FeatureDetail = FeatureWithRelations & {
+  issues: IssueWithRelations[];
 };
 
 export type IssueParentRef = {

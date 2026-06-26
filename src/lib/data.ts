@@ -20,6 +20,7 @@ import {
   deals,
   expenses,
   favorites,
+  features,
   databaseFields,
   databaseRows,
   databases,
@@ -59,6 +60,7 @@ import type {
   ExpenseWithRelations,
   FlatIssue,
   Initiative,
+  FeatureWithRelations,
   InitiativeWithCount,
   InvoiceWithRelations,
   IssueWithRelations,
@@ -1410,7 +1412,8 @@ export async function getContentItems(
 export async function getProductSummaries(
   workspaceId: string,
 ): Promise<ProductSummary[]> {
-  const [products, allDeals, allIssues, allCampaigns, allInvoices, allTickets] = await Promise.all([
+  const [products, allDeals, allIssues, allCampaigns, allInvoices, allTickets, allFeatures] =
+    await Promise.all([
     getProjects(workspaceId),
     db
       .select({
@@ -1436,10 +1439,15 @@ export async function getProductSummaries(
       .select({ productId: tickets.productId, status: tickets.status })
       .from(tickets)
       .where(eq(tickets.workspaceId, workspaceId)),
+    db
+      .select({ productId: features.productId, status: features.status })
+      .from(features)
+      .where(eq(features.workspaceId, workspaceId)),
   ]);
 
   const openStages = new Set(["lead", "qualified", "proposal", "negotiation"]);
   const openTicketStatuses = new Set(["open", "pending"]);
+  const openFeatureStatuses = new Set(["idea", "planned", "building"]);
   return products
     .filter((p) => p.kind === "product")
     .map((p) => {
@@ -1460,6 +1468,9 @@ export async function getProductSummaries(
         .reduce((sum, inv) => sum + (inv.amount ?? 0), 0),
       openTickets: allTickets.filter(
         (t) => t.productId === p.id && openTicketStatuses.has(t.status),
+      ).length,
+      openFeatures: allFeatures.filter(
+        (f) => f.productId === p.id && openFeatureStatuses.has(f.status),
       ).length,
     };
   });
@@ -1505,6 +1516,54 @@ export async function getTickets(
     orderBy: [asc(tickets.sortKey), desc(tickets.createdAt)],
     with: { account: true, contact: true, assignee: true, product: true },
   });
+}
+
+/** Features with relations. Pass `productId` for the product lens. */
+export async function getFeatures(
+  workspaceId: string,
+  productId?: string,
+): Promise<FeatureWithRelations[]> {
+  return db.query.features.findMany({
+    where: productId
+      ? and(eq(features.workspaceId, workspaceId), eq(features.productId, productId))
+      : eq(features.workspaceId, workspaceId),
+    orderBy: [asc(features.sortKey), desc(features.createdAt)],
+    with: {
+      product: true,
+      owner: true,
+      page: { columns: { id: true, title: true, icon: true } },
+    },
+  });
+}
+
+/** A single feature with its linked issues (for progress rollup). */
+export async function getFeature(
+  workspaceId: string,
+  id: string,
+): Promise<import("@/lib/types").FeatureDetail | null> {
+  const row = await db.query.features.findFirst({
+    where: and(eq(features.workspaceId, workspaceId), eq(features.id, id)),
+    with: {
+      product: true,
+      owner: true,
+      page: { columns: { id: true, title: true, icon: true } },
+      issues: {
+        orderBy: [asc(issues.sortKey)],
+        with: {
+          project: true,
+          cycle: true,
+          team: true,
+          assignee: true,
+          labels: { with: { label: true } },
+        },
+      },
+    },
+  });
+  if (!row) return null;
+  return {
+    ...row,
+    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
+  };
 }
 
 // Re-export table objects used by actions.
