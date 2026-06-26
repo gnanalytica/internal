@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 
+import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
 import { TicketBoard } from "@/components/ticket-board";
 import { TicketDialog } from "@/components/ticket-dialog";
 import { Button } from "@/components/ui/button";
 import { moveTickets } from "@/lib/actions";
-import { OPEN_TICKET_STATUSES } from "@/lib/departments";
+import { OPEN_TICKET_STATUSES, TICKET_PRIORITIES } from "@/lib/departments";
 import type {
   ContactWithAccount,
   CrmAccount,
@@ -43,6 +44,11 @@ export function SupportView({
     OPEN_TICKET_STATUSES.includes(t.status as (typeof OPEN_TICKET_STATUSES)[number]),
   ).length;
   const boardKey = initialTickets.map((t) => t.id).join(",");
+  const byPriority: Slice[] = TICKET_PRIORITIES.map((p) => ({
+    label: p.label,
+    value: initialTickets.filter((t) => t.priority === p.id).length,
+    color: p.color,
+  }));
 
   return (
     <div className="flex h-full flex-col">
@@ -60,6 +66,14 @@ export function SupportView({
           <Plus className="size-4" /> New ticket
         </Button>
       </header>
+
+      {initialTickets.length > 0 && (
+        <div className="px-4 pt-3">
+          <ChartCard title="Tickets by priority" hint={`${initialTickets.length} total`}>
+            <ColumnChart data={byPriority} height={96} />
+          </ChartCard>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1">
         {initialTickets.length === 0 ? (

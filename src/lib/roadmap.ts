@@ -111,6 +111,49 @@ export function quarterLabel(d: Date): string {
   return `Q${q} '${yy}`;
 }
 
+function startOfQuarter(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), Math.floor(d.getUTCMonth() / 3) * 3, 1));
+}
+
+/** Widen a range outward to whole-quarter boundaries so quarter columns render
+ * full-width (no clipped first/last quarter). Rebuilds the month grid. */
+export function snapRangeToQuarters(range: RoadmapRange): RoadmapRange {
+  const start = startOfQuarter(range.start);
+  const end = addMonths(startOfQuarter(new Date(range.end.getTime() - 1)), 3);
+  const months: Date[] = [];
+  let cur = start;
+  while (cur < end) {
+    months.push(cur);
+    cur = addMonths(cur, 1);
+  }
+  return { start, end, months };
+}
+
+/** Month columns positioned as a percentage of the range — the month-scale
+ * analogue of quartersForRange. */
+export function monthsForRange(
+  range: RoadmapRange,
+): { label: string; leftPct: number; widthPct: number }[] {
+  const total = range.end.getTime() - range.start.getTime();
+  return range.months.map((m) => {
+    const monthStart = m.getTime();
+    const monthEnd = addMonths(m, 1).getTime();
+    return {
+      label: monthLabel(m),
+      leftPct: ((monthStart - range.start.getTime()) / total) * 100,
+      widthPct: ((monthEnd - monthStart) / total) * 100,
+    };
+  });
+}
+
+/** Fractional 0–1 position of a date within the range, clamped, or null. */
+export function dateOffset(range: RoadmapRange, d: DateInput): number | null {
+  const x = toDate(d);
+  if (!x) return null;
+  const total = range.end.getTime() - range.start.getTime();
+  return clamp01((x.getTime() - range.start.getTime()) / total);
+}
+
 /**
  * Group a range's months into quarter columns for the timeline header, each
  * positioned as a percentage of the whole range (so bars from barMetrics line

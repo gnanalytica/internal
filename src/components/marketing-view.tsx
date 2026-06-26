@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Plus } from "lucide-react";
 
+import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -46,6 +47,13 @@ export function MarketingView({
   const [, start] = useTransition();
   const refresh = () => router.refresh();
   const totalBudget = initialCampaigns.reduce((s, c) => s + (c.budget ?? 0), 0);
+  const budgetByChannel: Slice[] = CAMPAIGN_CHANNELS.map((ch) => ({
+    label: ch.label,
+    value: initialCampaigns
+      .filter((c) => c.channel === ch.id)
+      .reduce((s, c) => s + (c.budget ?? 0), 0),
+    color: ch.color,
+  }));
 
   return (
     <div className="flex h-full flex-col">
@@ -63,6 +71,22 @@ export function MarketingView({
         </TabsList>
 
         <TabsContent value="campaigns" className="min-h-0 flex-1 overflow-auto p-4">
+          {totalBudget > 0 && (
+            <ChartCard title="Budget by channel" hint={formatMoney(totalBudget)} className="mb-4">
+              <div className="flex items-center gap-4">
+                <Donut
+                  data={budgetByChannel}
+                  center={
+                    <div>
+                      <div className="text-sm font-bold leading-none">{formatMoney(totalBudget)}</div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">budget</div>
+                    </div>
+                  }
+                />
+                <Legend data={budgetByChannel.filter((c) => c.value > 0)} className="flex-col" />
+              </div>
+            </ChartCard>
+          )}
           <div className="mb-3 flex items-center gap-2">
             <h2 className="text-sm font-semibold">Campaigns</h2>
             <Button

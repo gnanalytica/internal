@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   barMetrics,
   computeRange,
+  monthsForRange,
   quarterLabel,
   quartersForRange,
+  snapRangeToQuarters,
   todayOffset,
 } from "@/lib/roadmap";
 
@@ -99,5 +101,33 @@ describe("quartersForRange", () => {
     expect(qs[0].leftPct).toBeCloseTo(0, 5);
     const last = qs[qs.length - 1];
     expect(last.leftPct + last.widthPct).toBeCloseTo(100, 0);
+  });
+});
+
+describe("snapRangeToQuarters", () => {
+  it("widens a mid-quarter range out to whole quarters", () => {
+    // Aug 10 → Nov 20, 2026 snaps to Jul 1 (Q3 start) .. Jan 1 2027 (after Q4).
+    const range = computeRange(
+      [{ startDate: new Date(Date.UTC(2026, 7, 10)), targetDate: new Date(Date.UTC(2026, 10, 20)) }],
+      new Date(Date.UTC(2026, 8, 1)),
+      1,
+    );
+    const snapped = snapRangeToQuarters(range);
+    expect(snapped.start.toISOString().slice(0, 7)).toBe("2026-07");
+    expect(snapped.end.toISOString().slice(0, 7)).toBe("2027-01");
+    expect(quartersForRange(snapped).map((q) => q.label)).toEqual(["Q3 '26", "Q4 '26"]);
+  });
+});
+
+describe("monthsForRange", () => {
+  it("returns one positioned column per month", () => {
+    const range = computeRange(
+      [{ startDate: new Date(Date.UTC(2026, 0, 1)), targetDate: new Date(Date.UTC(2026, 2, 20)) }],
+      new Date(Date.UTC(2026, 0, 15)),
+      1,
+    );
+    const cols = monthsForRange(range);
+    expect(cols.length).toBe(range.months.length);
+    expect(cols[0].leftPct).toBeCloseTo(0, 5);
   });
 });
