@@ -104,3 +104,35 @@ export function monthLabel(d: Date): string {
     timeZone: "UTC",
   });
 }
+
+export function quarterLabel(d: Date): string {
+  const q = Math.floor(d.getUTCMonth() / 3) + 1;
+  const yy = String(d.getUTCFullYear()).slice(2);
+  return `Q${q} '${yy}`;
+}
+
+/**
+ * Group a range's months into quarter columns for the timeline header, each
+ * positioned as a percentage of the whole range (so bars from barMetrics line
+ * up). Reuses the month grid already computed by computeRange.
+ */
+export function quartersForRange(
+  range: RoadmapRange,
+): { label: string; leftPct: number; widthPct: number }[] {
+  const total = range.end.getTime() - range.start.getTime();
+  const out: { label: string; leftPct: number; widthPct: number }[] = [];
+  for (const m of range.months) {
+    const label = quarterLabel(m);
+    const monthStart = m.getTime();
+    const monthEnd = addMonths(m, 1).getTime();
+    const leftPct = ((monthStart - range.start.getTime()) / total) * 100;
+    const widthPct = ((monthEnd - monthStart) / total) * 100;
+    const prev = out[out.length - 1];
+    if (prev && prev.label === label) {
+      prev.widthPct += widthPct;
+    } else {
+      out.push({ label, leftPct, widthPct });
+    }
+  }
+  return out;
+}

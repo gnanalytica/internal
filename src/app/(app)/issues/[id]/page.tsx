@@ -7,6 +7,7 @@ import {
   getAttachments,
   getCyclesFlat,
   getBacklinks,
+  getFeatures,
   getIssue,
   getIssueRelations,
   getIssuesFlat,
@@ -41,6 +42,7 @@ export default async function IssueRoute({
     attachments,
     relations,
     allIssues,
+    features,
   ] = await Promise.all([
     getIssue(ws.id, id),
     getProjects(ws.id),
@@ -54,6 +56,7 @@ export default async function IssueRoute({
     getAttachments(id),
     getIssueRelations(ws.id, id),
     getIssuesFlat(ws.id),
+    getFeatures(ws.id),
   ]);
   if (!issue) notFound();
   const [favorited, mentionItems, backlinks] = await Promise.all([
@@ -71,6 +74,7 @@ export default async function IssueRoute({
       allPages={pages}
       cycles={cycles}
       teams={teams}
+      features={features.map((f) => ({ id: f.id, title: f.title }))}
       timeline={timeline}
       githubConnected={githubConnected}
       attachments={attachments}

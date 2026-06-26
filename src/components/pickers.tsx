@@ -191,6 +191,44 @@ export function ProjectPicker({
   );
 }
 
+export function FeaturePicker({
+  features,
+  value,
+  onChange,
+  compact,
+}: {
+  features: { id: string; title: string }[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+  compact?: boolean;
+}) {
+  const f = features.find((x) => x.id === value) ?? null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={triggerCls} aria-label="Set feature">
+        <span className="size-2.5 rounded-full border border-dashed border-muted-foreground/60" />
+        {!compact && <span>{f ? f.title : "No feature"}</span>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+          <span className="flex-1">No feature</span>
+          {!value && <Check className="size-3.5 opacity-70" />}
+        </DropdownMenuItem>
+        {features.map((feat) => (
+          <DropdownMenuItem
+            key={feat.id}
+            onClick={() => onChange(feat.id)}
+            className="gap-2 text-xs"
+          >
+            <span className="flex-1 truncate">{feat.title}</span>
+            {value === feat.id && <Check className="size-3.5 opacity-70" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function LabelPicker({
   labels,
   value,

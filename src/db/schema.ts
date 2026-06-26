@@ -166,6 +166,9 @@ export const issues = pgTable(
     cycleId: uuid("cycle_id").references(() => cycles.id, {
       onDelete: "set null",
     }),
+    featureId: uuid("feature_id").references(() => features.id, {
+      onDelete: "set null",
+    }),
     teamId: uuid("team_id").references(() => teams.id, {
       onDelete: "set null",
     }),
@@ -622,6 +625,10 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   cycle: one(cycles, {
     fields: [issues.cycleId],
     references: [cycles.id],
+  }),
+  feature: one(features, {
+    fields: [issues.featureId],
+    references: [features.id],
   }),
   team: one(teams, {
     fields: [issues.teamId],
@@ -1190,4 +1197,38 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
 export const ticketCommentsRelations = relations(ticketComments, ({ one }) => ({
   ticket: one(tickets, { fields: [ticketComments.ticketId], references: [tickets.id] }),
   author: one(users, { fields: [ticketComments.authorId], references: [users.id] }),
+}));
+
+// ---- Product department: features (PM unit above engineering issues) ----
+export const features = pgTable(
+  "features",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    status: text("status").notNull().default("idea"), // idea|planned|building|shipped|archived
+    startDate: timestamp("start_date", { withTimezone: true }),
+    targetDate: timestamp("target_date", { withTimezone: true }),
+    spec: jsonb("spec"),
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: "set null" }),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    sortKey: text("sort_key").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("features_ws_idx").on(t.workspaceId),
+    index("features_product_idx").on(t.productId),
+  ],
+);
+
+export const featuresRelations = relations(features, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [features.workspaceId], references: [workspaces.id] }),
+  product: one(projects, { fields: [features.productId], references: [projects.id] }),
+  owner: one(users, { fields: [features.ownerId], references: [users.id] }),
+  page: one(pages, { fields: [features.pageId], references: [pages.id] }),
+  issues: many(issues),
 }));

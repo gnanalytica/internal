@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDot,
+  Compass,
   Database,
   Folder,
   KeyRound,
@@ -333,6 +334,12 @@ export function Sidebar({
           icon={<LifeBuoy className="size-4" />}
           label="Support"
         />
+        <NavItem
+          href="/features"
+          active={pathname.startsWith("/features")}
+          icon={<Compass className="size-4" />}
+          label="Product"
+        />
 
         {/* Favorites */}
         {favorites.length > 0 && (
@@ -502,6 +509,7 @@ function ProductNavItem({
     marketing: <Megaphone className="size-3.5" />,
     finance: <Wallet className="size-3.5" />,
     support: <LifeBuoy className="size-3.5" />,
+    features: <Compass className="size-3.5" />,
   };
   const depts = enabledDepartments(product.enabledDepartments).map((d) => ({
     href: `${base}/${d.slug}`,

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { barMetrics, computeRange, todayOffset } from "@/lib/roadmap";
+import {
+  barMetrics,
+  computeRange,
+  quarterLabel,
+  quartersForRange,
+  todayOffset,
+} from "@/lib/roadmap";
 
 const today = new Date("2024-03-15T00:00:00Z");
 
@@ -70,5 +76,28 @@ describe("todayOffset", () => {
   it("returns null when today is outside the range", () => {
     const r = computeRange([{ startDate: "2024-01-01", targetDate: "2024-02-01" }], today, 1);
     expect(todayOffset(r, new Date("2025-01-01T00:00:00Z"))).toBeNull();
+  });
+});
+
+describe("quarterLabel", () => {
+  it("labels quarters by month", () => {
+    expect(quarterLabel(new Date(Date.UTC(2026, 0, 1)))).toBe("Q1 '26"); // Jan
+    expect(quarterLabel(new Date(Date.UTC(2026, 6, 1)))).toBe("Q3 '26"); // Jul
+    expect(quarterLabel(new Date(Date.UTC(2026, 11, 1)))).toBe("Q4 '26"); // Dec
+  });
+});
+
+describe("quartersForRange", () => {
+  it("buckets the range's months into positioned quarters", () => {
+    // Range Jul 2026 .. (exclusive) Jan 2027 = Q3'26 + Q4'26.
+    const range = computeRange(
+      [{ startDate: new Date(Date.UTC(2026, 6, 1)), targetDate: new Date(Date.UTC(2026, 11, 20)) }],
+      new Date(Date.UTC(2026, 6, 15)),
+    );
+    const qs = quartersForRange(range);
+    expect(qs.map((q) => q.label)).toEqual(["Q3 '26", "Q4 '26"]);
+    expect(qs[0].leftPct).toBeCloseTo(0, 5);
+    const last = qs[qs.length - 1];
+    expect(last.leftPct + last.widthPct).toBeCloseTo(100, 0);
   });
 });

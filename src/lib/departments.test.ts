@@ -14,13 +14,14 @@ import {
 } from "@/lib/departments";
 
 describe("DEPARTMENTS", () => {
-  it("includes the five department modules", () => {
+  it("includes the six department modules", () => {
     expect(DEPARTMENTS.map((d) => d.slug)).toEqual([
       "engineering",
       "sales",
       "marketing",
       "finance",
       "support",
+      "features",
     ]);
   });
 });
@@ -65,6 +66,7 @@ describe("per-product department config", () => {
       "marketing",
       "finance",
       "support",
+      "features",
     ]);
     expect(isDepartmentEnabled(null, "support")).toBe(true);
   });

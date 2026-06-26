@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleDot, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
+import { CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
 
 import { ProductModulesConfig } from "@/components/product-modules-config";
 import { isDepartmentEnabled } from "@/lib/departments";
@@ -18,6 +18,14 @@ export default async function ProductOverview({
   if (!product) notFound();
 
   const cards = [
+    {
+      slug: "features" as const,
+      href: `/products/${id}/features`,
+      icon: <Compass className="size-4" />,
+      label: "Product",
+      stat: `${product.openFeatures} open features`,
+      tool: "Roadmap & specs",
+    },
     {
       slug: "engineering" as const,
       href: `/products/${id}/engineering`,
