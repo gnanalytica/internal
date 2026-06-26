@@ -18,8 +18,10 @@ import {
   updateAccount,
   updateContact,
 } from "@/lib/actions";
+import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
 import {
   ACCOUNT_TYPES,
+  DEAL_STAGES,
   ENTITIES,
   LIFECYCLE_STAGES,
   OPEN_DEAL_STAGES,
@@ -64,6 +66,13 @@ export function SalesView({
   const wonValue = initialDeals
     .filter((d) => d.stage === "won")
     .reduce((s, d) => s + (d.value ?? 0), 0);
+  const stageValue: Slice[] = DEAL_STAGES.map((s) => ({
+    label: s.label,
+    value: initialDeals
+      .filter((d) => d.stage === s.id)
+      .reduce((sum, d) => sum + (d.value ?? 0), 0),
+    color: s.color,
+  }));
   // Remount the board when the set of deals changes (create/delete) so server
   // refreshes flow in; drag (which doesn't change the id-set) keeps board state.
   const boardKey = initialDeals.map((d) => d.id).join(",");
@@ -96,17 +105,26 @@ export function SalesView({
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pipeline" className="min-h-0 flex-1">
+        <TabsContent value="pipeline" className="flex min-h-0 flex-1 flex-col">
           {initialDeals.length === 0 ? (
             <Empty label="No deals yet. Create your first deal to start the pipeline." />
           ) : (
-            <DealBoard
-              key={boardKey}
-              deals={initialDeals}
-              showProduct={!scopeProductId}
-              persist={(changed) => startTransition(() => void moveDeals(changed))}
-              onOpen={openDeal}
-            />
+            <>
+              <div className="px-4 pt-3">
+                <ChartCard title="Pipeline by stage" hint={`${initialDeals.length} deals`}>
+                  <ColumnChart data={stageValue} format={(n) => formatMoney(n)} />
+                </ChartCard>
+              </div>
+              <div className="min-h-0 flex-1">
+                <DealBoard
+                  key={boardKey}
+                  deals={initialDeals}
+                  showProduct={!scopeProductId}
+                  persist={(changed) => startTransition(() => void moveDeals(changed))}
+                  onOpen={openDeal}
+                />
+              </div>
+            </>
           )}
         </TabsContent>
 

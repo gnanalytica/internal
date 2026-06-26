@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Plus } from "lucide-react";
 
+import { AreaChart, ChartCard, ColumnChart, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -57,6 +58,32 @@ export function FinanceView({
     .reduce((s, i) => s + (i.amount ?? 0), 0);
   const spend = initialExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
 
+  const monthShort = (k: string) => {
+    const [y, m] = k.split("-");
+    return new Date(Date.UTC(+y, +m - 1, 1)).toLocaleDateString(undefined, {
+      month: "short",
+      year: "2-digit",
+      timeZone: "UTC",
+    });
+  };
+  const revByMonth = new Map<string, number>();
+  for (const i of initialInvoices) {
+    if (i.status !== "paid" || !i.issueDate) continue;
+    const k = new Date(i.issueDate).toISOString().slice(0, 7);
+    revByMonth.set(k, (revByMonth.get(k) ?? 0) + (i.amount ?? 0));
+  }
+  const revSeries = [...revByMonth.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([k, v]) => ({ label: monthShort(k), value: v }));
+
+  const expByCategory: Slice[] = EXPENSE_CATEGORIES.map((c) => ({
+    label: c.label,
+    value: initialExpenses
+      .filter((e) => e.category === c.id)
+      .reduce((s, e) => s + (e.amount ?? 0), 0),
+    color: c.color,
+  }));
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2.5">
@@ -74,6 +101,15 @@ export function FinanceView({
         </TabsList>
 
         <TabsContent value="invoices" className="min-h-0 flex-1 overflow-auto p-4">
+          {revSeries.length > 0 && (
+            <ChartCard
+              title="Revenue (paid invoices)"
+              hint={formatMoney(revenue)}
+              className="mb-4"
+            >
+              <AreaChart data={revSeries} color="#10b981" format={(n) => formatMoney(n)} />
+            </ChartCard>
+          )}
           <div className="mb-3 flex items-center gap-2">
             <h2 className="text-sm font-semibold">Invoices</h2>
             <Button
@@ -102,6 +138,11 @@ export function FinanceView({
         </TabsContent>
 
         <TabsContent value="expenses" className="min-h-0 flex-1 overflow-auto p-4">
+          {spend > 0 && (
+            <ChartCard title="Expenses by category" hint={formatMoney(spend)} className="mb-4">
+              <ColumnChart data={expByCategory} format={(n) => formatMoney(n)} />
+            </ChartCard>
+          )}
           <div className="mb-3 flex items-center gap-2">
             <h2 className="text-sm font-semibold">Expenses</h2>
             <Button
