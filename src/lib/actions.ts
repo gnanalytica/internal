@@ -1236,6 +1236,29 @@ export async function uploadAttachment(issueId: string, formData: FormData) {
   revalidatePath(`/issues/${issueId}`);
 }
 
+/** Upload an image for embedding inline in the rich-text editor; returns its URL. */
+export async function uploadEditorImage(formData: FormData): Promise<string> {
+  if (!isBlobConfigured()) {
+    throw new Error("Image storage isn't configured. Add a BLOB_READ_WRITE_TOKEN to embed images.");
+  }
+  const ws = await getWorkspace();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("No image provided.");
+  }
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Only images can be embedded.");
+  }
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    throw new Error("Image is too large (max 10 MB).");
+  }
+  const blob = await put(`${ws.id}/editor/${file.name}`, file, {
+    access: "public",
+    addRandomSuffix: true,
+  });
+  return blob.url;
+}
+
 export async function deleteAttachment(id: string, issueId: string) {
   const ws = await getWorkspace();
   const [row] = await db
