@@ -1,14 +1,22 @@
 "use client";
 
+import type { Editor } from "@tiptap/core";
+import Highlight from "@tiptap/extension-highlight";
+import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
+import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 
+import { uploadEditorImage } from "@/lib/actions";
 import type { MentionItem } from "@/lib/types";
 import { Callout } from "./callout";
+import { EditorBubbleMenu } from "./editor-bubble-menu";
 import { EntityRef } from "./mention";
 import { IssueEmbed } from "./issue-embed";
 import { SlashCommand } from "./slash-command";
@@ -30,11 +38,30 @@ export function RichEditor({
   mentionItems?: MentionItem[];
 }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorRef = useRef<Editor | null>(null);
   // Read the latest items at suggestion time without recreating the editor.
   const itemsRef = useRef<MentionItem[]>(mentionItems ?? []);
   useEffect(() => {
     itemsRef.current = mentionItems ?? [];
   }, [mentionItems]);
+
+  async function uploadAndInsert(files: FileList | File[]) {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const images = [...files].filter((f) => f.type.startsWith("image/"));
+    for (const file of images) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const id = toast.loading("Uploading image…");
+      try {
+        const url = await uploadEditorImage(fd);
+        ed.chain().focus().setImage({ src: url }).run();
+        toast.success("Image added", { id });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Upload failed", { id });
+      }
+    }
+  }
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -49,6 +76,14 @@ export function RichEditor({
       }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      Image.configure({ inline: false }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Placeholder.configure({
         placeholder: ({ node }) =>
           node.type.name === "heading" ? "Heading" : placeholder,
@@ -67,6 +102,23 @@ export function RichEditor({
       attributes: {
         class: cn("tiptap focus:outline-none", className),
       },
+      handlePaste: (_view, event) => {
+        const files = event.clipboardData?.files;
+        if (files && files.length && [...files].some((f) => f.type.startsWith("image/"))) {
+          void uploadAndInsert(files);
+          return true;
+        }
+        return false;
+      },
+      handleDrop: (_view, event) => {
+        const files = (event as DragEvent).dataTransfer?.files;
+        if (files && files.length && [...files].some((f) => f.type.startsWith("image/"))) {
+          event.preventDefault();
+          void uploadAndInsert(files);
+          return true;
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor }) => {
       if (!onChange) return;
@@ -74,6 +126,8 @@ export function RichEditor({
       saveTimer.current = setTimeout(() => onChange(editor.getJSON()), 600);
     },
   });
+
+  editorRef.current = editor;
 
   // Keep editable in sync if it changes.
   useEffect(() => {
@@ -86,5 +140,10 @@ export function RichEditor({
     };
   }, []);
 
-  return <EditorContent editor={editor} />;
+  return (
+    <>
+      {editor && editable && <EditorBubbleMenu editor={editor} />}
+      <EditorContent editor={editor} />
+    </>
+  );
 }
