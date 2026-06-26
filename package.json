@@ -15,6 +15,7 @@
     "db:seed-org": "tsx --env-file=.env.local src/db/seed-org.ts",
     "db:reorg-org": "tsx --env-file=.env.local src/db/reorg-org.ts",
     "db:seed-crm": "tsx --env-file=.env.local src/db/seed-crm.ts",
+    "db:seed-valytica": "tsx --env-file=.env.local src/db/seed-valytica.ts",
     "db:reset": "tsx --env-file=.env.local src/db/reset.ts"
   },
   "dependencies": {
