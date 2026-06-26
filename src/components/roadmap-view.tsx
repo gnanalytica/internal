@@ -4,6 +4,7 @@ import { Map as MapIcon } from "lucide-react";
 
 import { RoadmapChart, type GanttGroup } from "@/components/roadmap-chart";
 import { Topbar } from "@/components/topbar";
+import { updateProject } from "@/lib/actions";
 import type { RoadmapProject } from "@/lib/data";
 
 export function RoadmapView({
@@ -61,6 +62,12 @@ export function RoadmapView({
             scale="month"
             labelHeader="Project"
             showGroupHeaders
+            onReschedule={(id, dates) =>
+              void updateProject(id, {
+                startDate: dates.startDate ? dates.startDate.toISOString() : null,
+                targetDate: dates.targetDate ? dates.targetDate.toISOString() : null,
+              })
+            }
           />
         </div>
       )}
