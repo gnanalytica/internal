@@ -334,6 +334,12 @@ export function Sidebar({
           icon={<LifeBuoy className="size-4" />}
           label="Support"
         />
+        <NavItem
+          href="/features"
+          active={pathname.startsWith("/features")}
+          icon={<Compass className="size-4" />}
+          label="Product"
+        />
 
         {/* Favorites */}
         {favorites.length > 0 && (
