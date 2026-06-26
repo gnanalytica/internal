@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Folder, Plus } from "lucide-react";
+import { Folder, Loader2, Plus } from "lucide-react";
 
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,8 @@ export function ProjectsView({
         breadcrumb={[{ label: "Projects" }]}
         actions={
           <Button size="sm" className="h-7 gap-1.5" onClick={newProject} disabled={pending}>
-            <Plus className="size-4" /> New project
+            {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} New
+            project
           </Button>
         }
       />
@@ -50,7 +51,8 @@ export function ProjectsView({
                 </p>
               </div>
               <Button size="sm" className="gap-1.5" onClick={newProject} disabled={pending}>
-                <Plus className="size-4" /> New project
+                {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} New
+            project
               </Button>
             </div>
           ) : (

@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { Plus } from "lucide-react";
 
 import { AreaChart, ChartCard, ColumnChart, type Slice } from "@/components/charts";
+import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -86,13 +87,15 @@ export function FinanceView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2.5">
-        <h1 className="text-sm font-semibold">{heading}</h1>
-        <span className="text-xs text-muted-foreground">
-          Revenue {formatMoney(revenue)} · Outstanding {formatMoney(outstanding)} · Expenses{" "}
-          {formatMoney(spend)} · Net {formatMoney(revenue - spend)}
-        </span>
-      </header>
+      <Topbar
+        breadcrumb={[{ label: heading }]}
+        actions={
+          <span className="text-xs text-muted-foreground">
+            Revenue {formatMoney(revenue)} · Outstanding {formatMoney(outstanding)} · Expenses{" "}
+            {formatMoney(spend)} · Net {formatMoney(revenue - spend)}
+          </span>
+        }
+      />
 
       <Tabs defaultValue="invoices" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">
