@@ -3,13 +3,21 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
+  BarChart3,
   CircleDot,
+  Compass,
   Database,
   FileText,
   Folder,
+  LifeBuoy,
+  Map as MapIcon,
+  Megaphone,
+  Plus,
   Target,
   Timer,
+  TrendingUp,
   Users,
+  Wallet,
 } from "lucide-react";
 
 import {
@@ -21,8 +29,10 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { searchWorkspace } from "@/lib/actions";
+import { createPage, createProject, searchWorkspace } from "@/lib/actions";
 import type { SearchResult, SearchResultKind } from "@/lib/types";
+
+const ic = "size-4 text-muted-foreground";
 
 const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
   issue: <CircleDot className="size-4 text-muted-foreground" />,
@@ -55,11 +65,18 @@ const GROUP_ORDER: SearchResultKind[] = [
 ];
 
 const NAV = [
-  { label: "Issues", href: "/issues", icon: <CircleDot className="size-4 text-muted-foreground" /> },
-  { label: "Cycles", href: "/cycles", icon: <Timer className="size-4 text-muted-foreground" /> },
-  { label: "Initiatives", href: "/initiatives", icon: <Target className="size-4 text-muted-foreground" /> },
-  { label: "Teams", href: "/teams", icon: <Users className="size-4 text-muted-foreground" /> },
-  { label: "Databases", href: "/databases", icon: <Database className="size-4 text-muted-foreground" /> },
+  { label: "Issues", href: "/issues", icon: <CircleDot className={ic} /> },
+  { label: "Insights", href: "/insights", icon: <BarChart3 className={ic} /> },
+  { label: "Roadmap", href: "/roadmap", icon: <MapIcon className={ic} /> },
+  { label: "Product", href: "/features", icon: <Compass className={ic} /> },
+  { label: "Cycles", href: "/cycles", icon: <Timer className={ic} /> },
+  { label: "Initiatives", href: "/initiatives", icon: <Target className={ic} /> },
+  { label: "Teams", href: "/teams", icon: <Users className={ic} /> },
+  { label: "Databases", href: "/databases", icon: <Database className={ic} /> },
+  { label: "Sales", href: "/sales", icon: <TrendingUp className={ic} /> },
+  { label: "Marketing", href: "/marketing", icon: <Megaphone className={ic} /> },
+  { label: "Finance", href: "/finance", icon: <Wallet className={ic} /> },
+  { label: "Support", href: "/support", icon: <LifeBuoy className={ic} /> },
 ];
 
 export function CommandPalette() {
@@ -122,6 +139,19 @@ export function CommandPalette() {
     router.push(href);
   }
 
+  function createAndOpen(fn: () => Promise<{ id: string }>, prefix: string) {
+    change(false);
+    startTransition(async () => {
+      const created = await fn();
+      router.push(`${prefix}/${created.id}`);
+    });
+  }
+
+  function newIssue() {
+    change(false);
+    window.dispatchEvent(new Event("open-new-issue"));
+  }
+
   const grouped = GROUP_ORDER.map((kind) => ({
     kind,
     items: results.filter((r) => r.kind === kind),
@@ -143,14 +173,36 @@ export function CommandPalette() {
         />
         <CommandList>
           {query.trim() === "" ? (
-            <CommandGroup heading="Jump to">
-              {NAV.map((n) => (
-                <CommandItem key={n.href} value={n.label} onSelect={() => go(n.href)}>
-                  {n.icon}
-                  <span>{n.label}</span>
+            <>
+              <CommandGroup heading="Create">
+                <CommandItem value="new issue" onSelect={newIssue}>
+                  <Plus className={ic} />
+                  <span>New issue</span>
                 </CommandItem>
-              ))}
-            </CommandGroup>
+                <CommandItem
+                  value="new page"
+                  onSelect={() => createAndOpen(() => createPage(null), "/pages")}
+                >
+                  <Plus className={ic} />
+                  <span>New page</span>
+                </CommandItem>
+                <CommandItem
+                  value="new project"
+                  onSelect={() => createAndOpen(() => createProject({ name: "New project" }), "/projects")}
+                >
+                  <Plus className={ic} />
+                  <span>New project</span>
+                </CommandItem>
+              </CommandGroup>
+              <CommandGroup heading="Jump to">
+                {NAV.map((n) => (
+                  <CommandItem key={n.href} value={n.label} onSelect={() => go(n.href)}>
+                    {n.icon}
+                    <span>{n.label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
           ) : (
             <>
               <CommandEmpty>No results found.</CommandEmpty>
