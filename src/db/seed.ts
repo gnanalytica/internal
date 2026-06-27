@@ -28,7 +28,6 @@ async function main() {
   await db.delete(schema.labels);
   await db.delete(schema.projects);
   await db.delete(schema.cycles);
-  await db.delete(schema.initiatives);
   await db.delete(schema.workspaceMembers);
   await db.delete(schema.users);
   await db.delete(schema.workspaces);
@@ -53,17 +52,6 @@ async function main() {
     { workspaceId: ws.id, userId: mia.id, role: "member" },
   ]);
 
-  const [initiative] = await db
-    .insert(schema.initiatives)
-    .values({
-      workspaceId: ws.id,
-      name: "Q3 Platform Revamp",
-      description: "Modernize the core platform and developer experience.",
-      status: "active",
-      color: "#8b5cf6",
-    })
-    .returning();
-
   const [eng, design] = await db
     .insert(schema.projects)
     .values([
@@ -72,7 +60,6 @@ async function main() {
         name: "Engineering",
         key: "ENG",
         color: "#6366f1",
-        initiativeId: initiative.id,
       },
       { workspaceId: ws.id, name: "Design", key: "DES", color: "#ec4899" },
     ])

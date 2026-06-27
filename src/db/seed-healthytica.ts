@@ -313,20 +313,6 @@ async function main() {
   if (missing.length) console.log(`Note: missing users (run db:seed-valytica first): ${missing.join(", ")}`);
   const creatorId = uid("sandeep");
 
-  // Healthytica initiative
-  let [initiative] = await db
-    .select({ id: schema.initiatives.id })
-    .from(schema.initiatives)
-    .where(and(eq(schema.initiatives.workspaceId, ws.id), eq(schema.initiatives.name, "Healthytica")))
-    .limit(1);
-  if (!initiative) {
-    [initiative] = await db
-      .insert(schema.initiatives)
-      .values({ workspaceId: ws.id, name: "Healthytica", color: "#10b981" })
-      .returning({ id: schema.initiatives.id });
-  }
-  await db.update(schema.projects).set({ initiativeId: initiative.id }).where(eq(schema.projects.id, project.id));
-
   // Cycles: monthly Dec 2025 → Dec 2026 (reuse existing by name).
   const cycleByMonth: Record<string, string> = {};
   const existingCycles = await db

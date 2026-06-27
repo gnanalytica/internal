@@ -17,7 +17,6 @@ const TABLES = [
   "workspaces",
   "users",
   "workspace_members",
-  "initiatives",
   "projects",
   "labels",
   "cycles",
