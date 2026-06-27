@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 import { uploadEditorImage } from "@/lib/actions";
 import type { MentionItem } from "@/lib/types";
+import { BlockId } from "./block-id";
 import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
@@ -45,6 +46,9 @@ export function RichEditor({
   const [linkChooser, setLinkChooser] = useState<
     { url: string; from: number; to: number; top: number; left: number } | null
   >(null);
+  // Hover gutter for block-level copy-link.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [blockHover, setBlockHover] = useState<{ id: string; top: number } | null>(null);
   const editorRef = useRef<Editor | null>(null);
   // Read the latest items at suggestion time without recreating the editor.
   const itemsRef = useRef<MentionItem[]>(mentionItems ?? []);
@@ -101,6 +105,7 @@ export function RichEditor({
       IssueEmbed,
       Bookmark,
       Embed,
+      BlockId,
       // The ref's stable identity bridges live mention data into ProseMirror;
       // the extension only reads it inside suggestion callbacks, never in render.
       // eslint-disable-next-line react-hooks/refs
@@ -181,9 +186,58 @@ export function RichEditor({
     setLinkChooser(null);
   };
 
+  // On open, if the URL targets a block (#b-<id>), scroll to it and flash it.
+  useEffect(() => {
+    if (!editor) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#b-")) return;
+    const id = hash.slice(3);
+    const t = setTimeout(() => {
+      const el = wrapRef.current?.querySelector<HTMLElement>(`[data-block-id="${id}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("block-flash");
+      setTimeout(() => el.classList.remove("block-flash"), 1600);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [editor]);
+
   return (
-    <>
+    <div
+      ref={wrapRef}
+      className="relative"
+      onMouseMove={(e) => {
+        const wrap = wrapRef.current;
+        if (!wrap) return;
+        const block = (e.target as HTMLElement | null)?.closest?.<HTMLElement>("[data-block-id]");
+        if (!block || !wrap.contains(block)) return;
+        const id = block.getAttribute("data-block-id");
+        if (!id) return;
+        const top = block.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
+        setBlockHover((prev) =>
+          prev?.id === id && Math.abs(prev.top - top) < 1 ? prev : { id, top },
+        );
+      }}
+      onMouseLeave={() => setBlockHover(null)}
+    >
       {editor && editable && <EditorBubbleMenu editor={editor} />}
+      {blockHover && (
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(
+              `${window.location.origin}${window.location.pathname}#b-${blockHover.id}`,
+            );
+            toast.success("Block link copied");
+          }}
+          className="absolute -left-7 z-10 grid size-6 place-items-center rounded text-muted-foreground opacity-70 hover:bg-accent hover:text-foreground hover:opacity-100"
+          style={{ top: blockHover.top }}
+          aria-label="Copy link to block"
+          title="Copy link to this block"
+        >
+          <Link2 className="size-3.5" />
+        </button>
+      )}
       <EditorContent editor={editor} />
       {linkChooser && (
         <>
@@ -214,6 +268,6 @@ export function RichEditor({
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }
