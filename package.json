@@ -17,6 +17,8 @@
     "db:seed-crm": "tsx --env-file=.env.local src/db/seed-crm.ts",
     "db:seed-valytica": "tsx --env-file=.env.local src/db/seed-valytica.ts",
     "db:seed-healthytica": "tsx --env-file=.env.local src/db/seed-healthytica.ts",
+    "db:seed-ai-workshop": "tsx --env-file=.env.local src/db/seed-ai-workshop.ts",
+    "db:seed-standup": "tsx --env-file=.env.local src/db/seed-standup.ts",
     "db:reset": "tsx --env-file=.env.local src/db/reset.ts"
   },
   "dependencies": {
