@@ -226,6 +226,80 @@
   .press:active {
     transform: scale(0.985);
   }
+
+  /* ---- Org chart: pure-CSS top-down tree with connector lines ---- */
+  .orgchart {
+    display: inline-block;
+    min-width: 100%;
+    text-align: center;
+    padding: 8px 4px 24px;
+  }
+  .orgchart ul {
+    display: flex;
+    justify-content: center;
+    padding-top: 22px;
+    position: relative;
+    margin: 0;
+    list-style: none;
+  }
+  .orgchart li {
+    list-style: none;
+    position: relative;
+    padding: 22px 12px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  /* connectors: the two halves of the horizontal line above each node */
+  .orgchart li::before,
+  .orgchart li::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 50%;
+    width: 50%;
+    height: 22px;
+    border-top: 1.5px solid var(--border);
+  }
+  .orgchart li::after {
+    right: auto;
+    left: 50%;
+    border-left: 1.5px solid var(--border);
+  }
+  /* a single child needs only the vertical drop, no horizontal span */
+  .orgchart > ul > li::before,
+  .orgchart > ul > li::after {
+    display: none;
+  }
+  .orgchart li:only-child::before,
+  .orgchart li:only-child::after {
+    display: none;
+  }
+  .orgchart li:only-child {
+    padding-top: 22px;
+  }
+  /* trim the outer halves on the first/last sibling so the bar doesn't overhang */
+  .orgchart li:first-child::before,
+  .orgchart li:last-child::after {
+    border: 0 none;
+  }
+  .orgchart li:last-child::before {
+    border-right: 1.5px solid var(--border);
+    border-radius: 0 6px 0 0;
+  }
+  .orgchart li:first-child::after {
+    border-radius: 6px 0 0 0;
+  }
+  /* the vertical drop from a parent into its children row */
+  .orgchart ul ul::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 0;
+    height: 22px;
+    border-left: 1.5px solid var(--border);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

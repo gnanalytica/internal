@@ -1225,6 +1225,37 @@ export const milestonesRelations = relations(milestones, ({ one, many }) => ({
   features: many(features),
 }));
 
+// ---- Org chart: positions/roles a person can hold ----
+// Decoupled from workspaceMembers.managerId so one person can hold several
+// positions (e.g. a founder who is both CEO and CTO). The tree is built from
+// parentId (app-managed, like pages). userId is nullable for an open seat.
+export const orgRoles = pgTable(
+  "org_roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    parentId: uuid("parent_id"),
+    sortKey: text("sort_key").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("org_roles_workspace_idx").on(t.workspaceId)],
+);
+
+export const orgRolesRelations = relations(orgRoles, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [orgRoles.workspaceId],
+    references: [workspaces.id],
+  }),
+  user: one(users, {
+    fields: [orgRoles.userId],
+    references: [users.id],
+  }),
+}));
+
 // ---- Features department (PM unit above engineering issues) ----
 export const features = pgTable(
   "features",

@@ -22,6 +22,7 @@ import {
   getMembers,
   getMembersWithRole,
   getMyRole,
+  getOrgRoles,
   getProject,
   getProjects,
   getProjectSummaries,
@@ -49,8 +50,9 @@ export default async function ProjectRoute({
 
   // People & HR is the team home: directory + org chart + management.
   if (project.kind !== "project" && project.key === "PPL") {
-    const [members, me, role] = await Promise.all([
+    const [members, orgRoles, me, role] = await Promise.all([
       getMembersWithRole(ws.id),
+      getOrgRoles(ws.id),
       getCurrentUser(ws.id),
       getMyRole(ws.id),
     ]);
@@ -58,6 +60,7 @@ export default async function ProjectRoute({
       <PeopleHRView
         heading={project.name}
         members={members}
+        orgRoles={orgRoles}
         currentUserId={me.id}
         isAdmin={role === "admin"}
       />

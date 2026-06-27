@@ -18,6 +18,7 @@ import type {
   metricPoints,
   metrics,
   milestones,
+  orgRoles,
   pages,
   projects,
   ticketComments,
@@ -177,6 +178,18 @@ export type MilestoneDetail = MilestoneWithProgress & {
 
 export type FeatureDetail = FeatureWithRelations & {
   issues: IssueWithRelations[];
+};
+
+// ---- Org chart: positions/roles (one person may hold several) ----
+export type OrgRole = typeof orgRoles.$inferSelect;
+
+/** A position in the org tree, with its occupant and direct reports. */
+export type OrgRoleNode = {
+  id: string;
+  title: string;
+  sortKey: string;
+  user: Member | null;
+  children: OrgRoleNode[];
 };
 
 // ---- Analytics: metrics + time-series ----

@@ -35,6 +35,7 @@ import {
   metricPoints,
   metrics,
   milestones,
+  orgRoles,
   notifications,
   projectStatusUpdates,
   references,
@@ -309,6 +310,81 @@ export async function removeMember(userId: string) {
       ),
     );
   revalidatePath("/", "layout");
+}
+
+// ---- Org chart (positions/roles) ----
+
+export async function createOrgRole(input: {
+  title: string;
+  userId?: string | null;
+  parentId?: string | null;
+}) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const title = input.title.trim() || "Untitled role";
+  const [created] = await db
+    .insert(orgRoles)
+    .values({
+      workspaceId: ws.id,
+      title,
+      userId: input.userId ?? null,
+      parentId: input.parentId ?? null,
+      sortKey: `a${Date.now()}`,
+    })
+    .returning({ id: orgRoles.id });
+  revalidatePath("/projects");
+  return created;
+}
+
+export async function updateOrgRole(
+  id: string,
+  patch: Partial<{ title: string; userId: string | null; parentId: string | null }>,
+) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  // Guard against making a role its own ancestor (would orphan the subtree).
+  if (patch.parentId) {
+    if (patch.parentId === id) throw new Error("A role can't report to itself.");
+    const rows = await db
+      .select({ id: orgRoles.id, parentId: orgRoles.parentId })
+      .from(orgRoles)
+      .where(eq(orgRoles.workspaceId, ws.id));
+    const parentOf = new Map(rows.map((r) => [r.id, r.parentId]));
+    let cursor: string | null | undefined = patch.parentId;
+    while (cursor) {
+      if (cursor === id) throw new Error("That would create a reporting loop.");
+      cursor = parentOf.get(cursor) ?? null;
+    }
+  }
+  const values: Record<string, unknown> = {};
+  if (patch.title !== undefined) values.title = patch.title.trim() || "Untitled role";
+  if (patch.userId !== undefined) values.userId = patch.userId;
+  if (patch.parentId !== undefined) values.parentId = patch.parentId;
+  if (Object.keys(values).length === 0) return;
+  await db
+    .update(orgRoles)
+    .set(values)
+    .where(and(eq(orgRoles.id, id), eq(orgRoles.workspaceId, ws.id)));
+  revalidatePath("/projects");
+}
+
+export async function deleteOrgRole(id: string) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  // Reparent the deleted role's children onto its own parent so the subtree
+  // stays attached rather than scattering into new roots.
+  const [target] = await db
+    .select({ parentId: orgRoles.parentId })
+    .from(orgRoles)
+    .where(and(eq(orgRoles.id, id), eq(orgRoles.workspaceId, ws.id)))
+    .limit(1);
+  if (!target) return;
+  await db
+    .update(orgRoles)
+    .set({ parentId: target.parentId })
+    .where(and(eq(orgRoles.workspaceId, ws.id), eq(orgRoles.parentId, id)));
+  await db.delete(orgRoles).where(and(eq(orgRoles.id, id), eq(orgRoles.workspaceId, ws.id)));
+  revalidatePath("/projects");
 }
 
 // ---- Issues ----
