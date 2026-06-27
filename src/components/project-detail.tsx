@@ -177,6 +177,7 @@ export function ProjectDetail({
                 <AssigneePicker
                   members={members}
                   value={project.ownerId}
+                  label="No owner"
                   onChange={(v) => persist(() => updateProject(project.id, { ownerId: v }))}
                 />
               ) : (
