@@ -920,6 +920,10 @@ export const campaigns = pgTable(
     startDate: timestamp("start_date", { withTimezone: true }),
     endDate: timestamp("end_date", { withTimezone: true }),
     budget: integer("budget").notNull().default(0),
+    // Outcome metrics (e.g. WhatsApp reach / replies / conversions).
+    reach: integer("reach").notNull().default(0),
+    replies: integer("replies").notNull().default(0),
+    conversions: integer("conversions").notNull().default(0),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     entity: text("entity").notNull().default("Global"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -947,6 +951,9 @@ export const contentItems = pgTable(
     title: text("title").notNull(),
     channel: text("channel"),
     status: text("status").notNull().default("idea"), // idea|draft|scheduled|published
+    // Link to the actual deliverable (video URL, doc, sample report) + freeform notes/copy.
+    url: text("url"),
+    notes: text("notes"),
     publishDate: timestamp("publish_date", { withTimezone: true }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -185,6 +185,34 @@ function CampaignRow({
         onBlur={(e) => Number(e.target.value) !== campaign.budget && upd({ budget: Number(e.target.value) || 0 })}
         className={fieldCls + " w-24"}
         placeholder="Budget"
+        title="Budget"
+      />
+      <input
+        type="number"
+        defaultValue={campaign.reach}
+        onBlur={(e) => Number(e.target.value) !== campaign.reach && upd({ reach: Number(e.target.value) || 0 })}
+        className={fieldCls + " w-20"}
+        placeholder="Reach"
+        title="Reach"
+      />
+      <input
+        type="number"
+        defaultValue={campaign.replies}
+        onBlur={(e) => Number(e.target.value) !== campaign.replies && upd({ replies: Number(e.target.value) || 0 })}
+        className={fieldCls + " w-20"}
+        placeholder="Replies"
+        title="Replies"
+      />
+      <input
+        type="number"
+        defaultValue={campaign.conversions}
+        onBlur={(e) =>
+          Number(e.target.value) !== campaign.conversions &&
+          upd({ conversions: Number(e.target.value) || 0 })
+        }
+        className={fieldCls + " w-20"}
+        placeholder="Conv."
+        title="Conversions"
       />
       <input
         type="date"
@@ -215,6 +243,31 @@ function ContentCard({ item, onChanged }: { item: ContentItemWithCampaign; onCha
         defaultValue={item.title}
         onBlur={(e) => e.target.value !== item.title && upd({ title: e.target.value })}
         className="w-full bg-transparent text-sm font-medium focus:outline-none"
+      />
+      <div className="mt-1.5 flex items-center gap-1">
+        <input
+          defaultValue={item.url ?? ""}
+          onBlur={(e) => (e.target.value || null) !== item.url && upd({ url: e.target.value || null })}
+          placeholder="Asset / link URL"
+          className="min-w-0 flex-1 rounded border bg-background px-1.5 py-1 text-[11px] focus:outline-none"
+        />
+        {item.url && (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 text-[11px] text-brand hover:underline"
+          >
+            Open
+          </a>
+        )}
+      </div>
+      <textarea
+        defaultValue={item.notes ?? ""}
+        onBlur={(e) => (e.target.value || null) !== item.notes && upd({ notes: e.target.value || null })}
+        placeholder="Notes / copy…"
+        rows={2}
+        className="mt-1 w-full resize-y rounded border bg-background px-1.5 py-1 text-[11px] focus:outline-none"
       />
       <div className="mt-1.5 flex items-center gap-1.5">
         <select
