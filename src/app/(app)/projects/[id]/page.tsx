@@ -6,7 +6,6 @@ import { FinanceView } from "@/components/finance-view";
 import { OwnerPicker } from "@/components/owner-picker";
 import { PeopleHRView } from "@/components/people-hr-view";
 import { ProjectDetail } from "@/components/project-detail";
-import { ProjectModulesConfig } from "@/components/project-modules-config";
 import { Restricted } from "@/components/restricted";
 import {
   canSeeConfidential,
@@ -190,7 +189,6 @@ export default async function ProjectRoute({
               Owner {owner?.name ?? "—"}
             </span>
           )}
-          <ProjectModulesConfig projectId={id} enabled={summary.enabledDepartments} />
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
