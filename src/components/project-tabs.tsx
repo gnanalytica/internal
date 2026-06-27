@@ -17,6 +17,7 @@ export function ProjectTabs({ project, isAdmin = false }: { project: Project; is
       href: `${base}/${d.slug}`,
       label: d.label,
     })),
+    { href: `${base}/docs`, label: "Docs" },
   ];
   return (
     <div className="flex items-center gap-1 border-b px-4 pt-2.5">
