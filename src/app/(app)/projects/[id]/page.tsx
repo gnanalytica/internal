@@ -15,6 +15,7 @@ import {
 import {
   getBacklinks,
   getCurrentUser,
+  getDatabases,
   getMembers,
   getMembersWithRole,
   getMyRole,
@@ -59,15 +60,19 @@ export default async function ProjectRoute({
     );
   }
 
-  // Operations: the simple detail view (no departments).
+  // Operations: the simple detail view (no departments). IT also surfaces the
+  // workspace databases (Tools & Subscriptions), folded in from the old top-level
+  // Databases page.
   if (project.kind !== "project") {
-    const [members, role, favorited, statusUpdates, backlinks] = await Promise.all([
-      getMembers(ws.id),
-      getMyRole(ws.id),
-      isFavorite(ws.id, "project", id),
-      getStatusUpdates(ws.id, id),
-      getBacklinks(ws.id, "project", id),
-    ]);
+    const [members, role, favorited, statusUpdates, backlinks, databases] =
+      await Promise.all([
+        getMembers(ws.id),
+        getMyRole(ws.id),
+        isFavorite(ws.id, "project", id),
+        getStatusUpdates(ws.id, id),
+        getBacklinks(ws.id, "project", id),
+        project.key === "IT" ? getDatabases(ws.id) : Promise.resolve([]),
+      ]);
     return (
       <ProjectDetail
         project={project}
@@ -76,6 +81,7 @@ export default async function ProjectRoute({
         favorited={favorited}
         statusUpdates={statusUpdates}
         backlinks={backlinks}
+        databases={databases.map((d) => ({ id: d.id, name: d.name, icon: d.icon }))}
       />
     );
   }

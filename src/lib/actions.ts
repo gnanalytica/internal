@@ -26,7 +26,6 @@ import {
   favorites,
   features,
   feedback,
-  initiatives,
   invoices,
   issueLabels,
   issuePageLinks,
@@ -800,60 +799,6 @@ export async function deleteCycle(id: string) {
   revalidatePath("/cycles");
 }
 
-// ---- Initiatives ----
-
-export async function createInitiative(input: { name?: string }) {
-  const ws = await getWorkspace();
-  const [created] = await db
-    .insert(initiatives)
-    .values({
-      workspaceId: ws.id,
-      name: input.name?.trim() || "New initiative",
-    })
-    .returning();
-  revalidatePath("/initiatives");
-  return created;
-}
-
-export async function updateInitiative(
-  id: string,
-  patch: Partial<{
-    name: string;
-    description: string;
-    status: string;
-    color: string;
-  }>,
-) {
-  const ws = await getWorkspace();
-  await db
-    .update(initiatives)
-    .set(patch)
-    .where(and(eq(initiatives.workspaceId, ws.id), eq(initiatives.id, id)));
-  revalidatePath("/initiatives");
-  revalidatePath(`/initiatives/${id}`);
-}
-
-export async function deleteInitiative(id: string) {
-  const ws = await getWorkspace();
-  await requireAdmin(ws.id);
-  await db
-    .delete(initiatives)
-    .where(and(eq(initiatives.workspaceId, ws.id), eq(initiatives.id, id)));
-  revalidatePath("/initiatives");
-}
-
-/** Move a project into (or out of) an initiative. */
-export async function setProjectInitiative(
-  projectId: string,
-  initiativeId: string | null,
-) {
-  const ws = await getWorkspace();
-  await db
-    .update(projects)
-    .set({ initiativeId })
-    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, projectId)));
-  revalidatePath("/initiatives");
-}
 
 const PROJECT_COLORS = [
   "#6366f1", "#ec4899", "#10b981", "#f59e0b", "#3b82f6",
@@ -1676,7 +1621,6 @@ export async function searchWorkspace(
     issueRows,
     pageRows,
     projectRows,
-    initiativeRows,
     databaseRows_,
     cycleRows,
   ] = await Promise.all([
@@ -1717,11 +1661,6 @@ export async function searchWorkspace(
           or(ilike(projects.name, term), ilike(projects.key, term)),
         ),
       )
-      .limit(LIMIT),
-    db
-      .select({ id: initiatives.id, name: initiatives.name })
-      .from(initiatives)
-      .where(and(eq(initiatives.workspaceId, ws.id), ilike(initiatives.name, term)))
       .limit(LIMIT),
     db
       .select({ id: databases.id, name: databases.name, icon: databases.icon })
@@ -1765,14 +1704,6 @@ export async function searchWorkspace(
       href: `/projects/${r.id}`,
     });
   }
-  for (const r of initiativeRows) {
-    results.push({
-      kind: "initiative",
-      id: r.id,
-      title: r.name,
-      href: `/initiatives/${r.id}`,
-    });
-  }
   for (const r of databaseRows_) {
     results.push({
       kind: "database",
@@ -1801,11 +1732,8 @@ export async function searchWorkspace(
 
 /** Revalidate both lenses (project-scoped + company-wide) after a mutation. */
 function revalidateMatrix(projectId?: string | null) {
-  revalidatePath("/sales");
-  revalidatePath("/marketing");
-  revalidatePath("/customer-success");
-  revalidatePath("/product");
-  revalidatePath("/analytics");
+  // Department data lives under each project now (the global lenses were
+  // removed), so revalidate the project subtree + the projects index.
   revalidatePath("/projects");
   if (projectId) revalidatePath(`/projects/${projectId}`, "layout");
   revalidatePath("/", "layout");

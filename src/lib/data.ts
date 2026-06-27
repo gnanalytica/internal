@@ -63,9 +63,7 @@ import type {
   ExpenseWithRelations,
   FeedbackWithRelations,
   FlatIssue,
-  Initiative,
   FeatureWithRelations,
-  InitiativeWithCount,
   InvoiceWithRelations,
   IssueWithRelations,
   Label,
@@ -280,13 +278,12 @@ export async function getStatusUpdates(
   }));
 }
 
-export type RoadmapProject = Project & { initiative: Initiative | null };
+export type RoadmapProject = Project;
 
 export async function getRoadmap(workspaceId: string): Promise<RoadmapProject[]> {
   const rows = await db.query.projects.findMany({
     where: eq(projects.workspaceId, workspaceId),
     orderBy: [asc(projects.startDate), asc(projects.name)],
-    with: { initiative: true },
   });
   return rows;
 }
@@ -690,38 +687,6 @@ export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
     .from(cycles)
     .where(eq(cycles.workspaceId, workspaceId))
     .orderBy(desc(cycles.startDate));
-}
-
-// ---- Initiatives ----
-
-export async function getInitiatives(
-  workspaceId: string,
-): Promise<InitiativeWithCount[]> {
-  const rows = await db.query.initiatives.findMany({
-    where: eq(initiatives.workspaceId, workspaceId),
-    orderBy: [asc(initiatives.name)],
-    with: { projects: { columns: { id: true } } },
-  });
-  return rows.map((i) => ({ ...i, projectCount: i.projects.length }));
-}
-
-export async function getInitiative(
-  workspaceId: string,
-  id: string,
-): Promise<(Initiative & { projects: ProjectWithIssueCount[] }) | null> {
-  const row = await db.query.initiatives.findFirst({
-    where: and(eq(initiatives.workspaceId, workspaceId), eq(initiatives.id, id)),
-    with: { projects: { with: { issues: { columns: { id: true, status: true } } } } },
-  });
-  if (!row) return null;
-  return {
-    ...row,
-    projects: row.projects.map((p) => ({
-      ...p,
-      issueCount: p.issues.length,
-      doneCount: p.issues.filter((i) => i.status === "done").length,
-    })),
-  };
 }
 
 // ---- Databases ----

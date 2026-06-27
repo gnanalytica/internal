@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -41,9 +40,13 @@ export function AccountDetail({ account }: { account: AccountDetailType; members
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b px-4 py-2.5">
-        <Link href="/sales" className="text-muted-foreground hover:text-foreground" aria-label="Back to Sales">
+        <button
+          onClick={() => router.back()}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Back"
+        >
           <ArrowLeft className="size-4" />
-        </Link>
+        </button>
         <h1 className="text-sm font-semibold">{account.name}</h1>
         <span
           className="rounded-full px-2 py-0.5 text-[11px] font-medium"

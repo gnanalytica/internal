@@ -358,7 +358,6 @@ export type SearchResultKind =
   | "issue"
   | "page"
   | "project"
-  | "initiative"
   | "database"
   | "cycle";
 

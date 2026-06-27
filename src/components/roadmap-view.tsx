@@ -14,15 +14,19 @@ export function RoadmapView({
   projects: RoadmapProject[];
   nowISO: string;
 }) {
-  // Group by initiative; undated / un-initiatived projects sort last.
+  // Group by kind: shippable Projects first, then Operations.
   const groupsMap = new Map<string, GanttGroup>();
+  const meta: Record<string, { name: string; color: string }> = {
+    project: { name: "Projects", color: "#6366f1" },
+    operation: { name: "Operations", color: "#94a3b8" },
+  };
   for (const p of projects) {
-    const key = p.initiative?.id ?? "none";
+    const key = p.kind;
     if (!groupsMap.has(key)) {
       groupsMap.set(key, {
         key,
-        name: p.initiative?.name ?? "No initiative",
-        color: p.initiative?.color ?? "#94a3b8",
+        name: meta[key]?.name ?? key,
+        color: meta[key]?.color ?? "#94a3b8",
         items: [],
       });
     }
@@ -36,7 +40,7 @@ export function RoadmapView({
     });
   }
   const groups = [...groupsMap.values()].sort((a, b) =>
-    a.key === "none" ? 1 : b.key === "none" ? -1 : a.name.localeCompare(b.name),
+    a.key === "project" ? -1 : b.key === "project" ? 1 : a.name.localeCompare(b.name),
   );
 
   return (
