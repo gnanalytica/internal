@@ -56,7 +56,7 @@ import {
   getWorkspace,
   pickColor,
 } from "@/lib/data";
-import { isPriority, isStatus } from "@/lib/constants";
+import { isIssueType, isPriority, isStatus } from "@/lib/constants";
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
@@ -394,9 +394,11 @@ export async function createIssue(input: {
   projectId?: string | null;
   status?: string;
   priority?: string;
+  type?: string;
   assigneeId?: string | null;
   parentId?: string | null;
   featureId?: string | null;
+  milestoneId?: string | null;
   startDate?: string | null;
   dueDate?: string | null;
 }) {
@@ -419,10 +421,12 @@ export async function createIssue(input: {
       projectId: input.projectId ?? null,
       parentId: input.parentId ?? null,
       featureId: input.featureId ?? null,
+      milestoneId: input.milestoneId ?? null,
       number: (maxNumber ?? 0) + 1,
       title: input.title.trim() || "Untitled issue",
       status: input.status && isStatus(input.status) ? input.status : "backlog",
       priority: input.priority && isPriority(input.priority) ? input.priority : "none",
+      type: input.type && isIssueType(input.type) ? input.type : "engineering",
       assigneeId: input.assigneeId ?? null,
       creatorId: me.id,
       sortKey: `a${Date.now()}`,
@@ -581,9 +585,11 @@ export async function updateIssue(
     description: unknown;
     status: string;
     priority: string;
+    type: string;
     assigneeId: string | null;
     projectId: string | null;
     cycleId: string | null;
+    milestoneId: string | null;
     parentId: string | null;
     startDate: string | null;
     dueDate: string | null;
@@ -609,9 +615,11 @@ export async function updateIssue(
   if (patch.status !== undefined && isStatus(patch.status)) values.status = patch.status;
   if (patch.priority !== undefined && isPriority(patch.priority))
     values.priority = patch.priority;
+  if (patch.type !== undefined && isIssueType(patch.type)) values.type = patch.type;
   if (patch.assigneeId !== undefined) values.assigneeId = patch.assigneeId;
   if (patch.projectId !== undefined) values.projectId = patch.projectId;
   if (patch.cycleId !== undefined) values.cycleId = patch.cycleId;
+  if (patch.milestoneId !== undefined) values.milestoneId = patch.milestoneId;
   if (patch.parentId !== undefined) values.parentId = patch.parentId;
   if (patch.startDate !== undefined)
     values.startDate = patch.startDate ? new Date(patch.startDate) : null;

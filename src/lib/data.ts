@@ -411,6 +411,7 @@ export async function getProject(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          milestone: { columns: { id: true, name: true } },
           assignees: { with: { user: true } },
         },
       },
@@ -442,6 +443,7 @@ export async function getIssues(
       cycle: true,
       assignee: true,
       labels: { with: { label: true } },
+      milestone: { columns: { id: true, name: true } },
       assignees: { with: { user: true } },
     },
   });
@@ -485,6 +487,7 @@ export async function getIssuesPage(
       cycle: true,
       assignee: true,
       labels: { with: { label: true } },
+      milestone: { columns: { id: true, name: true } },
       assignees: { with: { user: true } },
     },
   });
@@ -514,6 +517,7 @@ export async function getIssue(
       cycle: true,
       assignee: true,
       labels: { with: { label: true } },
+      milestone: { columns: { id: true, name: true } },
       assignees: { with: { user: true } },
       feature: {
         columns: { id: true, title: true },
@@ -528,6 +532,7 @@ export async function getIssue(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          milestone: { columns: { id: true, name: true } },
           assignees: { with: { user: true } },
         },
       },
@@ -743,6 +748,7 @@ export async function getPage(
               cycle: true,
               assignee: true,
               labels: { with: { label: true } },
+              milestone: { columns: { id: true, name: true } },
               assignees: { with: { user: true } },
             },
           },
@@ -800,6 +806,7 @@ export async function getCycle(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          milestone: { columns: { id: true, name: true } },
           assignees: { with: { user: true } },
         },
       },
@@ -1603,6 +1610,27 @@ export async function getMilestones(
     }
   }
 
+  // Tasks attached directly to a milestone (no feature) also count toward it.
+  const directCounts = await db
+    .select({ milestoneId: issues.milestoneId, status: issues.status })
+    .from(issues)
+    .where(
+      and(
+        eq(issues.workspaceId, workspaceId),
+        inArray(
+          issues.milestoneId,
+          ms.map((m) => m.id),
+        ),
+      ),
+    );
+  for (const c of directCounts) {
+    if (!c.milestoneId || c.status === "canceled") continue;
+    const e = prog.get(c.milestoneId) ?? { done: 0, total: 0 };
+    e.total += 1;
+    if (c.status === "done") e.done += 1;
+    prog.set(c.milestoneId, e);
+  }
+
   return ms.map((m) => {
     const e = prog.get(m.id) ?? { done: 0, total: 0 };
     return {
@@ -1675,10 +1703,35 @@ export async function getMilestone(
     };
   });
 
+  // Tasks attached straight to the milestone (no feature).
+  const directIssueRows = await db.query.issues.findMany({
+    where: and(eq(issues.workspaceId, workspaceId), eq(issues.milestoneId, id)),
+    orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
+    with: {
+      project: true,
+      cycle: true,
+      assignee: true,
+      milestone: { columns: { id: true, name: true } },
+      labels: { with: { label: true } },
+      assignees: { with: { user: true } },
+    },
+  });
+  const directIssues = directIssueRows.map((r) => ({
+    ...r,
+    labels: r.labels.map((l) => l.label),
+    assignees: r.assignees.map((a) => a.user),
+  }));
+  for (const i of directIssues) {
+    if (i.status === "canceled") continue;
+    total += 1;
+    if (i.status === "done") done += 1;
+  }
+
   return {
     ...row,
     project: row.project ?? null,
     features: featuresWithProgress,
+    directIssues,
     featureCount: featuresWithProgress.length,
     progress: { done, total, pct: total ? Math.round((done / total) * 100) : 0 },
   };
@@ -1703,6 +1756,7 @@ export async function getFeature(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          milestone: { columns: { id: true, name: true } },
           assignees: { with: { user: true } },
         },
       },

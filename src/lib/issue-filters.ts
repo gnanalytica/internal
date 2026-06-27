@@ -1,10 +1,12 @@
-import { PRIORITIES, STATUSES } from "@/lib/constants";
+import { ISSUE_TYPES, PRIORITIES, STATUSES } from "@/lib/constants";
 import type { IssueWithRelations, Member, Project } from "@/lib/types";
 
 /** Active issue filters. Empty set = no constraint for that dimension. */
 export type IssueFilters = {
   status: Set<string>;
   priority: Set<string>;
+  /** Functional task type ids (engineering, legal, …). */
+  type: Set<string>;
   /** User ids; the sentinel "none" matches unassigned issues. */
   assignee: Set<string>;
   /** Label ids; an issue matches if it carries ANY selected label. */
@@ -29,24 +31,26 @@ export function emptyFilters(): IssueFilters {
   return {
     status: new Set(),
     priority: new Set(),
+    type: new Set(),
     assignee: new Set(),
     label: new Set(),
   };
 }
 
 export function activeFilterCount(f: IssueFilters): number {
-  return f.status.size + f.priority.size + f.assignee.size + f.label.size;
+  return f.status.size + f.priority.size + f.type.size + f.assignee.size + f.label.size;
 }
 
 /** Whether a single issue passes all active filter dimensions (AND across dimensions). */
 export function matchesFilters(
-  issue: Pick<IssueWithRelations, "status" | "priority" | "assigneeId" | "labels"> & {
+  issue: Pick<IssueWithRelations, "status" | "priority" | "type" | "assigneeId" | "labels"> & {
     assignees?: { id: string }[];
   },
   f: IssueFilters,
 ): boolean {
   if (f.status.size && !f.status.has(issue.status)) return false;
   if (f.priority.size && !f.priority.has(issue.priority)) return false;
+  if (f.type.size && !f.type.has(issue.type)) return false;
   if (f.assignee.size) {
     // Match if any assignee is selected (or "none" for unassigned). Falls back
     // to the primary assigneeId when the full set isn't loaded.
@@ -69,11 +73,12 @@ export function filterIssues<T extends IssueWithRelations>(
 }
 
 /** Comparator for the chosen sort. "manual" falls back to the persisted sortKey. */
-export type GroupBy = "status" | "priority" | "assignee" | "project" | "none";
+export type GroupBy = "status" | "priority" | "type" | "assignee" | "project" | "none";
 
 export const GROUP_BYS: { id: GroupBy; label: string }[] = [
   { id: "status", label: "Status" },
   { id: "priority", label: "Priority" },
+  { id: "type", label: "Type" },
   { id: "assignee", label: "Assignee" },
   { id: "project", label: "Project" },
   { id: "none", label: "None" },
@@ -100,6 +105,14 @@ export function groupIssues(
         key: p.id,
         label: p.label,
         match: (i) => i.priority === p.id,
+      }));
+      break;
+    case "type":
+      defs = ISSUE_TYPES.map((t) => ({
+        key: t.id,
+        label: t.label,
+        color: t.color,
+        match: (i) => i.type === t.id,
       }));
       break;
     case "assignee":

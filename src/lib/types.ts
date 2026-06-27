@@ -176,6 +176,8 @@ export type MilestoneWithProgress = Milestone & {
 export type MilestoneDetail = MilestoneWithProgress & {
   project: Project | null;
   features: FeatureWithRelations[];
+  // Tasks attached straight to the milestone (no feature).
+  directIssues: IssueWithRelations[];
 };
 
 export type FeatureDetail = FeatureWithRelations & {
@@ -228,6 +230,9 @@ export type IssueWithRelations = Issue & {
   // Full assignee set (includes the primary). Empty when unassigned.
   assignees: Member[];
   labels: Label[];
+  // Direct milestone link (Milestone → Task without a feature). For display,
+  // prefer the feature's milestone when the task belongs to a feature.
+  milestone: { id: string; name: string } | null;
 };
 
 export type IssueDetail = IssueWithRelations & {
@@ -431,6 +436,7 @@ export type ProposedIssue = { title: string; description: string };
 export type SavedViewConfig = {
   status: string[];
   priority: string[];
+  type: string[];
   assignee: string[];
   label: string[];
   sort: string;

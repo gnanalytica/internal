@@ -146,11 +146,19 @@ export const issues = pgTable(
     featureId: uuid("feature_id").references(() => features.id, {
       onDelete: "set null",
     }),
+    // Direct milestone link, used when a task rolls up to a milestone without a
+    // feature (Milestone → Task). When featureId is set, the feature's milestone
+    // takes precedence for display.
+    milestoneId: uuid("milestone_id").references(() => milestones.id, {
+      onDelete: "set null",
+    }),
     // Self-reference for sub-issues; null = top-level issue.
     parentId: uuid("parent_id"),
     // Per-project incrementing number, combined with project key for display.
     number: integer("number").notNull(),
     title: text("title").notNull(),
+    // Functional category — a task isn't only engineering. See ISSUE_TYPES.
+    type: text("type").notNull().default("engineering"),
     // TipTap JSON document for the issue description.
     description: jsonb("description"),
     status: text("status").notNull().default("backlog"),
@@ -613,6 +621,10 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   feature: one(features, {
     fields: [issues.featureId],
     references: [features.id],
+  }),
+  milestone: one(milestones, {
+    fields: [issues.milestoneId],
+    references: [milestones.id],
   }),
   assignee: one(users, {
     fields: [issues.assigneeId],
@@ -1227,6 +1239,7 @@ export const milestonesRelations = relations(milestones, ({ one, many }) => ({
     references: [projects.id],
   }),
   features: many(features),
+  issues: many(issues),
 }));
 
 // ---- Org chart: positions/roles a person can hold ----
