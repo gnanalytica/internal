@@ -34,7 +34,7 @@ export function FeatureDetailView({
         breadcrumb={[
           {
             label: "Project",
-            href: feature.project ? `/projects/${feature.project.id}/features` : "/features",
+            href: feature.project ? `/projects/${feature.project.id}/product` : "/product",
           },
           { label: title },
         ]}

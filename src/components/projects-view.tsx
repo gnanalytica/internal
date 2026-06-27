@@ -12,7 +12,6 @@ import {
   Megaphone,
   Plus,
   TrendingUp,
-  Wallet,
 } from "lucide-react";
 
 import { Topbar } from "@/components/topbar";
@@ -23,12 +22,11 @@ import { formatMoney } from "@/lib/matrix-format";
 import type { ProjectSummary, ProjectWithIssueCount } from "@/lib/types";
 
 const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
+  product: <Compass className="size-3.5" />,
   engineering: <CircleDot className="size-3.5" />,
-  sales: <TrendingUp className="size-3.5" />,
   marketing: <Megaphone className="size-3.5" />,
-  finance: <Wallet className="size-3.5" />,
-  support: <LifeBuoy className="size-3.5" />,
-  features: <Compass className="size-3.5" />,
+  sales: <TrendingUp className="size-3.5" />,
+  "customer-success": <LifeBuoy className="size-3.5" />,
 };
 
 export function ProjectsView({

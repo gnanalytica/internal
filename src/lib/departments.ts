@@ -10,14 +10,24 @@
  */
 
 export type DepartmentSlug =
+  | "product"
   | "engineering"
-  | "sales"
   | "marketing"
-  | "finance"
-  | "support"
-  | "features";
+  | "sales"
+  | "customer-success";
 
+// Canonical product-org functions, in lifecycle order. Finance lives at the
+// company level (an Operations project), not per-project. Analytics is a
+// planned addition (product metrics) once its module is built.
 export const DEPARTMENTS = [
+  {
+    slug: "product",
+    label: "Product",
+    icon: "🧭",
+    color: "#8b5cf6",
+    // The PM surface: roadmap, specs and (later) discovery/feedback.
+    tool: "Roadmap & specs",
+  },
   {
     slug: "engineering",
     label: "Engineering",
@@ -27,13 +37,6 @@ export const DEPARTMENTS = [
     tool: "Linear",
   },
   {
-    slug: "sales",
-    label: "Sales",
-    icon: "📈",
-    color: "#0ea5e9",
-    tool: "Apollo / HubSpot",
-  },
-  {
     slug: "marketing",
     label: "Marketing",
     icon: "📣",
@@ -41,25 +44,18 @@ export const DEPARTMENTS = [
     tool: "HubSpot",
   },
   {
-    slug: "finance",
-    label: "Finance",
-    icon: "💶",
-    color: "#22c55e",
-    tool: "Invoices & expenses (books stay external)",
+    slug: "sales",
+    label: "Sales",
+    icon: "📈",
+    color: "#0ea5e9",
+    tool: "Apollo / HubSpot",
   },
   {
-    slug: "support",
-    label: "Support",
+    slug: "customer-success",
+    label: "Customer Success",
     icon: "🎧",
     color: "#f97316",
     tool: "Zendesk / Intercom-style tickets",
-  },
-  {
-    slug: "features",
-    label: "Features",
-    icon: "🧭",
-    color: "#8b5cf6",
-    tool: "Roadmap & specs",
   },
 ] as const;
 

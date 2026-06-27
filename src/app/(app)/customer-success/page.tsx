@@ -20,7 +20,7 @@ export default async function SupportPage() {
 
   return (
     <SupportView
-      heading="Support · all projects"
+      heading="Customer Success · all projects"
       scopeProjectId={null}
       projects={projects}
       members={members}

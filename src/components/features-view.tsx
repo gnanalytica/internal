@@ -30,7 +30,7 @@ export function FeaturesView({
     if (!scopeProjectId) return;
     startTransition(async () => {
       const f = await createFeature({ projectId: scopeProjectId });
-      router.push(`/projects/${scopeProjectId}/features/${f.id}`);
+      router.push(`/projects/${scopeProjectId}/product/${f.id}`);
       router.refresh();
     });
   }

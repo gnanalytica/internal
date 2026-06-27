@@ -30,7 +30,6 @@ import {
   Trash2,
   TrendingUp,
   Users,
-  Wallet,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -311,10 +310,10 @@ export function Sidebar({
           label="Projects"
         />
         <NavItem
-          href="/sales"
-          active={pathname.startsWith("/sales")}
-          icon={<TrendingUp className="size-4" />}
-          label="Sales"
+          href="/product"
+          active={pathname.startsWith("/product")}
+          icon={<Compass className="size-4" />}
+          label="Product"
         />
         <NavItem
           href="/marketing"
@@ -323,22 +322,16 @@ export function Sidebar({
           label="Marketing"
         />
         <NavItem
-          href="/finance"
-          active={pathname.startsWith("/finance")}
-          icon={<Wallet className="size-4" />}
-          label="Finance"
+          href="/sales"
+          active={pathname.startsWith("/sales")}
+          icon={<TrendingUp className="size-4" />}
+          label="Sales"
         />
         <NavItem
-          href="/support"
-          active={pathname.startsWith("/support")}
+          href="/customer-success"
+          active={pathname.startsWith("/customer-success")}
           icon={<LifeBuoy className="size-4" />}
-          label="Support"
-        />
-        <NavItem
-          href="/features"
-          active={pathname.startsWith("/features")}
-          icon={<Compass className="size-4" />}
-          label="Features"
+          label="Customer Success"
         />
 
         {/* Favorites */}
@@ -504,12 +497,11 @@ function ProjectNavItem({
   const base = `/projects/${project.id}`;
   const [open, setOpen] = useState(pathname.startsWith(base));
   const deptIcons: Record<DepartmentSlug, React.ReactNode> = {
+    product: <Compass className="size-3.5" />,
     engineering: <CircleDot className="size-3.5" />,
-    sales: <TrendingUp className="size-3.5" />,
     marketing: <Megaphone className="size-3.5" />,
-    finance: <Wallet className="size-3.5" />,
-    support: <LifeBuoy className="size-3.5" />,
-    features: <Compass className="size-3.5" />,
+    sales: <TrendingUp className="size-3.5" />,
+    "customer-success": <LifeBuoy className="size-3.5" />,
   };
   const depts = enabledDepartments(project.enabledDepartments).map((d) => ({
     href: `${base}/${d.slug}`,
