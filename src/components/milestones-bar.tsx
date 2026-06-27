@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Plus, Target, X } from "lucide-react";
@@ -41,15 +42,13 @@ export function MilestonesBar({
         >
           <div className="flex items-center gap-1.5">
             <Target className="size-3.5 shrink-0 text-brand" />
-            <input
-              defaultValue={m.name}
-              onBlur={(e) => {
-                const v = e.target.value.trim();
-                if (v && v !== m.name) run(() => updateMilestone(m.id, { name: v }));
-              }}
-              className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none focus:underline"
-              aria-label="Milestone name"
-            />
+            <Link
+              href={`/projects/${projectId}/milestones/${m.id}`}
+              className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
+              title={`Open ${m.name}`}
+            >
+              {m.name}
+            </Link>
             <button
               onClick={() => {
                 if (confirm(`Delete milestone "${m.name}"? Its features stay, unassigned.`))

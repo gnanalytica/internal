@@ -70,6 +70,7 @@ import type {
   Member,
   MemberWithRole,
   MetricWithRelations,
+  MilestoneDetail,
   MilestoneWithProgress,
   Page,
   PageNode,
@@ -1560,6 +1561,73 @@ export async function getMilestones(
       },
     };
   });
+}
+
+/** A single milestone with its project and the features assigned to it. */
+export async function getMilestone(
+  workspaceId: string,
+  id: string,
+): Promise<MilestoneDetail | null> {
+  const row = await db.query.milestones.findFirst({
+    where: and(eq(milestones.workspaceId, workspaceId), eq(milestones.id, id)),
+    with: { project: true },
+  });
+  if (!row) return null;
+
+  const featRows = await db.query.features.findMany({
+    where: and(eq(features.workspaceId, workspaceId), eq(features.milestoneId, id)),
+    orderBy: [asc(features.sortKey), desc(features.createdAt)],
+    with: {
+      project: true,
+      milestone: { columns: { id: true, name: true } },
+      owner: true,
+      page: { columns: { id: true, title: true, icon: true } },
+    },
+  });
+
+  // Roll up linked-issue progress per feature (canceled excluded).
+  const counts = featRows.length
+    ? await db
+        .select({ featureId: issues.featureId, status: issues.status })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.workspaceId, workspaceId),
+            inArray(
+              issues.featureId,
+              featRows.map((f) => f.id),
+            ),
+          ),
+        )
+    : [];
+  const byFeature = new Map<string, { done: number; total: number }>();
+  for (const c of counts) {
+    if (!c.featureId || c.status === "canceled") continue;
+    const e = byFeature.get(c.featureId) ?? { done: 0, total: 0 };
+    e.total += 1;
+    if (c.status === "done") e.done += 1;
+    byFeature.set(c.featureId, e);
+  }
+
+  let done = 0;
+  let total = 0;
+  const featuresWithProgress = featRows.map((f) => {
+    const e = byFeature.get(f.id) ?? { done: 0, total: 0 };
+    done += e.done;
+    total += e.total;
+    return {
+      ...f,
+      progress: { done: e.done, total: e.total, pct: e.total ? Math.round((e.done / e.total) * 100) : 0 },
+    };
+  });
+
+  return {
+    ...row,
+    project: row.project ?? null,
+    features: featuresWithProgress,
+    featureCount: featuresWithProgress.length,
+    progress: { done, total, pct: total ? Math.round((done / total) * 100) : 0 },
+  };
 }
 
 /** A single feature with its linked issues (for progress rollup). */

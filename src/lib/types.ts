@@ -170,6 +170,11 @@ export type MilestoneWithProgress = Milestone & {
   progress: { done: number; total: number; pct: number };
 };
 
+export type MilestoneDetail = MilestoneWithProgress & {
+  project: Project | null;
+  features: FeatureWithRelations[];
+};
+
 export type FeatureDetail = FeatureWithRelations & {
   issues: IssueWithRelations[];
 };
