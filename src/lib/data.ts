@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -73,6 +73,7 @@ import type {
   MilestoneWithProgress,
   Page,
   PageNode,
+  PortfolioRow,
   Project,
   ProjectSummary,
   ProjectWithIssueCount,
@@ -139,6 +140,7 @@ export async function getMyWorkspaces(): Promise<WorkspaceWithRole[]> {
       name: workspaces.name,
       slug: workspaces.slug,
       githubRepo: workspaces.githubRepo,
+      bets: workspaces.bets,
       createdAt: workspaces.createdAt,
       role: workspaceMembers.role,
     })
@@ -239,6 +241,78 @@ export async function getProjects(workspaceId: string): Promise<Project[]> {
     .from(projects)
     .where(eq(projects.workspaceId, workspaceId))
     .orderBy(asc(projects.name));
+}
+
+/**
+ * Company portfolio for the Overview home: every project and operation with its
+ * owner, latest health, current milestone (projects only), and issue progress.
+ * One pass over projects + a few aggregate queries (no per-project round-trips).
+ */
+export async function getPortfolio(workspaceId: string): Promise<PortfolioRow[]> {
+  const [projs, members] = await Promise.all([
+    db.select().from(projects).where(eq(projects.workspaceId, workspaceId)).orderBy(asc(projects.name)),
+    getMembers(workspaceId),
+  ]);
+  const ownerName = (id: string | null) =>
+    id ? (members.find((m) => m.id === id)?.name ?? null) : null;
+
+  // Issue counts per project (done / total, canceled excluded).
+  const issueRows = (await db.execute(sql`
+    SELECT project_id AS pid,
+           count(*) FILTER (WHERE status <> 'canceled')::int AS total,
+           count(*) FILTER (WHERE status = 'done')::int AS done
+    FROM issues WHERE workspace_id = ${workspaceId} AND project_id IS NOT NULL
+    GROUP BY project_id`)).rows as { pid: string; total: number; done: number }[];
+  const counts = new Map(issueRows.map((r) => [r.pid, r]));
+
+  // Latest health per project.
+  const healthRows = (await db.execute(sql`
+    SELECT DISTINCT ON (project_id) project_id AS pid, health
+    FROM project_status_updates WHERE workspace_id = ${workspaceId}
+    ORDER BY project_id, created_at DESC`)).rows as { pid: string; health: string }[];
+  const healthByProject = new Map(healthRows.map((r) => [r.pid, r.health]));
+
+  // Current milestone per project: next-upcoming target, else the latest.
+  const msRows = (await db.execute(sql`
+    SELECT project_id AS pid, name, target_date AS target
+    FROM milestones WHERE workspace_id = ${workspaceId}
+    ORDER BY project_id, target_date ASC NULLS LAST`)).rows as {
+    pid: string;
+    name: string;
+    target: string | null;
+  }[];
+  const now = Date.now();
+  const milestoneByProject = new Map<string, { name: string; target: Date | null }>();
+  for (const r of msRows) {
+    const existing = milestoneByProject.get(r.pid);
+    const t = r.target ? new Date(r.target) : null;
+    // Prefer the earliest still-upcoming milestone; fall back to the latest seen.
+    if (!existing) {
+      milestoneByProject.set(r.pid, { name: r.name, target: t });
+    } else if (t && t.getTime() >= now && (!existing.target || existing.target.getTime() < now)) {
+      milestoneByProject.set(r.pid, { name: r.name, target: t });
+    }
+  }
+
+  const VALID = new Set(["on_track", "at_risk", "off_track"]);
+  return projs.map((p): PortfolioRow => {
+    const c = counts.get(p.id);
+    const h = healthByProject.get(p.id);
+    const ms = p.kind === "project" ? milestoneByProject.get(p.id) : undefined;
+    return {
+      id: p.id,
+      name: p.name,
+      key: p.key,
+      color: p.color,
+      kind: p.kind,
+      ownerName: ownerName(p.ownerId),
+      health: h && VALID.has(h) ? (h as PortfolioRow["health"]) : "none",
+      milestoneName: ms?.name ?? null,
+      milestoneTarget: ms?.target ?? null,
+      doneIssues: c?.done ?? 0,
+      totalIssues: c?.total ?? 0,
+    };
+  });
 }
 
 export async function getProjectsWithCounts(

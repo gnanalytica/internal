@@ -11,6 +11,7 @@ import {
   CircleDot,
   Compass,
   Folder,
+  House,
   KeyRound,
   LifeBuoy,
   LogOut,
@@ -249,6 +250,12 @@ export function Sidebar({
 
       <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-4">
         {/* Primary — personal + daily driver */}
+        <NavItem
+          href="/"
+          active={pathname === "/"}
+          icon={<House className="size-4" />}
+          label="Overview"
+        />
         <NavItem
           href="/ask"
           active={pathname.startsWith("/ask")}

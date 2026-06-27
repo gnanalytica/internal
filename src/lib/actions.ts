@@ -2448,6 +2448,14 @@ export async function deleteMilestone(id: string) {
   revalidateMatrix();
 }
 
+// ---- Company-level: quarterly "bets" shown on the Overview home ----
+export async function updateCompanyBets(bets: string[]) {
+  const ws = await getWorkspace();
+  const cleaned = bets.map((b) => b.trim()).filter(Boolean).slice(0, 5);
+  await db.update(workspaces).set({ bets: cleaned }).where(eq(workspaces.id, ws.id));
+  revalidatePath("/", "layout");
+}
+
 /** Link (or unlink) an issue to a feature. */
 export async function linkIssueToFeature(issueId: string, featureId: string | null) {
   const ws = await getWorkspace();

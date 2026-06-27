@@ -30,8 +30,26 @@ import type {
 // (slackWebhookUrl, githubToken) so they never reach the browser.
 export type Workspace = Pick<
   typeof workspaces.$inferSelect,
-  "id" | "name" | "slug" | "githubRepo" | "createdAt"
+  "id" | "name" | "slug" | "githubRepo" | "bets" | "createdAt"
 >;
+
+// ---- Company portfolio (Overview home) ----
+export type PortfolioHealth = "on_track" | "at_risk" | "off_track" | "none";
+
+export type PortfolioRow = {
+  id: string;
+  name: string;
+  key: string;
+  color: string;
+  kind: "project" | "operation";
+  ownerName: string | null;
+  health: PortfolioHealth;
+  // Current milestone (next-upcoming or latest) — projects only.
+  milestoneName: string | null;
+  milestoneTarget: Date | null;
+  doneIssues: number;
+  totalIssues: number;
+};
 export type WorkspaceWithRole = Workspace & { role: string };
 
 // Shared, client-safe types and helpers (no server-only imports here).
