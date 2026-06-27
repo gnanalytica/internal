@@ -171,10 +171,10 @@ function RoleNode({
           </span>
         )}
 
-        <div className="text-sm font-semibold leading-tight">{node.title}</div>
-        <div className="text-xs text-muted-foreground leading-tight">
-          {node.user ? node.user.name : <span className="italic">Open seat</span>}
+        <div className="text-sm font-semibold leading-tight">
+          {node.user ? node.user.name : <span className="italic text-muted-foreground">Open seat</span>}
         </div>
+        <div className="text-xs text-muted-foreground leading-tight">{node.title}</div>
 
         {otherHats.length > 0 && (
           <div className="mt-0.5 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">
