@@ -335,7 +335,7 @@ async function main() {
   }
 
   const [project] = await db
-    .select({ id: schema.projects.id, initiativeId: schema.projects.initiativeId })
+    .select({ id: schema.projects.id })
     .from(schema.projects)
     .where(and(eq(schema.projects.workspaceId, ws.id), eq(schema.projects.name, "Valytica")))
     .limit(1);
@@ -407,24 +407,7 @@ async function main() {
     console.log("People DB rows ensured.");
   }
 
-  // ---- 2. Valytica initiative ----
-  let [initiative] = await db
-    .select({ id: schema.initiatives.id })
-    .from(schema.initiatives)
-    .where(and(eq(schema.initiatives.workspaceId, ws.id), eq(schema.initiatives.name, "Valytica")))
-    .limit(1);
-  if (!initiative) {
-    [initiative] = await db
-      .insert(schema.initiatives)
-      .values({ workspaceId: ws.id, name: "Valytica", color: "#6366f1" })
-      .returning({ id: schema.initiatives.id });
-  }
-  await db
-    .update(schema.projects)
-    .set({ initiativeId: initiative.id })
-    .where(eq(schema.projects.id, project.id));
-
-  // ---- 3. Cycles (monthly, Dec 2025 → Sep 2026) ----
+  // ---- 2. Cycles (monthly, Dec 2025 → Sep 2026) ----
   const cycleByMonth: Record<string, string> = {};
   const existingCycles = await db
     .select({ id: schema.cycles.id, name: schema.cycles.name, number: schema.cycles.number })

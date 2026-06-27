@@ -300,18 +300,6 @@ async function main() {
   const uid = (k: string) => userByEmail.get(KEY[k]) ?? null;
   const creatorId = uid("sandeep");
 
-  let [initiative] = await db
-    .select({ id: schema.initiatives.id })
-    .from(schema.initiatives)
-    .where(and(eq(schema.initiatives.workspaceId, ws.id), eq(schema.initiatives.name, "Standup-AI")))
-    .limit(1);
-  if (!initiative) {
-    [initiative] = await db
-      .insert(schema.initiatives)
-      .values({ workspaceId: ws.id, name: "Standup-AI", color: "#3b82f6" })
-      .returning({ id: schema.initiatives.id });
-  }
-  await db.update(schema.projects).set({ initiativeId: initiative.id }).where(eq(schema.projects.id, project.id));
 
   const cycleByMonth: Record<string, string> = {};
   const existingCycles = await db

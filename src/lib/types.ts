@@ -12,7 +12,6 @@ import type {
   expenses,
   feedback,
   features,
-  initiatives,
   invoices,
   issues,
   labels,
@@ -52,7 +51,6 @@ export type Label = typeof labels.$inferSelect;
 export type Issue = typeof issues.$inferSelect;
 export type Page = typeof pages.$inferSelect;
 export type Cycle = typeof cycles.$inferSelect;
-export type Initiative = typeof initiatives.$inferSelect;
 
 // ---- CRM / Sales / Marketing (Project × Department matrix) ----
 export type CrmAccount = typeof crmAccounts.$inferSelect;
@@ -200,14 +198,12 @@ export type CycleWithCount = Cycle & {
   projectName: string;
   projectColor: string;
 };
-export type InitiativeWithCount = Initiative & { projectCount: number };
 export type ProjectWithIssueCount = Project & {
   issueCount: number;
   doneCount: number;
 };
 
 export type ProjectDetail = Project & {
-  initiative: Initiative | null;
   owner: Member | null;
   issues: IssueWithRelations[];
 };
@@ -226,15 +222,6 @@ export type StatusUpdateItem = {
   body: string;
   createdAt: Date;
   author: Member | null;
-};
-
-export type Insights = {
-  total: number;
-  completed: number;
-  statusCounts: Record<string, number>;
-  priorityCounts: Record<string, number>;
-  assignees: { id: string; name: string; color: string; open: number }[];
-  cycles: { id: string; name: string; total: number; done: number }[];
 };
 
 /** Cycle status derived from its date range relative to `now`. */
@@ -327,12 +314,6 @@ export type ActivityItem = {
 };
 
 export type TimelineItem = CommentItem | ActivityItem;
-
-export const INITIATIVE_STATUSES = [
-  { id: "planned", label: "Planned", color: "#bec2c8" },
-  { id: "active", label: "Active", color: "#5e6ad2" },
-  { id: "completed", label: "Completed", color: "#5e9b51" },
-] as const;
 
 export type PageNode = Page & { children: PageNode[] };
 

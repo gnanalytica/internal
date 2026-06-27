@@ -58,23 +58,6 @@ export const workspaceMembers = pgTable(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );
 
-/**
- * Strategic groupings (Linear-style initiatives). Folded out of the product UI
- * — kept as a table so historical seed data and the public API keep working.
- */
-export const initiatives = pgTable("initiatives", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  workspaceId: uuid("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  description: text("description"),
-  status: text("status").notNull().default("active"), // planned | active | completed
-  color: text("color").notNull().default("#8b5cf6"),
-  targetDate: timestamp("target_date", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
 export const projects = pgTable(
   "projects",
   {
@@ -87,11 +70,6 @@ export const projects = pgTable(
     key: text("key").notNull(),
     description: text("description"),
     color: text("color").notNull().default("#6366f1"),
-    // Legacy grouping. Folded out of the product UI (no Initiatives surface);
-    // column retained so historical seed data and the API keep working.
-    initiativeId: uuid("initiative_id").references(() => initiatives.id, {
-      onDelete: "set null",
-    }),
     // Which department modules are enabled for this project. null = all enabled
     // (the auto-spawn default); an explicit array restricts to those slugs.
     enabledDepartments: jsonb("enabled_departments").$type<string[] | null>(),
@@ -563,14 +541,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   assignedIssues: many(issues),
 }));
 
-export const initiativesRelations = relations(initiatives, ({ one, many }) => ({
-  workspace: one(workspaces, {
-    fields: [initiatives.workspaceId],
-    references: [workspaces.id],
-  }),
-  projects: many(projects),
-}));
-
 export const cyclesRelations = relations(cycles, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [cycles.workspaceId],
@@ -587,10 +557,6 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [projects.workspaceId],
     references: [workspaces.id],
-  }),
-  initiative: one(initiatives, {
-    fields: [projects.initiativeId],
-    references: [initiatives.id],
   }),
   owner: one(users, {
     fields: [projects.ownerId],

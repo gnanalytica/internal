@@ -6,7 +6,6 @@ import type {
   Cycle,
   DealWithRelations,
   ExpenseWithRelations,
-  Initiative,
   InvoiceWithRelations,
   IssueWithRelations,
   Page,
@@ -45,7 +44,6 @@ export function projectDto(p: Project) {
     key: p.key,
     color: p.color,
     description: p.description,
-    initiativeId: p.initiativeId,
     startDate: p.startDate,
     targetDate: p.targetDate,
   };
@@ -58,17 +56,6 @@ export function cycleDto(c: Cycle) {
     number: c.number,
     startDate: c.startDate,
     endDate: c.endDate,
-  };
-}
-
-export function initiativeDto(i: Initiative) {
-  return {
-    id: i.id,
-    name: i.name,
-    description: i.description,
-    status: i.status,
-    color: i.color,
-    targetDate: i.targetDate,
   };
 }
 
