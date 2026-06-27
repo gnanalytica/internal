@@ -1089,6 +1089,19 @@ export async function deleteRow(id: string, databaseId: string) {
   revalidatePath(`/databases/${databaseId}`);
 }
 
+export async function duplicateRow(id: string, databaseId: string) {
+  const [row] = await db
+    .select({ values: databaseRows.values })
+    .from(databaseRows)
+    .where(eq(databaseRows.id, id))
+    .limit(1);
+  if (!row) return;
+  await db
+    .insert(databaseRows)
+    .values({ databaseId, values: row.values ?? {}, position: `a${Date.now()}` });
+  revalidatePath(`/databases/${databaseId}`);
+}
+
 // ---- GitHub issue sync ----
 
 function docToText(doc: unknown): string {

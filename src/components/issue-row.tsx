@@ -10,6 +10,7 @@ import {
   PriorityPicker,
   StatusPicker,
 } from "@/components/pickers";
+import { IssueContextMenu } from "@/components/issue-context-menu";
 import { updateIssue } from "@/lib/actions";
 import { formatDue, isOverdue } from "@/lib/issue-dates";
 import type { IssueWithRelations, Member } from "@/lib/types";
@@ -40,6 +41,7 @@ export function IssueRow({
     });
 
   return (
+    <IssueContextMenu issue={issue} members={members}>
     <div
       className={cn(
         "group flex items-center gap-2 border-b border-border/60 px-4 py-2 hover:bg-accent/40",
@@ -124,5 +126,6 @@ export function IssueRow({
         />
       </div>
     </div>
+    </IssueContextMenu>
   );
 }

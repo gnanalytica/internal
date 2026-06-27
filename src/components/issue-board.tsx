@@ -20,6 +20,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
+import { IssueContextMenu } from "@/components/issue-context-menu";
 import { LabelChip } from "@/components/pickers";
 import { STATUSES, type StatusId, type PriorityId } from "@/lib/constants";
 import type { IssueWithRelations, Member } from "@/lib/types";
@@ -197,7 +198,7 @@ function BoardCard({
   overlay?: boolean;
 }) {
   const assignee = members.find((m) => m.id === issue.assigneeId) ?? null;
-  return (
+  const card = (
     <div
       className={cn(
         "rounded-lg border bg-background p-2.5 shadow-sm",
@@ -232,5 +233,11 @@ function BoardCard({
         </div>
       )}
     </div>
+  );
+  if (overlay) return card;
+  return (
+    <IssueContextMenu issue={issue} members={members}>
+      {card}
+    </IssueContextMenu>
   );
 }
