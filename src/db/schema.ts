@@ -26,6 +26,8 @@ export const workspaces = pgTable("workspaces", {
   slackWebhookUrl: text("slack_webhook_url"),
   githubRepo: text("github_repo"), // "owner/repo"
   githubToken: text("github_token"),
+  // Company-level "focus this quarter" bets shown on the Overview home.
+  bets: jsonb("bets").$type<string[] | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
