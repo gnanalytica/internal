@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   BarChart3,
+  Bell,
   CircleDot,
   Compass,
   Database,
@@ -13,6 +14,7 @@ import {
   Map as MapIcon,
   Megaphone,
   Plus,
+  Sparkles,
   Target,
   Timer,
   TrendingUp,
@@ -59,19 +61,41 @@ const GROUP_ORDER: SearchResultKind[] = [
   "cycle",
 ];
 
-const NAV = [
-  { label: "Issues", href: "/issues", icon: <CircleDot className={ic} /> },
-  { label: "Projects", href: "/projects", icon: <Folder className={ic} /> },
-  { label: "Insights", href: "/insights", icon: <BarChart3 className={ic} /> },
-  { label: "Roadmap", href: "/roadmap", icon: <MapIcon className={ic} /> },
-  { label: "Product", href: "/product", icon: <Compass className={ic} /> },
-  { label: "Analytics", href: "/analytics", icon: <BarChart3 className={ic} /> },
-  { label: "Cycles", href: "/cycles", icon: <Timer className={ic} /> },
-  { label: "Initiatives", href: "/initiatives", icon: <Target className={ic} /> },
-  { label: "Databases", href: "/databases", icon: <Database className={ic} /> },
-  { label: "Marketing", href: "/marketing", icon: <Megaphone className={ic} /> },
-  { label: "Sales", href: "/sales", icon: <TrendingUp className={ic} /> },
-  { label: "Customer Success", href: "/customer-success", icon: <LifeBuoy className={ic} /> },
+// Mirrors the sidebar grouping: daily drivers, then portfolio Planning, then
+// the cross-project Company lenses. `adminOnly` items are hidden for members.
+const NAV_GROUPS: {
+  heading: string;
+  items: { label: string; href: string; icon: React.ReactNode; adminOnly?: boolean }[];
+}[] = [
+  {
+    heading: "Jump to",
+    items: [
+      { label: "Ask AI", href: "/ask", icon: <Sparkles className={ic} /> },
+      { label: "Inbox", href: "/inbox", icon: <Bell className={ic} /> },
+      { label: "Issues", href: "/issues", icon: <CircleDot className={ic} /> },
+      { label: "Projects", href: "/projects", icon: <Folder className={ic} /> },
+    ],
+  },
+  {
+    heading: "Planning",
+    items: [
+      { label: "Cycles", href: "/cycles", icon: <Timer className={ic} /> },
+      { label: "Initiatives", href: "/initiatives", icon: <Target className={ic} /> },
+      { label: "Roadmap", href: "/roadmap", icon: <MapIcon className={ic} /> },
+      { label: "Insights", href: "/insights", icon: <BarChart3 className={ic} /> },
+    ],
+  },
+  {
+    heading: "Company",
+    items: [
+      { label: "Product", href: "/product", icon: <Compass className={ic} /> },
+      { label: "Analytics", href: "/analytics", icon: <BarChart3 className={ic} /> },
+      { label: "Marketing", href: "/marketing", icon: <Megaphone className={ic} /> },
+      { label: "Sales", href: "/sales", icon: <TrendingUp className={ic} />, adminOnly: true },
+      { label: "Customer Success", href: "/customer-success", icon: <LifeBuoy className={ic} /> },
+      { label: "Databases", href: "/databases", icon: <Database className={ic} /> },
+    ],
+  },
 ];
 
 export function CommandPalette({ isAdmin = false }: { isAdmin?: boolean }) {
@@ -189,14 +213,18 @@ export function CommandPalette({ isAdmin = false }: { isAdmin?: boolean }) {
                   <span>New project</span>
                 </CommandItem>
               </CommandGroup>
-              <CommandGroup heading="Jump to">
-                {NAV.filter((n) => isAdmin || n.href !== "/sales").map((n) => (
-                  <CommandItem key={n.href} value={n.label} onSelect={() => go(n.href)}>
-                    {n.icon}
-                    <span>{n.label}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              {NAV_GROUPS.map((group) => (
+                <CommandGroup key={group.heading} heading={group.heading}>
+                  {group.items
+                    .filter((n) => isAdmin || !n.adminOnly)
+                    .map((n) => (
+                      <CommandItem key={n.href} value={n.label} onSelect={() => go(n.href)}>
+                        {n.icon}
+                        <span>{n.label}</span>
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              ))}
             </>
           ) : (
             <>
