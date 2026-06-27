@@ -100,7 +100,7 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
                   <Link
                     key={f.id}
                     href={`/projects/${projectId}/product/${f.id}`}
-                    className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/40 ${i > 0 ? "border-t" : ""}`}
+                    className={`press flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/40 ${i > 0 ? "border-t" : ""}`}
                   >
                     <span
                       className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"

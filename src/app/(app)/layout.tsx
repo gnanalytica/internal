@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { CommandPalette } from "@/components/command-palette";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
+import { PointerGlow } from "@/components/pointer-glow";
 import { Sidebar } from "@/components/sidebar";
 import { canSeeConfidential } from "@/lib/departments";
 import {
@@ -67,6 +68,7 @@ export default async function AppLayout({
       </AppShell>
       <CommandPalette />
       <KeyboardShortcuts projects={visibleProjects} members={members} labels={labels} />
+      <PointerGlow />
     </div>
   );
 }

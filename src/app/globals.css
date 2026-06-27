@@ -141,6 +141,109 @@
   }
 }
 
+/* ---- Interactive polish: cursors, transitions, pointer-reactive surfaces ---- */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  a[href],
+  label[for],
+  summary,
+  select:not(:disabled),
+  [data-slot$="trigger"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
+  }
+  /* Smooth state changes on interactive elements (theme vars stay instant). */
+  a,
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  summary {
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease,
+      opacity 0.15s ease;
+  }
+}
+
+@layer utilities {
+  /* Pointer-reactive spotlight. PointerGlow sets --mx/--my as the cursor moves;
+     the highlight sits above the card background but below its content. */
+  .glow {
+    position: relative;
+    isolation: isolate;
+  }
+  .glow::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      220px circle at var(--mx, 50%) var(--my, 50%),
+      color-mix(in oklch, var(--brand) 16%, transparent),
+      transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow:hover::before {
+    opacity: 1;
+  }
+  .glow > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Lift + shadow on hover for card surfaces. */
+  .hover-lift {
+    transition:
+      transform 0.16s ease,
+      box-shadow 0.16s ease,
+      border-color 0.16s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px -14px color-mix(in oklch, var(--foreground) 28%, transparent);
+  }
+  .hover-lift:active {
+    transform: translateY(0);
+  }
+
+  /* Subtle press feedback for clickable rows/cards. */
+  .press:active {
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .hover-lift:hover {
+    transform: none;
+  }
+  .glow::before {
+    display: none;
+  }
+}
+
 /* Thin, unobtrusive scrollbars (Linear/Notion feel) */
 @layer utilities {
   .scrollbar-thin {
