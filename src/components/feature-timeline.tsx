@@ -17,10 +17,13 @@ export function FeatureTimeline({
   features,
   nowISO,
   groupByProject = false,
+  milestones,
 }: {
   features: FeatureWithRelations[];
   nowISO: string;
   groupByProject?: boolean;
+  // When provided, group features under their milestone (release phase).
+  milestones?: { id: string; name: string }[];
 }) {
   const toItem = (f: FeatureWithRelations) => ({
     id: f.id,
@@ -34,18 +37,35 @@ export function FeatureTimeline({
     meta: metaLine(f),
   });
 
-  const groups: GanttGroup[] = groupByProject
-    ? [...new Map(features.map((f) => [f.project?.id ?? "none", f.project])).values()].map(
-        (prod) => ({
-          key: prod?.id ?? "none",
-          name: prod?.name ?? "No project",
-          color: prod?.color ?? "#94a3b8",
-          items: features
-            .filter((f) => (f.project?.id ?? "none") === (prod?.id ?? "none"))
-            .map(toItem),
-        }),
-      )
-    : [{ key: "all", name: "", color: "", items: features.map(toItem) }];
+  let groups: GanttGroup[];
+  if (milestones) {
+    // One group per milestone (in given order), then an "Unscheduled" catch-all.
+    const ordered = [
+      ...milestones.map((m) => ({ id: m.id, name: m.name })),
+      { id: "none", name: "No milestone" },
+    ];
+    groups = ordered
+      .map((m) => ({
+        key: m.id,
+        name: m.name,
+        color: "#6366f1",
+        items: features.filter((f) => (f.milestoneId ?? "none") === m.id).map(toItem),
+      }))
+      .filter((g) => g.items.length > 0);
+  } else if (groupByProject) {
+    groups = [
+      ...new Map(features.map((f) => [f.project?.id ?? "none", f.project])).values(),
+    ].map((prod) => ({
+      key: prod?.id ?? "none",
+      name: prod?.name ?? "No project",
+      color: prod?.color ?? "#94a3b8",
+      items: features
+        .filter((f) => (f.project?.id ?? "none") === (prod?.id ?? "none"))
+        .map(toItem),
+    }));
+  } else {
+    groups = [{ key: "all", name: "", color: "", items: features.map(toItem) }];
+  }
 
   return (
     <RoadmapChart
@@ -53,7 +73,7 @@ export function FeatureTimeline({
       nowISO={nowISO}
       scale="quarter"
       labelHeader="Feature"
-      showGroupHeaders={groupByProject}
+      showGroupHeaders={groupByProject || Boolean(milestones)}
       onReschedule={(id, dates) => void updateFeature(id, dates)}
       legend={
         <>

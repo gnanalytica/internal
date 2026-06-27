@@ -4,7 +4,11 @@ import { FeaturesView } from "@/components/features-view";
 import { FeedbackView } from "@/components/feedback-view";
 import { Topbar } from "@/components/topbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { FeatureWithRelations, FeedbackWithRelations } from "@/lib/types";
+import type {
+  FeatureWithRelations,
+  FeedbackWithRelations,
+  MilestoneWithProgress,
+} from "@/lib/types";
 
 /**
  * The Product department surface: Roadmap (features timeline) + Feedback
@@ -16,12 +20,14 @@ export function ProductView({
   features,
   nowISO,
   feedback,
+  milestones,
 }: {
   heading: string;
   scopeProjectId: string;
   features: FeatureWithRelations[];
   nowISO: string;
   feedback: FeedbackWithRelations[];
+  milestones: MilestoneWithProgress[];
 }) {
   const featureRefs = features.map((f) => ({ id: f.id, title: f.title }));
 
@@ -41,6 +47,7 @@ export function ProductView({
             features={features}
             nowISO={nowISO}
             scopeProjectId={scopeProjectId}
+            milestones={milestones}
             embedded
           />
         </TabsContent>

@@ -17,6 +17,7 @@ import type {
   labels,
   metricPoints,
   metrics,
+  milestones,
   pages,
   projects,
   ticketComments,
@@ -137,8 +138,17 @@ export type Feature = typeof features.$inferSelect;
 
 export type FeatureWithRelations = Feature & {
   project: Project | null;
+  milestone: { id: string; name: string } | null;
   owner: Member | null;
   page: { id: string; title: string; icon: string } | null;
+  progress: { done: number; total: number; pct: number };
+};
+
+// ---- Milestones (project phases) ----
+export type Milestone = typeof milestones.$inferSelect;
+
+export type MilestoneWithProgress = Milestone & {
+  featureCount: number;
   progress: { done: number; total: number; pct: number };
 };
 

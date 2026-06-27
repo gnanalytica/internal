@@ -10,7 +10,7 @@ import { Topbar } from "@/components/topbar";
 import { FEATURE_STATUSES } from "@/lib/departments";
 import { featureProgress } from "@/lib/feature-progress";
 import { updateFeature } from "@/lib/actions";
-import type { FeatureDetail, Member } from "@/lib/types";
+import type { FeatureDetail, Member, MilestoneWithProgress } from "@/lib/types";
 
 const toDateInput = (d: Date | string | null) =>
   d ? new Date(d).toISOString().slice(0, 10) : "";
@@ -19,10 +19,12 @@ export function FeatureDetailView({
   feature,
   members,
   pages,
+  milestones = [],
 }: {
   feature: FeatureDetail;
   members: Member[];
   pages: { id: string; title: string; icon: string }[];
+  milestones?: MilestoneWithProgress[];
 }) {
   const [title, setTitle] = useState(feature.title);
   const [status, setStatus] = useState(feature.status);
@@ -92,6 +94,21 @@ export function FeatureDetailView({
                 className="rounded border bg-transparent px-1"
               />
             </label>
+            <select
+              defaultValue={feature.milestoneId ?? ""}
+              onChange={(e) =>
+                void updateFeature(feature.id, { milestoneId: e.target.value || null })
+              }
+              className="rounded-md border bg-transparent px-2 py-1 text-xs"
+              aria-label="Milestone"
+            >
+              <option value="">No milestone</option>
+              {milestones.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
             <select
               defaultValue={feature.ownerId ?? ""}
               onChange={(e) => void updateFeature(feature.id, { ownerId: e.target.value || null })}

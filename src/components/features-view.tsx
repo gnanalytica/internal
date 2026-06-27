@@ -5,10 +5,11 @@ import { useTransition } from "react";
 import { Loader2, Plus } from "lucide-react";
 
 import { FeatureTimeline } from "@/components/feature-timeline";
+import { MilestonesBar } from "@/components/milestones-bar";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { createFeature } from "@/lib/actions";
-import type { FeatureWithRelations } from "@/lib/types";
+import type { FeatureWithRelations, MilestoneWithProgress } from "@/lib/types";
 
 export function FeaturesView({
   heading,
@@ -16,6 +17,7 @@ export function FeaturesView({
   nowISO,
   scopeProjectId,
   groupByProject,
+  milestones,
   embedded = false,
 }: {
   heading: string;
@@ -23,6 +25,9 @@ export function FeaturesView({
   nowISO: string;
   scopeProjectId: string | null;
   groupByProject?: boolean;
+  // Project milestones (release phases). When set on a scoped project, the
+  // roadmap groups features by milestone and a management strip is shown.
+  milestones?: MilestoneWithProgress[];
   // When embedded inside the Product tabs, skip the page Topbar and show a slim
   // action row instead (the surrounding tabs already provide the heading).
   embedded?: boolean;
@@ -53,8 +58,16 @@ export function FeaturesView({
       ) : (
         <Topbar breadcrumb={[{ label: heading }]} actions={newButton} />
       )}
+      {scopeProjectId && milestones && (
+        <MilestonesBar projectId={scopeProjectId} milestones={milestones} />
+      )}
       <div className="flex-1 overflow-hidden">
-        <FeatureTimeline features={features} nowISO={nowISO} groupByProject={groupByProject} />
+        <FeatureTimeline
+          features={features}
+          nowISO={nowISO}
+          groupByProject={groupByProject}
+          milestones={milestones ? milestones.map((m) => ({ id: m.id, name: m.name })) : undefined}
+        />
       </div>
     </div>
   );

@@ -33,6 +33,7 @@ import {
   issues,
   metricPoints,
   metrics,
+  milestones,
   notifications,
   projectStatusUpdates,
   references,
@@ -2384,6 +2385,7 @@ export async function updateFeature(
     spec: unknown;
     pageId: string | null;
     ownerId: string | null;
+    milestoneId: string | null;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -2391,6 +2393,58 @@ export async function updateFeature(
     .update(features)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(features.id, id), eq(features.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Milestones (project phases) ----
+
+export async function createMilestone(input: {
+  projectId: string;
+  name?: string;
+  targetDate?: string | null;
+}) {
+  const ws = await getWorkspace();
+  const [created] = await db
+    .insert(milestones)
+    .values({
+      workspaceId: ws.id,
+      projectId: input.projectId,
+      name: input.name?.trim() || "New milestone",
+      targetDate: input.targetDate ? new Date(input.targetDate) : null,
+      sortKey: `m${Date.now()}`,
+    })
+    .returning();
+  revalidateMatrix(input.projectId);
+  return created;
+}
+
+export async function updateMilestone(
+  id: string,
+  patch: Partial<{
+    name: string;
+    description: string | null;
+    targetDate: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  const values: Record<string, unknown> = {};
+  if (patch.name !== undefined) values.name = patch.name.trim() || "Untitled milestone";
+  if (patch.description !== undefined) values.description = patch.description;
+  if (patch.targetDate !== undefined)
+    values.targetDate = patch.targetDate ? new Date(patch.targetDate) : null;
+  await db
+    .update(milestones)
+    .set(values)
+    .where(and(eq(milestones.id, id), eq(milestones.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteMilestone(id: string) {
+  const ws = await getWorkspace();
+  // Features keep existing; their milestone_id is cleared (FK ON DELETE SET NULL).
+  await db
+    .delete(milestones)
+    .where(and(eq(milestones.id, id), eq(milestones.workspaceId, ws.id)));
   revalidateMatrix();
 }
 
