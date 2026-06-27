@@ -15,21 +15,19 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   AssigneePicker,
-  LabelPicker,
   PriorityPicker,
   ProjectPicker,
   StatusPicker,
 } from "@/components/pickers";
 import { CalendarRange } from "lucide-react";
 
-import { createIssue, setIssueLabels } from "@/lib/actions";
+import { createIssue } from "@/lib/actions";
 import type { Label, Member, Project } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 
 export function NewIssueDialog({
   projects,
   members,
-  labels,
   defaultProjectId = null,
   trigger,
   open: controlledOpen,
@@ -37,7 +35,8 @@ export function NewIssueDialog({
 }: {
   projects: Project[];
   members: Member[];
-  labels: Label[];
+  // Accepted for call-site compatibility; labels were removed from issues.
+  labels?: Label[];
   defaultProjectId?: string | null;
   trigger?: React.ReactElement;
   open?: boolean;
@@ -54,7 +53,6 @@ export function NewIssueDialog({
   const [priority, setPriority] = useState<PriorityId>("none");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId);
-  const [labelIds, setLabelIds] = useState<string[]>([]);
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [pending, startTransition] = useTransition();
@@ -66,7 +64,6 @@ export function NewIssueDialog({
     setPriority("none");
     setAssigneeId(null);
     setProjectId(defaultProjectId);
-    setLabelIds([]);
     setStartDate("");
     setDueDate("");
   }
@@ -86,7 +83,6 @@ export function NewIssueDialog({
         startDate: startDate || null,
         dueDate: dueDate || null,
       });
-      if (labelIds.length) await setIssueLabels(created.id, labelIds);
       if (description.trim()) {
         // Store the quick description as a simple TipTap doc.
         const { updateIssue } = await import("@/lib/actions");
@@ -147,7 +143,6 @@ export function NewIssueDialog({
           <PriorityPicker value={priority} onChange={setPriority} />
           <AssigneePicker members={members} value={assigneeId} onChange={setAssigneeId} />
           <ProjectPicker projects={projects} value={projectId} onChange={setProjectId} />
-          <LabelPicker labels={labels} value={labelIds} onChange={setLabelIds} />
           <label className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
             <CalendarRange className="size-3.5" />
             <input

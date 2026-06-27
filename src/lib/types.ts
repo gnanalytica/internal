@@ -219,6 +219,12 @@ export type IssueDetail = IssueWithRelations & {
   linkedPages: Page[];
   parent: IssueParentRef | null;
   subIssues: IssueWithRelations[];
+  // The issue's feature + the milestone it rolls up to (read-only context).
+  feature: {
+    id: string;
+    title: string;
+    milestone: { id: string; name: string } | null;
+  } | null;
 };
 
 export type RelationItem = {

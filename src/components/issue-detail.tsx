@@ -10,6 +10,7 @@ import {
   Link2,
   MoreHorizontal,
   Plus,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -23,8 +24,6 @@ import { IssueTimeline } from "@/components/issue-timeline";
 import {
   CyclePicker,
   FeaturePicker,
-  LabelChip,
-  LabelPicker,
   MultiAssigneePicker,
   PriorityPicker,
   ProjectPicker,
@@ -56,7 +55,6 @@ import {
   pushIssueToGithub,
   removeIssueRelation,
   setIssueAssignees,
-  setIssueLabels,
   unlinkIssueFromPage,
   updateIssue,
 } from "@/lib/actions";
@@ -91,7 +89,6 @@ export function IssueDetail({
   issue,
   projects,
   members,
-  labels,
   allPages,
   cycles,
   features,
@@ -353,13 +350,18 @@ export function IssueDetail({
                 onChange={(v) => persist(() => linkIssueToFeature(issue.id, v))}
               />
             </PropRow>
-            <PropRow label="Labels">
-              <LabelPicker
-                labels={labels}
-                value={issue.labels.map((l) => l.id)}
-                onChange={(ids) => persist(() => setIssueLabels(issue.id, ids))}
-              />
-            </PropRow>
+            {issue.feature?.milestone && (
+              <PropRow label="Milestone">
+                <Link
+                  href={`/projects/${issue.projectId}/milestones/${issue.feature.milestone.id}`}
+                  className="flex items-center gap-1.5 truncate text-xs text-foreground hover:underline"
+                  title={`Part of ${issue.feature.milestone.name}`}
+                >
+                  <Target className="size-3.5 shrink-0 text-brand" />
+                  <span className="truncate">{issue.feature.milestone.name}</span>
+                </Link>
+              </PropRow>
+            )}
             <PropRow label="Start">
               <input
                 type="date"
@@ -426,14 +428,6 @@ export function IssueDetail({
               </select>
             </PropRow>
           </div>
-
-          {issue.labels.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1">
-              {issue.labels.map((l) => (
-                <LabelChip key={l.id} label={l} />
-              ))}
-            </div>
-          )}
 
           {/* Relations live with the other metadata (Linear-style). */}
           <div className="mt-4 border-t pt-3">

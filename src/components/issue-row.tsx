@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import {
-  LabelChip,
   MultiAssigneePicker,
   PriorityPicker,
   StatusPicker,
@@ -96,12 +95,6 @@ export function IssueRow({
           {formatDue(issue.dueDate)}
         </span>
       )}
-
-      <div className="hidden items-center gap-1 sm:flex">
-        {issue.labels.slice(0, 3).map((l) => (
-          <LabelChip key={l.id} label={l} />
-        ))}
-      </div>
 
       {issue.project && (
         <span className="hidden items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground md:flex">
