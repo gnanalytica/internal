@@ -76,6 +76,7 @@ export function IssuesView({
   heading = "All issues",
   defaultProjectId = null,
   savedViews = [],
+  embedded = false,
 }: {
   initialIssues: IssueWithRelations[];
   projects: Project[];
@@ -84,6 +85,8 @@ export function IssuesView({
   heading?: string;
   defaultProjectId?: string | null;
   savedViews?: SavedView[];
+  /** Hide the page Topbar when rendered inside another tabbed surface. */
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [issues, setIssues] = useState(initialIssues);
@@ -266,22 +269,24 @@ export function IssuesView({
 
   return (
     <div className="flex h-full flex-col">
-      <Topbar
-        breadcrumb={[{ label: "Issues", href: "/issues" }, { label: heading }]}
-        actions={
-          <NewIssueDialog
-            projects={projects}
-            members={members}
-            labels={labels}
-            defaultProjectId={defaultProjectId}
-            trigger={
-              <Button size="sm" className="h-7 gap-1.5">
-                <Plus className="size-4" /> New
-              </Button>
-            }
-          />
-        }
-      />
+      {!embedded && (
+        <Topbar
+          breadcrumb={[{ label: "Issues", href: "/issues" }, { label: heading }]}
+          actions={
+            <NewIssueDialog
+              projects={projects}
+              members={members}
+              labels={labels}
+              defaultProjectId={defaultProjectId}
+              trigger={
+                <Button size="sm" className="h-7 gap-1.5">
+                  <Plus className="size-4" /> New
+                </Button>
+              }
+            />
+          }
+        />
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-1.5">

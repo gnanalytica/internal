@@ -194,7 +194,12 @@ export type RelationItem = {
   issue: { id: string; number: number; title: string; status: string; project: Project | null };
 };
 
-export type CycleWithCount = Cycle & { issueCount: number; doneCount: number };
+export type CycleWithCount = Cycle & {
+  issueCount: number;
+  doneCount: number;
+  projectName: string;
+  projectColor: string;
+};
 export type InitiativeWithCount = Initiative & { projectCount: number };
 export type ProjectWithIssueCount = Project & {
   issueCount: number;

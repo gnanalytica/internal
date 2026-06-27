@@ -440,7 +440,7 @@ async function main() {
     if (!c) {
       const [created] = await db
         .insert(schema.cycles)
-        .values({ workspaceId: ws.id, name, number: ++cycleNum, startDate: start, endDate: end })
+        .values({ workspaceId: ws.id, projectId: project.id, name, number: ++cycleNum, startDate: start, endDate: end })
         .returning({ id: schema.cycles.id, name: schema.cycles.name, number: schema.cycles.number });
       c = created;
     }
