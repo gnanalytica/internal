@@ -14,23 +14,23 @@ export function FeaturesView({
   heading,
   features,
   nowISO,
-  scopeProductId,
-  groupByProduct,
+  scopeProjectId,
+  groupByProject,
 }: {
   heading: string;
   features: FeatureWithRelations[];
   nowISO: string;
-  scopeProductId: string | null;
-  groupByProduct?: boolean;
+  scopeProjectId: string | null;
+  groupByProject?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function newFeature() {
-    if (!scopeProductId) return;
+    if (!scopeProjectId) return;
     startTransition(async () => {
-      const f = await createFeature({ productId: scopeProductId });
-      router.push(`/products/${scopeProductId}/features/${f.id}`);
+      const f = await createFeature({ projectId: scopeProjectId });
+      router.push(`/projects/${scopeProjectId}/features/${f.id}`);
       router.refresh();
     });
   }
@@ -40,7 +40,7 @@ export function FeaturesView({
       <Topbar
         breadcrumb={[{ label: heading }]}
         actions={
-          scopeProductId ? (
+          scopeProjectId ? (
             <Button size="sm" className="h-7 gap-1.5" onClick={newFeature} disabled={pending}>
               {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} New
               feature
@@ -49,7 +49,7 @@ export function FeaturesView({
         }
       />
       <div className="flex-1 overflow-hidden">
-        <FeatureTimeline features={features} nowISO={nowISO} groupByProduct={groupByProduct} />
+        <FeatureTimeline features={features} nowISO={nowISO} groupByProject={groupByProject} />
       </div>
     </div>
   );

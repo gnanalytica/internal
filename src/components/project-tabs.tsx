@@ -7,13 +7,13 @@ import { enabledDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
-/** Tab strip shown at the top of every product's department pages. */
-export function ProductTabs({ product }: { product: Project }) {
+/** Tab strip shown at the top of every project project's department pages. */
+export function ProjectTabs({ project }: { project: Project }) {
   const pathname = usePathname();
-  const base = `/products/${product.id}`;
+  const base = `/projects/${project.id}`;
   const tabs = [
     { href: base, label: "Overview" },
-    ...enabledDepartments(product.enabledDepartments).map((d) => ({
+    ...enabledDepartments(project.enabledDepartments).map((d) => ({
       href: `${base}/${d.slug}`,
       label: d.label,
     })),
@@ -21,8 +21,8 @@ export function ProductTabs({ product }: { product: Project }) {
   return (
     <div className="flex items-center gap-1 border-b px-4 pt-2.5">
       <div className="mr-3 flex items-center gap-2">
-        <span className="size-3 rounded-full" style={{ backgroundColor: product.color }} />
-        <span className="text-sm font-semibold">{product.name}</span>
+        <span className="size-3 rounded-full" style={{ backgroundColor: project.color }} />
+        <span className="text-sm font-semibold">{project.name}</span>
       </div>
       {tabs.map((t) => {
         const active = pathname === t.href;

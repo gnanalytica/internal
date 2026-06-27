@@ -464,7 +464,7 @@ async function main() {
   const existingFeatures = await db
     .select({ title: schema.features.title })
     .from(schema.features)
-    .where(eq(schema.features.productId, project.id));
+    .where(eq(schema.features.projectId, project.id));
   const haveFeature = new Set(existingFeatures.map((f) => f.title));
 
   const [{ value: maxNum }] = await db
@@ -485,7 +485,7 @@ async function main() {
       .insert(schema.features)
       .values({
         workspaceId: ws.id,
-        productId: project.id,
+        projectId: project.id,
         title: ph.title,
         status: ph.status,
         startDate: start,

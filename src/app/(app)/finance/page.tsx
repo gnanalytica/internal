@@ -9,7 +9,7 @@ import {
 
 export default async function FinancePage() {
   const ws = await getWorkspace();
-  const [invoices, expenses, accounts, products] = await Promise.all([
+  const [invoices, expenses, accounts, projects] = await Promise.all([
     getInvoices(ws.id),
     getExpenses(ws.id),
     getAccounts(ws.id),
@@ -18,9 +18,9 @@ export default async function FinancePage() {
 
   return (
     <FinanceView
-      heading="Finance · all products"
-      scopeProductId={null}
-      products={products}
+      heading="Finance · all projects"
+      scopeProjectId={null}
+      projects={projects}
       accounts={accounts}
       initialInvoices={invoices}
       initialExpenses={expenses}

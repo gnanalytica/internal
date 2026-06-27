@@ -16,16 +16,16 @@ function metaLine(f: FeatureWithRelations): string {
 export function FeatureTimeline({
   features,
   nowISO,
-  groupByProduct = false,
+  groupByProject = false,
 }: {
   features: FeatureWithRelations[];
   nowISO: string;
-  groupByProduct?: boolean;
+  groupByProject?: boolean;
 }) {
   const toItem = (f: FeatureWithRelations) => ({
     id: f.id,
     title: f.title,
-    href: f.product ? `/products/${f.product.id}/features/${f.id}` : `/features`,
+    href: f.project ? `/projects/${f.project.id}/features/${f.id}` : `/features`,
     startDate: f.startDate,
     targetDate: f.targetDate,
     color: statusMeta(f.status)?.color ?? "#94a3b8",
@@ -34,14 +34,14 @@ export function FeatureTimeline({
     meta: metaLine(f),
   });
 
-  const groups: GanttGroup[] = groupByProduct
-    ? [...new Map(features.map((f) => [f.product?.id ?? "none", f.product])).values()].map(
+  const groups: GanttGroup[] = groupByProject
+    ? [...new Map(features.map((f) => [f.project?.id ?? "none", f.project])).values()].map(
         (prod) => ({
           key: prod?.id ?? "none",
-          name: prod?.name ?? "No product",
+          name: prod?.name ?? "No project",
           color: prod?.color ?? "#94a3b8",
           items: features
-            .filter((f) => (f.product?.id ?? "none") === (prod?.id ?? "none"))
+            .filter((f) => (f.project?.id ?? "none") === (prod?.id ?? "none"))
             .map(toItem),
         }),
       )
@@ -53,7 +53,7 @@ export function FeatureTimeline({
       nowISO={nowISO}
       scale="quarter"
       labelHeader="Feature"
-      showGroupHeaders={groupByProduct}
+      showGroupHeaders={groupByProject}
       onReschedule={(id, dates) => void updateFeature(id, dates)}
       legend={
         <>

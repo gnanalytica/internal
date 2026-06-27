@@ -1838,17 +1838,17 @@ export async function searchWorkspace(
 }
 
 // ============================================================================
-// CRM / Sales / Marketing (the Product × Department matrix)
+// CRM / Sales / Marketing (the Project × Department matrix)
 // ============================================================================
 
-/** Revalidate both lenses (product-scoped + company-wide) after a mutation. */
-function revalidateMatrix(productId?: string | null) {
+/** Revalidate both lenses (project-scoped + company-wide) after a mutation. */
+function revalidateMatrix(projectId?: string | null) {
   revalidatePath("/sales");
   revalidatePath("/marketing");
   revalidatePath("/finance");
   revalidatePath("/support");
-  revalidatePath("/products");
-  if (productId) revalidatePath(`/products/${productId}`, "layout");
+  revalidatePath("/projects");
+  if (projectId) revalidatePath(`/projects/${projectId}`, "layout");
   revalidatePath("/", "layout");
 }
 
@@ -1859,16 +1859,16 @@ const toDate = (v?: string | null): Date | null => (v ? new Date(v) : null);
  * when every department is enabled we store `null` to keep the "all on by
  * default" (auto-spawn) semantics. Engineering/Sales/Marketing/Finance/Support.
  */
-export async function setProductDepartments(productId: string, slugs: string[]) {
+export async function setProjectDepartments(projectId: string, slugs: string[]) {
   const ws = await getWorkspace();
   const valid = ALL_DEPARTMENT_SLUGS.filter((s) => slugs.includes(s));
   const value = valid.length === ALL_DEPARTMENT_SLUGS.length ? null : valid;
   await db
     .update(projects)
     .set({ enabledDepartments: value })
-    .where(and(eq(projects.id, productId), eq(projects.workspaceId, ws.id)));
-  revalidatePath("/products");
-  revalidatePath(`/products/${productId}`, "layout");
+    .where(and(eq(projects.id, projectId), eq(projects.workspaceId, ws.id)));
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${projectId}`, "layout");
   revalidatePath("/", "layout");
 }
 
@@ -1988,7 +1988,7 @@ export async function deleteContact(id: string) {
 
 // ---- Sales: deals ----
 export async function createDeal(input: {
-  productId: string | null;
+  projectId: string | null;
   name?: string;
   accountId?: string | null;
   contactId?: string | null;
@@ -2003,7 +2003,7 @@ export async function createDeal(input: {
     .insert(deals)
     .values({
       workspaceId: ws.id,
-      productId: input.productId,
+      projectId: input.projectId,
       name: input.name?.trim() || "New deal",
       accountId: input.accountId ?? null,
       contactId: input.contactId ?? null,
@@ -2015,7 +2015,7 @@ export async function createDeal(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 
@@ -2072,7 +2072,7 @@ export async function logActivity(input: {
   accountId?: string | null;
   contactId?: string | null;
   dealId?: string | null;
-  productId?: string | null;
+  projectId?: string | null;
   dueDate?: string | null;
 }) {
   const ws = await getWorkspace();
@@ -2086,12 +2086,12 @@ export async function logActivity(input: {
       accountId: input.accountId ?? null,
       contactId: input.contactId ?? null,
       dealId: input.dealId ?? null,
-      productId: input.productId ?? null,
+      projectId: input.projectId ?? null,
       dueDate: toDate(input.dueDate),
       actorId: me.id,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 
@@ -2119,7 +2119,7 @@ export async function toggleActivityDone(id: string, done: boolean) {
 
 // ---- Marketing: campaigns ----
 export async function createCampaign(input: {
-  productId: string | null;
+  projectId: string | null;
   name?: string;
   channel?: string;
   status?: string;
@@ -2137,7 +2137,7 @@ export async function createCampaign(input: {
     .insert(campaigns)
     .values({
       workspaceId: ws.id,
-      productId: input.productId,
+      projectId: input.projectId,
       name: input.name?.trim() || "New campaign",
       channel: input.channel ?? "email",
       status: input.status ?? "planned",
@@ -2151,7 +2151,7 @@ export async function createCampaign(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 
@@ -2193,7 +2193,7 @@ export async function deleteCampaign(id: string) {
 
 // ---- Marketing: content calendar ----
 export async function createContent(input: {
-  productId: string | null;
+  projectId: string | null;
   title?: string;
   channel?: string | null;
   status?: string;
@@ -2208,7 +2208,7 @@ export async function createContent(input: {
     .insert(contentItems)
     .values({
       workspaceId: ws.id,
-      productId: input.productId,
+      projectId: input.projectId,
       title: input.title?.trim() || "Untitled content",
       channel: input.channel ?? null,
       status: input.status ?? "idea",
@@ -2219,7 +2219,7 @@ export async function createContent(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 
@@ -2257,7 +2257,7 @@ export async function deleteContent(id: string) {
 
 // ---- Finance: invoices ----
 export async function createInvoice(input: {
-  productId: string | null;
+  projectId: string | null;
   number?: string | null;
   accountId?: string | null;
   status?: string;
@@ -2272,7 +2272,7 @@ export async function createInvoice(input: {
     .insert(invoices)
     .values({
       workspaceId: ws.id,
-      productId: input.productId,
+      projectId: input.projectId,
       number: input.number ?? null,
       accountId: input.accountId ?? null,
       status: input.status ?? "draft",
@@ -2283,7 +2283,7 @@ export async function createInvoice(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 
@@ -2320,7 +2320,7 @@ export async function deleteInvoice(id: string) {
 
 // ---- Finance: expenses ----
 export async function createExpense(input: {
-  productId: string | null;
+  projectId: string | null;
   vendor?: string | null;
   category?: string;
   amount?: number;
@@ -2334,7 +2334,7 @@ export async function createExpense(input: {
     .insert(expenses)
     .values({
       workspaceId: ws.id,
-      productId: input.productId,
+      projectId: input.projectId,
       vendor: input.vendor ?? null,
       category: input.category ?? "other",
       amount: input.amount ?? 0,
@@ -2344,7 +2344,7 @@ export async function createExpense(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 
@@ -2379,7 +2379,7 @@ export async function deleteExpense(id: string) {
 
 // ---- Support: tickets ----
 export async function createTicket(input: {
-  productId: string | null;
+  projectId: string | null;
   subject?: string;
   body?: string | null;
   status?: string;
@@ -2395,7 +2395,7 @@ export async function createTicket(input: {
     .insert(tickets)
     .values({
       workspaceId: ws.id,
-      productId: input.productId,
+      projectId: input.projectId,
       subject: input.subject?.trim() || "New ticket",
       body: input.body ?? null,
       status: input.status ?? "open",
@@ -2408,7 +2408,7 @@ export async function createTicket(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 
@@ -2434,10 +2434,10 @@ export async function updateTicket(
   revalidateMatrix();
 }
 
-// ---- Product department: features ----
+// ---- Features department ----
 
 export async function createFeature(input: {
-  productId: string | null;
+  projectId: string | null;
   title?: string;
   status?: string;
 }) {
@@ -2446,13 +2446,13 @@ export async function createFeature(input: {
     .insert(features)
     .values({
       workspaceId: ws.id,
-      productId: input.productId,
+      projectId: input.projectId,
       title: input.title?.trim() || "New feature",
       status: input.status ?? "idea",
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.productId);
+  revalidateMatrix(input.projectId);
   return created;
 }
 

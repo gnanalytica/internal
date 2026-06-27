@@ -4,8 +4,8 @@ import { apiCreateInvoice } from "@/lib/api/crm-ops";
 import { getInvoices } from "@/lib/data";
 
 export const GET = withApiAuth(async (req, auth) => {
-  const product = new URL(req.url).searchParams.get("product") ?? undefined;
-  const rows = await getInvoices(auth.workspaceId, product);
+  const project = new URL(req.url).searchParams.get("project") ?? undefined;
+  const rows = await getInvoices(auth.workspaceId, project);
   return ok({ data: rows.map(invoiceDto), count: rows.length });
 });
 

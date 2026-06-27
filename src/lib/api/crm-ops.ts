@@ -24,7 +24,7 @@ export async function apiCreateDeal(
   userId: string | null,
   input: {
     name?: string;
-    productId?: string | null;
+    projectId?: string | null;
     accountId?: string | null;
     stage?: string;
     value?: number;
@@ -38,7 +38,7 @@ export async function apiCreateDeal(
     .values({
       workspaceId,
       name: input.name.trim(),
-      productId: input.productId ?? null,
+      projectId: input.projectId ?? null,
       accountId: input.accountId ?? null,
       stage: input.stage ?? "lead",
       value: input.value ?? 0,
@@ -96,7 +96,7 @@ export async function apiCreateContact(
 export async function apiCreateCampaign(
   workspaceId: string,
   userId: string | null,
-  input: { name?: string; productId?: string | null; channel?: string; status?: string; budget?: number; entity?: string },
+  input: { name?: string; projectId?: string | null; channel?: string; status?: string; budget?: number; entity?: string },
 ): Promise<string> {
   if (!input.name?.trim()) throw new Error("`name` is required.");
   const [created] = await db
@@ -104,7 +104,7 @@ export async function apiCreateCampaign(
     .values({
       workspaceId,
       name: input.name.trim(),
-      productId: input.productId ?? null,
+      projectId: input.projectId ?? null,
       channel: input.channel ?? "email",
       status: input.status ?? "planned",
       budget: input.budget ?? 0,
@@ -118,14 +118,14 @@ export async function apiCreateCampaign(
 export async function apiCreateInvoice(
   workspaceId: string,
   userId: string | null,
-  input: { number?: string | null; productId?: string | null; accountId?: string | null; status?: string; amount?: number; entity?: string; dueDate?: string | null },
+  input: { number?: string | null; projectId?: string | null; accountId?: string | null; status?: string; amount?: number; entity?: string; dueDate?: string | null },
 ): Promise<string> {
   const [created] = await db
     .insert(invoices)
     .values({
       workspaceId,
       number: input.number ?? null,
-      productId: input.productId ?? null,
+      projectId: input.projectId ?? null,
       accountId: input.accountId ?? null,
       status: input.status ?? "draft",
       amount: input.amount ?? 0,
@@ -140,14 +140,14 @@ export async function apiCreateInvoice(
 export async function apiCreateExpense(
   workspaceId: string,
   userId: string | null,
-  input: { vendor?: string | null; productId?: string | null; category?: string; amount?: number; status?: string; entity?: string; spentDate?: string | null },
+  input: { vendor?: string | null; projectId?: string | null; category?: string; amount?: number; status?: string; entity?: string; spentDate?: string | null },
 ): Promise<string> {
   const [created] = await db
     .insert(expenses)
     .values({
       workspaceId,
       vendor: input.vendor ?? null,
-      productId: input.productId ?? null,
+      projectId: input.projectId ?? null,
       category: input.category ?? "other",
       amount: input.amount ?? 0,
       status: input.status ?? "planned",
@@ -162,7 +162,7 @@ export async function apiCreateExpense(
 export async function apiCreateTicket(
   workspaceId: string,
   _userId: string | null,
-  input: { subject?: string; productId?: string | null; accountId?: string | null; status?: string; priority?: string; requesterEmail?: string | null; entity?: string },
+  input: { subject?: string; projectId?: string | null; accountId?: string | null; status?: string; priority?: string; requesterEmail?: string | null; entity?: string },
 ): Promise<string> {
   if (!input.subject?.trim()) throw new Error("`subject` is required.");
   const [created] = await db
@@ -170,7 +170,7 @@ export async function apiCreateTicket(
     .values({
       workspaceId,
       subject: input.subject.trim(),
-      productId: input.productId ?? null,
+      projectId: input.projectId ?? null,
       accountId: input.accountId ?? null,
       status: input.status ?? "open",
       priority: input.priority ?? "normal",

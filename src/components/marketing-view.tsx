@@ -34,13 +34,13 @@ const fieldCls =
 
 export function MarketingView({
   heading,
-  scopeProductId,
+  scopeProjectId,
   initialCampaigns,
   initialContent,
 }: {
   heading: string;
-  scopeProductId: string | null;
-  products: Project[];
+  scopeProjectId: string | null;
+  projects: Project[];
   initialCampaigns: CampaignWithRelations[];
   initialContent: ContentItemWithCampaign[];
 }) {
@@ -96,14 +96,14 @@ export function MarketingView({
               size="sm"
               variant="outline"
               className="ml-auto gap-1.5"
-              onClick={() => start(async () => { await createCampaign({ productId: scopeProductId }); refresh(); })}
+              onClick={() => start(async () => { await createCampaign({ projectId: scopeProjectId }); refresh(); })}
             >
               <Plus className="size-4" /> New campaign
             </Button>
           </div>
           <div className="space-y-1.5">
             {initialCampaigns.map((c) => (
-              <CampaignRow key={c.id} campaign={c} showProduct={!scopeProductId} onChanged={refresh} />
+              <CampaignRow key={c.id} campaign={c} showProject={!scopeProjectId} onChanged={refresh} />
             ))}
             {initialCampaigns.length === 0 && (
               <div className="py-6 text-center text-sm text-muted-foreground">No campaigns yet.</div>
@@ -118,7 +118,7 @@ export function MarketingView({
               size="sm"
               variant="outline"
               className="ml-auto gap-1.5"
-              onClick={() => start(async () => { await createContent({ productId: scopeProductId }); refresh(); })}
+              onClick={() => start(async () => { await createContent({ projectId: scopeProjectId }); refresh(); })}
             >
               <Plus className="size-4" /> New content
             </Button>
@@ -150,11 +150,11 @@ export function MarketingView({
 
 function CampaignRow({
   campaign,
-  showProduct,
+  showProject,
   onChanged,
 }: {
   campaign: CampaignWithRelations;
-  showProduct: boolean;
+  showProject: boolean;
   onChanged: () => void;
 }) {
   const [, start] = useTransition();
@@ -167,10 +167,10 @@ function CampaignRow({
         onBlur={(e) => e.target.value !== campaign.name && upd({ name: e.target.value })}
         className={fieldCls + " min-w-40 flex-1 font-medium"}
       />
-      {showProduct && campaign.product && (
+      {showProject && campaign.project && (
         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <span className="size-2 rounded-full" style={{ backgroundColor: campaign.product.color }} />
-          {campaign.product.name}
+          <span className="size-2 rounded-full" style={{ backgroundColor: campaign.project.color }} />
+          {campaign.project.name}
         </span>
       )}
       <select defaultValue={campaign.channel} onChange={(e) => upd({ channel: e.target.value })} className={fieldCls}>

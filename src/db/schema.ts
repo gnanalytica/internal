@@ -80,7 +80,7 @@ export const projects = pgTable(
     initiativeId: uuid("initiative_id").references(() => initiatives.id, {
       onDelete: "set null",
     }),
-    // Which department modules are enabled for this product. null = all enabled
+    // Which department modules are enabled for this project. null = all enabled
     // (the auto-spawn default); an explicit array restricts to those slugs.
     enabledDepartments: jsonb("enabled_departments").$type<string[] | null>(),
     // 'product' = something we build (gets department modules + CRM);
@@ -785,11 +785,11 @@ export const issuePageLinksRelations = relations(issuePageLinks, ({ one }) => ({
 }));
 
 /**
- * ---- CRM / Sales / Marketing (the Product × Department matrix) ----
+ * ---- CRM / Sales / Marketing (the Project × Department matrix) ----
  *
- * Products are `projects`. Every department record carries `productId` — that
- * single link is the matrix: filter by product for the product lens, omit it
- * (and group by product) for the company-wide department lens. Accounts &
+ * Department records (deals, campaigns, …) carry `projectId` — that
+ * link is the matrix: filter by project for the project lens, omit it
+ * (and group by project) for the company-wide department lens. Accounts &
  * contacts are the shared CRM layer (workspace-wide) that Sales and Marketing
  * both read from (HubSpot-style). Enum-like columns are plain text validated in
  * the app (see src/lib/departments.ts), matching the issues/status convention.
@@ -838,7 +838,7 @@ export const crmContacts = pgTable(
   (t) => [index("crm_contacts_ws_idx").on(t.workspaceId)],
 );
 
-/** Sales pipeline: a deal/opportunity, scoped to one product. */
+/** Sales pipeline: a deal/opportunity, scoped to one project. */
 export const deals = pgTable(
   "deals",
   {
@@ -846,7 +846,7 @@ export const deals = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, {
+    projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
     accountId: uuid("account_id").references(() => crmAccounts.id, {
@@ -868,7 +868,7 @@ export const deals = pgTable(
   },
   (t) => [
     index("deals_ws_idx").on(t.workspaceId),
-    index("deals_product_idx").on(t.productId),
+    index("deals_project_idx").on(t.projectId),
   ],
 );
 
@@ -880,7 +880,7 @@ export const crmActivities = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, {
+    projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "set null",
     }),
     accountId: uuid("account_id").references(() => crmAccounts.id, {
@@ -903,7 +903,7 @@ export const crmActivities = pgTable(
   ],
 );
 
-/** Marketing campaign, scoped to one product. */
+/** Marketing campaign, scoped to one project. */
 export const campaigns = pgTable(
   "campaigns",
   {
@@ -911,7 +911,7 @@ export const campaigns = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, {
+    projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
     name: text("name").notNull(),
@@ -930,7 +930,7 @@ export const campaigns = pgTable(
   },
   (t) => [
     index("campaigns_ws_idx").on(t.workspaceId),
-    index("campaigns_product_idx").on(t.productId),
+    index("campaigns_project_idx").on(t.projectId),
   ],
 );
 
@@ -942,7 +942,7 @@ export const contentItems = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, {
+    projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
     campaignId: uuid("campaign_id").references(() => campaigns.id, {
@@ -960,7 +960,7 @@ export const contentItems = pgTable(
   },
   (t) => [
     index("content_items_ws_idx").on(t.workspaceId),
-    index("content_items_product_idx").on(t.productId),
+    index("content_items_project_idx").on(t.projectId),
   ],
 );
 
@@ -991,7 +991,7 @@ export const dealsRelations = relations(deals, ({ one, many }) => ({
     fields: [deals.workspaceId],
     references: [workspaces.id],
   }),
-  product: one(projects, { fields: [deals.productId], references: [projects.id] }),
+  project: one(projects, { fields: [deals.projectId], references: [projects.id] }),
   account: one(crmAccounts, {
     fields: [deals.accountId],
     references: [crmAccounts.id],
@@ -1022,8 +1022,8 @@ export const campaignsRelations = relations(campaigns, ({ one, many }) => ({
     fields: [campaigns.workspaceId],
     references: [workspaces.id],
   }),
-  product: one(projects, {
-    fields: [campaigns.productId],
+  project: one(projects, {
+    fields: [campaigns.projectId],
     references: [projects.id],
   }),
   owner: one(users, { fields: [campaigns.ownerId], references: [users.id] }),
@@ -1035,8 +1035,8 @@ export const contentItemsRelations = relations(contentItems, ({ one }) => ({
     fields: [contentItems.workspaceId],
     references: [workspaces.id],
   }),
-  product: one(projects, {
-    fields: [contentItems.productId],
+  project: one(projects, {
+    fields: [contentItems.projectId],
     references: [projects.id],
   }),
   campaign: one(campaigns, {
@@ -1049,8 +1049,8 @@ export const contentItemsRelations = relations(contentItems, ({ one }) => ({
 /**
  * ---- Finance (the 4th department module) ----
  *
- * Product-level revenue tracking: invoices (optionally tied to a CRM account)
- * and expenses. This is the coordination/P&L layer per product — the regulated
+ * Project-level revenue tracking: invoices (optionally tied to a CRM account)
+ * and expenses. This is the coordination/P&L layer per project — the regulated
  * statutory books stay per-entity in external tools (see docs/ORG.md).
  */
 export const invoices = pgTable(
@@ -1060,7 +1060,7 @@ export const invoices = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, {
+    projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
     accountId: uuid("account_id").references(() => crmAccounts.id, {
@@ -1077,7 +1077,7 @@ export const invoices = pgTable(
   },
   (t) => [
     index("invoices_ws_idx").on(t.workspaceId),
-    index("invoices_product_idx").on(t.productId),
+    index("invoices_project_idx").on(t.projectId),
   ],
 );
 
@@ -1088,7 +1088,7 @@ export const expenses = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, {
+    projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
     vendor: text("vendor"),
@@ -1102,7 +1102,7 @@ export const expenses = pgTable(
   },
   (t) => [
     index("expenses_ws_idx").on(t.workspaceId),
-    index("expenses_product_idx").on(t.productId),
+    index("expenses_project_idx").on(t.projectId),
   ],
 );
 
@@ -1111,7 +1111,7 @@ export const invoicesRelations = relations(invoices, ({ one }) => ({
     fields: [invoices.workspaceId],
     references: [workspaces.id],
   }),
-  product: one(projects, { fields: [invoices.productId], references: [projects.id] }),
+  project: one(projects, { fields: [invoices.projectId], references: [projects.id] }),
   account: one(crmAccounts, {
     fields: [invoices.accountId],
     references: [crmAccounts.id],
@@ -1124,14 +1124,14 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
     fields: [expenses.workspaceId],
     references: [workspaces.id],
   }),
-  product: one(projects, { fields: [expenses.productId], references: [projects.id] }),
+  project: one(projects, { fields: [expenses.projectId], references: [projects.id] }),
   owner: one(users, { fields: [expenses.ownerId], references: [users.id] }),
 }));
 
 /**
  * ---- Support (the 5th department module) ----
  *
- * Zendesk/Intercom-style ticket queue, product-scoped, on the shared CRM layer:
+ * Zendesk/Intercom-style ticket queue, project-scoped, on the shared CRM layer:
  * a ticket can link to a CRM account/contact. Conversation lives in
  * ticket_comments.
  */
@@ -1142,7 +1142,7 @@ export const tickets = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, {
+    projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
     accountId: uuid("account_id").references(() => crmAccounts.id, {
@@ -1164,7 +1164,7 @@ export const tickets = pgTable(
   },
   (t) => [
     index("tickets_ws_idx").on(t.workspaceId),
-    index("tickets_product_idx").on(t.productId),
+    index("tickets_project_idx").on(t.projectId),
   ],
 );
 
@@ -1190,7 +1190,7 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
     fields: [tickets.workspaceId],
     references: [workspaces.id],
   }),
-  product: one(projects, { fields: [tickets.productId], references: [projects.id] }),
+  project: one(projects, { fields: [tickets.projectId], references: [projects.id] }),
   account: one(crmAccounts, {
     fields: [tickets.accountId],
     references: [crmAccounts.id],
@@ -1208,7 +1208,7 @@ export const ticketCommentsRelations = relations(ticketComments, ({ one }) => ({
   author: one(users, { fields: [ticketComments.authorId], references: [users.id] }),
 }));
 
-// ---- Product department: features (PM unit above engineering issues) ----
+// ---- Features department (PM unit above engineering issues) ----
 export const features = pgTable(
   "features",
   {
@@ -1216,7 +1216,7 @@ export const features = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => projects.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     status: text("status").notNull().default("idea"), // idea|planned|building|shipped|archived
     startDate: timestamp("start_date", { withTimezone: true }),
@@ -1230,13 +1230,13 @@ export const features = pgTable(
   },
   (t) => [
     index("features_ws_idx").on(t.workspaceId),
-    index("features_product_idx").on(t.productId),
+    index("features_project_idx").on(t.projectId),
   ],
 );
 
 export const featuresRelations = relations(features, ({ one, many }) => ({
   workspace: one(workspaces, { fields: [features.workspaceId], references: [workspaces.id] }),
-  product: one(projects, { fields: [features.productId], references: [projects.id] }),
+  project: one(projects, { fields: [features.projectId], references: [projects.id] }),
   owner: one(users, { fields: [features.ownerId], references: [users.id] }),
   page: one(pages, { fields: [features.pageId], references: [pages.id] }),
   issues: many(issues),

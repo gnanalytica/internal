@@ -33,8 +33,8 @@ export function FeatureDetailView({
       <Topbar
         breadcrumb={[
           {
-            label: "Product",
-            href: feature.product ? `/products/${feature.product.id}/features` : "/features",
+            label: "Project",
+            href: feature.project ? `/projects/${feature.project.id}/features` : "/features",
           },
           { label: title },
         ]}

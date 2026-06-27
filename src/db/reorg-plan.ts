@@ -15,7 +15,7 @@ export type ReorgInput = {
 
 type PodName = "Products" | "Platform";
 
-// Which products belong to which pod (by current project name).
+// Which projects belong to which pod (by current project name).
 const PRODUCTS_POD = new Set(["Healthytica", "Valytica", "AI Workshop", "Standup-AI"]);
 const PLATFORM_POD = new Set(["Internal"]);
 const OPS_PROJECTS = new Set(["Hiring", "NL Payroll Setup", "India Payroll Setup"]);

@@ -3,14 +3,14 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "./index";
 
 /**
- * Provision the Sales / Marketing / CRM layer (the Product × Department matrix)
+ * Provision the Sales / Marketing / CRM layer (the Project × Department matrix)
  * for an existing Gnanalytica workspace: the Sales & Marketing teams, the
  * bespoke CRM/Sales/Marketing records (accounts, contacts, deals, campaigns,
- * content) scoped to products, and a "Sales & Marketing Playbook" wiki page.
+ * content) scoped to projects, and a "Sales & Marketing Playbook" wiki page.
  *
  * Idempotent: skips anything already present, so it is safe to run on a live
  * hub and is also invoked from seed-org.ts for fresh installs. Records are
- * attached to products (projects) by name where those products exist.
+ * attached to projects (projects) by name where those projects exist.
  */
 
 // ---- tiny TipTap helpers (kept local so this module is self-contained) ----
@@ -72,8 +72,8 @@ export async function ensureWorkspaceAdmins(
 }
 
 export async function seedCrm(ws: { id: string }, owner: { id: string }) {
-  // Sales & Marketing are department lenses (per-product modules), not teams —
-  // so no teams are seeded here. CRM records key on products (projects) below.
+  // Sales & Marketing are department lenses (per-project modules), not teams —
+  // so no teams are seeded here. CRM records key on projects (projects) below.
 
   // ---- CRM / Sales / Marketing records (keyed on "any deal exists") ----
   const existingDeal = await db
@@ -83,13 +83,13 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
     .limit(1);
 
   if (!existingDeal[0]) {
-    // Map products (projects) by name so records can be attached to them.
-    const products = await db
+    // Map projects (projects) by name so records can be attached to them.
+    const projects = await db
       .select({ id: schema.projects.id, name: schema.projects.name })
       .from(schema.projects)
       .where(eq(schema.projects.workspaceId, ws.id));
-    const productId = (name: string) =>
-      products.find((p) => p.name === name)?.id ?? null;
+    const projectId = (name: string) =>
+      projects.find((p) => p.name === name)?.id ?? null;
 
     // Accounts (shared CRM layer).
     const accountRows = await db
@@ -109,14 +109,14 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       { workspaceId: ws.id, accountId: accId("Erasmus MC"), name: "Jan de Vries", email: "jan@erasmusmc.example", title: "Research Lead", lifecycleStage: "lead", entity: "Netherlands", ownerId: owner.id },
     ]);
 
-    // Deals (Sales, product-scoped). sortKey orders within a pipeline column.
+    // Deals (Sales, project-scoped). sortKey orders within a pipeline column.
     const dealRows = await db
       .insert(schema.deals)
       .values([
-        { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Apollo Hospitals"), name: "Apollo — Healthytica pilot", stage: "proposal", value: 12000, entity: "India", ownerId: owner.id, sortKey: "a0" },
-        { workspaceId: ws.id, productId: productId("Valytica"), accountId: accId("Mumbai Valuers LLP"), name: "Mumbai Valuers — Valytica annual", stage: "won", value: 8000, entity: "India", ownerId: owner.id, sortKey: "a0" },
-        { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Erasmus MC"), name: "Erasmus MC — Healthytica eval", stage: "qualified", value: 20000, entity: "Netherlands", ownerId: owner.id, sortKey: "a0" },
-        { workspaceId: ws.id, productId: productId("AI Workshop"), accountId: accId("Apollo Hospitals"), name: "Apollo — Workshop cohort", stage: "lead", value: 5000, entity: "India", ownerId: owner.id, sortKey: "a1" },
+        { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Apollo Hospitals"), name: "Apollo — Healthytica pilot", stage: "proposal", value: 12000, entity: "India", ownerId: owner.id, sortKey: "a0" },
+        { workspaceId: ws.id, projectId: projectId("Valytica"), accountId: accId("Mumbai Valuers LLP"), name: "Mumbai Valuers — Valytica annual", stage: "won", value: 8000, entity: "India", ownerId: owner.id, sortKey: "a0" },
+        { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Erasmus MC"), name: "Erasmus MC — Healthytica eval", stage: "qualified", value: 20000, entity: "Netherlands", ownerId: owner.id, sortKey: "a0" },
+        { workspaceId: ws.id, projectId: projectId("AI Workshop"), accountId: accId("Apollo Hospitals"), name: "Apollo — Workshop cohort", stage: "lead", value: 5000, entity: "India", ownerId: owner.id, sortKey: "a1" },
       ])
       .returning();
 
@@ -124,41 +124,41 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
     const pilot = dealRows.find((d) => d.name === "Apollo — Healthytica pilot");
     if (pilot) {
       await db.insert(schema.crmActivities).values([
-        { workspaceId: ws.id, dealId: pilot.id, accountId: pilot.accountId, productId: pilot.productId, type: "call", body: "Intro call — strong interest from cardiology.", actorId: owner.id },
-        { workspaceId: ws.id, dealId: pilot.id, accountId: pilot.accountId, productId: pilot.productId, type: "email", body: "Sent proposal v1 for the 3-month pilot.", actorId: owner.id },
+        { workspaceId: ws.id, dealId: pilot.id, accountId: pilot.accountId, projectId: pilot.projectId, type: "call", body: "Intro call — strong interest from cardiology.", actorId: owner.id },
+        { workspaceId: ws.id, dealId: pilot.id, accountId: pilot.accountId, projectId: pilot.projectId, type: "email", body: "Sent proposal v1 for the 3-month pilot.", actorId: owner.id },
       ]);
     }
 
-    // Campaigns (Marketing, product-scoped) + content.
+    // Campaigns (Marketing, project-scoped) + content.
     const campaignRows = await db
       .insert(schema.campaigns)
       .values([
-        { workspaceId: ws.id, productId: productId("Healthytica"), name: "FY26 LinkedIn — Healthytica", channel: "linkedin", status: "active", budget: 3000, entity: "Global", ownerId: owner.id },
-        { workspaceId: ws.id, productId: productId("Valytica"), name: "Valuer webinar series", channel: "events", status: "planned", budget: 1500, entity: "India", ownerId: owner.id },
+        { workspaceId: ws.id, projectId: projectId("Healthytica"), name: "FY26 LinkedIn — Healthytica", channel: "linkedin", status: "active", budget: 3000, entity: "Global", ownerId: owner.id },
+        { workspaceId: ws.id, projectId: projectId("Valytica"), name: "Valuer webinar series", channel: "events", status: "planned", budget: 1500, entity: "India", ownerId: owner.id },
       ])
       .returning();
     const linkedin = campaignRows.find((c) => c.name === "FY26 LinkedIn — Healthytica");
 
     await db.insert(schema.contentItems).values([
-      { workspaceId: ws.id, productId: productId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Biomarker explainer thread", channel: "linkedin", status: "published", ownerId: owner.id },
-      { workspaceId: ws.id, productId: productId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Customer story: cardiology pilot", channel: "content", status: "draft", ownerId: owner.id },
-      { workspaceId: ws.id, productId: productId("Valytica"), title: "Webinar landing page", channel: "content", status: "idea", ownerId: owner.id },
+      { workspaceId: ws.id, projectId: projectId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Biomarker explainer thread", channel: "linkedin", status: "published", ownerId: owner.id },
+      { workspaceId: ws.id, projectId: projectId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Customer story: cardiology pilot", channel: "content", status: "draft", ownerId: owner.id },
+      { workspaceId: ws.id, projectId: projectId("Valytica"), title: "Webinar landing page", channel: "content", status: "idea", ownerId: owner.id },
     ]);
 
-    // Finance: invoices + expenses (product-level revenue tracking).
+    // Finance: invoices + expenses (project-level revenue tracking).
     await db.insert(schema.invoices).values([
-      { workspaceId: ws.id, productId: productId("Valytica"), accountId: accId("Mumbai Valuers LLP"), number: "INV-001", status: "paid", amount: 8000, entity: "India", ownerId: owner.id },
-      { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Apollo Hospitals"), number: "INV-002", status: "sent", amount: 6000, entity: "India", ownerId: owner.id },
+      { workspaceId: ws.id, projectId: projectId("Valytica"), accountId: accId("Mumbai Valuers LLP"), number: "INV-001", status: "paid", amount: 8000, entity: "India", ownerId: owner.id },
+      { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Apollo Hospitals"), number: "INV-002", status: "sent", amount: 6000, entity: "India", ownerId: owner.id },
     ]);
     await db.insert(schema.expenses).values([
-      { workspaceId: ws.id, productId: productId("Healthytica"), vendor: "Vercel", category: "infra", amount: 200, status: "paid", entity: "Global", ownerId: owner.id },
-      { workspaceId: ws.id, productId: productId("Valytica"), vendor: "Design contractor", category: "contractors", amount: 1500, status: "planned", entity: "India", ownerId: owner.id },
+      { workspaceId: ws.id, projectId: projectId("Healthytica"), vendor: "Vercel", category: "infra", amount: 200, status: "paid", entity: "Global", ownerId: owner.id },
+      { workspaceId: ws.id, projectId: projectId("Valytica"), vendor: "Design contractor", category: "contractors", amount: 1500, status: "planned", entity: "India", ownerId: owner.id },
     ]);
 
     // Support: a couple of tickets.
     await db.insert(schema.tickets).values([
-      { workspaceId: ws.id, productId: productId("Healthytica"), accountId: accId("Apollo Hospitals"), subject: "Report PDF export is blank", status: "open", priority: "high", requesterEmail: "reddy@apollo.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
-      { workspaceId: ws.id, productId: productId("Valytica"), accountId: accId("Mumbai Valuers LLP"), subject: "Add bulk valuation import", status: "pending", priority: "normal", requesterEmail: "anita@mumbaivaluers.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
+      { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Apollo Hospitals"), subject: "Report PDF export is blank", status: "open", priority: "high", requesterEmail: "reddy@apollo.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
+      { workspaceId: ws.id, projectId: projectId("Valytica"), accountId: accId("Mumbai Valuers LLP"), subject: "Add bulk valuation import", status: "pending", priority: "normal", requesterEmail: "anita@mumbaivaluers.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
     ]);
   }
 
@@ -176,7 +176,7 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       .limit(1);
     const content = doc(
       h(1, "Sales & Marketing Playbook"),
-      p("Go-to-market lives in the Product × Department matrix. Each product has its own Sales and Marketing sections, and the top-level Sales / Marketing pages roll the same records up across all products."),
+      p("Go-to-market lives in the Project × Department matrix. Each project has its own Sales and Marketing sections, and the top-level Sales / Marketing pages roll the same records up across all projects."),
       h(2, "Pipeline stages (Deals)"),
       bullets([
         "Lead — identified, not yet engaged.",
@@ -188,9 +188,9 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       ]),
       h(2, "How the two lenses link"),
       bullets([
-        "Every deal/campaign carries a product — that link is the matrix.",
-        "Product lens: Products → a product → Sales/Marketing shows only its records.",
-        "Department lens: top-level Sales/Marketing shows every product together.",
+        "Every deal/campaign carries a project — that link is the matrix.",
+        "Project lens: Projects → a project → Sales/Marketing shows only its records.",
+        "Department lens: top-level Sales/Marketing shows every project together.",
         "Accounts & contacts are a shared CRM layer both Sales and Marketing read from.",
       ]),
       h(2, "What the hub holds vs. what stays external"),

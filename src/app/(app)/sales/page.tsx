@@ -10,7 +10,7 @@ import {
 
 export default async function SalesPage() {
   const ws = await getWorkspace();
-  const [deals, accounts, contacts, members, products] = await Promise.all([
+  const [deals, accounts, contacts, members, projects] = await Promise.all([
     getDeals(ws.id),
     getAccounts(ws.id),
     getContacts(ws.id),
@@ -20,9 +20,9 @@ export default async function SalesPage() {
 
   return (
     <SalesView
-      heading="Sales · all products"
-      scopeProductId={null}
-      products={products}
+      heading="Sales · all projects"
+      scopeProjectId={null}
+      projects={projects}
       members={members}
       initialDeals={deals}
       initialAccounts={accounts}

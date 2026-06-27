@@ -32,12 +32,12 @@ type Changed = { id: string; status: string; sortKey: string };
  */
 export function TicketBoard({
   tickets,
-  showProduct = false,
+  showProject = false,
   persist,
   onOpen,
 }: {
   tickets: TicketWithRelations[];
-  showProduct?: boolean;
+  showProject?: boolean;
   persist: (changed: Changed[]) => void;
   onOpen: (ticket: TicketWithRelations) => void;
 }) {
@@ -110,12 +110,12 @@ export function TicketBoard({
         {TICKET_STATUSES.map((s) => {
           const items = columns[s.id] ?? [];
           return (
-            <Column key={s.id} status={s.id} label={s.label} color={s.color} items={items} showProduct={showProduct} onOpen={onOpen} />
+            <Column key={s.id} status={s.id} label={s.label} color={s.color} items={items} showProject={showProject} onOpen={onOpen} />
           );
         })}
       </div>
       <DragOverlay>
-        {activeTicket ? <Card ticket={activeTicket} showProduct={showProduct} overlay /> : null}
+        {activeTicket ? <Card ticket={activeTicket} showProject={showProject} overlay /> : null}
       </DragOverlay>
     </DndContext>
   );
@@ -126,14 +126,14 @@ function Column({
   label,
   color,
   items,
-  showProduct,
+  showProject,
   onOpen,
 }: {
   status: TicketStatusId;
   label: string;
   color: string;
   items: TicketWithRelations[];
-  showProduct: boolean;
+  showProject: boolean;
   onOpen: (t: TicketWithRelations) => void;
 }) {
   const { setNodeRef } = useSortable({ id: status, data: { type: "column" } });
@@ -150,7 +150,7 @@ function Column({
           className="scrollbar-thin flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg bg-muted/40 p-2"
         >
           {items.map((t) => (
-            <SortableCard key={t.id} ticket={t} showProduct={showProduct} onOpen={onOpen} />
+            <SortableCard key={t.id} ticket={t} showProject={showProject} onOpen={onOpen} />
           ))}
         </div>
       </SortableContext>
@@ -160,11 +160,11 @@ function Column({
 
 function SortableCard({
   ticket,
-  showProduct,
+  showProject,
   onOpen,
 }: {
   ticket: TicketWithRelations;
-  showProduct: boolean;
+  showProject: boolean;
   onOpen: (t: TicketWithRelations) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -177,19 +177,19 @@ function SortableCard({
       {...attributes}
       {...listeners}
     >
-      <Card ticket={ticket} showProduct={showProduct} onOpen={onOpen} />
+      <Card ticket={ticket} showProject={showProject} onOpen={onOpen} />
     </div>
   );
 }
 
 function Card({
   ticket,
-  showProduct,
+  showProject,
   overlay,
   onOpen,
 }: {
   ticket: TicketWithRelations;
-  showProduct: boolean;
+  showProject: boolean;
   overlay?: boolean;
   onOpen?: (t: TicketWithRelations) => void;
 }) {
@@ -218,10 +218,10 @@ function Card({
         )}
         {ticket.account && <span className="truncate">· {ticket.account.name}</span>}
       </div>
-      {showProduct && ticket.product && (
+      {showProject && ticket.project && (
         <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <span className="size-2 rounded-full" style={{ backgroundColor: ticket.product.color }} />
-          {ticket.product.name}
+          <span className="size-2 rounded-full" style={{ backgroundColor: ticket.project.color }} />
+          {ticket.project.name}
         </div>
       )}
     </button>

@@ -35,11 +35,11 @@ const fieldCls =
 
 type Props = {
   ticket: TicketWithRelations | null;
-  products: Project[];
+  projects: Project[];
   accounts: CrmAccount[];
   contacts: ContactWithAccount[];
   members: Member[];
-  scopeProductId: string | null;
+  scopeProjectId: string | null;
   onSaved: () => void;
   onClose: () => void;
 };
@@ -63,17 +63,17 @@ export function TicketDialog({
 
 function TicketForm({
   ticket,
-  products,
+  projects,
   accounts,
   contacts,
   members,
-  scopeProductId,
+  scopeProjectId,
   onSaved,
   onClose,
 }: Props) {
   const isEdit = !!ticket;
   const [subject, setSubject] = useState(ticket?.subject ?? "");
-  const [productId, setProductId] = useState<string | null>(ticket?.productId ?? scopeProductId);
+  const [projectId, setProjectId] = useState<string | null>(ticket?.projectId ?? scopeProjectId);
   const [status, setStatus] = useState(ticket?.status ?? "open");
   const [priority, setPriority] = useState(ticket?.priority ?? "normal");
   const [accountId, setAccountId] = useState<string | null>(ticket?.accountId ?? null);
@@ -115,7 +115,7 @@ function TicketForm({
         toast.success("Ticket updated");
       } else {
         await createTicket({
-          productId,
+          projectId,
           subject,
           status,
           priority,
@@ -167,15 +167,15 @@ function TicketForm({
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Labeled label="Product">
+          <Labeled label="Project">
             <select
               className={fieldCls}
-              value={productId ?? ""}
-              disabled={!!scopeProductId}
-              onChange={(e) => setProductId(e.target.value || null)}
+              value={projectId ?? ""}
+              disabled={!!scopeProjectId}
+              onChange={(e) => setProjectId(e.target.value || null)}
             >
-              <option value="">No product</option>
-              {products.map((p) => (
+              <option value="">No project</option>
+              {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
