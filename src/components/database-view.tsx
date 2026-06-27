@@ -279,17 +279,25 @@ function TableView({
     Object.fromEntries(database.fields.map((f) => [f.id, f.width ?? DEFAULT_COL_W])),
   );
   const widthsRef = useRef(widths);
-  widthsRef.current = widths;
   const resizing = useRef<{ id: string; startX: number; startW: number } | null>(null);
 
-  // Keep widths in sync as fields are added/removed.
-  useEffect(() => {
+  // Re-sync widths when the field set changes (add/remove), preserving any
+  // in-flight resize edits. Render-time adjustment per the React docs — no effect.
+  const [prevFields, setPrevFields] = useState(database.fields);
+  if (prevFields !== database.fields) {
+    setPrevFields(database.fields);
     setWidths((prev) => {
       const next: Record<string, number> = {};
       for (const f of database.fields) next[f.id] = prev[f.id] ?? f.width ?? DEFAULT_COL_W;
       return next;
     });
-  }, [database.fields]);
+  }
+
+  // Mirror widths into a ref so the resize pointer handlers read the latest
+  // value at pointer-up (their closure is bound when the drag starts).
+  useEffect(() => {
+    widthsRef.current = widths;
+  }, [widths]);
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const toggle = (id: string) =>

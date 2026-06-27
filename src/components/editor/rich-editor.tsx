@@ -127,7 +127,9 @@ export function RichEditor({
     },
   });
 
-  editorRef.current = editor;
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   // Keep editable in sync if it changes.
   useEffect(() => {

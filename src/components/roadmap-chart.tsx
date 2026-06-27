@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 
 import {
@@ -81,8 +81,13 @@ export function RoadmapChart({
   const items = groups.flatMap((g) => g.items);
 
   // Clear optimistic overrides once incoming data reflects the new dates.
+  // Render-time adjustment per the React docs (no effect needed).
   const sig = items.map((i) => `${i.id}:${i.startDate ?? ""}:${i.targetDate ?? ""}`).join("|");
-  useEffect(() => setOverrides({}), [sig]);
+  const [prevSig, setPrevSig] = useState(sig);
+  if (prevSig !== sig) {
+    setPrevSig(sig);
+    setOverrides({});
+  }
 
   const eff = (it: GanttItem): { s: DateInput; t: DateInput } => {
     if (drag && drag.id === it.id) return { s: new Date(drag.startMs), t: new Date(drag.endMs) };
