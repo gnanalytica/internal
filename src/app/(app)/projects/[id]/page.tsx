@@ -2,12 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BarChart3, CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
+import { PeopleHRView } from "@/components/people-hr-view";
 import { ProjectDetail } from "@/components/project-detail";
 import { ProjectModulesConfig } from "@/components/project-modules-config";
 import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getBacklinks,
+  getCurrentUser,
   getMembers,
+  getMembersWithRole,
   getMyRole,
   getProject,
   getProjectSummaries,
@@ -26,6 +29,23 @@ export default async function ProjectRoute({
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
+
+  // People & HR is the team home: directory + org chart + management.
+  if (project.kind !== "project" && project.key === "PPL") {
+    const [members, me, role] = await Promise.all([
+      getMembersWithRole(ws.id),
+      getCurrentUser(ws.id),
+      getMyRole(ws.id),
+    ]);
+    return (
+      <PeopleHRView
+        heading={project.name}
+        members={members}
+        currentUserId={me.id}
+        isAdmin={role === "admin"}
+      />
+    );
+  }
 
   // Operations: the simple detail view (no departments).
   if (project.kind !== "project") {

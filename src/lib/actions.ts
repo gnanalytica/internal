@@ -251,7 +251,35 @@ export async function setMemberRole(userId: string, role: string) {
         eq(workspaceMembers.userId, userId),
       ),
     );
-  revalidatePath("/members");
+  revalidatePath("/projects");
+}
+
+/** Update a member's HR/directory profile (title, entity, employment, manager). */
+export async function updateMemberProfile(
+  userId: string,
+  patch: Partial<{
+    title: string | null;
+    entity: string;
+    employment: string;
+    startDate: string | null;
+    managerId: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  await requireAdmin(ws.id);
+  const values: Record<string, unknown> = {};
+  if (patch.title !== undefined) values.title = patch.title;
+  if (patch.entity !== undefined) values.entity = patch.entity;
+  if (patch.employment !== undefined) values.employment = patch.employment;
+  if (patch.startDate !== undefined)
+    values.startDate = patch.startDate ? new Date(patch.startDate) : null;
+  if (patch.managerId !== undefined) values.managerId = patch.managerId;
+  if (Object.keys(values).length === 0) return;
+  await db
+    .update(workspaceMembers)
+    .set(values)
+    .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.userId, userId)));
+  revalidatePath("/projects");
 }
 
 export async function removeMember(userId: string) {
