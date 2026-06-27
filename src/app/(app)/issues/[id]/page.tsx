@@ -13,6 +13,7 @@ import {
   getLabels,
   getMembers,
   getMentionItems,
+  getMilestones,
   getPagesFlat,
   getProjects,
   getWorkspace,
@@ -52,10 +53,11 @@ export default async function IssueRoute({
     getFeatures(ws.id),
   ]);
   if (!issue) notFound();
-  const [favorited, mentionItems, backlinks] = await Promise.all([
+  const [favorited, mentionItems, backlinks, milestones] = await Promise.all([
     isFavorite(ws.id, "issue", id),
     getMentionItems(ws.id),
     getBacklinks(ws.id, "issue", id),
+    issue.projectId ? getMilestones(ws.id, issue.projectId) : Promise.resolve([]),
   ]);
 
   return (
@@ -67,6 +69,7 @@ export default async function IssueRoute({
       allPages={pages}
       cycles={cycles}
       features={features.map((f) => ({ id: f.id, title: f.title }))}
+      milestones={milestones.map((m) => ({ id: m.id, name: m.name }))}
       timeline={timeline}
       githubConnected={githubConnected}
       favorited={favorited}

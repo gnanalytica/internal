@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Timer, User } from "lucide-react";
+import { Check, Target, Timer, User } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -20,10 +20,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
 import {
+  ISSUE_TYPES,
+  ISSUE_TYPE_MAP,
   PRIORITIES,
   PRIORITY_MAP,
   STATUSES,
   STATUS_MAP,
+  type IssueTypeId,
   type PriorityId,
   type StatusId,
 } from "@/lib/constants";
@@ -357,6 +360,94 @@ export function FeaturePicker({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** Functional category of a task (Engineering, Legal, Marketing, …). */
+export function TypePicker({
+  value,
+  onChange,
+  compact,
+}: {
+  value: IssueTypeId;
+  onChange: (v: IssueTypeId) => void;
+  compact?: boolean;
+}) {
+  const t = ISSUE_TYPE_MAP[value];
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={triggerCls} aria-label="Set type">
+        <Dot color={t?.color ?? "#64748b"} />
+        {!compact && <span>{t?.label ?? "Type"}</span>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        {ISSUE_TYPES.map((it) => (
+          <DropdownMenuItem key={it.id} onClick={() => onChange(it.id)} className="gap-2 text-xs">
+            <Dot color={it.color} />
+            <span className="flex-1">{it.label}</span>
+            {value === it.id && <Check className="size-3.5 opacity-70" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Direct milestone link for a task (Milestone → Task without a feature). */
+export function MilestonePicker({
+  milestones,
+  value,
+  onChange,
+  compact,
+}: {
+  milestones: { id: string; name: string }[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+  compact?: boolean;
+}) {
+  const m = milestones.find((x) => x.id === value) ?? null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={triggerCls} aria-label="Set milestone">
+        <Target className={cn("size-3.5", m ? "text-brand" : "text-muted-foreground")} />
+        {!compact && <span>{m ? m.name : "No milestone"}</span>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+          <span className="flex-1">No milestone</span>
+          {!value && <Check className="size-3.5 opacity-70" />}
+        </DropdownMenuItem>
+        {milestones.map((ms) => (
+          <DropdownMenuItem key={ms.id} onClick={() => onChange(ms.id)} className="gap-2 text-xs">
+            <Target className="size-3.5 text-brand" />
+            <span className="flex-1 truncate">{ms.name}</span>
+            {value === ms.id && <Check className="size-3.5 opacity-70" />}
+          </DropdownMenuItem>
+        ))}
+        {milestones.length === 0 && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">No milestones yet</div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Small colored chip showing a task's type (read display). */
+export function TypeChip({ type }: { type: string }) {
+  const t = ISSUE_TYPE_MAP[type as IssueTypeId];
+  if (!t) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+      style={{
+        borderColor: `color-mix(in oklch, ${t.color} 40%, transparent)`,
+        color: t.color,
+        backgroundColor: `color-mix(in oklch, ${t.color} 12%, transparent)`,
+      }}
+    >
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: t.color }} />
+      {t.label}
+    </span>
   );
 }
 

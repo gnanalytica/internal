@@ -49,7 +49,7 @@ import {
 } from "@/lib/actions";
 import { issuesToCsv } from "@/lib/csv";
 import { downloadText } from "@/lib/download";
-import { PRIORITIES, STATUSES, type StatusId } from "@/lib/constants";
+import { ISSUE_TYPES, PRIORITIES, STATUSES, type StatusId } from "@/lib/constants";
 import {
   GROUP_BYS,
   SORTS,
@@ -100,6 +100,7 @@ export function IssuesView({
   // Filters & sort
   const [fStatus, setFStatus] = useState<Set<string>>(new Set());
   const [fPriority, setFPriority] = useState<Set<string>>(new Set());
+  const [fType, setFType] = useState<Set<string>>(new Set());
   const [fAssignee, setFAssignee] = useState<Set<string>>(new Set());
   const [fLabel, setFLabel] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<SortId>("manual");
@@ -128,6 +129,7 @@ export function IssuesView({
     return {
       status: [...fStatus],
       priority: [...fPriority],
+      type: [...fType],
       assignee: [...fAssignee],
       label: [...fLabel],
       sort,
@@ -139,6 +141,7 @@ export function IssuesView({
   function applyView(config: SavedViewConfig) {
     setFStatus(new Set(config.status ?? []));
     setFPriority(new Set(config.priority ?? []));
+    setFType(new Set(config.type ?? []));
     setFAssignee(new Set(config.assignee ?? []));
     setFLabel(new Set(config.label ?? []));
     if (config.sort) setSort(config.sort as SortId);
@@ -189,6 +192,7 @@ export function IssuesView({
         if (s) {
           if (Array.isArray(s.status)) setFStatus(new Set(s.status));
           if (Array.isArray(s.priority)) setFPriority(new Set(s.priority));
+          if (Array.isArray(s.type)) setFType(new Set(s.type));
           if (Array.isArray(s.assignee)) setFAssignee(new Set(s.assignee));
           if (Array.isArray(s.label)) setFLabel(new Set(s.label));
           if (typeof s.sort === "string") setSort(s.sort as SortId);
@@ -215,6 +219,7 @@ export function IssuesView({
         JSON.stringify({
           status: [...fStatus],
           priority: [...fPriority],
+          type: [...fType],
           assignee: [...fAssignee],
           label: [...fLabel],
           sort,
@@ -225,7 +230,7 @@ export function IssuesView({
     } catch {
       // Storage may be unavailable (private mode); ignore.
     }
-  }, [storageKey, fStatus, fPriority, fAssignee, fLabel, sort, groupBy, view]);
+  }, [storageKey, fStatus, fPriority, fType, fAssignee, fLabel, sort, groupBy, view]);
 
   function persist(changed: { id: string; status: StatusId; sortKey: string }[]) {
     startTransition(async () => {
@@ -245,17 +250,18 @@ export function IssuesView({
   }
 
   const activeFilterCount =
-    fStatus.size + fPriority.size + fAssignee.size + fLabel.size;
+    fStatus.size + fPriority.size + fType.size + fAssignee.size + fLabel.size;
 
   const visible = useMemo(
     () =>
       filterIssues(issues, {
         status: fStatus,
         priority: fPriority,
+        type: fType,
         assignee: fAssignee,
         label: fLabel,
       }),
-    [issues, fStatus, fPriority, fAssignee, fLabel],
+    [issues, fStatus, fPriority, fType, fAssignee, fLabel],
   );
 
   const compare = useMemo(() => issueComparator(sort), [sort]);
@@ -268,6 +274,7 @@ export function IssuesView({
   function clearFilters() {
     setFStatus(new Set());
     setFPriority(new Set());
+    setFType(new Set());
     setFAssignee(new Set());
     setFLabel(new Set());
   }
@@ -309,6 +316,12 @@ export function IssuesView({
           options={PRIORITIES.map((p) => ({ value: p.id, label: p.label }))}
           selected={fPriority}
           onChange={setFPriority}
+        />
+        <FilterMenu
+          label="Type"
+          options={ISSUE_TYPES.map((t) => ({ value: t.id, label: t.label, color: t.color }))}
+          selected={fType}
+          onChange={setFType}
         />
         <FilterMenu
           label="Assignee"

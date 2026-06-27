@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { TypeChip } from "@/components/pickers";
 import { Topbar } from "@/components/topbar";
 import { updateMilestone } from "@/lib/actions";
+import { STATUS_MAP, type StatusId } from "@/lib/constants";
 import { FEATURE_STATUSES } from "@/lib/departments";
-import type { MilestoneDetail } from "@/lib/types";
+import { issueIdentifier, type MilestoneDetail } from "@/lib/types";
 
 const statusMeta = (s: string) => FEATURE_STATUSES.find((x) => x.id === s);
 const toDateInput = (d: Date | string | null) =>
@@ -115,6 +117,40 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
                 );
               })}
             </div>
+          )}
+
+          {/* Tasks attached directly to this milestone (no feature) */}
+          {milestone.directIssues.length > 0 && (
+            <>
+              <h3 className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Tasks
+              </h3>
+              <div className="overflow-hidden rounded-xl border">
+                {milestone.directIssues.map((it, i) => {
+                  const sm = STATUS_MAP[it.status as StatusId];
+                  return (
+                    <Link
+                      key={it.id}
+                      href={`/issues/${it.id}`}
+                      className={`press flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/40 ${i > 0 ? "border-t" : ""}`}
+                    >
+                      <span
+                        className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+                        style={{ backgroundColor: sm?.color ?? "#94a3b8" }}
+                      />
+                      <span className="w-16 shrink-0 font-mono text-xs text-muted-foreground">
+                        {issueIdentifier(it)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{it.title}</span>
+                      {it.type !== "engineering" && <TypeChip type={it.type} />}
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {sm?.label ?? it.status}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>

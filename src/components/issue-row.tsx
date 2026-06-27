@@ -8,6 +8,7 @@ import {
   MultiAssigneePicker,
   PriorityPicker,
   StatusPicker,
+  TypeChip,
 } from "@/components/pickers";
 import { IssueContextMenu } from "@/components/issue-context-menu";
 import { setIssueAssignees, updateIssue } from "@/lib/actions";
@@ -75,6 +76,13 @@ export function IssueRow({
       >
         {issue.title}
       </Link>
+
+      {/* Surface non-engineering tasks; keep default eng rows uncluttered. */}
+      {issue.type && issue.type !== "engineering" && (
+        <span className="hidden shrink-0 sm:inline">
+          <TypeChip type={issue.type} />
+        </span>
+      )}
 
       {issue.estimate != null && (
         <span className="hidden shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">

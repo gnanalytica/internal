@@ -18,12 +18,13 @@ import {
   PriorityPicker,
   ProjectPicker,
   StatusPicker,
+  TypePicker,
 } from "@/components/pickers";
 import { CalendarRange } from "lucide-react";
 
 import { createIssue } from "@/lib/actions";
 import type { Label, Member, Project } from "@/lib/types";
-import type { PriorityId, StatusId } from "@/lib/constants";
+import type { IssueTypeId, PriorityId, StatusId } from "@/lib/constants";
 
 export function NewIssueDialog({
   projects,
@@ -51,6 +52,7 @@ export function NewIssueDialog({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<StatusId>("backlog");
   const [priority, setPriority] = useState<PriorityId>("none");
+  const [type, setType] = useState<IssueTypeId>("engineering");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId);
   const [startDate, setStartDate] = useState("");
@@ -62,6 +64,7 @@ export function NewIssueDialog({
     setDescription("");
     setStatus("backlog");
     setPriority("none");
+    setType("engineering");
     setAssigneeId(null);
     setProjectId(defaultProjectId);
     setStartDate("");
@@ -79,6 +82,7 @@ export function NewIssueDialog({
         projectId,
         status,
         priority,
+        type,
         assigneeId,
         startDate: startDate || null,
         dueDate: dueDate || null,
@@ -141,6 +145,7 @@ export function NewIssueDialog({
         <div className="flex flex-wrap items-center gap-1 px-3 pb-3">
           <StatusPicker value={status} onChange={setStatus} />
           <PriorityPicker value={priority} onChange={setPriority} />
+          <TypePicker value={type} onChange={setType} />
           <AssigneePicker members={members} value={assigneeId} onChange={setAssigneeId} />
           <ProjectPicker projects={projects} value={projectId} onChange={setProjectId} />
           <label className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
