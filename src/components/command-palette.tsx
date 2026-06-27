@@ -17,7 +17,6 @@ import {
   Timer,
   TrendingUp,
   Users,
-  Wallet,
 } from "lucide-react";
 
 import {
@@ -69,15 +68,14 @@ const NAV = [
   { label: "Projects", href: "/projects", icon: <Folder className={ic} /> },
   { label: "Insights", href: "/insights", icon: <BarChart3 className={ic} /> },
   { label: "Roadmap", href: "/roadmap", icon: <MapIcon className={ic} /> },
-  { label: "Features", href: "/features", icon: <Compass className={ic} /> },
+  { label: "Product", href: "/product", icon: <Compass className={ic} /> },
   { label: "Cycles", href: "/cycles", icon: <Timer className={ic} /> },
   { label: "Initiatives", href: "/initiatives", icon: <Target className={ic} /> },
   { label: "Teams", href: "/teams", icon: <Users className={ic} /> },
   { label: "Databases", href: "/databases", icon: <Database className={ic} /> },
-  { label: "Sales", href: "/sales", icon: <TrendingUp className={ic} /> },
   { label: "Marketing", href: "/marketing", icon: <Megaphone className={ic} /> },
-  { label: "Finance", href: "/finance", icon: <Wallet className={ic} /> },
-  { label: "Support", href: "/support", icon: <LifeBuoy className={ic} /> },
+  { label: "Sales", href: "/sales", icon: <TrendingUp className={ic} /> },
+  { label: "Customer Success", href: "/customer-success", icon: <LifeBuoy className={ic} /> },
 ];
 
 export function CommandPalette() {

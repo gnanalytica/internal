@@ -7,7 +7,7 @@ export default async function FeaturesPage() {
 
   return (
     <FeaturesView
-      heading="Features · all projects"
+      heading="Product · all projects"
       features={features}
       nowISO={new Date().toISOString()}
       scopeProjectId={null}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp, Wallet } from "lucide-react";
+import { CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
 import { ProjectDetail } from "@/components/project-detail";
 import { ProjectModulesConfig } from "@/components/project-modules-config";
@@ -54,10 +54,10 @@ export default async function ProjectRoute({
 
   const cards = [
     {
-      slug: "features" as const,
-      href: `/projects/${id}/features`,
+      slug: "product" as const,
+      href: `/projects/${id}/product`,
       icon: <Compass className="size-4" />,
-      label: "Features",
+      label: "Product",
       stat: `${summary.openFeatures} open features`,
       tool: "Roadmap & specs",
     },
@@ -70,14 +70,6 @@ export default async function ProjectRoute({
       tool: "Linear-style issues",
     },
     {
-      slug: "sales" as const,
-      href: `/projects/${id}/sales`,
-      icon: <TrendingUp className="size-4" />,
-      label: "Sales",
-      stat: `${formatMoney(summary.pipelineValue)} · ${summary.openDeals} open deals`,
-      tool: "Apollo / HubSpot-style pipeline",
-    },
-    {
       slug: "marketing" as const,
       href: `/projects/${id}/marketing`,
       icon: <Megaphone className="size-4" />,
@@ -86,18 +78,18 @@ export default async function ProjectRoute({
       tool: "Campaigns & content calendar",
     },
     {
-      slug: "finance" as const,
-      href: `/projects/${id}/finance`,
-      icon: <Wallet className="size-4" />,
-      label: "Finance",
-      stat: `${formatMoney(summary.revenue)} revenue`,
-      tool: "Invoices & expenses",
+      slug: "sales" as const,
+      href: `/projects/${id}/sales`,
+      icon: <TrendingUp className="size-4" />,
+      label: "Sales",
+      stat: `${formatMoney(summary.pipelineValue)} · ${summary.openDeals} open deals`,
+      tool: "Apollo / HubSpot-style pipeline",
     },
     {
-      slug: "support" as const,
-      href: `/projects/${id}/support`,
+      slug: "customer-success" as const,
+      href: `/projects/${id}/customer-success`,
       icon: <LifeBuoy className="size-4" />,
-      label: "Support",
+      label: "Customer Success",
       stat: `${summary.openTickets} open tickets`,
       tool: "Zendesk-style ticket queue",
     },

@@ -14,14 +14,13 @@ import {
 } from "@/lib/departments";
 
 describe("DEPARTMENTS", () => {
-  it("includes the six department modules", () => {
+  it("includes the canonical product-org departments", () => {
     expect(DEPARTMENTS.map((d) => d.slug)).toEqual([
+      "product",
       "engineering",
-      "sales",
       "marketing",
-      "finance",
-      "support",
-      "features",
+      "sales",
+      "customer-success",
     ]);
   });
 });
@@ -61,20 +60,19 @@ describe("ticket statuses", () => {
 describe("per-project department config", () => {
   it("treats null as all departments enabled (auto-spawn default)", () => {
     expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
+      "product",
       "engineering",
-      "sales",
       "marketing",
-      "finance",
-      "support",
-      "features",
+      "sales",
+      "customer-success",
     ]);
-    expect(isDepartmentEnabled(null, "support")).toBe(true);
+    expect(isDepartmentEnabled(null, "customer-success")).toBe(true);
   });
 
   it("restricts to an explicit list, preserving canonical order", () => {
-    expect(enabledDepartments(["support", "engineering"]).map((d) => d.slug)).toEqual([
+    expect(enabledDepartments(["customer-success", "engineering"]).map((d) => d.slug)).toEqual([
       "engineering",
-      "support",
+      "customer-success",
     ]);
     expect(isDepartmentEnabled(["engineering"], "sales")).toBe(false);
     expect(isDepartmentEnabled(["engineering", "sales"], "sales")).toBe(true);

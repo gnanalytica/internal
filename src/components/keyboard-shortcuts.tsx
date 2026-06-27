@@ -22,7 +22,7 @@ const GO_TO: Record<string, string> = {
   d: "/databases",
   a: "/ask",
   s: "/insights",
-  f: "/features",
+  f: "/product",
 };
 
 const HELP = [

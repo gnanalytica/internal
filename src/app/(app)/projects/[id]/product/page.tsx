@@ -13,13 +13,13 @@ export default async function ProjectFeaturesPage({
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
-  if (!isDepartmentEnabled(project.enabledDepartments, "features")) notFound();
+  if (!isDepartmentEnabled(project.enabledDepartments, "product")) notFound();
 
   const features = await getFeatures(ws.id, id);
 
   return (
     <FeaturesView
-      heading={`${project.name} · Features`}
+      heading={`${project.name} · Product`}
       features={features}
       nowISO={new Date().toISOString()}
       scopeProjectId={id}

@@ -25,7 +25,7 @@ export function FeatureTimeline({
   const toItem = (f: FeatureWithRelations) => ({
     id: f.id,
     title: f.title,
-    href: f.project ? `/projects/${f.project.id}/features/${f.id}` : `/features`,
+    href: f.project ? `/projects/${f.project.id}/product/${f.id}` : `/product`,
     startDate: f.startDate,
     targetDate: f.targetDate,
     color: statusMeta(f.status)?.color ?? "#94a3b8",

@@ -1,17 +1,18 @@
 import { notFound } from "next/navigation";
 
-import { FinanceView } from "@/components/finance-view";
+import { SupportView } from "@/components/support-view";
 import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getAccounts,
-  getExpenses,
-  getInvoices,
+  getContacts,
+  getMembers,
   getProject,
   getProjects,
+  getTickets,
   getWorkspace,
 } from "@/lib/data";
 
-export default async function ProjectFinancePage({
+export default async function ProjectSupportPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -20,23 +21,25 @@ export default async function ProjectFinancePage({
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
-  if (!isDepartmentEnabled(project.enabledDepartments, "finance")) notFound();
+  if (!isDepartmentEnabled(project.enabledDepartments, "customer-success")) notFound();
 
-  const [invoices, expenses, accounts, projects] = await Promise.all([
-    getInvoices(ws.id, id),
-    getExpenses(ws.id, id),
+  const [tickets, accounts, contacts, members, projects] = await Promise.all([
+    getTickets(ws.id, id),
     getAccounts(ws.id),
+    getContacts(ws.id),
+    getMembers(ws.id),
     getProjects(ws.id),
   ]);
 
   return (
-    <FinanceView
-      heading={`${project.name} · Finance`}
+    <SupportView
+      heading={`${project.name} · Customer Success`}
       scopeProjectId={id}
       projects={projects}
+      members={members}
       accounts={accounts}
-      initialInvoices={invoices}
-      initialExpenses={expenses}
+      contacts={contacts}
+      initialTickets={tickets}
     />
   );
 }

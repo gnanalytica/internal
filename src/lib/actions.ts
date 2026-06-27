@@ -1845,8 +1845,8 @@ export async function searchWorkspace(
 function revalidateMatrix(projectId?: string | null) {
   revalidatePath("/sales");
   revalidatePath("/marketing");
-  revalidatePath("/finance");
-  revalidatePath("/support");
+  revalidatePath("/customer-success");
+  revalidatePath("/product");
   revalidatePath("/projects");
   if (projectId) revalidatePath(`/projects/${projectId}`, "layout");
   revalidatePath("/", "layout");
