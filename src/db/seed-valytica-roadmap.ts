@@ -33,13 +33,11 @@ const plain = (n: Node): string => (n.type === "text" ? (n.text ?? "") : (n.cont
 
 // ---- milestones (date-contiguous over the existing feature dates) ----
 const MILESTONES: { key: string; name: string; targetDate: string; desc: string }[] = [
-  { key: "m0", name: "MVP · Foundation & Auth", targetDate: "2026-02-18", desc: "Multi-tenant foundation — auth, organisations, RLS — and the case shell." },
-  { key: "m1", name: "AI Extraction & Verification", targetDate: "2026-04-02", desc: "Documents in, fields out: AI extraction with provenance, plus assisted state-portal checks." },
-  { key: "m2", name: "Valuation & Reports v1.0", targetDate: "2026-05-30", desc: "Multi-method valuation, bank-ready reports, wallet billing, and project engagements." },
-  { key: "m3", name: "AI Orchestration & Hardening", targetDate: "2026-06-30", desc: "Agent + autopilot, RAG grounding, observability, AI cost metering, and data retention." },
-  { key: "m4", name: "GTM · WhatsApp Launch", targetDate: "2026-07-31", desc: "Public landing, demo assets, and feedback / enterprise CTAs for the WhatsApp campaign." },
-  { key: "m5", name: "v2.0 · Bank & Enterprise", targetDate: "2026-10-17", desc: "Bank-panel readiness — India-region AI, bank templates, subscriptions, comparables depth." },
-  { key: "m6", name: "vNext · Scale & Insights", targetDate: "2026-12-19", desc: "Portfolio analytics, benchmarking, and team dashboards across the firm's history." },
+  { key: "m0", name: "v1.0 · Shipped", targetDate: "2026-05-30", desc: "Shipped — multi-tenant foundation & auth, case lifecycle, AI extraction & verification, multi-method valuation, reports & billing, and project engagements." },
+  { key: "m1", name: "AI Orchestration & Hardening", targetDate: "2026-06-30", desc: "Agent + autopilot, RAG grounding, observability, AI cost metering, and data retention." },
+  { key: "m2", name: "GTM · WhatsApp Launch", targetDate: "2026-07-31", desc: "Public landing, demo assets, and feedback / enterprise CTAs for the WhatsApp campaign." },
+  { key: "m3", name: "v2.0 · Bank & Enterprise", targetDate: "2026-10-17", desc: "Bank-panel readiness — India-region AI, bank templates, subscriptions, comparables depth." },
+  { key: "m4", name: "vNext · Scale & Insights", targetDate: "2026-12-19", desc: "Portfolio analytics, benchmarking, and team dashboards across the firm's history." },
 ];
 
 // ---- features → milestone + requirements (grounded in the real repo) ----
@@ -81,7 +79,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "AI Extraction & Suggestion Review",
-    milestone: "m1",
+    milestone: "m0",
     intro: "Turn uploaded documents into reviewed, sourced field values — the product's core AI loop.",
     reqs: [
       "Extract 55+ case fields (location, boundaries, ownership, possession, encumbrances, survey no., measurements, guideline value) with confidence + source-document citation.",
@@ -93,7 +91,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "State Portal Checks & Verification",
-    milestone: "m1",
+    milestone: "m0",
     intro: "Assisted verification against state portals — deliberately human-in-the-loop, never fabricated.",
     reqs: [
       "Assisted digital checks via a run_digital_check tool (EC / registration / RERA) — results confirmed by a human.",
@@ -104,7 +102,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "Valuation Engine & Maps",
-    milestone: "m2",
+    milestone: "m0",
     intro: "Compute a defensible value three ways, grounded in the firm's own history and a real map.",
     reqs: [
       "Three approaches: cost (construction ₹/sqft), comparable sales (CMA with time/size/location/condition adjustments), income capitalization (rent-based).",
@@ -116,7 +114,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "Reports, Billing & Observability",
-    milestone: "m2",
+    milestone: "m0",
     intro: "Produce the bank-ready deliverable and charge for it, atomically.",
     reqs: [
       "Standard PDF (React-PDF) + tagged .docx (docxtemplater) + AI-filled bank formats (SBI, …).",
@@ -128,7 +126,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "Project Engagements — TEV / LIE / DPR",
-    milestone: "m2",
+    milestone: "m0",
     intro: "Beyond single-property valuations: staged engineering engagements with financial models and chaptered reports.",
     reqs: [
       "Engagement taxonomy: TEV (techno-economic feasibility), LIE (lender's independent engineer), DPR — asset_class is NULL for project work.",
@@ -139,7 +137,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "AI Autopilot, RAG & Grounding",
-    milestone: "m3",
+    milestone: "m1",
     intro: "The agentic layer: a guided agent, a deterministic autopilot, and grounded Q&A — all maker-checker.",
     reqs: [
       "Interactive agent (≤4 tool turns per tab) over a typed tool registry (read_document, propose_field, compute_valuation, find_similar_cases, draft_report_narrative, …).",
@@ -151,7 +149,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "Architecture Polish & Data Retention",
-    milestone: "m3",
+    milestone: "m1",
     intro: "Make it operable and compliant: observe it, meter it, and let users delete their data.",
     reqs: [
       "Sentry EU + PostHog EU wired (env-gated, no-op without keys).",
@@ -162,7 +160,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "GTM & WhatsApp Launch Readiness",
-    milestone: "m4",
+    milestone: "m2",
     intro: "Everything the WhatsApp marketing launch needs to convert: a public face and inbound routing.",
     reqs: [
       "Production-ready public landing at valytica.gnanalytica.com with an on-brand logo.",
@@ -174,7 +172,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "Bank & Enterprise Features",
-    milestone: "m5",
+    milestone: "m3",
     intro: "What a bank panel requires before they'll route work through Valytica.",
     reqs: [
       "Migrate AI to Vertex / Bedrock Mumbai (DPDP + vendor procurement) before the first bank-panel customer.",
@@ -185,7 +183,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "AI RAG & Comparables Depth",
-    milestone: "m5",
+    milestone: "m3",
     intro: "Deepen retrieval quality and comparables coverage as case volume grows.",
     reqs: [
       "Title-chain reasoning and multi-document retrieval depth (per the AI retrieval design).",
@@ -196,7 +194,7 @@ const FEATURES: { title: string; milestone: string; intro: string; reqs: string[
   },
   {
     title: "Advanced Analytics & Insights",
-    milestone: "m6",
+    milestone: "m4",
     intro: "Turn the firm's accumulated case history into portfolio-level insight.",
     reqs: [
       "Portfolio analytics and benchmarking across the firm's comparable_index.",
