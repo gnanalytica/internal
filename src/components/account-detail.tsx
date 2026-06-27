@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { logActivity } from "@/lib/actions";
+import { logActivity, toggleActivityDone } from "@/lib/actions";
 import {
   ACCOUNT_TYPES,
   ACTIVITY_TYPES,
@@ -128,9 +128,26 @@ export function AccountDetail({ account }: { account: AccountDetailType; members
           <ul className="space-y-2">
             {account.activities.map((a) => (
               <li key={a.id} className="flex items-start gap-2 text-sm">
-                <span>{ACTIVITY_TYPES.find((t) => t.id === a.type)?.icon ?? "•"}</span>
+                {a.type === "task" ? (
+                  <input
+                    type="checkbox"
+                    checked={a.done}
+                    onChange={(e) =>
+                      start(async () => {
+                        await toggleActivityDone(a.id, e.target.checked);
+                        router.refresh();
+                      })
+                    }
+                    className="mt-0.5 size-3.5 shrink-0 cursor-pointer"
+                    aria-label="Toggle task done"
+                  />
+                ) : (
+                  <span>{ACTIVITY_TYPES.find((t) => t.id === a.type)?.icon ?? "•"}</span>
+                )}
                 <div className="min-w-0 flex-1">
-                  <div className="break-words">{a.body}</div>
+                  <div className={a.done ? "break-words text-muted-foreground line-through" : "break-words"}>
+                    {a.body}
+                  </div>
                   <div className="text-[11px] text-muted-foreground">
                     {a.actor?.name ?? "Someone"} · {formatDate(a.createdAt)}
                   </div>
