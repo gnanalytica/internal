@@ -302,12 +302,6 @@ async function main() {
     console.log("No Healthytica project found.");
     return;
   }
-  const [pod] = await db
-    .select({ id: schema.teams.id })
-    .from(schema.teams)
-    .where(and(eq(schema.teams.workspaceId, ws.id), eq(schema.teams.name, "Products")))
-    .limit(1);
-
   // Resolve user ids (people already added by db:seed-valytica).
   const emails = [...new Set(Object.values(KEY))];
   const users = await db
@@ -401,7 +395,6 @@ async function main() {
       await db.insert(schema.issues).values({
         workspaceId: ws.id,
         projectId: project.id,
-        teamId: pod?.id ?? null,
         featureId: feature.id,
         cycleId: cycleByMonth[monthKey(createdAt)] ?? null,
         number: ++issueNum,

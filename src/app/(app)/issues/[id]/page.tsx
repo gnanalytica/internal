@@ -17,7 +17,6 @@ import {
   getMentionItems,
   getPagesFlat,
   getProjects,
-  getTeamsFlat,
   getWorkspace,
   isFavorite,
 } from "@/lib/data";
@@ -36,7 +35,6 @@ export default async function IssueRoute({
     labels,
     pages,
     cycles,
-    teams,
     timeline,
     githubConnected,
     attachments,
@@ -50,7 +48,6 @@ export default async function IssueRoute({
     getLabels(ws.id),
     getPagesFlat(ws.id),
     getCyclesFlat(ws.id),
-    getTeamsFlat(ws.id),
     getIssueTimeline(id),
     isGithubConnected(ws.id),
     getAttachments(id),
@@ -73,7 +70,6 @@ export default async function IssueRoute({
       labels={labels}
       allPages={pages}
       cycles={cycles}
-      teams={teams}
       features={features.map((f) => ({ id: f.id, title: f.title }))}
       timeline={timeline}
       githubConnected={githubConnected}

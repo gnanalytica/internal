@@ -9,7 +9,7 @@ import { ensureWorkspaceAdmins, seedCrm } from "./seed-crm-data";
 
 /**
  * Provision the Gnanalytica company hub structure (per docs/ORG.md):
- * workspace, owner membership, teams, initiatives, projects, Entity-tagged
+ * workspace, owner membership, initiatives, projects, Entity-tagged
  * databases, and a wiki skeleton. Safe to run once on an empty DB; exits if the
  * workspace already exists.
  *
@@ -83,30 +83,6 @@ async function main() {
   // Additional workspace admins (Sandeep + Jayasaagar).
   await ensureWorkspaceAdmins(ws.id);
 
-  // ---- Teams (cross-functional pods that own projects) ----
-  const podRows = await db
-    .insert(schema.teams)
-    .values([
-      { workspaceId: ws.id, name: "Products", key: "PROD", icon: "🚀", color: "#6366f1" },
-      { workspaceId: ws.id, name: "Platform", key: "PLAT", icon: "🛠️", color: "#3b82f6" },
-    ])
-    .returning({ id: schema.teams.id, name: schema.teams.name });
-  const podId = (name: string) => podRows.find((p) => p.name === name)!.id;
-
-  // Every workspace member belongs to both pods initially (small team).
-  const wsMembers = await db
-    .select({ userId: schema.workspaceMembers.userId })
-    .from(schema.workspaceMembers)
-    .where(eq(schema.workspaceMembers.workspaceId, ws.id));
-  for (const pod of podRows) {
-    for (const m of wsMembers) {
-      await db
-        .insert(schema.teamMembers)
-        .values({ teamId: pod.id, userId: m.userId })
-        .onConflictDoNothing();
-    }
-  }
-
   // ---- Initiatives ----
   const initiatives = await db
     .insert(schema.initiatives)
@@ -118,13 +94,13 @@ async function main() {
   const init = (name: string) => initiatives.find((i) => i.name === name)?.id ?? null;
 
   // ---- Projects ----
-  // kind=project → owned by a pod, gets department modules + CRM.
-  // kind=operation → internal / back-office, no pod, no departments.
+  // kind=project → gets department modules + CRM.
+  // kind=operation → internal / back-office, no departments.
   await db.insert(schema.projects).values([
-    { workspaceId: ws.id, name: "Healthytica", key: "HLTH", color: "#10b981", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI blood-biomarker health intelligence." },
-    { workspaceId: ws.id, name: "Valytica", key: "VAL", color: "#6366f1", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI valuation management for Indian valuers." },
-    { workspaceId: ws.id, name: "AI Workshop", key: "AIW", color: "#a855f7", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "SaaS LMS for the 30-day AI workshop." },
-    { workspaceId: ws.id, name: "Standup-AI", key: "STDA", color: "#3b82f6", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "Autonomous standup bot." },
+    { workspaceId: ws.id, name: "Healthytica", key: "HLTH", color: "#10b981", kind: "project", initiativeId: init("Revenue FY26"), description: "AI blood-biomarker health intelligence." },
+    { workspaceId: ws.id, name: "Valytica", key: "VAL", color: "#6366f1", kind: "project", initiativeId: init("Revenue FY26"), description: "AI valuation management for Indian valuers." },
+    { workspaceId: ws.id, name: "AI Workshop", key: "AIW", color: "#a855f7", kind: "project", initiativeId: init("Revenue FY26"), description: "SaaS LMS for the 30-day AI workshop." },
+    { workspaceId: ws.id, name: "Standup-AI", key: "STDA", color: "#3b82f6", kind: "project", initiativeId: init("Revenue FY26"), description: "Autonomous standup bot." },
     { workspaceId: ws.id, name: "People & HR", key: "PPL", color: "#ec4899", kind: "operation", initiativeId: init("Hiring"), description: "Hiring, onboarding, the team roster and HR. Confidential." },
     { workspaceId: ws.id, name: "Finance", key: "FIN", color: "#22c55e", kind: "operation", description: "Company finance: payroll, expenses, runway across entities (NL via Odoo). Confidential." },
     { workspaceId: ws.id, name: "Legal & Compliance", key: "LGL", color: "#f59e0b", kind: "operation", description: "Contracts, entity compliance and filings across India and the Netherlands." },

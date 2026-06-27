@@ -344,12 +344,6 @@ async function main() {
     return;
   }
 
-  const [pod] = await db
-    .select({ id: schema.teams.id })
-    .from(schema.teams)
-    .where(and(eq(schema.teams.workspaceId, ws.id), eq(schema.teams.name, "Products")))
-    .limit(1);
-
   // ---- 1. People: users + workspace members + pod members ----
   const userId: Record<string, string> = {};
   for (const p of PEOPLE) {
@@ -371,12 +365,6 @@ async function main() {
       .insert(schema.workspaceMembers)
       .values({ workspaceId: ws.id, userId: u.id, role: p.admin ? "admin" : "member" })
       .onConflictDoNothing();
-    if (p.pod && pod) {
-      await db
-        .insert(schema.teamMembers)
-        .values({ teamId: pod.id, userId: u.id })
-        .onConflictDoNothing();
-    }
   }
   console.log(`People: ${PEOPLE.length} ensured.`);
 
@@ -514,7 +502,6 @@ async function main() {
       await db.insert(schema.issues).values({
         workspaceId: ws.id,
         projectId: project.id,
-        teamId: pod?.id ?? null,
         featureId: feature.id,
         cycleId: cycleByMonth[monthKey(createdAt)] ?? null,
         number: ++issueNum,

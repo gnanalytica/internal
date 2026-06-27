@@ -21,8 +21,6 @@ const TABLES = [
   "projects",
   "labels",
   "cycles",
-  "teams",
-  "team_members",
   "databases",
   "database_fields",
   "database_rows",

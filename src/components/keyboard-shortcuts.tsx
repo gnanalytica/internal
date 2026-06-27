@@ -18,7 +18,6 @@ const GO_TO: Record<string, string> = {
   c: "/cycles",
   r: "/roadmap",
   n: "/inbox",
-  t: "/teams",
   d: "/databases",
   a: "/ask",
   s: "/insights",

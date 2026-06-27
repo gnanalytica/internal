@@ -20,7 +20,6 @@ import type {
   metrics,
   pages,
   projects,
-  teams,
   ticketComments,
   tickets,
   users,
@@ -46,8 +45,6 @@ export type Issue = typeof issues.$inferSelect;
 export type Page = typeof pages.$inferSelect;
 export type Cycle = typeof cycles.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
-export type Team = typeof teams.$inferSelect;
-export type TeamWithCount = Team & { issueCount: number; memberCount: number };
 
 // ---- CRM / Sales / Marketing (Project × Department matrix) ----
 export type CrmAccount = typeof crmAccounts.$inferSelect;
@@ -172,7 +169,6 @@ export type IssueParentRef = {
 export type IssueWithRelations = Issue & {
   project: Project | null;
   cycle: Cycle | null;
-  team: Team | null;
   assignee: Member | null;
   labels: Label[];
 };
@@ -199,7 +195,7 @@ export type ProjectWithIssueCount = Project & {
 
 export type ProjectDetail = Project & {
   initiative: Initiative | null;
-  ownerTeam: Team | null;
+  owner: Member | null;
   issues: IssueWithRelations[];
 };
 
@@ -351,7 +347,6 @@ export type SearchResultKind =
   | "project"
   | "initiative"
   | "database"
-  | "team"
   | "cycle";
 
 export type SearchResult = {

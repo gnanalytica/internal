@@ -290,12 +290,6 @@ export function Sidebar({
           label="Insights"
         />
         <NavItem
-          href="/teams"
-          active={pathname.startsWith("/teams")}
-          icon={<Users className="size-4" />}
-          label="Teams"
-        />
-        <NavItem
           href="/databases"
           active={pathname.startsWith("/databases")}
           icon={<Database className="size-4" />}

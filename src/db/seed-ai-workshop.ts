@@ -296,12 +296,6 @@ async function main() {
     .limit(1);
   if (!project) return console.log("No 'AI Workshop' project found.");
 
-  const [pod] = await db
-    .select({ id: schema.teams.id })
-    .from(schema.teams)
-    .where(and(eq(schema.teams.workspaceId, ws.id), eq(schema.teams.name, "Products")))
-    .limit(1);
-
   const users = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users);
   const userByEmail = new Map(users.map((u) => [u.email, u.id]));
   const uid = (k: string) => userByEmail.get(KEY[k]) ?? null;
@@ -385,7 +379,6 @@ async function main() {
       await db.insert(schema.issues).values({
         workspaceId: ws.id,
         projectId: project.id,
-        teamId: pod?.id ?? null,
         featureId: feature.id,
         cycleId: cycleByMonth[monthKey(createdAt)] ?? null,
         number: ++issueNum,

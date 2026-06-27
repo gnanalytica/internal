@@ -16,7 +16,6 @@ import {
   Target,
   Timer,
   TrendingUp,
-  Users,
 } from "lucide-react";
 
 import {
@@ -39,7 +38,6 @@ const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
   project: <Folder className="size-4 text-muted-foreground" />,
   initiative: <Target className="size-4 text-muted-foreground" />,
   database: <Database className="size-4 text-muted-foreground" />,
-  team: <Users className="size-4 text-muted-foreground" />,
   cycle: <Timer className="size-4 text-muted-foreground" />,
 };
 
@@ -49,7 +47,6 @@ const KIND_GROUP: Record<SearchResultKind, string> = {
   project: "Projects",
   initiative: "Initiatives",
   database: "Databases",
-  team: "Teams",
   cycle: "Cycles",
 };
 
@@ -59,7 +56,6 @@ const GROUP_ORDER: SearchResultKind[] = [
   "project",
   "initiative",
   "database",
-  "team",
   "cycle",
 ];
 
@@ -72,7 +68,6 @@ const NAV = [
   { label: "Analytics", href: "/analytics", icon: <BarChart3 className={ic} /> },
   { label: "Cycles", href: "/cycles", icon: <Timer className={ic} /> },
   { label: "Initiatives", href: "/initiatives", icon: <Target className={ic} /> },
-  { label: "Teams", href: "/teams", icon: <Users className={ic} /> },
   { label: "Databases", href: "/databases", icon: <Database className={ic} /> },
   { label: "Marketing", href: "/marketing", icon: <Megaphone className={ic} /> },
   { label: "Sales", href: "/sales", icon: <TrendingUp className={ic} /> },

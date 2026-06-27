@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Timer, Users } from "lucide-react";
+import { Check, Timer } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -17,7 +17,7 @@ import {
   type PriorityId,
   type StatusId,
 } from "@/lib/constants";
-import type { Cycle, Initiative, Label, Member, Project, Team } from "@/lib/types";
+import type { Cycle, Initiative, Label, Member, Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const triggerCls =
@@ -306,54 +306,6 @@ export function CyclePicker({
         ))}
         {cycles.length === 0 && (
           <div className="px-2 py-1.5 text-xs text-muted-foreground">No cycles yet</div>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-export function TeamPicker({
-  teams,
-  value,
-  onChange,
-  compact,
-}: {
-  teams: Team[];
-  value: string | null;
-  onChange: (v: string | null) => void;
-  compact?: boolean;
-}) {
-  const t = teams.find((x) => x.id === value) ?? null;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className={triggerCls} aria-label="Set team">
-        {t ? (
-          <span className="text-sm leading-none">{t.icon}</span>
-        ) : (
-          <Users className="size-3.5 text-muted-foreground" />
-        )}
-        {!compact && <span>{t ? t.name : "No team"}</span>}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-52">
-        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
-          <Users className="size-3.5 text-muted-foreground" />
-          <span className="flex-1">No team</span>
-          {!value && <Check className="size-3.5 opacity-70" />}
-        </DropdownMenuItem>
-        {teams.map((tm) => (
-          <DropdownMenuItem
-            key={tm.id}
-            onClick={() => onChange(tm.id)}
-            className="gap-2 text-xs"
-          >
-            <span className="text-sm leading-none">{tm.icon}</span>
-            <span className="flex-1 truncate">{tm.name}</span>
-            <span className="font-mono text-[10px] text-muted-foreground">{tm.key}</span>
-            {value === tm.id && <Check className="size-3.5 opacity-70" />}
-          </DropdownMenuItem>
-        ))}
-        {teams.length === 0 && (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">No teams yet</div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -40,8 +40,6 @@ import {
   savedViews,
   pages,
   projects,
-  teamMembers,
-  teams,
   ticketComments,
   tickets,
   users,
@@ -458,7 +456,6 @@ export async function updateIssue(
     assigneeId: string | null;
     projectId: string | null;
     cycleId: string | null;
-    teamId: string | null;
     parentId: string | null;
     dueDate: string | null;
     estimate: number | null;
@@ -486,7 +483,6 @@ export async function updateIssue(
   if (patch.assigneeId !== undefined) values.assigneeId = patch.assigneeId;
   if (patch.projectId !== undefined) values.projectId = patch.projectId;
   if (patch.cycleId !== undefined) values.cycleId = patch.cycleId;
-  if (patch.teamId !== undefined) values.teamId = patch.teamId;
   if (patch.parentId !== undefined) values.parentId = patch.parentId;
   if (patch.dueDate !== undefined)
     values.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
@@ -837,7 +833,7 @@ export async function createProject(input: {
   name: string;
   key?: string;
   kind?: "project" | "operation";
-  ownerTeamId?: string | null;
+  ownerId?: string | null;
 }) {
   const ws = await getWorkspace();
   const name = input.name.trim() || "New project";
@@ -863,7 +859,7 @@ export async function createProject(input: {
       key,
       color: PROJECT_COLORS[taken.size % PROJECT_COLORS.length],
       kind: input.kind ?? "project",
-      ownerTeamId: input.ownerTeamId ?? null,
+      ownerId: input.ownerId ?? null,
     })
     .returning();
   await dispatchWebhook(ws.id, "project.created", {
@@ -954,60 +950,6 @@ export async function deleteProject(id: string) {
   revalidatePath("/", "layout");
 }
 
-// ---- Teams ----
-
-export async function createTeam(input: { name: string; key?: string }) {
-  const ws = await getWorkspace();
-  const me = await getCurrentUser();
-  const name = input.name.trim() || "New team";
-  const key =
-    (input.key?.trim() || name.slice(0, 4))
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, "")
-      .slice(0, 5) || "TEAM";
-  const [team] = await db
-    .insert(teams)
-    .values({ workspaceId: ws.id, name, key })
-    .returning();
-  await db
-    .insert(teamMembers)
-    .values({ teamId: team.id, userId: me.id })
-    .onConflictDoNothing();
-  revalidatePath("/teams");
-  return team;
-}
-
-export async function updateTeam(
-  id: string,
-  patch: Partial<{ name: string; key: string; color: string; icon: string }>,
-) {
-  const ws = await getWorkspace();
-  await db
-    .update(teams)
-    .set(patch)
-    .where(and(eq(teams.workspaceId, ws.id), eq(teams.id, id)));
-  revalidatePath("/teams");
-  revalidatePath(`/teams/${id}`);
-}
-
-export async function deleteTeam(id: string) {
-  const ws = await getWorkspace();
-  await requireAdmin(ws.id);
-  await db.delete(teams).where(and(eq(teams.workspaceId, ws.id), eq(teams.id, id)));
-  revalidatePath("/teams");
-}
-
-export async function addTeamMember(teamId: string, userId: string) {
-  await db.insert(teamMembers).values({ teamId, userId }).onConflictDoNothing();
-  revalidatePath(`/teams/${teamId}`);
-}
-
-export async function removeTeamMember(teamId: string, userId: string) {
-  await db
-    .delete(teamMembers)
-    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
-  revalidatePath(`/teams/${teamId}`);
-}
 
 // ---- Databases ----
 
@@ -1702,7 +1644,6 @@ export async function searchWorkspace(
     projectRows,
     initiativeRows,
     databaseRows_,
-    teamRows,
     cycleRows,
   ] = await Promise.all([
     db
@@ -1752,16 +1693,6 @@ export async function searchWorkspace(
       .select({ id: databases.id, name: databases.name, icon: databases.icon })
       .from(databases)
       .where(and(eq(databases.workspaceId, ws.id), ilike(databases.name, term)))
-      .limit(LIMIT),
-    db
-      .select({ id: teams.id, name: teams.name, key: teams.key, icon: teams.icon })
-      .from(teams)
-      .where(
-        and(
-          eq(teams.workspaceId, ws.id),
-          or(ilike(teams.name, term), ilike(teams.key, term)),
-        ),
-      )
       .limit(LIMIT),
     db
       .select({ id: cycles.id, name: cycles.name, number: cycles.number })
@@ -1815,16 +1746,6 @@ export async function searchWorkspace(
       title: r.name,
       icon: r.icon,
       href: `/databases/${r.id}`,
-    });
-  }
-  for (const r of teamRows) {
-    results.push({
-      kind: "team",
-      id: r.id,
-      title: r.name,
-      subtitle: r.key,
-      icon: r.icon,
-      href: `/teams/${r.id}`,
     });
   }
   for (const r of cycleRows) {
