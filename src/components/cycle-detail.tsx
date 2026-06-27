@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { deleteCycle } from "@/lib/actions";
+import { deleteCycle, updateCycle } from "@/lib/actions";
 import { STATUSES } from "@/lib/constants";
 import type { Cycle, IssueWithRelations, Member } from "@/lib/types";
 import { cycleStatus } from "@/lib/types";
@@ -30,7 +30,15 @@ export function CycleDetail({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [name, setName] = useState(cycle.name);
   const now = new Date();
+
+  const persist = (patch: Parameters<typeof updateCycle>[1]) =>
+    startTransition(async () => {
+      await updateCycle(cycle.id, patch);
+      router.refresh();
+    });
+  const toInputDate = (d: Date | string) => format(new Date(d), "yyyy-MM-dd");
   const status = cycleStatus(cycle, now);
   const done = cycle.issues.filter((i) => i.status === "done").length;
   const pct = cycle.issues.length ? Math.round((done / cycle.issues.length) * 100) : 0;
@@ -44,7 +52,7 @@ export function CycleDetail({
     startTransition(async () => {
       await deleteCycle(cycle.id);
       toast.success("Cycle deleted");
-      router.push("/cycles");
+      router.push("/weekly");
       router.refresh();
     });
   }
@@ -75,15 +83,37 @@ export function CycleDetail({
       {/* Header */}
       <div className="border-b px-6 py-4">
         <div className="flex items-center gap-2">
-          <Timer className="size-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">{cycle.name}</h1>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">
+          <Timer className="size-5 shrink-0 text-muted-foreground" />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => {
+              const trimmed = name.trim() || cycle.name;
+              if (trimmed !== cycle.name) persist({ name: trimmed });
+            }}
+            className="min-w-0 flex-1 rounded-md bg-transparent text-lg font-semibold focus:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring/40"
+            aria-label="Cycle name"
+          />
+          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">
             {status}
           </span>
         </div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          {format(new Date(cycle.startDate), "MMM d")} –{" "}
-          {format(new Date(cycle.endDate), "MMM d, yyyy")}
+        <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="date"
+            defaultValue={toInputDate(cycle.startDate)}
+            onChange={(e) => e.target.value && persist({ startDate: e.target.value })}
+            className="rounded-md border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/40"
+            aria-label="Start date"
+          />
+          <span>–</span>
+          <input
+            type="date"
+            defaultValue={toInputDate(cycle.endDate)}
+            onChange={(e) => e.target.value && persist({ endDate: e.target.value })}
+            className="rounded-md border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/40"
+            aria-label="End date"
+          />
         </div>
         <div className="mt-3 flex max-w-md items-center gap-3">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">

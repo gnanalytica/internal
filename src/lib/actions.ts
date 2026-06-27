@@ -805,14 +805,16 @@ export async function updateCycle(
     .update(cycles)
     .set(values)
     .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
-  revalidatePath("/cycles");
   revalidatePath(`/cycles/${id}`);
+  revalidatePath("/weekly");
+  revalidatePath("/", "layout");
 }
 
 export async function deleteCycle(id: string) {
   const ws = await getWorkspace();
   await db.delete(cycles).where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
-  revalidatePath("/cycles");
+  revalidatePath("/weekly");
+  revalidatePath("/", "layout");
 }
 
 

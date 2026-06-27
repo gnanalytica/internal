@@ -44,6 +44,7 @@ import {
   setFieldWidth,
   updateCell,
   updateDatabase,
+  updateField,
 } from "@/lib/actions";
 import { filterRows, sortRows, type SortDir } from "@/lib/database-filters";
 import { computeRollup, relationCellIds, rowLabel } from "@/lib/database-rollup";
@@ -382,7 +383,15 @@ function TableView({
                     <span className="text-[10px] text-muted-foreground">
                       {FIELD_TYPES.find((t) => t.id === f.type)?.icon}
                     </span>
-                    <span className="truncate">{f.name}</span>
+                    <input
+                      defaultValue={f.name}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== f.name) persist(() => updateField(f.id, database.id, { name: v }));
+                      }}
+                      className="min-w-0 flex-1 truncate rounded bg-transparent font-medium focus:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                      aria-label={`Rename ${f.name}`}
+                    />
                     <button
                       onClick={() => persist(() => deleteField(f.id, database.id))}
                       className="ml-auto text-muted-foreground opacity-0 hover:text-destructive group-hover/h:opacity-100"
