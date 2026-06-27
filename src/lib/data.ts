@@ -33,6 +33,7 @@ import {
   issues,
   labels,
   metricPoints,
+  milestones,
   metrics,
   notifications,
   pages,
@@ -69,6 +70,7 @@ import type {
   Member,
   MemberWithRole,
   MetricWithRelations,
+  MilestoneWithProgress,
   Page,
   PageNode,
   Project,
@@ -1374,6 +1376,7 @@ export async function getFeatures(
     orderBy: [asc(features.sortKey), desc(features.createdAt)],
     with: {
       project: true,
+      milestone: { columns: { id: true, name: true } },
       owner: true,
       page: { columns: { id: true, title: true, icon: true } },
     },
@@ -1411,6 +1414,80 @@ export async function getFeatures(
   });
 }
 
+/**
+ * Milestones (release phases) for a project, each with its feature count and
+ * issue-progress rollup (issues under the milestone's features; canceled
+ * excluded). Ordered by sort key, then target date.
+ */
+export async function getMilestones(
+  workspaceId: string,
+  projectId: string,
+): Promise<MilestoneWithProgress[]> {
+  const ms = await db
+    .select()
+    .from(milestones)
+    .where(and(eq(milestones.workspaceId, workspaceId), eq(milestones.projectId, projectId)))
+    .orderBy(asc(milestones.sortKey), asc(milestones.targetDate));
+  if (ms.length === 0) return [];
+
+  // Features assigned to these milestones (id → milestoneId).
+  const feats = await db
+    .select({ id: features.id, milestoneId: features.milestoneId })
+    .from(features)
+    .where(
+      and(
+        eq(features.workspaceId, workspaceId),
+        inArray(
+          features.milestoneId,
+          ms.map((m) => m.id),
+        ),
+      ),
+    );
+  const milestoneOfFeature = new Map(feats.map((f) => [f.id, f.milestoneId]));
+  const featureCount = new Map<string, number>();
+  for (const f of feats) {
+    if (f.milestoneId) featureCount.set(f.milestoneId, (featureCount.get(f.milestoneId) ?? 0) + 1);
+  }
+
+  // Issue progress under those features, attributed up to the milestone.
+  const prog = new Map<string, { done: number; total: number }>();
+  if (feats.length > 0) {
+    const counts = await db
+      .select({ featureId: issues.featureId, status: issues.status })
+      .from(issues)
+      .where(
+        and(
+          eq(issues.workspaceId, workspaceId),
+          inArray(
+            issues.featureId,
+            feats.map((f) => f.id),
+          ),
+        ),
+      );
+    for (const c of counts) {
+      const mid = c.featureId ? milestoneOfFeature.get(c.featureId) : null;
+      if (!mid || c.status === "canceled") continue;
+      const e = prog.get(mid) ?? { done: 0, total: 0 };
+      e.total += 1;
+      if (c.status === "done") e.done += 1;
+      prog.set(mid, e);
+    }
+  }
+
+  return ms.map((m) => {
+    const e = prog.get(m.id) ?? { done: 0, total: 0 };
+    return {
+      ...m,
+      featureCount: featureCount.get(m.id) ?? 0,
+      progress: {
+        done: e.done,
+        total: e.total,
+        pct: e.total ? Math.round((e.done / e.total) * 100) : 0,
+      },
+    };
+  });
+}
+
 /** A single feature with its linked issues (for progress rollup). */
 export async function getFeature(
   workspaceId: string,
@@ -1420,6 +1497,7 @@ export async function getFeature(
     where: and(eq(features.workspaceId, workspaceId), eq(features.id, id)),
     with: {
       project: true,
+      milestone: { columns: { id: true, name: true } },
       owner: true,
       page: { columns: { id: true, title: true, icon: true } },
       issues: {

@@ -1161,6 +1161,44 @@ export const ticketCommentsRelations = relations(ticketComments, ({ one }) => ({
   author: one(users, { fields: [ticketComments.authorId], references: [users.id] }),
 }));
 
+/**
+ * ---- Milestones (project phases: MVP / v1.0 / Phase 1) ----
+ *
+ * A dated, named checkpoint *within* a project that bundles features toward a
+ * release. Sits between Project and Feature: Project → Milestone → Feature →
+ * Issue. Progress rolls up from the issues under the milestone's features.
+ */
+export const milestones = pgTable(
+  "milestones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    targetDate: timestamp("target_date", { withTimezone: true }),
+    sortKey: text("sort_key").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("milestones_project_idx").on(t.projectId)],
+);
+
+export const milestonesRelations = relations(milestones, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [milestones.workspaceId],
+    references: [workspaces.id],
+  }),
+  project: one(projects, {
+    fields: [milestones.projectId],
+    references: [projects.id],
+  }),
+  features: many(features),
+}));
+
 // ---- Features department (PM unit above engineering issues) ----
 export const features = pgTable(
   "features",
@@ -1170,6 +1208,10 @@ export const features = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    // The release phase this feature belongs to (null = unscheduled).
+    milestoneId: uuid("milestone_id").references(() => milestones.id, {
+      onDelete: "set null",
+    }),
     title: text("title").notNull(),
     status: text("status").notNull().default("idea"), // idea|planned|building|shipped|archived
     startDate: timestamp("start_date", { withTimezone: true }),
@@ -1184,12 +1226,17 @@ export const features = pgTable(
   (t) => [
     index("features_ws_idx").on(t.workspaceId),
     index("features_project_idx").on(t.projectId),
+    index("features_milestone_idx").on(t.milestoneId),
   ],
 );
 
 export const featuresRelations = relations(features, ({ one, many }) => ({
   workspace: one(workspaces, { fields: [features.workspaceId], references: [workspaces.id] }),
   project: one(projects, { fields: [features.projectId], references: [projects.id] }),
+  milestone: one(milestones, {
+    fields: [features.milestoneId],
+    references: [milestones.id],
+  }),
   owner: one(users, { fields: [features.ownerId], references: [users.id] }),
   page: one(pages, { fields: [features.pageId], references: [pages.id] }),
   issues: many(issues),
