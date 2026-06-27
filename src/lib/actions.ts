@@ -233,7 +233,8 @@ export async function inviteMember(input: {
       role: input.role === "admin" ? "admin" : "member",
     })
     .onConflictDoNothing();
-  revalidatePath("/members");
+  // People & HR (the members home) lives at /projects/[PPL]; refresh the shell.
+  revalidatePath("/", "layout");
 }
 
 export async function setMemberRole(userId: string, role: string) {
@@ -287,6 +288,17 @@ export async function removeMember(userId: string) {
   const me = await getCurrentUser(ws.id);
   if (userId === me.id) throw new Error("You can't remove yourself.");
   await ensureNotLastAdmin(ws.id, userId);
+  // Detach reports first: managerId → users.id only SET NULLs on user delete,
+  // not on membership removal, so clear it here to avoid a dangling manager.
+  await db
+    .update(workspaceMembers)
+    .set({ managerId: null })
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ws.id),
+        eq(workspaceMembers.managerId, userId),
+      ),
+    );
   await db
     .delete(workspaceMembers)
     .where(
@@ -295,7 +307,7 @@ export async function removeMember(userId: string) {
         eq(workspaceMembers.userId, userId),
       ),
     );
-  revalidatePath("/members");
+  revalidatePath("/", "layout");
 }
 
 // ---- Issues ----
