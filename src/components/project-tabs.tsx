@@ -11,14 +11,20 @@ import type { Project } from "@/lib/types";
 export function ProjectTabs({ project, isAdmin = false }: { project: Project; isAdmin?: boolean }) {
   const pathname = usePathname();
   const base = `/projects/${project.id}`;
-  const tabs = [
-    { href: base, label: "Overview" },
-    ...visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map((d) => ({
-      href: `${base}/${d.slug}`,
-      label: d.label,
-    })),
-    { href: `${base}/docs`, label: "Docs" },
-  ];
+  // Operations have no departments — just Overview + Docs.
+  const tabs =
+    project.kind === "operation"
+      ? [
+          { href: base, label: "Overview" },
+          { href: `${base}/docs`, label: "Docs" },
+        ]
+      : [
+          { href: base, label: "Overview" },
+          ...visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map(
+            (d) => ({ href: `${base}/${d.slug}`, label: d.label }),
+          ),
+          { href: `${base}/docs`, label: "Docs" },
+        ];
   return (
     <div className="flex items-center gap-1 border-b px-4 pt-2.5">
       <div className="mr-3 flex items-center gap-2">

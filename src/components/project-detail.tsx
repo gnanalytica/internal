@@ -250,9 +250,17 @@ export function ProjectDetail({
           {/* Databases (e.g. Tools & Subscriptions under IT) */}
           {databases.length > 0 && (
             <div className="mt-8">
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Databases
-              </h2>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Databases
+                </h2>
+                <Link
+                  href="/databases"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  All databases →
+                </Link>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {databases.map((d) => (
                   <Link

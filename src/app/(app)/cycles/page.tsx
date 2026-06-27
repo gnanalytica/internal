@@ -1,8 +1,7 @@
-import { CyclesView } from "@/components/cycles-view";
-import { getCycles, getWorkspace } from "@/lib/data";
+import { redirect } from "next/navigation";
 
-export default async function CyclesPage() {
-  const ws = await getWorkspace();
-  const cycles = await getCycles(ws.id);
-  return <CyclesView cycles={cycles} />;
+// Cycles are project-scoped (each project's Engineering → Cycles). The company
+// view is the Weekly rollup, so the old standalone list redirects there.
+export default function CyclesPage() {
+  redirect("/weekly");
 }
