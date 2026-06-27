@@ -129,6 +129,17 @@ export function PageView({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onClick={() => {
+                    void navigator.clipboard?.writeText(
+                      `${window.location.origin}/pages/${page.id}`,
+                    );
+                    toast.success("Link copied");
+                  }}
+                  className="gap-2"
+                >
+                  <Link2 className="size-4" /> Copy link
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
                     const md = `# ${title || "Untitled"}\n\n${docToMarkdown(page.content)}`;
                     downloadText(`${slugifyFilename(title)}.md`, md, "text/markdown");
                   }}

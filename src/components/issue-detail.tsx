@@ -19,7 +19,6 @@ import { RichEditor } from "@/components/editor/rich-editor";
 import { GitHubIcon } from "@/components/auth/provider-icons";
 import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
-import { IssueAttachments } from "@/components/issue-attachments";
 import { IssueTimeline } from "@/components/issue-timeline";
 import {
   AssigneePicker,
@@ -65,7 +64,6 @@ import { cn } from "@/lib/utils";
 import { issueIdentifier } from "@/lib/types";
 import { Backlinks } from "@/components/backlinks";
 import type {
-  Attachment,
   BacklinkItem,
   Cycle,
   FlatIssue,
@@ -98,8 +96,6 @@ export function IssueDetail({
   features,
   timeline,
   githubConnected,
-  attachments,
-  attachmentsEnabled,
   favorited,
   relations,
   allIssues,
@@ -115,8 +111,6 @@ export function IssueDetail({
   features: { id: string; title: string }[];
   timeline: TimelineItem[];
   githubConnected: boolean;
-  attachments: Attachment[];
-  attachmentsEnabled: boolean;
   favorited: boolean;
   relations: RelationItem[];
   allIssues: FlatIssue[];
@@ -133,6 +127,11 @@ export function IssueDetail({
       await fn();
       router.refresh();
     });
+
+  const copyLink = () => {
+    void navigator.clipboard?.writeText(`${window.location.origin}/issues/${issue.id}`);
+    toast.success("Link copied");
+  };
 
   const linkedIds = new Set(issue.linkedPages.map((p) => p.id));
   const linkable = allPages.filter((p) => !linkedIds.has(p.id));
@@ -154,6 +153,9 @@ export function IssueDetail({
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={copyLink} className="gap-2">
+                <Link2 className="size-4" /> Copy link
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
                   persist(async () => {
@@ -216,16 +218,6 @@ export function IssueDetail({
                 parentId={issue.id}
                 parentProjectId={issue.projectId}
                 subIssues={issue.subIssues}
-                onChange={() => router.refresh()}
-              />
-            </div>
-
-            {/* Relations */}
-            <div className="mt-10 border-t pt-5">
-              <IssueRelations
-                issueId={issue.id}
-                relations={relations}
-                allIssues={allIssues}
                 onChange={() => router.refresh()}
               />
             </div>
@@ -294,15 +286,6 @@ export function IssueDetail({
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Attachments */}
-            <div className="mt-10 border-t pt-5">
-              <IssueAttachments
-                issueId={issue.id}
-                attachments={attachments}
-                enabled={attachmentsEnabled}
-              />
             </div>
 
             {/* Backlinks */}
@@ -450,6 +433,16 @@ export function IssueDetail({
               ))}
             </div>
           )}
+
+          {/* Relations live with the other metadata (Linear-style). */}
+          <div className="mt-4 border-t pt-3">
+            <IssueRelations
+              issueId={issue.id}
+              relations={relations}
+              allIssues={allIssues}
+              onChange={() => router.refresh()}
+            />
+          </div>
 
           <div className="mt-4 border-t pt-3 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-1.5">
