@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import {
-  AssigneePicker,
   LabelChip,
+  MultiAssigneePicker,
   PriorityPicker,
   StatusPicker,
 } from "@/components/pickers";
 import { IssueContextMenu } from "@/components/issue-context-menu";
-import { updateIssue } from "@/lib/actions";
+import { setIssueAssignees, updateIssue } from "@/lib/actions";
 import { formatDue, isOverdue } from "@/lib/issue-dates";
 import type { IssueWithRelations, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
@@ -118,10 +118,10 @@ export function IssueRow({
       </span>
 
       <div className="shrink-0">
-        <AssigneePicker
+        <MultiAssigneePicker
           members={members}
-          value={issue.assigneeId}
-          onChange={(v) => persist(() => updateIssue(issue.id, { assigneeId: v }))}
+          value={issue.assignees.map((a) => a.id)}
+          onChange={(ids) => persist(() => setIssueAssignees(issue.id, ids))}
           compact
         />
       </div>

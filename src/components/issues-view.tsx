@@ -44,6 +44,7 @@ import {
   createSavedView,
   deleteIssue,
   deleteSavedView,
+  setIssueAssignees,
   updateIssue,
 } from "@/lib/actions";
 import { issuesToCsv } from "@/lib/csv";
@@ -531,7 +532,7 @@ export function IssuesView({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
                 <DropdownMenuItem
-                  onClick={() => bulkApply((id) => updateIssue(id, { assigneeId: null }))}
+                  onClick={() => bulkApply((id) => setIssueAssignees(id, []))}
                   className="gap-2 text-xs text-muted-foreground"
                 >
                   Unassign
@@ -539,7 +540,7 @@ export function IssuesView({
                 {members.map((m) => (
                   <DropdownMenuItem
                     key={m.id}
-                    onClick={() => bulkApply((id) => updateIssue(id, { assigneeId: m.id }))}
+                    onClick={() => bulkApply((id) => setIssueAssignees(id, [m.id]))}
                     className="gap-2 text-xs"
                   >
                     <UserAvatar name={m.name} color={m.avatarColor} className="size-4 text-[8px]" />

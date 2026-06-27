@@ -40,12 +40,23 @@ export function activeFilterCount(f: IssueFilters): number {
 
 /** Whether a single issue passes all active filter dimensions (AND across dimensions). */
 export function matchesFilters(
-  issue: Pick<IssueWithRelations, "status" | "priority" | "assigneeId" | "labels">,
+  issue: Pick<IssueWithRelations, "status" | "priority" | "assigneeId" | "labels"> & {
+    assignees?: { id: string }[];
+  },
   f: IssueFilters,
 ): boolean {
   if (f.status.size && !f.status.has(issue.status)) return false;
   if (f.priority.size && !f.priority.has(issue.priority)) return false;
-  if (f.assignee.size && !f.assignee.has(issue.assigneeId ?? "none")) return false;
+  if (f.assignee.size) {
+    // Match if any assignee is selected (or "none" for unassigned). Falls back
+    // to the primary assigneeId when the full set isn't loaded.
+    const ids = issue.assignees?.length
+      ? issue.assignees.map((a) => a.id)
+      : issue.assigneeId
+        ? [issue.assigneeId]
+        : ["none"];
+    if (!ids.some((id) => f.assignee.has(id))) return false;
+  }
   if (f.label.size && !issue.labels.some((l) => f.label.has(l.id))) return false;
   return true;
 }

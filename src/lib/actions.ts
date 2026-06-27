@@ -27,6 +27,7 @@ import {
   features,
   feedback,
   invoices,
+  issueAssignees,
   issueLabels,
   issuePageLinks,
   issueRelations,
@@ -354,6 +355,14 @@ export async function createIssue(input: {
     })
     .returning();
 
+  // Mirror the primary assignee into the assignee set.
+  if (input.assigneeId) {
+    await db
+      .insert(issueAssignees)
+      .values({ issueId: created.id, userId: input.assigneeId })
+      .onConflictDoNothing();
+  }
+
   await db.insert(activity).values({
     workspaceId: ws.id,
     issueId: created.id,
@@ -593,6 +602,51 @@ export async function deleteIssue(id: string) {
   await db.delete(issues).where(and(eq(issues.workspaceId, ws.id), eq(issues.id, id)));
   await dispatchWebhook(ws.id, "issue.deleted", { id });
   revalidatePath("/issues");
+}
+
+/** Replace an issue's assignee set; keeps issues.assigneeId as the primary. */
+export async function setIssueAssignees(issueId: string, userIds: string[]) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const ids = [...new Set(userIds)];
+  const [before] = await db
+    .select({ title: issues.title })
+    .from(issues)
+    .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)))
+    .limit(1);
+  const existing = await db
+    .select({ userId: issueAssignees.userId })
+    .from(issueAssignees)
+    .where(eq(issueAssignees.issueId, issueId));
+  const had = new Set(existing.map((e) => e.userId));
+
+  await db.delete(issueAssignees).where(eq(issueAssignees.issueId, issueId));
+  if (ids.length) {
+    await db.insert(issueAssignees).values(ids.map((userId) => ({ issueId, userId })));
+  }
+  // Primary assignee = first of the set (drives sort/group/board avatar).
+  await db
+    .update(issues)
+    .set({ assigneeId: ids[0] ?? null, updatedAt: new Date() })
+    .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)));
+
+  // Notify newly added assignees (not the actor).
+  const added = ids.filter((uid) => !had.has(uid) && uid !== me.id);
+  if (added.length) {
+    await db.insert(notifications).values(
+      added.map((uid) => ({
+        workspaceId: ws.id,
+        userId: uid,
+        actorId: me.id,
+        type: "assigned",
+        issueId,
+        title: `${me.name} assigned you an issue`,
+        body: before?.title ?? null,
+      })),
+    );
+  }
+  revalidatePath("/issues");
+  revalidatePath(`/issues/${issueId}`);
 }
 
 export async function setIssueLabels(issueId: string, labelIds: string[]) {

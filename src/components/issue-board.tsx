@@ -21,9 +21,9 @@ import { useMemo, useState } from "react";
 
 import { CalendarClock } from "lucide-react";
 
-import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
+import { PriorityIcon, StatusIcon } from "@/components/glyphs";
 import { IssueContextMenu } from "@/components/issue-context-menu";
-import { LabelChip } from "@/components/pickers";
+import { AvatarStack, LabelChip } from "@/components/pickers";
 import { STATUSES, type StatusId, type PriorityId } from "@/lib/constants";
 import { formatDue, isOverdue } from "@/lib/issue-dates";
 import type { IssueWithRelations, Member } from "@/lib/types";
@@ -200,7 +200,6 @@ function BoardCard({
   members: Member[];
   overlay?: boolean;
 }) {
-  const assignee = members.find((m) => m.id === issue.assigneeId) ?? null;
   const card = (
     <div
       className={cn(
@@ -213,13 +212,7 @@ function BoardCard({
           {issueIdentifier(issue)}
         </span>
         <PriorityIcon priority={issue.priority as PriorityId} className="ml-auto" />
-        {assignee && (
-          <UserAvatar
-            name={assignee.name}
-            color={assignee.avatarColor}
-            className="size-4 text-[8px]"
-          />
-        )}
+        {issue.assignees.length > 0 && <AvatarStack members={issue.assignees} max={3} />}
       </div>
       <Link
         href={`/issues/${issue.id}`}
