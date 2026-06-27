@@ -833,7 +833,7 @@ const PROJECT_COLORS = [
 export async function createProject(input: {
   name: string;
   key?: string;
-  kind?: "product" | "ops";
+  kind?: "project" | "operation";
   ownerTeamId?: string | null;
 }) {
   const ws = await getWorkspace();
@@ -859,7 +859,7 @@ export async function createProject(input: {
       name,
       key,
       color: PROJECT_COLORS[taken.size % PROJECT_COLORS.length],
-      kind: input.kind ?? "product",
+      kind: input.kind ?? "project",
       ownerTeamId: input.ownerTeamId ?? null,
     })
     .returning();
@@ -1855,7 +1855,7 @@ function revalidateMatrix(projectId?: string | null) {
 const toDate = (v?: string | null): Date | null => (v ? new Date(v) : null);
 
 /**
- * Configure which department modules a product shows. Pass the enabled slugs;
+ * Configure which department modules a project shows. Pass the enabled slugs;
  * when every department is enabled we store `null` to keep the "all on by
  * default" (auto-spawn) semantics. Engineering/Sales/Marketing/Finance/Support.
  */

@@ -19,7 +19,7 @@ export default async function ProjectFeaturesPage({
 
   return (
     <FeaturesView
-      heading={`${project.name} · Product`}
+      heading={`${project.name} · Features`}
       features={features}
       nowISO={new Date().toISOString()}
       scopeProjectId={id}

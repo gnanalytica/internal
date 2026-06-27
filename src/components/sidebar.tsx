@@ -382,21 +382,21 @@ export function Sidebar({
           }
         >
           {projects
-            .filter((p) => p.kind === "product")
+            .filter((p) => p.kind === "project")
             .map((p) => (
               <ProjectNavItem key={p.id} project={p} pathname={pathname} />
             ))}
         </Section>
 
         {/* Operations — back-office projects, no department modules */}
-        {projects.some((p) => p.kind === "ops") && (
+        {projects.some((p) => p.kind === "operation") && (
           <Section
             title="Operations"
             open={showOps}
             onToggle={() => setShowOps((v) => !v)}
           >
             {projects
-              .filter((p) => p.kind === "ops")
+              .filter((p) => p.kind === "operation")
               .map((p) => (
                 <NavItem
                   key={p.id}

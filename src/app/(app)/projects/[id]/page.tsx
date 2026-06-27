@@ -27,8 +27,8 @@ export default async function ProjectRoute({
   const project = await getProject(ws.id, id);
   if (!project) notFound();
 
-  // Operations / non-product projects: the simple project detail view.
-  if (project.kind !== "product") {
+  // Operations: the simple detail view (no departments).
+  if (project.kind !== "project") {
     const [members, role, favorited, statusUpdates, backlinks] = await Promise.all([
       getMembers(ws.id),
       getMyRole(ws.id),
@@ -48,7 +48,7 @@ export default async function ProjectRoute({
     );
   }
 
-  // Product projects: the department overview hub.
+  // Projects: the department overview hub.
   const summary = (await getProjectSummaries(ws.id)).find((p) => p.id === id);
   if (!summary) notFound();
 

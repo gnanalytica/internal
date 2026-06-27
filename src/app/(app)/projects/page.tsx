@@ -7,6 +7,6 @@ export default async function ProjectsPage() {
     getProjectSummaries(ws.id),
     getProjectsWithCounts(ws.id),
   ]);
-  const ops = all.filter((p) => p.kind === "ops");
+  const ops = all.filter((p) => p.kind === "operation");
   return <ProjectsView projects={projects} ops={ops} />;
 }

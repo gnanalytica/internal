@@ -17,8 +17,8 @@ export default async function ProjectLayout({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Department tabs only apply to product projects; ops projects render flat. */}
-      {project.kind === "product" && <ProjectTabs project={project} />}
+      {/* Department tabs only apply to projects; operations render flat. */}
+      {project.kind === "project" && <ProjectTabs project={project} />}
       <div className="min-h-0 flex-1">{children}</div>
     </div>
   );

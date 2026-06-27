@@ -115,7 +115,7 @@ export type TicketWithRelations = Ticket & {
 
 export type TicketCommentWithAuthor = TicketComment & { author: Member | null };
 
-/** A product (project) plus the counts shown on the project hub cards. */
+/** A project plus the rollup counts shown on the projects hub cards. */
 export type ProjectSummary = Project & {
   openDeals: number;
   pipelineValue: number;

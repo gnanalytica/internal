@@ -83,10 +83,10 @@ export const projects = pgTable(
     // Which department modules are enabled for this project. null = all enabled
     // (the auto-spawn default); an explicit array restricts to those slugs.
     enabledDepartments: jsonb("enabled_departments").$type<string[] | null>(),
-    // 'product' = something we build (gets department modules + CRM);
-    // 'ops' = back-office (no departments, no CRM).
-    kind: text("kind").$type<"product" | "ops">().notNull().default("product"),
-    // Owning pod (cross-functional team). null for ops projects.
+    // 'project' = an app we ship (gets departments + CRM);
+    // 'operation' = internal / back-office (no departments, no CRM).
+    kind: text("kind").$type<"project" | "operation">().notNull().default("project"),
+    // Owning pod (cross-functional team). null for operations.
     ownerTeamId: uuid("owner_team_id").references(() => teams.id, {
       onDelete: "set null",
     }),

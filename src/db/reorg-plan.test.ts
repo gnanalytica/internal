@@ -44,10 +44,10 @@ describe("planReorg", () => {
 
   it("assigns each kept product a kind and owning pod", () => {
     const byProject = Object.fromEntries(plan.projectUpdates.map((u) => [u.name, u]));
-    expect(byProject["Healthytica"]).toMatchObject({ kind: "product", ownerPod: "Products" });
-    expect(byProject["Standup-AI"]).toMatchObject({ kind: "product", ownerPod: "Products" });
-    expect(byProject["Internal"]).toMatchObject({ kind: "product", ownerPod: "Platform" });
-    expect(byProject["Hiring"]).toMatchObject({ kind: "ops", ownerPod: null });
+    expect(byProject["Healthytica"]).toMatchObject({ kind: "project", ownerPod: "Products" });
+    expect(byProject["Standup-AI"]).toMatchObject({ kind: "project", ownerPod: "Products" });
+    expect(byProject["Internal"]).toMatchObject({ kind: "project", ownerPod: "Platform" });
+    expect(byProject["Hiring"]).toMatchObject({ kind: "operation", ownerPod: null });
   });
 
   it("renames NL Payroll Setup to India Payroll Setup", () => {
@@ -82,10 +82,10 @@ describe("planReorg", () => {
         { id: "t-plat", name: "Platform" },
       ],
       projects: [
-        { id: "p-hlt", name: "Healthytica", kind: "product", ownerTeamId: "t-prod" },
-        { id: "p-int", name: "Internal", kind: "product", ownerTeamId: "t-plat" },
-        { id: "p-hire", name: "Hiring", kind: "ops", ownerTeamId: null },
-        { id: "p-pay", name: "India Payroll Setup", kind: "ops", ownerTeamId: null },
+        { id: "p-hlt", name: "Healthytica", kind: "project", ownerTeamId: "t-prod" },
+        { id: "p-int", name: "Internal", kind: "project", ownerTeamId: "t-plat" },
+        { id: "p-hire", name: "Hiring", kind: "operation", ownerTeamId: null },
+        { id: "p-pay", name: "India Payroll Setup", kind: "operation", ownerTeamId: null },
       ],
       databases: [
         { id: "d-ppl", name: "People" },
