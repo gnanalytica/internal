@@ -749,27 +749,31 @@ export async function unlinkIssueFromPage(issueId: string, pageId: string) {
 // ---- Cycles ----
 
 export async function createCycle(input: {
+  projectId: string;
   name?: string;
   startDate: string;
   endDate: string;
 }) {
   const ws = await getWorkspace();
+  // Cycles are project-scoped, so numbering restarts per project.
   const [{ value: maxNumber }] = await db
     .select({ value: max(cycles.number) })
     .from(cycles)
-    .where(eq(cycles.workspaceId, ws.id));
+    .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.projectId, input.projectId)));
   const number = (maxNumber ?? 0) + 1;
   const [created] = await db
     .insert(cycles)
     .values({
       workspaceId: ws.id,
+      projectId: input.projectId,
       name: input.name?.trim() || `Cycle ${number}`,
       number,
       startDate: new Date(input.startDate),
       endDate: new Date(input.endDate),
     })
     .returning();
-  revalidatePath("/cycles");
+  revalidatePath(`/projects/${input.projectId}/engineering`);
+  revalidatePath("/weekly");
   return created;
 }
 

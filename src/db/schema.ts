@@ -58,7 +58,10 @@ export const workspaceMembers = pgTable(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );
 
-/** Strategic groupings that contain projects (Linear-style initiatives). */
+/**
+ * Strategic groupings (Linear-style initiatives). Folded out of the product UI
+ * — kept as a table so historical seed data and the public API keep working.
+ */
 export const initiatives = pgTable("initiatives", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id")
@@ -84,6 +87,8 @@ export const projects = pgTable(
     key: text("key").notNull(),
     description: text("description"),
     color: text("color").notNull().default("#6366f1"),
+    // Legacy grouping. Folded out of the product UI (no Initiatives surface);
+    // column retained so historical seed data and the API keep working.
     initiativeId: uuid("initiative_id").references(() => initiatives.id, {
       onDelete: "set null",
     }),
@@ -124,13 +129,21 @@ export const cycles = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    // Cycles are project-scoped: planning + daily standups happen per project.
+    // The company-wide "Weekly" is a rollup view, not a separate cadence.
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     number: integer("number").notNull(),
     startDate: timestamp("start_date", { withTimezone: true }).notNull(),
     endDate: timestamp("end_date", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("cycles_workspace_idx").on(t.workspaceId)],
+  (t) => [
+    index("cycles_workspace_idx").on(t.workspaceId),
+    index("cycles_project_idx").on(t.projectId),
+  ],
 );
 
 export const issues = pgTable(
@@ -200,6 +213,10 @@ export const pages = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    // null = company wiki (handbook/SOPs/entity refs); set = that project's Docs.
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
     parentId: uuid("parent_id"),
     title: text("title").notNull().default("Untitled"),
     icon: text("icon").notNull().default("📄"),
@@ -559,6 +576,10 @@ export const cyclesRelations = relations(cycles, ({ one, many }) => ({
     fields: [cycles.workspaceId],
     references: [workspaces.id],
   }),
+  project: one(projects, {
+    fields: [cycles.projectId],
+    references: [projects.id],
+  }),
   issues: many(issues),
 }));
 
@@ -576,6 +597,8 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     references: [users.id],
   }),
   issues: many(issues),
+  cycles: many(cycles),
+  pages: many(pages),
 }));
 
 export const issuesRelations = relations(issues, ({ one, many }) => ({
@@ -722,6 +745,10 @@ export const pagesRelations = relations(pages, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [pages.workspaceId],
     references: [workspaces.id],
+  }),
+  project: one(projects, {
+    fields: [pages.projectId],
+    references: [projects.id],
   }),
   parent: one(pages, {
     fields: [pages.parentId],

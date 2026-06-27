@@ -19,16 +19,28 @@ const STATUS_STYLE: Record<string, string> = {
   completed: "bg-emerald-500/10 text-emerald-600",
 };
 
-export function CyclesView({ cycles }: { cycles: CycleWithCount[] }) {
+export function CyclesView({
+  cycles,
+  projectId,
+  embedded = false,
+}: {
+  cycles: CycleWithCount[];
+  /** When set, cycles are scoped to this project and creation is enabled. */
+  projectId?: string;
+  /** Render without the page Topbar (e.g. inside a project's Engineering tab). */
+  embedded?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const now = new Date();
 
   function newCycle() {
+    if (!projectId) return;
     startTransition(async () => {
       const start = new Date();
       const end = new Date(start.getTime() + 14 * 24 * 60 * 60 * 1000);
       const c = await createCycle({
+        projectId,
         startDate: start.toISOString(),
         endDate: end.toISOString(),
       });
@@ -37,18 +49,18 @@ export function CyclesView({ cycles }: { cycles: CycleWithCount[] }) {
     });
   }
 
+  const createButton = projectId ? (
+    <Button size="sm" className="h-7 gap-1.5" onClick={newCycle} disabled={pending}>
+      <Plus className="size-4" /> New cycle
+    </Button>
+  ) : null;
+
   return (
     <div className="flex h-full flex-col">
-      <Topbar
-        breadcrumb={[{ label: "Cycles" }]}
-        actions={
-          <Button size="sm" className="h-7 gap-1.5" onClick={newCycle} disabled={pending}>
-            <Plus className="size-4" /> New cycle
-          </Button>
-        }
-      />
+      {!embedded && <Topbar breadcrumb={[{ label: "Cycles" }]} actions={createButton} />}
       <div className="scrollbar-thin flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-6 py-8">
+          {embedded && createButton && <div className="mb-3 flex justify-end">{createButton}</div>}
           {cycles.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-20 text-center">
               <div className="grid size-12 place-items-center rounded-xl border bg-muted/50">
@@ -57,12 +69,12 @@ export function CyclesView({ cycles }: { cycles: CycleWithCount[] }) {
               <div>
                 <p className="text-sm font-medium">No cycles yet</p>
                 <p className="text-xs text-muted-foreground">
-                  Cycles are time-boxed sprints. Create one to plan your work.
+                  {projectId
+                    ? "Cycles are time-boxed sprints. Create one to plan this project's work."
+                    : "Cycles are planned inside each project."}
                 </p>
               </div>
-              <Button size="sm" className="gap-1.5" onClick={newCycle} disabled={pending}>
-                <Plus className="size-4" /> New cycle
-              </Button>
+              {createButton}
             </div>
           ) : (
             <div className="space-y-2">
@@ -78,6 +90,17 @@ export function CyclesView({ cycles }: { cycles: CycleWithCount[] }) {
                     <Timer className="size-5 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
+                        {!projectId && c.projectName && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-inset ring-border"
+                          >
+                            <span
+                              className="size-1.5 rounded-full"
+                              style={{ backgroundColor: c.projectColor }}
+                            />
+                            {c.projectName}
+                          </span>
+                        )}
                         <span className="truncate text-sm font-medium">{c.name}</span>
                         <span
                           className={cn(

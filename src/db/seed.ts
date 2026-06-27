@@ -132,6 +132,7 @@ async function main() {
     .insert(schema.cycles)
     .values({
       workspaceId: ws.id,
+      projectId: eng.id,
       name: "Sprint 1",
       number: 1,
       startDate: cycleStart,

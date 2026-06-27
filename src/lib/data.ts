@@ -635,14 +635,24 @@ export async function getPage(
 
 // ---- Cycles ----
 
-export async function getCycles(workspaceId: string): Promise<CycleWithCount[]> {
+export async function getCycles(
+  workspaceId: string,
+  projectId?: string,
+): Promise<CycleWithCount[]> {
   const rows = await db.query.cycles.findMany({
-    where: eq(cycles.workspaceId, workspaceId),
+    where: projectId
+      ? and(eq(cycles.workspaceId, workspaceId), eq(cycles.projectId, projectId))
+      : eq(cycles.workspaceId, workspaceId),
     orderBy: [desc(cycles.startDate)],
-    with: { issues: { columns: { id: true, status: true } } },
+    with: {
+      issues: { columns: { id: true, status: true } },
+      project: { columns: { name: true, color: true } },
+    },
   });
   return rows.map((c) => ({
     ...c,
+    projectName: c.project?.name ?? "",
+    projectColor: c.project?.color ?? "#94a3b8",
     issueCount: c.issues.length,
     doneCount: c.issues.filter((i) => i.status === "done").length,
   }));
