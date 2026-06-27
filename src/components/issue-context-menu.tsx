@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/context-menu";
 import { UserAvatar } from "@/components/glyphs";
 import { PRIORITIES, STATUSES } from "@/lib/constants";
-import { deleteIssue, updateIssue } from "@/lib/actions";
+import { deleteIssue, setIssueAssignees, updateIssue } from "@/lib/actions";
 import type { IssueWithRelations, Member } from "@/lib/types";
 
 /**
@@ -79,7 +79,7 @@ export function IssueContextMenu({
           <ContextMenuSubTrigger>Assignee</ContextMenuSubTrigger>
           <ContextMenuSubContent>
             <ContextMenuItem
-              onClick={() => run(() => updateIssue(issue.id, { assigneeId: null }))}
+              onClick={() => run(() => setIssueAssignees(issue.id, []))}
             >
               <span className="size-4 rounded-full border border-dashed border-muted-foreground/60" />
               Unassigned
@@ -87,7 +87,7 @@ export function IssueContextMenu({
             {members.map((m) => (
               <ContextMenuItem
                 key={m.id}
-                onClick={() => run(() => updateIssue(issue.id, { assigneeId: m.id }))}
+                onClick={() => run(() => setIssueAssignees(issue.id, [m.id]))}
               >
                 <UserAvatar name={m.name} color={m.avatarColor} className="size-4 text-[8px]" />
                 {m.name}

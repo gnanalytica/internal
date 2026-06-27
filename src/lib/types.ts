@@ -208,7 +208,10 @@ export type IssueParentRef = {
 export type IssueWithRelations = Issue & {
   project: Project | null;
   cycle: Cycle | null;
+  // Primary assignee (issues.assigneeId) — drives sort/group/board avatar.
   assignee: Member | null;
+  // Full assignee set (includes the primary). Empty when unassigned.
+  assignees: Member[];
   labels: Label[];
 };
 

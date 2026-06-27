@@ -187,6 +187,29 @@ export const issueLabels = pgTable(
   (t) => [primaryKey({ columns: [t.issueId, t.labelId] })],
 );
 
+/**
+ * Multiple assignees per issue. `issues.assigneeId` is kept as the primary/lead
+ * assignee (drives grouping, sort, board avatar); this table holds the full set
+ * (including the primary).
+ */
+export const issueAssignees = pgTable(
+  "issue_assignees",
+  {
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.issueId, t.userId] })],
+);
+
+export const issueAssigneesRelations = relations(issueAssignees, ({ one }) => ({
+  issue: one(issues, { fields: [issueAssignees.issueId], references: [issues.id] }),
+  user: one(users, { fields: [issueAssignees.userId], references: [users.id] }),
+}));
+
 export const pages = pgTable(
   "pages",
   {
@@ -602,6 +625,7 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   }),
   subIssues: many(issues, { relationName: "issue_subissues" }),
   labels: many(issueLabels),
+  assignees: many(issueAssignees),
   pageLinks: many(issuePageLinks),
   comments: many(comments),
   activity: many(activity),

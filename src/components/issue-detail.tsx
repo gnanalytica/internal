@@ -21,11 +21,11 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
 import { IssueTimeline } from "@/components/issue-timeline";
 import {
-  AssigneePicker,
   CyclePicker,
   FeaturePicker,
   LabelChip,
   LabelPicker,
+  MultiAssigneePicker,
   PriorityPicker,
   ProjectPicker,
   StatusPicker,
@@ -55,6 +55,7 @@ import {
   linkIssueToPage,
   pushIssueToGithub,
   removeIssueRelation,
+  setIssueAssignees,
   setIssueLabels,
   unlinkIssueFromPage,
   updateIssue,
@@ -324,11 +325,11 @@ export function IssueDetail({
                 onChange={(v) => persist(() => updateIssue(issue.id, { priority: v }))}
               />
             </PropRow>
-            <PropRow label="Assignee">
-              <AssigneePicker
+            <PropRow label="Assignees">
+              <MultiAssigneePicker
                 members={members}
-                value={issue.assigneeId}
-                onChange={(v) => persist(() => updateIssue(issue.id, { assigneeId: v }))}
+                value={issue.assignees.map((a) => a.id)}
+                onChange={(ids) => persist(() => setIssueAssignees(issue.id, ids))}
               />
             </PropRow>
             <PropRow label="Project">

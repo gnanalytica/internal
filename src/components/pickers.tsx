@@ -184,6 +184,99 @@ export function AssigneePicker({
   );
 }
 
+/** Overlapping avatars for a set of members (read display). */
+export function AvatarStack({ members, max = 3 }: { members: Member[]; max?: number }) {
+  const shown = members.slice(0, max);
+  const extra = members.length - shown.length;
+  return (
+    <span className="flex items-center">
+      {shown.map((m) => (
+        <UserAvatar
+          key={m.id}
+          name={m.name}
+          color={m.avatarColor}
+          className="-ml-1 size-4 text-[8px] ring-1 ring-background first:ml-0"
+        />
+      ))}
+      {extra > 0 && (
+        <span className="-ml-1 grid size-4 place-items-center rounded-full bg-muted text-[8px] font-medium text-muted-foreground ring-1 ring-background">
+          +{extra}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Multi-select assignee picker (avatar stack trigger + searchable, toggling list). */
+export function MultiAssigneePicker({
+  members,
+  value,
+  onChange,
+  compact,
+}: {
+  members: Member[];
+  value: string[];
+  onChange: (v: string[]) => void;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = value
+    .map((id) => members.find((m) => m.id === id))
+    .filter((m): m is Member => Boolean(m));
+
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className={triggerCls} aria-label="Set assignees">
+        {selected.length > 0 ? <AvatarStack members={selected} /> : <UnassignedDot />}
+        {!compact && (
+          <span>
+            {selected.length === 0
+              ? "Unassigned"
+              : selected.length === 1
+                ? selected[0].name
+                : `${selected.length} people`}
+          </span>
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-0">
+        <Command>
+          <CommandInput placeholder="Assign people…" className="h-9" />
+          <CommandList>
+            <CommandEmpty>No people found.</CommandEmpty>
+            <CommandGroup>
+              {value.length > 0 && (
+                <CommandItem
+                  value="__clear"
+                  onSelect={() => onChange([])}
+                  className="gap-2 text-muted-foreground"
+                >
+                  <UnassignedDot />
+                  <span className="flex-1">Clear assignees</span>
+                </CommandItem>
+              )}
+              {members.map((mem) => (
+                <CommandItem
+                  key={mem.id}
+                  value={mem.name}
+                  onSelect={() => toggle(mem.id)}
+                  className="gap-2"
+                >
+                  <UserAvatar name={mem.name} color={mem.avatarColor} className="size-4 text-[8px]" />
+                  <span className="flex-1 truncate">{mem.name}</span>
+                  {value.includes(mem.id) && <Check className="size-3.5 opacity-70" />}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function ProjectPicker({
   projects,
   value,

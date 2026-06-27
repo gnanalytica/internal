@@ -377,6 +377,7 @@ export async function getProject(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          assignees: { with: { user: true } },
         },
       },
     },
@@ -384,7 +385,7 @@ export async function getProject(
   if (!row) return null;
   return {
     ...row,
-    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
+    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label), assignees: i.assignees.map((a) => a.user) })),
   };
 }
 
@@ -407,11 +408,12 @@ export async function getIssues(
       cycle: true,
       assignee: true,
       labels: { with: { label: true } },
+      assignees: { with: { user: true } },
     },
   });
   return rows.map((r) => ({
     ...r,
-    labels: r.labels.map((l) => l.label),
+    labels: r.labels.map((l) => l.label), assignees: r.assignees.map((a) => a.user),
   }));
 }
 
@@ -449,13 +451,14 @@ export async function getIssuesPage(
       cycle: true,
       assignee: true,
       labels: { with: { label: true } },
+      assignees: { with: { user: true } },
     },
   });
 
   const hasMore = rows.length > opts.limit;
   const page = (hasMore ? rows.slice(0, opts.limit) : rows).map((r) => ({
     ...r,
-    labels: r.labels.map((l) => l.label),
+    labels: r.labels.map((l) => l.label), assignees: r.assignees.map((a) => a.user),
   }));
   const last = hasMore ? page[page.length - 1] : null;
   return {
@@ -477,6 +480,7 @@ export async function getIssue(
       cycle: true,
       assignee: true,
       labels: { with: { label: true } },
+      assignees: { with: { user: true } },
       pageLinks: { with: { page: true } },
       parent: { with: { project: true } },
       subIssues: {
@@ -486,6 +490,7 @@ export async function getIssue(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          assignees: { with: { user: true } },
         },
       },
     },
@@ -493,7 +498,7 @@ export async function getIssue(
   if (!row) return null;
   return {
     ...row,
-    labels: row.labels.map((l) => l.label),
+    labels: row.labels.map((l) => l.label), assignees: row.assignees.map((a) => a.user),
     linkedPages: row.pageLinks.map((p) => p.page),
     parent: row.parent
       ? {
@@ -503,7 +508,7 @@ export async function getIssue(
           project: row.parent.project,
         }
       : null,
-    subIssues: row.subIssues.map((s) => ({ ...s, labels: s.labels.map((l) => l.label) })),
+    subIssues: row.subIssues.map((s) => ({ ...s, labels: s.labels.map((l) => l.label), assignees: s.assignees.map((a) => a.user) })),
   };
 }
 
@@ -697,6 +702,7 @@ export async function getPage(
               cycle: true,
               assignee: true,
               labels: { with: { label: true } },
+              assignees: { with: { user: true } },
             },
           },
         },
@@ -709,6 +715,7 @@ export async function getPage(
     linkedIssues: row.issueLinks.map((l) => ({
       ...l.issue,
       labels: l.issue.labels.map((x) => x.label),
+      assignees: l.issue.assignees.map((a) => a.user),
     })),
   };
 }
@@ -752,6 +759,7 @@ export async function getCycle(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          assignees: { with: { user: true } },
         },
       },
     },
@@ -759,7 +767,7 @@ export async function getCycle(
   if (!row) return null;
   return {
     ...row,
-    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
+    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label), assignees: i.assignees.map((a) => a.user) })),
   };
 }
 
@@ -1654,6 +1662,7 @@ export async function getFeature(
           cycle: true,
           assignee: true,
           labels: { with: { label: true } },
+          assignees: { with: { user: true } },
         },
       },
     },
@@ -1662,7 +1671,7 @@ export async function getFeature(
   return {
     ...row,
     progress: featureProgress(row.issues),
-    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
+    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label), assignees: i.assignees.map((a) => a.user) })),
   };
 }
 
