@@ -18,10 +18,8 @@ const GO_TO: Record<string, string> = {
   c: "/cycles",
   r: "/roadmap",
   n: "/inbox",
-  d: "/databases",
   a: "/ask",
-  s: "/insights",
-  f: "/product",
+  w: "/weekly",
 };
 
 const HELP = [
@@ -31,10 +29,9 @@ const HELP = [
   { keys: "G then P", label: "Go to Projects" },
   { keys: "G then C", label: "Go to Cycles" },
   { keys: "G then R", label: "Go to Roadmap" },
-  { keys: "G then F", label: "Go to Features" },
+  { keys: "G then W", label: "Go to Weekly" },
   { keys: "G then N", label: "Go to Inbox" },
   { keys: "G then A", label: "Go to Ask AI" },
-  { keys: "G then S", label: "Go to Insights" },
   { keys: "?", label: "This help" },
 ];
 

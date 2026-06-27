@@ -65,7 +65,7 @@ export default async function AppLayout({
       >
         {children}
       </AppShell>
-      <CommandPalette isAdmin={isAdmin} />
+      <CommandPalette />
       <KeyboardShortcuts projects={visibleProjects} members={members} labels={labels} />
     </div>
   );

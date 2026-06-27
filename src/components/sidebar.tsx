@@ -6,11 +6,11 @@ import { useState, useTransition } from "react";
 import {
   BarChart3,
   Bell,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   CircleDot,
   Compass,
-  Database,
   Folder,
   KeyRound,
   LifeBuoy,
@@ -24,8 +24,6 @@ import {
   Settings,
   Sparkles,
   Star,
-  Target,
-  Timer,
   Trash2,
   TrendingUp,
   Users,
@@ -85,7 +83,6 @@ export function Sidebar({
   const [, startTransition] = useTransition();
   const [showProjects, setShowProjects] = useState(true);
   const [showOps, setShowOps] = useState(true);
-  const [showPlanning, setShowPlanning] = useState(false);
   const [showCompany, setShowCompany] = useState(false);
   const [showPages, setShowPages] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
@@ -348,23 +345,17 @@ export function Sidebar({
           </Section>
         )}
 
-        {/* Planning — workspace / portfolio execution, above any one project */}
+        {/* Company — the thin cross-project layer (per-project depts live in projects) */}
         <Section
-          title="Planning"
-          open={showPlanning}
-          onToggle={() => setShowPlanning((v) => !v)}
+          title="Company"
+          open={showCompany}
+          onToggle={() => setShowCompany((v) => !v)}
         >
           <NavItem
-            href="/cycles"
-            active={pathname.startsWith("/cycles")}
-            icon={<Timer className="size-4" />}
-            label="Cycles"
-          />
-          <NavItem
-            href="/initiatives"
-            active={pathname.startsWith("/initiatives")}
-            icon={<Target className="size-4" />}
-            label="Initiatives"
+            href="/weekly"
+            active={pathname.startsWith("/weekly")}
+            icon={<CalendarDays className="size-4" />}
+            label="Weekly"
           />
           <NavItem
             href="/roadmap"
@@ -372,63 +363,11 @@ export function Sidebar({
             icon={<MapIcon className="size-4" />}
             label="Roadmap"
           />
-          <NavItem
-            href="/insights"
-            active={pathname.startsWith("/insights")}
-            icon={<BarChart3 className="size-4" />}
-            label="Insights"
-          />
         </Section>
 
-        {/* Company — cross-project department lenses + databases */}
+        {/* Wiki — company pages (handbook, SOPs, entity refs) */}
         <Section
-          title="Company"
-          open={showCompany}
-          onToggle={() => setShowCompany((v) => !v)}
-        >
-          <NavItem
-            href="/product"
-            active={pathname.startsWith("/product")}
-            icon={<Compass className="size-4" />}
-            label="Product"
-          />
-          <NavItem
-            href="/analytics"
-            active={pathname.startsWith("/analytics")}
-            icon={<BarChart3 className="size-4" />}
-            label="Analytics"
-          />
-          <NavItem
-            href="/marketing"
-            active={pathname.startsWith("/marketing")}
-            icon={<Megaphone className="size-4" />}
-            label="Marketing"
-          />
-          {isAdmin && (
-            <NavItem
-              href="/sales"
-              active={pathname.startsWith("/sales")}
-              icon={<TrendingUp className="size-4" />}
-              label="Sales"
-            />
-          )}
-          <NavItem
-            href="/customer-success"
-            active={pathname.startsWith("/customer-success")}
-            icon={<LifeBuoy className="size-4" />}
-            label="Customer Success"
-          />
-          <NavItem
-            href="/databases"
-            active={pathname.startsWith("/databases")}
-            icon={<Database className="size-4" />}
-            label="Databases"
-          />
-        </Section>
-
-        {/* Pages */}
-        <Section
-          title="Pages"
+          title="Wiki"
           open={showPages}
           onToggle={() => setShowPages((v) => !v)}
           action={

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
-import { MoreHorizontal, Target, Trash2, X } from "lucide-react";
+import { Database, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Backlinks } from "@/components/backlinks";
@@ -43,6 +43,7 @@ export function ProjectDetail({
   favorited,
   statusUpdates,
   backlinks,
+  databases = [],
 }: {
   project: ProjectDetailType;
   members: Member[];
@@ -50,6 +51,8 @@ export function ProjectDetail({
   favorited: boolean;
   statusUpdates: StatusUpdateItem[];
   backlinks: BacklinkItem[];
+  /** Databases owned by this operation (e.g. Tools & Subscriptions under IT). */
+  databases?: { id: string; name: string; icon: string }[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -146,7 +149,7 @@ export function ProjectDetail({
             className="mt-3 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
 
-          {/* Progress + initiative */}
+          {/* Progress */}
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="h-2 w-40 overflow-hidden rounded-full bg-muted">
@@ -167,15 +170,6 @@ export function ProjectDetail({
                 <span className="size-2 rounded-full" style={{ backgroundColor: latestHealth.color }} />
                 {latestHealth.label}
               </span>
-            )}
-            {project.initiative && (
-              <Link
-                href={`/initiatives/${project.initiative.id}`}
-                className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Target className="size-3.5" style={{ color: project.initiative.color }} />
-                {project.initiative.name}
-              </Link>
             )}
             <div className="flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
               <span>Owner</span>
@@ -250,6 +244,28 @@ export function ProjectDetail({
                   ))}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Databases (e.g. Tools & Subscriptions under IT) */}
+          {databases.length > 0 && (
+            <div className="mt-8">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Databases
+              </h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {databases.map((d) => (
+                  <Link
+                    key={d.id}
+                    href={`/databases/${d.id}`}
+                    className="flex items-center gap-2 rounded-xl border bg-background p-3 text-sm shadow-sm transition-colors hover:border-foreground/20"
+                  >
+                    <span className="text-base leading-none">{d.icon || "🗃️"}</span>
+                    <span className="flex-1 truncate font-medium">{d.name}</span>
+                    <Database className="size-4 text-muted-foreground" />
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
 
