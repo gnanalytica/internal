@@ -12,6 +12,7 @@
 export type DepartmentSlug =
   | "product"
   | "engineering"
+  | "analytics"
   | "marketing"
   | "sales"
   | "customer-success";
@@ -35,6 +36,13 @@ export const DEPARTMENTS = [
     color: "#3b82f6",
     // Engineering reuses the existing Linear-style issues module.
     tool: "Linear",
+  },
+  {
+    slug: "analytics",
+    label: "Analytics",
+    icon: "📊",
+    color: "#14b8a6",
+    tool: "Product metrics & KPIs",
   },
   {
     slug: "marketing",
@@ -216,6 +224,38 @@ export const ENTITIES = [
   { id: "Netherlands", label: "Netherlands 🇳🇱", color: "#f97316" },
   { id: "Global", label: "Global", color: "#94a3b8" },
 ] as const;
+
+// ---- Analytics: metric cadence ----
+export const METRIC_CADENCES = [
+  { id: "weekly", label: "Weekly" },
+  { id: "monthly", label: "Monthly" },
+  { id: "quarterly", label: "Quarterly" },
+] as const;
+
+// ---- Product: feedback sources & pipeline ----
+export const FEEDBACK_SOURCES = [
+  { id: "customer", label: "Customer", color: "#10b981" },
+  { id: "sales", label: "Sales", color: "#0ea5e9" },
+  { id: "support", label: "Support", color: "#f97316" },
+  { id: "interview", label: "Interview", color: "#a855f7" },
+  { id: "internal", label: "Internal", color: "#6366f1" },
+  { id: "other", label: "Other", color: "#94a3b8" },
+] as const;
+
+// Feedback pipeline (order = board columns).
+export const FEEDBACK_STATUSES = [
+  { id: "new", label: "New", color: "#94a3b8" },
+  { id: "reviewing", label: "Reviewing", color: "#f59e0b" },
+  { id: "planned", label: "Planned", color: "#6366f1" },
+  { id: "shipped", label: "Shipped", color: "#10b981" },
+  { id: "declined", label: "Declined", color: "#ef4444" },
+] as const;
+
+export type FeedbackStatusId = (typeof FEEDBACK_STATUSES)[number]["id"];
+export const isFeedbackStatus = (v: string): v is FeedbackStatusId =>
+  FEEDBACK_STATUSES.some((s) => s.id === v);
+/** Statuses that count as open (still in the discovery pipeline). */
+export const OPEN_FEEDBACK_STATUSES: FeedbackStatusId[] = ["new", "reviewing", "planned"];
 
 /** Look up the {label,color} for an id in one of the option lists above. */
 export function optionMeta(

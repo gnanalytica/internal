@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 
-import { FeaturesView } from "@/components/features-view";
+import { ProductView } from "@/components/product-view";
 import { isDepartmentEnabled } from "@/lib/departments";
-import { getFeatures, getProject, getWorkspace } from "@/lib/data";
+import { getFeatures, getFeedback, getProject, getWorkspace } from "@/lib/data";
 
-export default async function ProjectFeaturesPage({
+export default async function ProjectProductPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -15,14 +15,18 @@ export default async function ProjectFeaturesPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "product")) notFound();
 
-  const features = await getFeatures(ws.id, id);
+  const [features, feedback] = await Promise.all([
+    getFeatures(ws.id, id),
+    getFeedback(ws.id, id),
+  ]);
 
   return (
-    <FeaturesView
+    <ProductView
       heading={`${project.name} · Product`}
+      scopeProjectId={id}
       features={features}
       nowISO={new Date().toISOString()}
-      scopeProjectId={id}
+      feedback={feedback}
     />
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import {
+  BarChart3,
   CircleDot,
   Compass,
   Folder,
@@ -24,6 +25,7 @@ import type { ProjectSummary, ProjectWithIssueCount } from "@/lib/types";
 const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   product: <Compass className="size-3.5" />,
   engineering: <CircleDot className="size-3.5" />,
+  analytics: <BarChart3 className="size-3.5" />,
   marketing: <Megaphone className="size-3.5" />,
   sales: <TrendingUp className="size-3.5" />,
   "customer-success": <LifeBuoy className="size-3.5" />,

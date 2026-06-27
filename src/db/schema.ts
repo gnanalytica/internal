@@ -6,6 +6,7 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -1240,4 +1241,94 @@ export const featuresRelations = relations(features, ({ one, many }) => ({
   owner: one(users, { fields: [features.ownerId], references: [users.id] }),
   page: one(pages, { fields: [features.pageId], references: [pages.id] }),
   issues: many(issues),
+}));
+
+/**
+ * ---- Analytics department: product metrics ----
+ *
+ * A `metric` is a KPI definition (north-star, activation, retention, …) scoped
+ * to a project; `metric_points` are its time-series values. Charts read from
+ * points; cards show the latest point + delta vs the previous one.
+ */
+export const metrics = pgTable(
+  "metrics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    unit: text("unit"), // e.g. "users", "%", "€", "/5"
+    cadence: text("cadence").notNull().default("monthly"), // weekly | monthly | quarterly
+    isNorthStar: boolean("is_north_star").notNull().default(false),
+    sortKey: text("sort_key").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("metrics_ws_idx").on(t.workspaceId),
+    index("metrics_project_idx").on(t.projectId),
+  ],
+);
+
+export const metricPoints = pgTable(
+  "metric_points",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    metricId: uuid("metric_id")
+      .notNull()
+      .references(() => metrics.id, { onDelete: "cascade" }),
+    periodDate: timestamp("period_date", { withTimezone: true }).notNull(),
+    value: real("value").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("metric_points_metric_idx").on(t.metricId)],
+);
+
+export const metricsRelations = relations(metrics, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [metrics.workspaceId], references: [workspaces.id] }),
+  project: one(projects, { fields: [metrics.projectId], references: [projects.id] }),
+  points: many(metricPoints),
+}));
+
+export const metricPointsRelations = relations(metricPoints, ({ one }) => ({
+  metric: one(metrics, { fields: [metricPoints.metricId], references: [metrics.id] }),
+}));
+
+/**
+ * ---- Product department: feedback (discovery / voice-of-customer) ----
+ *
+ * Feature requests, interview notes and insights scoped to a project. A
+ * feedback item can link to the roadmap `feature` it informs — that link is the
+ * discovery → roadmap loop.
+ */
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body"),
+    source: text("source").notNull().default("customer"), // customer|sales|support|interview|internal|other
+    status: text("status").notNull().default("new"), // new|reviewing|planned|declined|shipped
+    votes: integer("votes").notNull().default(1),
+    contact: text("contact"), // who / where it came from
+    featureId: uuid("feature_id").references(() => features.id, { onDelete: "set null" }),
+    sortKey: text("sort_key").notNull().default("a0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("feedback_ws_idx").on(t.workspaceId),
+    index("feedback_project_idx").on(t.projectId),
+  ],
+);
+
+export const feedbackRelations = relations(feedback, ({ one }) => ({
+  workspace: one(workspaces, { fields: [feedback.workspaceId], references: [workspaces.id] }),
+  project: one(projects, { fields: [feedback.projectId], references: [projects.id] }),
+  feature: one(features, { fields: [feedback.featureId], references: [features.id] }),
 }));
