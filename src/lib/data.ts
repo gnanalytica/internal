@@ -1088,7 +1088,8 @@ export async function getSavedViews(
 export async function getMentionItems(
   workspaceId: string,
 ): Promise<import("@/lib/types").MentionItem[]> {
-  const [issueRows, pageRows, projectRows] = await Promise.all([
+  const [memberRows, issueRows, pageRows, projectRows] = await Promise.all([
+    getMembers(workspaceId),
     db
       .select({
         id: issues.id,
@@ -1115,6 +1116,10 @@ export async function getMentionItems(
   ]);
 
   const items: import("@/lib/types").MentionItem[] = [];
+  // People first — @ is most often used to tag a teammate.
+  for (const r of memberRows) {
+    items.push({ kind: "user", id: r.id, label: r.name, hint: "Person" });
+  }
   for (const r of issueRows) {
     items.push({
       kind: "issue",
