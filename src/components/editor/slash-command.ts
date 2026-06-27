@@ -5,6 +5,7 @@ import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import {
+  Bookmark,
   CheckCircle2,
   CheckSquare,
   Code,
@@ -18,6 +19,7 @@ import {
   ListOrdered,
   Minus,
   Quote,
+  SquarePlay,
   Table as TableIcon,
   Text,
   TriangleAlert,
@@ -206,6 +208,30 @@ const COMMANDS: Cmd[] = [
         .deleteRange(r)
         .insertContent({ type: "issueEmbed", attrs: { projectId: null, status: null } })
         .run(),
+  },
+  {
+    title: "Bookmark",
+    description: "Visual card for a link",
+    icon: createElement(Bookmark, { className: "size-4" }),
+    keywords: "bookmark link card url preview",
+    group: "Embeds",
+    run: (e, r) => {
+      const url = window.prompt("Paste a URL to bookmark")?.trim();
+      if (!url) return e.chain().focus().deleteRange(r).run();
+      return e.chain().focus().deleteRange(r).insertContent({ type: "bookmark", attrs: { url } }).run();
+    },
+  },
+  {
+    title: "Embed",
+    description: "Embed a video, Figma, doc…",
+    icon: createElement(SquarePlay, { className: "size-4" }),
+    keywords: "embed iframe video youtube figma loom",
+    group: "Embeds",
+    run: (e, r) => {
+      const url = window.prompt("Paste a URL to embed")?.trim();
+      if (!url) return e.chain().focus().deleteRange(r).run();
+      return e.chain().focus().deleteRange(r).insertContent({ type: "embed", attrs: { url } }).run();
+    },
   },
 ];
 

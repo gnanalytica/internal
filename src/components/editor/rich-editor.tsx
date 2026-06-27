@@ -10,13 +10,16 @@ import TaskList from "@tiptap/extension-task-list";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Bookmark as BookmarkIcon, Link2, SquarePlay } from "lucide-react";
 import { toast } from "sonner";
 
 import { uploadEditorImage } from "@/lib/actions";
 import type { MentionItem } from "@/lib/types";
+import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
+import { Embed } from "./embed";
 import { EntityRef } from "./mention";
 import { IssueEmbed } from "./issue-embed";
 import { SlashCommand } from "./slash-command";
@@ -38,6 +41,10 @@ export function RichEditor({
   mentionItems?: MentionItem[];
 }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Post-paste "render as" chooser for a bare URL.
+  const [linkChooser, setLinkChooser] = useState<
+    { url: string; from: number; to: number; top: number; left: number } | null
+  >(null);
   const editorRef = useRef<Editor | null>(null);
   // Read the latest items at suggestion time without recreating the editor.
   const itemsRef = useRef<MentionItem[]>(mentionItems ?? []);
@@ -92,6 +99,8 @@ export function RichEditor({
       SlashCommand,
       Callout,
       IssueEmbed,
+      Bookmark,
+      Embed,
       // The ref's stable identity bridges live mention data into ProseMirror;
       // the extension only reads it inside suggestion callbacks, never in render.
       // eslint-disable-next-line react-hooks/refs
@@ -102,10 +111,29 @@ export function RichEditor({
       attributes: {
         class: cn("tiptap focus:outline-none", className),
       },
-      handlePaste: (_view, event) => {
+      handlePaste: (view, event) => {
         const files = event.clipboardData?.files;
         if (files && files.length && [...files].some((f) => f.type.startsWith("image/"))) {
           void uploadAndInsert(files);
+          return true;
+        }
+        // Pasting a bare URL onto an empty selection: insert an inline link and
+        // offer to render it as a bookmark/embed instead.
+        const text = event.clipboardData?.getData("text/plain")?.trim();
+        const sel = view.state.selection;
+        if (text && sel.empty && /^https?:\/\/\S+$/i.test(text)) {
+          const ed = editorRef.current;
+          if (!ed) return false;
+          const from = sel.from;
+          ed.chain()
+            .focus()
+            .insertContent([
+              { type: "text", text, marks: [{ type: "link", attrs: { href: text } }] },
+              { type: "text", text: " " },
+            ])
+            .run();
+          const coords = view.coordsAtPos(from);
+          setLinkChooser({ url: text, from, to: from + text.length + 1, top: coords.bottom, left: coords.left });
           return true;
         }
         return false;
@@ -142,10 +170,50 @@ export function RichEditor({
     };
   }, []);
 
+  const convert = (kind: "bookmark" | "embed") => {
+    const ed = editorRef.current;
+    if (!ed || !linkChooser) return;
+    ed.chain()
+      .focus()
+      .deleteRange({ from: linkChooser.from, to: linkChooser.to })
+      .insertContent({ type: kind, attrs: { url: linkChooser.url } })
+      .run();
+    setLinkChooser(null);
+  };
+
   return (
     <>
       {editor && editable && <EditorBubbleMenu editor={editor} />}
       <EditorContent editor={editor} />
+      {linkChooser && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setLinkChooser(null)} />
+          <div
+            className="fixed z-50 flex items-center gap-0.5 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+            style={{ top: linkChooser.top + 6, left: linkChooser.left }}
+          >
+            <span className="px-1.5 text-[11px] text-muted-foreground">Paste as</span>
+            <button
+              onClick={() => setLinkChooser(null)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-accent"
+            >
+              <Link2 className="size-3.5" /> Link
+            </button>
+            <button
+              onClick={() => convert("bookmark")}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-accent"
+            >
+              <BookmarkIcon className="size-3.5" /> Bookmark
+            </button>
+            <button
+              onClick={() => convert("embed")}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-accent"
+            >
+              <SquarePlay className="size-3.5" /> Embed
+            </button>
+          </div>
+        </>
+      )}
     </>
   );
 }
