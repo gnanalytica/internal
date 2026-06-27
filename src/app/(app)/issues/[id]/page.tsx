@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { IssueDetail } from "@/components/issue-detail";
-import { isBlobConfigured } from "@/lib/blob";
 import { isGithubConnected } from "@/lib/github";
 import {
-  getAttachments,
   getCyclesFlat,
   getBacklinks,
   getFeatures,
@@ -37,7 +35,6 @@ export default async function IssueRoute({
     cycles,
     timeline,
     githubConnected,
-    attachments,
     relations,
     allIssues,
     features,
@@ -50,7 +47,6 @@ export default async function IssueRoute({
     getCyclesFlat(ws.id),
     getIssueTimeline(id),
     isGithubConnected(ws.id),
-    getAttachments(id),
     getIssueRelations(ws.id, id),
     getIssuesFlat(ws.id),
     getFeatures(ws.id),
@@ -73,8 +69,6 @@ export default async function IssueRoute({
       features={features.map((f) => ({ id: f.id, title: f.title }))}
       timeline={timeline}
       githubConnected={githubConnected}
-      attachments={attachments}
-      attachmentsEnabled={isBlobConfigured()}
       favorited={favorited}
       relations={relations}
       allIssues={allIssues}
