@@ -25,12 +25,15 @@ import {
   expenses,
   favorites,
   features,
+  feedback,
   initiatives,
   invoices,
   issueLabels,
   issuePageLinks,
   issueRelations,
   issues,
+  metricPoints,
+  metrics,
   notifications,
   projectStatusUpdates,
   references,
@@ -1847,6 +1850,7 @@ function revalidateMatrix(projectId?: string | null) {
   revalidatePath("/marketing");
   revalidatePath("/customer-success");
   revalidatePath("/product");
+  revalidatePath("/analytics");
   revalidatePath("/projects");
   if (projectId) revalidatePath(`/projects/${projectId}`, "layout");
   revalidatePath("/", "layout");
@@ -2483,6 +2487,127 @@ export async function linkIssueToFeature(issueId: string, featureId: string | nu
     .update(issues)
     .set({ featureId, updatedAt: new Date() })
     .where(and(eq(issues.id, issueId), eq(issues.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+// ---- Analytics: metrics + points ----
+export async function createMetric(input: {
+  projectId: string | null;
+  name?: string;
+  unit?: string | null;
+  cadence?: string;
+  isNorthStar?: boolean;
+}) {
+  const ws = await getWorkspace();
+  const [created] = await db
+    .insert(metrics)
+    .values({
+      workspaceId: ws.id,
+      projectId: input.projectId,
+      name: input.name?.trim() || "New metric",
+      unit: input.unit ?? null,
+      cadence: input.cadence ?? "monthly",
+      isNorthStar: input.isNorthStar ?? false,
+      sortKey: `z${Date.now()}`,
+    })
+    .returning();
+  revalidateMatrix(input.projectId);
+  return created;
+}
+
+export async function updateMetric(
+  id: string,
+  patch: Partial<{ name: string; unit: string | null; cadence: string; isNorthStar: boolean }>,
+) {
+  const ws = await getWorkspace();
+  await db.update(metrics).set(patch).where(and(eq(metrics.id, id), eq(metrics.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteMetric(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(metrics).where(and(eq(metrics.id, id), eq(metrics.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+/** Record (or overwrite) a metric value for a period. */
+export async function addMetricPoint(input: {
+  metricId: string;
+  periodDate: string;
+  value: number;
+}) {
+  const ws = await getWorkspace();
+  // Guard: the metric must belong to this workspace.
+  const owner = await db.query.metrics.findFirst({
+    where: and(eq(metrics.id, input.metricId), eq(metrics.workspaceId, ws.id)),
+    columns: { id: true },
+  });
+  if (!owner) return;
+  const date = new Date(input.periodDate);
+  // One point per period: replace an existing same-date point.
+  const existing = await db.query.metricPoints.findFirst({
+    where: and(eq(metricPoints.metricId, input.metricId), eq(metricPoints.periodDate, date)),
+    columns: { id: true },
+  });
+  if (existing) {
+    await db.update(metricPoints).set({ value: input.value }).where(eq(metricPoints.id, existing.id));
+  } else {
+    await db.insert(metricPoints).values({ metricId: input.metricId, periodDate: date, value: input.value });
+  }
+  revalidateMatrix();
+}
+
+export async function deleteMetricPoint(id: string) {
+  await db.delete(metricPoints).where(eq(metricPoints.id, id));
+  revalidateMatrix();
+}
+
+// ---- Product: feedback (discovery) ----
+export async function createFeedback(input: {
+  projectId: string | null;
+  title?: string;
+  source?: string;
+  status?: string;
+}) {
+  const ws = await getWorkspace();
+  const [created] = await db
+    .insert(feedback)
+    .values({
+      workspaceId: ws.id,
+      projectId: input.projectId,
+      title: input.title?.trim() || "New feedback",
+      source: input.source ?? "customer",
+      status: input.status ?? "new",
+      sortKey: `z${Date.now()}`,
+    })
+    .returning();
+  revalidateMatrix(input.projectId);
+  return created;
+}
+
+export async function updateFeedback(
+  id: string,
+  patch: Partial<{
+    title: string;
+    body: string | null;
+    source: string;
+    status: string;
+    votes: number;
+    contact: string | null;
+    featureId: string | null;
+  }>,
+) {
+  const ws = await getWorkspace();
+  await db
+    .update(feedback)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(feedback.id, id), eq(feedback.workspaceId, ws.id)));
+  revalidateMatrix();
+}
+
+export async function deleteFeedback(id: string) {
+  const ws = await getWorkspace();
+  await db.delete(feedback).where(and(eq(feedback.id, id), eq(feedback.workspaceId, ws.id)));
   revalidateMatrix();
 }
 

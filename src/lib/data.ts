@@ -22,6 +22,7 @@ import {
   expenses,
   favorites,
   features,
+  feedback,
   databaseFields,
   databaseRows,
   databases,
@@ -32,6 +33,8 @@ import {
   issueRelations,
   issues,
   labels,
+  metricPoints,
+  metrics,
   notifications,
   pages,
   projectStatusUpdates,
@@ -59,6 +62,7 @@ import type {
   DatabaseWithSchema,
   DealWithRelations,
   ExpenseWithRelations,
+  FeedbackWithRelations,
   FlatIssue,
   Initiative,
   FeatureWithRelations,
@@ -68,6 +72,7 @@ import type {
   Label,
   Member,
   MemberWithRole,
+  MetricWithRelations,
   Page,
   PageNode,
   Project,
@@ -1400,7 +1405,7 @@ export async function getContentItems(
 export async function getProjectSummaries(
   workspaceId: string,
 ): Promise<ProjectSummary[]> {
-  const [projects, allDeals, allIssues, allCampaigns, allInvoices, allTickets, allFeatures] =
+  const [projects, allDeals, allIssues, allCampaigns, allInvoices, allTickets, allFeatures, allMetrics] =
     await Promise.all([
     getProjects(workspaceId),
     db
@@ -1431,6 +1436,10 @@ export async function getProjectSummaries(
       .select({ projectId: features.projectId, status: features.status })
       .from(features)
       .where(eq(features.workspaceId, workspaceId)),
+    db
+      .select({ projectId: metrics.projectId })
+      .from(metrics)
+      .where(eq(metrics.workspaceId, workspaceId)),
   ]);
 
   const openStages = new Set(["lead", "qualified", "proposal", "negotiation"]);
@@ -1460,6 +1469,7 @@ export async function getProjectSummaries(
       openFeatures: allFeatures.filter(
         (f) => f.projectId === p.id && openFeatureStatuses.has(f.status),
       ).length,
+      metricCount: allMetrics.filter((m) => m.projectId === p.id).length,
     };
   });
 }
@@ -1584,6 +1594,55 @@ export async function getFeature(
     progress: featureProgress(row.issues),
     issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
   };
+}
+
+/**
+ * Metrics with their time-series points (ascending). `latest`/`previous` are
+ * the last two points' values for the card delta. Pass `projectId` for the
+ * project lens; omit for the company-wide Analytics lens.
+ */
+export async function getMetrics(
+  workspaceId: string,
+  projectId?: string,
+): Promise<MetricWithRelations[]> {
+  const rows = await db.query.metrics.findMany({
+    where: projectId
+      ? and(eq(metrics.workspaceId, workspaceId), eq(metrics.projectId, projectId))
+      : eq(metrics.workspaceId, workspaceId),
+    orderBy: [desc(metrics.isNorthStar), asc(metrics.sortKey), desc(metrics.createdAt)],
+    with: {
+      project: true,
+      points: { orderBy: [asc(metricPoints.periodDate)] },
+    },
+  });
+  return rows.map((r) => {
+    const n = r.points.length;
+    return {
+      ...r,
+      latest: n > 0 ? r.points[n - 1].value : null,
+      previous: n > 1 ? r.points[n - 2].value : null,
+    };
+  });
+}
+
+/**
+ * Feedback items. Pass `projectId` for the project lens; omit for the
+ * company-wide view. Ordered by votes then recency.
+ */
+export async function getFeedback(
+  workspaceId: string,
+  projectId?: string,
+): Promise<FeedbackWithRelations[]> {
+  return db.query.feedback.findMany({
+    where: projectId
+      ? and(eq(feedback.workspaceId, workspaceId), eq(feedback.projectId, projectId))
+      : eq(feedback.workspaceId, workspaceId),
+    orderBy: [desc(feedback.votes), desc(feedback.createdAt)],
+    with: {
+      project: true,
+      feature: { columns: { id: true, title: true } },
+    },
+  });
 }
 
 // Re-export table objects used by actions.

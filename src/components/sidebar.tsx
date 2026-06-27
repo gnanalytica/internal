@@ -316,6 +316,12 @@ export function Sidebar({
           label="Product"
         />
         <NavItem
+          href="/analytics"
+          active={pathname.startsWith("/analytics")}
+          icon={<BarChart3 className="size-4" />}
+          label="Analytics"
+        />
+        <NavItem
           href="/marketing"
           active={pathname.startsWith("/marketing")}
           icon={<Megaphone className="size-4" />}
@@ -499,6 +505,7 @@ function ProjectNavItem({
   const deptIcons: Record<DepartmentSlug, React.ReactNode> = {
     product: <Compass className="size-3.5" />,
     engineering: <CircleDot className="size-3.5" />,
+    analytics: <BarChart3 className="size-3.5" />,
     marketing: <Megaphone className="size-3.5" />,
     sales: <TrendingUp className="size-3.5" />,
     "customer-success": <LifeBuoy className="size-3.5" />,

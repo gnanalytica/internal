@@ -69,6 +69,7 @@ const NAV = [
   { label: "Insights", href: "/insights", icon: <BarChart3 className={ic} /> },
   { label: "Roadmap", href: "/roadmap", icon: <MapIcon className={ic} /> },
   { label: "Product", href: "/product", icon: <Compass className={ic} /> },
+  { label: "Analytics", href: "/analytics", icon: <BarChart3 className={ic} /> },
   { label: "Cycles", href: "/cycles", icon: <Timer className={ic} /> },
   { label: "Initiatives", href: "/initiatives", icon: <Target className={ic} /> },
   { label: "Teams", href: "/teams", icon: <Users className={ic} /> },

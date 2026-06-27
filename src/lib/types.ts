@@ -10,11 +10,14 @@ import type {
   databases,
   deals,
   expenses,
+  feedback,
   features,
   initiatives,
   invoices,
   issues,
   labels,
+  metricPoints,
+  metrics,
   pages,
   projects,
   teams,
@@ -124,6 +127,7 @@ export type ProjectSummary = Project & {
   revenue: number; // sum of paid invoices
   openTickets: number;
   openFeatures: number;
+  metricCount: number;
 };
 
 export type Feature = typeof features.$inferSelect;
@@ -137,6 +141,25 @@ export type FeatureWithRelations = Feature & {
 
 export type FeatureDetail = FeatureWithRelations & {
   issues: IssueWithRelations[];
+};
+
+// ---- Analytics: metrics + time-series ----
+export type Metric = typeof metrics.$inferSelect;
+export type MetricPoint = typeof metricPoints.$inferSelect;
+
+export type MetricWithRelations = Metric & {
+  project: Project | null;
+  points: MetricPoint[]; // ascending by periodDate
+  latest: number | null;
+  previous: number | null;
+};
+
+// ---- Product: feedback (discovery) ----
+export type Feedback = typeof feedback.$inferSelect;
+
+export type FeedbackWithRelations = Feedback & {
+  project: Project | null;
+  feature: { id: string; title: string } | null;
 };
 
 export type IssueParentRef = {

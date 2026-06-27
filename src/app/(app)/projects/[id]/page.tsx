@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
+import { BarChart3, CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
 import { ProjectDetail } from "@/components/project-detail";
 import { ProjectModulesConfig } from "@/components/project-modules-config";
@@ -68,6 +68,14 @@ export default async function ProjectRoute({
       label: "Engineering",
       stat: `${summary.openIssues} open issues`,
       tool: "Linear-style issues",
+    },
+    {
+      slug: "analytics" as const,
+      href: `/projects/${id}/analytics`,
+      icon: <BarChart3 className="size-4" />,
+      label: "Analytics",
+      stat: `${summary.metricCount} metrics`,
+      tool: "KPIs & north-star",
     },
     {
       slug: "marketing" as const,

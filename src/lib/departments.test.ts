@@ -18,6 +18,7 @@ describe("DEPARTMENTS", () => {
     expect(DEPARTMENTS.map((d) => d.slug)).toEqual([
       "product",
       "engineering",
+      "analytics",
       "marketing",
       "sales",
       "customer-success",
@@ -62,6 +63,7 @@ describe("per-project department config", () => {
     expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
       "product",
       "engineering",
+      "analytics",
       "marketing",
       "sales",
       "customer-success",
