@@ -800,7 +800,7 @@ export async function createCycle(input: {
     })
     .returning();
   revalidatePath(`/projects/${input.projectId}/engineering`);
-  revalidatePath("/weekly");
+  revalidatePath("/projects");
   return created;
 }
 
@@ -818,14 +818,14 @@ export async function updateCycle(
     .set(values)
     .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
   revalidatePath(`/cycles/${id}`);
-  revalidatePath("/weekly");
+  revalidatePath("/projects");
   revalidatePath("/", "layout");
 }
 
 export async function deleteCycle(id: string) {
   const ws = await getWorkspace();
   await db.delete(cycles).where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
-  revalidatePath("/weekly");
+  revalidatePath("/projects");
   revalidatePath("/", "layout");
 }
 

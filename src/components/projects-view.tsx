@@ -15,12 +15,21 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { RoadmapView } from "@/components/roadmap-view";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WeeklyView } from "@/components/weekly-view";
 import { createProject } from "@/lib/actions";
+import type { RoadmapProject } from "@/lib/data";
 import { enabledDepartments, type DepartmentSlug } from "@/lib/departments";
 import { formatMoney } from "@/lib/matrix-format";
-import type { ProjectSummary, ProjectWithIssueCount } from "@/lib/types";
+import type {
+  CycleWithCount,
+  Project,
+  ProjectSummary,
+  ProjectWithIssueCount,
+} from "@/lib/types";
 
 const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   product: <Compass className="size-3.5" />,
@@ -34,9 +43,17 @@ const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
 export function ProjectsView({
   projects,
   ops,
+  roadmapProjects,
+  weeklyProjects,
+  cycles,
+  nowISO,
 }: {
   projects: ProjectSummary[];
   ops: ProjectWithIssueCount[];
+  roadmapProjects: RoadmapProject[];
+  weeklyProjects: Project[];
+  cycles: CycleWithCount[];
+  nowISO: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -62,8 +79,14 @@ export function ProjectsView({
           </Button>
         }
       />
-      <div className="scrollbar-thin flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-5xl space-y-8 px-6 py-8">
+      <Tabs defaultValue="list" className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="mx-4 mt-2 self-start">
+          <TabsTrigger value="list">List</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="week">This Week</TabsTrigger>
+        </TabsList>
+        <TabsContent value="list" className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+          <div className="mx-auto w-full max-w-5xl space-y-8 px-6 py-8">
           {empty ? (
             <div className="flex flex-col items-center gap-3 py-20 text-center">
               <div className="grid size-12 place-items-center rounded-xl border bg-muted/50">
@@ -177,8 +200,15 @@ export function ProjectsView({
               )}
             </>
           )}
-        </div>
-      </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="timeline" className="min-h-0 flex-1 overflow-hidden">
+          <RoadmapView projects={roadmapProjects} nowISO={nowISO} embedded />
+        </TabsContent>
+        <TabsContent value="week" className="min-h-0 flex-1 overflow-hidden">
+          <WeeklyView projects={weeklyProjects} cycles={cycles} nowISO={nowISO} embedded />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

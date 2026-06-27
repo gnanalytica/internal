@@ -5,12 +5,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Bell,
   BookText,
-  CalendarDays,
   CircleDot,
   Database,
   FileText,
   Folder,
-  Map as MapIcon,
   Plus,
   Sparkles,
   Timer,
@@ -67,13 +65,6 @@ const NAV_GROUPS: {
       { label: "Inbox", href: "/inbox", icon: <Bell className={ic} /> },
       { label: "Issues", href: "/issues", icon: <CircleDot className={ic} /> },
       { label: "Projects", href: "/projects", icon: <Folder className={ic} /> },
-    ],
-  },
-  {
-    heading: "Company",
-    items: [
-      { label: "Weekly", href: "/weekly", icon: <CalendarDays className={ic} /> },
-      { label: "Roadmap", href: "/roadmap", icon: <MapIcon className={ic} /> },
       { label: "Wiki", href: "/pages", icon: <BookText className={ic} /> },
     ],
   },

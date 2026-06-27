@@ -14,10 +14,13 @@ export function WeeklyView({
   projects,
   cycles,
   nowISO,
+  embedded = false,
 }: {
   projects: Project[];
   cycles: CycleWithCount[];
   nowISO: string;
+  /** Hide the page Topbar when rendered inside the Projects tabs. */
+  embedded?: boolean;
 }) {
   const now = new Date(nowISO);
   const activeFor = (projectId: string) =>
@@ -30,7 +33,7 @@ export function WeeklyView({
 
   return (
     <div className="flex h-full flex-col">
-      <Topbar breadcrumb={[{ label: "Weekly" }]} />
+      {!embedded && <Topbar breadcrumb={[{ label: "Weekly" }]} />}
       <div className="scrollbar-thin flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-6 py-8">
           <p className="mb-4 text-sm text-muted-foreground">

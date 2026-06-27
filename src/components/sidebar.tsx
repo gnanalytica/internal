@@ -6,7 +6,6 @@ import { useState, useTransition } from "react";
 import {
   BarChart3,
   Bell,
-  CalendarDays,
   ChevronDown,
   ChevronRight,
   CircleDot,
@@ -15,7 +14,6 @@ import {
   KeyRound,
   LifeBuoy,
   LogOut,
-  Map as MapIcon,
   Megaphone,
   MessageSquare,
   Plus,
@@ -83,7 +81,6 @@ export function Sidebar({
   const [, startTransition] = useTransition();
   const [showProjects, setShowProjects] = useState(true);
   const [showOps, setShowOps] = useState(true);
-  const [showCompany, setShowCompany] = useState(false);
   const [showPages, setShowPages] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
   const peopleHr = projects.find((p) => p.key === "PPL");
@@ -344,26 +341,6 @@ export function Sidebar({
               ))}
           </Section>
         )}
-
-        {/* Company — the thin cross-project layer (per-project depts live in projects) */}
-        <Section
-          title="Company"
-          open={showCompany}
-          onToggle={() => setShowCompany((v) => !v)}
-        >
-          <NavItem
-            href="/weekly"
-            active={pathname.startsWith("/weekly")}
-            icon={<CalendarDays className="size-4" />}
-            label="Weekly"
-          />
-          <NavItem
-            href="/roadmap"
-            active={pathname.startsWith("/roadmap")}
-            icon={<MapIcon className="size-4" />}
-            label="Roadmap"
-          />
-        </Section>
 
         {/* Wiki — company pages (handbook, SOPs, entity refs) */}
         <Section
