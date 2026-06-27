@@ -7,7 +7,7 @@ export type ReorgInput = {
   projects: {
     id: string;
     name: string;
-    kind?: "product" | "ops";
+    kind?: "project" | "operation";
     ownerTeamId?: string | null;
   }[];
   databases: { id: string; name: string }[];
@@ -35,7 +35,7 @@ const POD_NAMES: PodName[] = ["Products", "Platform"];
 
 export type ReorgPlan = {
   pods: { name: PodName }[];
-  projectUpdates: { id: string; name: string; kind: "product" | "ops"; ownerPod: PodName | null }[];
+  projectUpdates: { id: string; name: string; kind: "project" | "operation"; ownerPod: PodName | null }[];
   projectRenames: { id: string; from: string; to: string }[];
   deleteProjectIds: string[];
   deleteTeamIds: string[];
@@ -68,8 +68,8 @@ export function planReorg(input: ReorgInput): ReorgPlan {
     if (finalName !== proj.name) {
       projectRenames.push({ id: proj.id, from: proj.name, to: finalName });
     }
-    const kind: "product" | "ops" = OPS_PROJECTS.has(proj.name) ? "ops" : "product";
-    const ownerPod = kind === "ops" ? null : podForProject(finalName);
+    const kind: "project" | "operation" = OPS_PROJECTS.has(proj.name) ? "operation" : "project";
+    const ownerPod = kind === "operation" ? null : podForProject(finalName);
     projectUpdates.push({ id: proj.id, name: finalName, kind, ownerPod });
   }
 

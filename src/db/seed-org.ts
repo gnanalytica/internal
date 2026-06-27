@@ -118,16 +118,17 @@ async function main() {
   const init = (name: string) => initiatives.find((i) => i.name === name)?.id ?? null;
 
   // ---- Projects ----
-  // kind=product → owned by a pod, gets department modules + CRM.
-  // kind=ops → back-office, no pod, no departments.
+  // kind=project → owned by a pod, gets department modules + CRM.
+  // kind=operation → internal / back-office, no pod, no departments.
   await db.insert(schema.projects).values([
-    { workspaceId: ws.id, name: "Healthytica", key: "HLTH", color: "#10b981", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI blood-biomarker health intelligence." },
-    { workspaceId: ws.id, name: "Valytica", key: "VAL", color: "#6366f1", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI valuation management for Indian valuers." },
-    { workspaceId: ws.id, name: "AI Workshop", key: "AIW", color: "#a855f7", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "SaaS LMS for the 30-day AI workshop." },
-    { workspaceId: ws.id, name: "Standup-AI", key: "STDA", color: "#3b82f6", kind: "product", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "Autonomous standup bot." },
-    { workspaceId: ws.id, name: "Internal", key: "INT", color: "#3b82f6", kind: "product", ownerTeamId: podId("Platform"), description: "The internal Notion + Linear hub (this app)." },
-    { workspaceId: ws.id, name: "Hiring", key: "HIRE", color: "#5e6ad2", kind: "ops", initiativeId: init("Hiring"), description: "Open roles across entities." },
-    { workspaceId: ws.id, name: "India Payroll Setup", key: "PAY", color: "#f59e0b", kind: "ops", description: "Stand up India payroll." },
+    { workspaceId: ws.id, name: "Healthytica", key: "HLTH", color: "#10b981", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI blood-biomarker health intelligence." },
+    { workspaceId: ws.id, name: "Valytica", key: "VAL", color: "#6366f1", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "AI valuation management for Indian valuers." },
+    { workspaceId: ws.id, name: "AI Workshop", key: "AIW", color: "#a855f7", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "SaaS LMS for the 30-day AI workshop." },
+    { workspaceId: ws.id, name: "Standup-AI", key: "STDA", color: "#3b82f6", kind: "project", ownerTeamId: podId("Products"), initiativeId: init("Revenue FY26"), description: "Autonomous standup bot." },
+    { workspaceId: ws.id, name: "People & HR", key: "PPL", color: "#ec4899", kind: "operation", initiativeId: init("Hiring"), description: "Hiring, onboarding, the team roster and HR. Confidential." },
+    { workspaceId: ws.id, name: "Finance", key: "FIN", color: "#22c55e", kind: "operation", description: "Company finance: payroll, expenses, runway across entities (NL via Odoo). Confidential." },
+    { workspaceId: ws.id, name: "Legal & Compliance", key: "LGL", color: "#f59e0b", kind: "operation", description: "Contracts, entity compliance and filings across India and the Netherlands." },
+    { workspaceId: ws.id, name: "IT & Tools", key: "IT", color: "#0ea5e9", kind: "operation", description: "SaaS subscriptions, accounts and access. Backed by the Tools & Subscriptions database." },
   ]);
 
   // ---- Databases (each Entity-tagged) ----

@@ -176,7 +176,7 @@ export function ProjectDetail({
                 {project.initiative.name}
               </Link>
             )}
-            {project.kind === "product" && project.ownerTeam && (
+            {project.kind === "project" && project.ownerTeam && (
               <Link
                 href={`/teams/${project.ownerTeam.id}`}
                 className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"

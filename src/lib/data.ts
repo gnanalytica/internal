@@ -1437,7 +1437,7 @@ export async function getProjectSummaries(
   const openTicketStatuses = new Set(["open", "pending"]);
   const openFeatureStatuses = new Set(["idea", "planned", "building"]);
   return projects
-    .filter((p) => p.kind === "product")
+    .filter((p) => p.kind === "project")
     .map((p) => {
     const pDeals = allDeals.filter((d) => d.projectId === p.id);
     const open = pDeals.filter((d) => openStages.has(d.stage));
