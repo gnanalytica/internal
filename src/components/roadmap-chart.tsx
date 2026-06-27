@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 
 import {
@@ -35,6 +35,9 @@ type DragMode = "move" | "start" | "end";
 
 const NAME_W = 260;
 const DAY = 86_400_000;
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 8;
+const clampZoom = (n: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, n));
 const alpha = (c: string, a: string) => (c.length === 7 ? c + a : c);
 const toMs = (d: DateInput) => (d ? new Date(d).getTime() : null);
 const fmt = (d: DateInput) =>
@@ -69,6 +72,8 @@ export function RoadmapChart({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [drag, setDrag] = useState<{ id: string; startMs: number; endMs: number } | null>(null);
   const [overrides, setOverrides] = useState<Record<string, { startMs: number; endMs: number }>>({});
+  // Horizontal zoom: 1 = fit width; >1 widens the track so it scrolls.
+  const [zoom, setZoom] = useState(1);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -76,6 +81,41 @@ export function RoadmapChart({
     | { pointerX: number; startMs: number; endMs: number; curS: number; curE: number; mode: DragMode; id: string; trackW: number; moved: boolean; href: string }
     | null
   >(null);
+
+  const zoomRef = useRef(1);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  // Trackpad: two-finger horizontal swipe pans (native); pinch (ctrl/⌘+wheel)
+  // zooms; shift+wheel also pans. Native non-passive listener so we can
+  // preventDefault on pinch (else the browser page-zooms).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const z = zoomRef.current;
+        const next = clampZoom(z * (1 - e.deltaY * 0.01));
+        if (next === z) return;
+        // Keep the point under the cursor roughly fixed while zooming.
+        const cursorX = e.clientX - el.getBoundingClientRect().left;
+        const content = el.scrollLeft + cursorX;
+        setZoom(next);
+        requestAnimationFrame(() => {
+          el.scrollLeft = content * (next / z) - cursorX;
+        });
+      } else if (e.shiftKey && e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+      // Otherwise let the browser handle native deltaX (horizontal swipe) and
+      // deltaY (vertical row scroll).
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   const now = new Date(nowISO);
   const items = groups.flatMap((g) => g.items);
@@ -203,6 +243,32 @@ export function RoadmapChart({
               </button>
             ))}
           </div>
+          {/* Zoom: − / reset / + (pinch or ⌘-scroll also zoom) */}
+          <div className="flex items-center rounded-md border p-0.5">
+            <button
+              onClick={() => setZoom((z) => clampZoom(z / 1.5))}
+              disabled={zoom <= ZOOM_MIN}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              onClick={() => setZoom(1)}
+              className="min-w-9 rounded px-1 py-0.5 text-center text-[11px] font-medium tabular-nums text-muted-foreground hover:text-foreground"
+              title="Reset zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              onClick={() => setZoom((z) => clampZoom(z * 1.5))}
+              disabled={zoom >= ZOOM_MAX}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+          </div>
           {todayPct !== null && (
             <button
               onClick={scrollToToday}
@@ -214,8 +280,11 @@ export function RoadmapChart({
         </div>
       </div>
 
-      <div ref={scrollRef} className="scrollbar-thin flex-1 overflow-auto">
-        <div className="relative min-w-full" style={{ minWidth: NAME_W + 640 }}>
+      <div ref={scrollRef} className="scrollbar-thin flex-1 overflow-auto overscroll-x-contain">
+        <div
+          className="relative"
+          style={{ width: `${zoom * 100}%`, minWidth: NAME_W + 640 }}
+        >
           {/* Column header */}
           <div className="sticky top-0 z-20 flex border-b bg-background/95 backdrop-blur">
             <div
