@@ -4,8 +4,8 @@ import { apiCreateDeal } from "@/lib/api/crm-ops";
 import { getDeals } from "@/lib/data";
 
 export const GET = withApiAuth(async (req, auth) => {
-  const product = new URL(req.url).searchParams.get("product") ?? undefined;
-  const rows = await getDeals(auth.workspaceId, product);
+  const project = new URL(req.url).searchParams.get("project") ?? undefined;
+  const rows = await getDeals(auth.workspaceId, project);
   return ok({ data: rows.map(dealDto), count: rows.length });
 });
 

@@ -10,7 +10,7 @@ import {
 
 export default async function SupportPage() {
   const ws = await getWorkspace();
-  const [tickets, accounts, contacts, members, products] = await Promise.all([
+  const [tickets, accounts, contacts, members, projects] = await Promise.all([
     getTickets(ws.id),
     getAccounts(ws.id),
     getContacts(ws.id),
@@ -20,9 +20,9 @@ export default async function SupportPage() {
 
   return (
     <SupportView
-      heading="Support · all products"
-      scopeProductId={null}
-      products={products}
+      heading="Support · all projects"
+      scopeProjectId={null}
+      projects={projects}
       members={members}
       accounts={accounts}
       contacts={contacts}

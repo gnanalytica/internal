@@ -7,23 +7,23 @@ import {
   getContacts,
   getDeals,
   getMembers,
-  getProduct,
+  getProject,
   getProjects,
   getWorkspace,
 } from "@/lib/data";
 
-export default async function ProductSalesPage({
+export default async function ProjectSalesPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const product = await getProduct(ws.id, id);
-  if (!product) notFound();
-  if (!isDepartmentEnabled(product.enabledDepartments, "sales")) notFound();
+  const project = await getProject(ws.id, id);
+  if (!project) notFound();
+  if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
 
-  const [deals, accounts, contacts, members, products] = await Promise.all([
+  const [deals, accounts, contacts, members, projects] = await Promise.all([
     getDeals(ws.id, id),
     getAccounts(ws.id),
     getContacts(ws.id),
@@ -33,9 +33,9 @@ export default async function ProductSalesPage({
 
   return (
     <SalesView
-      heading={`${product.name} · Sales`}
-      scopeProductId={id}
-      products={products}
+      heading={`${project.name} · Sales`}
+      scopeProjectId={id}
+      projects={projects}
       members={members}
       initialDeals={deals}
       initialAccounts={accounts}

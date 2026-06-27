@@ -58,7 +58,7 @@ describe("ticket statuses", () => {
   });
 });
 
-describe("per-product department config", () => {
+describe("per-project department config", () => {
   it("treats null as all departments enabled (auto-spawn default)", () => {
     expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
       "engineering",

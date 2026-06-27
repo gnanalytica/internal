@@ -157,7 +157,7 @@ async function main() {
       .insert(schema.campaigns)
       .values({
         workspaceId: ws.id,
-        productId: project.id,
+        projectId: project.id,
         name: campName,
         channel: "whatsapp",
         status: "active",
@@ -180,7 +180,7 @@ async function main() {
     if (haveContent.has(c.title)) continue;
     await db.insert(schema.contentItems).values({
       workspaceId: ws.id,
-      productId: project.id,
+      projectId: project.id,
       campaignId: campaign.id,
       title: c.title,
       channel: "whatsapp",
@@ -197,7 +197,7 @@ async function main() {
   const [featExists] = await db
     .select({ id: schema.features.id })
     .from(schema.features)
-    .where(and(eq(schema.features.productId, project.id), eq(schema.features.title, featTitle)))
+    .where(and(eq(schema.features.projectId, project.id), eq(schema.features.title, featTitle)))
     .limit(1);
   let ticketCount = 0;
   if (!featExists) {
@@ -207,7 +207,7 @@ async function main() {
       .insert(schema.features)
       .values({
         workspaceId: ws.id,
-        productId: project.id,
+        projectId: project.id,
         title: featTitle,
         status: "building",
         startDate: start,

@@ -7,11 +7,11 @@ export default async function FeaturesPage() {
 
   return (
     <FeaturesView
-      heading="Product · all products"
+      heading="Features · all projects"
       features={features}
       nowISO={new Date().toISOString()}
-      scopeProductId={null}
-      groupByProduct
+      scopeProjectId={null}
+      groupByProject
     />
   );
 }

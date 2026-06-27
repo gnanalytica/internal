@@ -101,7 +101,7 @@ export function dealDto(d: DealWithRelations) {
     value: d.value,
     entity: d.entity,
     expectedClose: d.expectedClose,
-    product: ref(d.product),
+    project: ref(d.project),
     account: ref(d.account),
     contact: ref(d.contact),
     ownerId: d.ownerId,
@@ -144,7 +144,7 @@ export function campaignDto(c: CampaignWithRelations) {
     entity: c.entity,
     startDate: c.startDate,
     endDate: c.endDate,
-    product: ref(c.product),
+    project: ref(c.project),
     contentCount: c.contentCount,
   };
 }
@@ -158,7 +158,7 @@ export function invoiceDto(i: InvoiceWithRelations) {
     entity: i.entity,
     issueDate: i.issueDate,
     dueDate: i.dueDate,
-    product: ref(i.product),
+    project: ref(i.project),
     account: ref(i.account),
   };
 }
@@ -172,7 +172,7 @@ export function expenseDto(e: ExpenseWithRelations) {
     status: e.status,
     entity: e.entity,
     spentDate: e.spentDate,
-    product: ref(e.product),
+    project: ref(e.project),
   };
 }
 
@@ -184,7 +184,7 @@ export function ticketDto(t: TicketWithRelations) {
     priority: t.priority,
     entity: t.entity,
     requesterEmail: t.requesterEmail,
-    product: ref(t.product),
+    project: ref(t.project),
     account: ref(t.account),
     contact: ref(t.contact),
     assigneeId: t.assigneeId,

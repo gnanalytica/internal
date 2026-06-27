@@ -4,8 +4,8 @@ import { apiCreateExpense } from "@/lib/api/crm-ops";
 import { getExpenses } from "@/lib/data";
 
 export const GET = withApiAuth(async (req, auth) => {
-  const product = new URL(req.url).searchParams.get("product") ?? undefined;
-  const rows = await getExpenses(auth.workspaceId, product);
+  const project = new URL(req.url).searchParams.get("project") ?? undefined;
+  const rows = await getExpenses(auth.workspaceId, project);
   return ok({ data: rows.map(expenseDto), count: rows.length });
 });
 

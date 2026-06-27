@@ -41,16 +41,16 @@ const fieldCls =
 
 export function SalesView({
   heading,
-  scopeProductId,
-  products,
+  scopeProjectId,
+  projects,
   members,
   initialDeals,
   initialAccounts,
   initialContacts,
 }: {
   heading: string;
-  scopeProductId: string | null;
-  products: Project[];
+  scopeProjectId: string | null;
+  projects: Project[];
   members: Member[];
   initialDeals: DealWithRelations[];
   initialAccounts: CrmAccount[];
@@ -124,7 +124,7 @@ export function SalesView({
                 <DealBoard
                   key={boardKey}
                   deals={initialDeals}
-                  showProduct={!scopeProductId}
+                  showProject={!scopeProjectId}
                   persist={(changed) => startTransition(() => void moveDeals(changed))}
                   onOpen={openDeal}
                 />
@@ -171,11 +171,11 @@ export function SalesView({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         deal={editing}
-        products={products}
+        projects={projects}
         accounts={initialAccounts}
         contacts={initialContacts}
         members={members}
-        scopeProductId={scopeProductId}
+        scopeProjectId={scopeProjectId}
         onSaved={() => router.refresh()}
         onClose={() => setDialogOpen(false)}
       />

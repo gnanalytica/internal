@@ -42,7 +42,7 @@ export function TeamDetail({
   team: Team & {
     issues: IssueWithRelations[];
     members: Member[];
-    ownedProducts: { id: string; name: string; color: string }[];
+    ownedProjects: { id: string; name: string; color: string }[];
   };
   allMembers: Member[];
   isAdmin: boolean;
@@ -115,17 +115,17 @@ export function TeamDetail({
             </span>
           </div>
 
-          {/* Owned products */}
-          {team.ownedProducts.length > 0 && (
+          {/* Owned projects */}
+          {team.ownedProjects.length > 0 && (
             <div className="mt-8">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Owns
               </h3>
               <div className="mt-2 flex flex-wrap gap-2">
-                {team.ownedProducts.map((p) => (
+                {team.ownedProjects.map((p) => (
                   <Link
                     key={p.id}
-                    href={`/products/${p.id}`}
+                    href={`/projects/${p.id}`}
                     className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
                   >
                     <span

@@ -46,7 +46,7 @@ export type Initiative = typeof initiatives.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type TeamWithCount = Team & { issueCount: number; memberCount: number };
 
-// ---- CRM / Sales / Marketing (Product × Department matrix) ----
+// ---- CRM / Sales / Marketing (Project × Department matrix) ----
 export type CrmAccount = typeof crmAccounts.$inferSelect;
 export type CrmContact = typeof crmContacts.$inferSelect;
 export type Deal = typeof deals.$inferSelect;
@@ -58,7 +58,7 @@ export type DealWithRelations = Deal & {
   account: CrmAccount | null;
   contact: CrmContact | null;
   owner: Member | null;
-  product: Project | null;
+  project: Project | null;
 };
 
 export type ContactWithAccount = CrmContact & {
@@ -80,7 +80,7 @@ export type AccountDetail = AccountWithRelations & {
 
 export type CampaignWithRelations = Campaign & {
   owner: Member | null;
-  product: Project | null;
+  project: Project | null;
   contentCount: number;
 };
 
@@ -94,12 +94,12 @@ export type Expense = typeof expenses.$inferSelect;
 
 export type InvoiceWithRelations = Invoice & {
   account: CrmAccount | null;
-  product: Project | null;
+  project: Project | null;
   owner: Member | null;
 };
 
 export type ExpenseWithRelations = Expense & {
-  product: Project | null;
+  project: Project | null;
   owner: Member | null;
 };
 
@@ -110,13 +110,13 @@ export type TicketWithRelations = Ticket & {
   account: CrmAccount | null;
   contact: CrmContact | null;
   assignee: Member | null;
-  product: Project | null;
+  project: Project | null;
 };
 
 export type TicketCommentWithAuthor = TicketComment & { author: Member | null };
 
-/** A product (project) plus the counts shown on the product hub cards. */
-export type ProductSummary = Project & {
+/** A product (project) plus the counts shown on the project hub cards. */
+export type ProjectSummary = Project & {
   openDeals: number;
   pipelineValue: number;
   openIssues: number;
@@ -129,7 +129,7 @@ export type ProductSummary = Project & {
 export type Feature = typeof features.$inferSelect;
 
 export type FeatureWithRelations = Feature & {
-  product: Project | null;
+  project: Project | null;
   owner: Member | null;
   page: { id: string; title: string; icon: string } | null;
   progress: { done: number; total: number; pct: number };

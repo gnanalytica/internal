@@ -3,20 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-import { setProductDepartments } from "@/lib/actions";
+import { setProjectDepartments } from "@/lib/actions";
 import { ALL_DEPARTMENT_SLUGS, DEPARTMENTS } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 
 /**
- * Per-product module toggles. Engineering is always available (it's the issues
- * module); the rest can be turned off for a product. All-on is stored as null,
+ * Per-project module toggles. Engineering is always available (it's the issues
+ * module); the rest can be turned off for a project. All-on is stored as null,
  * preserving the auto-spawn default.
  */
-export function ProductModulesConfig({
-  productId,
+export function ProjectModulesConfig({
+  projectId,
   enabled,
 }: {
-  productId: string;
+  projectId: string;
   enabled: string[] | null;
 }) {
   const router = useRouter();
@@ -29,7 +29,7 @@ export function ProductModulesConfig({
       ? Array.from(new Set([...current, slug]))
       : current.filter((s) => s !== slug);
     start(async () => {
-      await setProductDepartments(productId, next);
+      await setProjectDepartments(projectId, next);
       router.refresh();
     });
   }

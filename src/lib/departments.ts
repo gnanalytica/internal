@@ -1,11 +1,11 @@
 /**
- * The Product × Department matrix.
+ * The Project × Department matrix.
  *
  * Departments are a fixed set driven from here: because the sidebar and routes
- * are generated from `DEPARTMENTS`, every product automatically gets all of
- * these sections the moment it is created — no per-product setup rows. Each
- * department record (deal/campaign/issue) carries a `productId`, which is the
- * link between the product lens (`/products/[id]/sales`) and the company-wide
+ * are generated from `DEPARTMENTS`, every project automatically gets all of
+ * these sections the moment it is created — no per-project setup rows. Each
+ * department record (deal/campaign/issue) carries a `projectId`, which is the
+ * link between the project lens (`/projects/[id]/sales`) and the company-wide
  * department lens (`/sales`).
  */
 
@@ -56,7 +56,7 @@ export const DEPARTMENTS = [
   },
   {
     slug: "features",
-    label: "Product",
+    label: "Features",
     icon: "🧭",
     color: "#8b5cf6",
     tool: "Roadmap & specs",
@@ -70,7 +70,7 @@ export const DEPARTMENT_MAP = Object.fromEntries(
 export const ALL_DEPARTMENT_SLUGS = DEPARTMENTS.map((d) => d.slug);
 
 /**
- * The departments enabled for a product. `null`/`undefined` means all are on
+ * The departments enabled for a project. `null`/`undefined` means all are on
  * (the auto-spawn default); an explicit array restricts to those slugs while
  * preserving the canonical order.
  */
@@ -200,7 +200,7 @@ export const TICKET_PRIORITIES = [
   { id: "low", label: "Low", color: "#94a3b8" },
 ] as const;
 
-// ---- Product: feature pipeline (order = board columns) ----
+// ---- Features: feature pipeline (order = board columns) ----
 export const FEATURE_STATUSES = [
   { id: "idea", label: "Idea", color: "#94a3b8" },
   { id: "planned", label: "Planned", color: "#6366f1" },

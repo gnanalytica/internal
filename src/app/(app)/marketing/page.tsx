@@ -8,7 +8,7 @@ import {
 
 export default async function MarketingPage() {
   const ws = await getWorkspace();
-  const [campaigns, content, products] = await Promise.all([
+  const [campaigns, content, projects] = await Promise.all([
     getCampaigns(ws.id),
     getContentItems(ws.id),
     getProjects(ws.id),
@@ -16,9 +16,9 @@ export default async function MarketingPage() {
 
   return (
     <MarketingView
-      heading="Marketing · all products"
-      scopeProductId={null}
-      products={products}
+      heading="Marketing · all projects"
+      scopeProjectId={null}
+      projects={projects}
       initialCampaigns={campaigns}
       initialContent={content}
     />

@@ -83,7 +83,7 @@ async function main() {
   // Additional workspace admins (Sandeep + Jayasaagar).
   await ensureWorkspaceAdmins(ws.id);
 
-  // ---- Teams (cross-functional pods that own products) ----
+  // ---- Teams (cross-functional pods that own projects) ----
   const podRows = await db
     .insert(schema.teams)
     .values([

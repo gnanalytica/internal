@@ -22,16 +22,16 @@ import type {
 
 export function SupportView({
   heading,
-  scopeProductId,
-  products,
+  scopeProjectId,
+  projects,
   members,
   accounts,
   contacts,
   initialTickets,
 }: {
   heading: string;
-  scopeProductId: string | null;
-  products: Project[];
+  scopeProjectId: string | null;
+  projects: Project[];
   members: Member[];
   accounts: CrmAccount[];
   contacts: ContactWithAccount[];
@@ -105,7 +105,7 @@ export function SupportView({
           <TicketBoard
             key={boardKey}
             tickets={initialTickets}
-            showProduct={!scopeProductId}
+            showProject={!scopeProjectId}
             persist={(changed) => startTransition(() => void moveTickets(changed))}
             onOpen={(t) => {
               setEditing(t);
@@ -119,11 +119,11 @@ export function SupportView({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         ticket={editing}
-        products={products}
+        projects={projects}
         accounts={accounts}
         contacts={contacts}
         members={members}
-        scopeProductId={scopeProductId}
+        scopeProjectId={scopeProjectId}
         onSaved={() => router.refresh()}
         onClose={() => setDialogOpen(false)}
       />

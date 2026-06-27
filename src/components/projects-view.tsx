@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { createProject } from "@/lib/actions";
 import { enabledDepartments, type DepartmentSlug } from "@/lib/departments";
 import { formatMoney } from "@/lib/matrix-format";
-import type { ProductSummary, ProjectWithIssueCount } from "@/lib/types";
+import type { ProjectSummary, ProjectWithIssueCount } from "@/lib/types";
 
 const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   engineering: <CircleDot className="size-3.5" />,
@@ -32,10 +32,10 @@ const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
 };
 
 export function ProjectsView({
-  products,
+  projects,
   ops,
 }: {
-  products: ProductSummary[];
+  projects: ProjectSummary[];
   ops: ProjectWithIssueCount[];
 }) {
   const router = useRouter();
@@ -44,12 +44,12 @@ export function ProjectsView({
   function newProject() {
     startTransition(async () => {
       const p = await createProject({ name: "New project" });
-      router.push(`/products/${p.id}`);
+      router.push(`/projects/${p.id}`);
       router.refresh();
     });
   }
 
-  const empty = products.length === 0 && ops.length === 0;
+  const empty = projects.length === 0 && ops.length === 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -82,19 +82,19 @@ export function ProjectsView({
             </div>
           ) : (
             <>
-              {products.length > 0 && (
+              {projects.length > 0 && (
                 <section className="space-y-2">
                   <h2 className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Projects
                   </h2>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {products.map((p) => (
+                    {projects.map((p) => (
                       <div
                         key={p.id}
                         className="rounded-xl border bg-background p-4 shadow-sm transition-colors hover:border-foreground/20"
                       >
                         <Link
-                          href={`/products/${p.id}`}
+                          href={`/projects/${p.id}`}
                           className="flex items-center gap-2 hover:underline"
                         >
                           <span
@@ -122,7 +122,7 @@ export function ProjectsView({
                           {enabledDepartments(p.enabledDepartments).map((d) => (
                             <DeptLink
                               key={d.slug}
-                              href={`/products/${p.id}/${d.slug}`}
+                              href={`/projects/${p.id}/${d.slug}`}
                               icon={DEPT_ICONS[d.slug]}
                               label={d.label}
                             />

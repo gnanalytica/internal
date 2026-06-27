@@ -6,22 +6,22 @@ import {
   getIssues,
   getLabels,
   getMembers,
-  getProduct,
+  getProject,
   getProjects,
   getSavedViews,
   getWorkspace,
 } from "@/lib/data";
 
-export default async function ProductEngineeringPage({
+export default async function ProjectEngineeringPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const product = await getProduct(ws.id, id);
-  if (!product) notFound();
-  if (!isDepartmentEnabled(product.enabledDepartments, "engineering")) notFound();
+  const project = await getProject(ws.id, id);
+  if (!project) notFound();
+  if (!isDepartmentEnabled(project.enabledDepartments, "engineering")) notFound();
 
   const [allIssues, projects, members, labels, savedViews] = await Promise.all([
     getIssues(ws.id),
@@ -37,7 +37,7 @@ export default async function ProductEngineeringPage({
       projects={projects}
       members={members}
       labels={labels}
-      heading={`${product.name} · Engineering`}
+      heading={`${project.name} · Engineering`}
       defaultProjectId={id}
       savedViews={savedViews}
     />

@@ -303,7 +303,7 @@ export function Sidebar({
           label="Databases"
         />
 
-        {/* Departments — the company-wide lens across all products */}
+        {/* Departments — the company-wide lens across all projects */}
         <NavItem
           href="/projects"
           active={pathname === "/projects"}
@@ -338,7 +338,7 @@ export function Sidebar({
           href="/features"
           active={pathname.startsWith("/features")}
           icon={<Compass className="size-4" />}
-          label="Product"
+          label="Features"
         />
 
         {/* Favorites */}
@@ -384,7 +384,7 @@ export function Sidebar({
           {projects
             .filter((p) => p.kind === "product")
             .map((p) => (
-              <ProductNavItem key={p.id} product={p} pathname={pathname} />
+              <ProjectNavItem key={p.id} project={p} pathname={pathname} />
             ))}
         </Section>
 
@@ -494,14 +494,14 @@ function NavItem({
   );
 }
 
-function ProductNavItem({
-  product,
+function ProjectNavItem({
+  project,
   pathname,
 }: {
-  product: Project;
+  project: Project;
   pathname: string;
 }) {
-  const base = `/products/${product.id}`;
+  const base = `/projects/${project.id}`;
   const [open, setOpen] = useState(pathname.startsWith(base));
   const deptIcons: Record<DepartmentSlug, React.ReactNode> = {
     engineering: <CircleDot className="size-3.5" />,
@@ -511,7 +511,7 @@ function ProductNavItem({
     support: <LifeBuoy className="size-3.5" />,
     features: <Compass className="size-3.5" />,
   };
-  const depts = enabledDepartments(product.enabledDepartments).map((d) => ({
+  const depts = enabledDepartments(project.enabledDepartments).map((d) => ({
     href: `${base}/${d.slug}`,
     icon: deptIcons[d.slug],
     label: d.label,
@@ -536,10 +536,10 @@ function ProductNavItem({
         <Link href={base} className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
           <span
             className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-            style={{ backgroundColor: product.color }}
+            style={{ backgroundColor: project.color }}
           />
-          <span className="flex-1 truncate">{product.name}</span>
-          <span className="font-mono text-[10px] text-muted-foreground">{product.key}</span>
+          <span className="flex-1 truncate">{project.name}</span>
+          <span className="font-mono text-[10px] text-muted-foreground">{project.key}</span>
         </Link>
       </div>
       {open &&

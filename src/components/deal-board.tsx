@@ -29,7 +29,7 @@ type Changed = { id: string; stage: string; sortKey: string };
 /**
  * Apollo/HubSpot-style sales pipeline. Columns are the deal stages; drag a deal
  * across stages and the change is persisted via `persist`. Clicking a card
- * opens it through `onOpen`. Shows the product when not already product-scoped.
+ * opens it through `onOpen`. Shows the project when not already project-scoped.
  *
  * The board owns its optimistic state (seeded from `deals`). Parents remount it
  * via a `key` derived from the deal id-set whenever deals are added/removed, so
@@ -37,12 +37,12 @@ type Changed = { id: string; stage: string; sortKey: string };
  */
 export function DealBoard({
   deals,
-  showProduct = false,
+  showProject = false,
   persist,
   onOpen,
 }: {
   deals: DealWithRelations[];
-  showProduct?: boolean;
+  showProject?: boolean;
   persist: (changed: Changed[]) => void;
   onOpen: (deal: DealWithRelations) => void;
 }) {
@@ -123,14 +123,14 @@ export function DealBoard({
               color={s.color}
               total={total}
               items={items}
-              showProduct={showProduct}
+              showProject={showProject}
               onOpen={onOpen}
             />
           );
         })}
       </div>
       <DragOverlay>
-        {activeDeal ? <Card deal={activeDeal} showProduct={showProduct} overlay /> : null}
+        {activeDeal ? <Card deal={activeDeal} showProject={showProject} overlay /> : null}
       </DragOverlay>
     </DndContext>
   );
@@ -142,7 +142,7 @@ function Column({
   color,
   total,
   items,
-  showProduct,
+  showProject,
   onOpen,
 }: {
   stage: DealStageId;
@@ -150,7 +150,7 @@ function Column({
   color: string;
   total: number;
   items: DealWithRelations[];
-  showProduct: boolean;
+  showProject: boolean;
   onOpen: (d: DealWithRelations) => void;
 }) {
   const { setNodeRef } = useSortable({ id: stage, data: { type: "column" } });
@@ -168,7 +168,7 @@ function Column({
           className="scrollbar-thin flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg bg-muted/40 p-2"
         >
           {items.map((deal) => (
-            <SortableCard key={deal.id} deal={deal} showProduct={showProduct} onOpen={onOpen} />
+            <SortableCard key={deal.id} deal={deal} showProject={showProject} onOpen={onOpen} />
           ))}
         </div>
       </SortableContext>
@@ -178,11 +178,11 @@ function Column({
 
 function SortableCard({
   deal,
-  showProduct,
+  showProject,
   onOpen,
 }: {
   deal: DealWithRelations;
-  showProduct: boolean;
+  showProject: boolean;
   onOpen: (d: DealWithRelations) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -195,19 +195,19 @@ function SortableCard({
       {...attributes}
       {...listeners}
     >
-      <Card deal={deal} showProduct={showProduct} onOpen={onOpen} />
+      <Card deal={deal} showProject={showProject} onOpen={onOpen} />
     </div>
   );
 }
 
 function Card({
   deal,
-  showProduct,
+  showProject,
   overlay,
   onOpen,
 }: {
   deal: DealWithRelations;
-  showProduct: boolean;
+  showProject: boolean;
   overlay?: boolean;
   onOpen?: (d: DealWithRelations) => void;
 }) {
@@ -234,10 +234,10 @@ function Card({
         <span className="font-medium text-foreground">{formatMoney(deal.value)}</span>
         {deal.account && <span className="truncate">· {deal.account.name}</span>}
       </div>
-      {showProduct && deal.product && (
+      {showProject && deal.project && (
         <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <span className="size-2 rounded-full" style={{ backgroundColor: deal.product.color }} />
-          {deal.product.name}
+          <span className="size-2 rounded-full" style={{ backgroundColor: deal.project.color }} />
+          {deal.project.name}
         </div>
       )}
     </button>

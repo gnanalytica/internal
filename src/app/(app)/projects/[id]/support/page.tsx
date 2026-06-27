@@ -6,24 +6,24 @@ import {
   getAccounts,
   getContacts,
   getMembers,
-  getProduct,
+  getProject,
   getProjects,
   getTickets,
   getWorkspace,
 } from "@/lib/data";
 
-export default async function ProductSupportPage({
+export default async function ProjectSupportPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const product = await getProduct(ws.id, id);
-  if (!product) notFound();
-  if (!isDepartmentEnabled(product.enabledDepartments, "support")) notFound();
+  const project = await getProject(ws.id, id);
+  if (!project) notFound();
+  if (!isDepartmentEnabled(project.enabledDepartments, "support")) notFound();
 
-  const [tickets, accounts, contacts, members, products] = await Promise.all([
+  const [tickets, accounts, contacts, members, projects] = await Promise.all([
     getTickets(ws.id, id),
     getAccounts(ws.id),
     getContacts(ws.id),
@@ -33,9 +33,9 @@ export default async function ProductSupportPage({
 
   return (
     <SupportView
-      heading={`${product.name} · Support`}
-      scopeProductId={id}
-      products={products}
+      heading={`${project.name} · Support`}
+      scopeProjectId={id}
+      projects={projects}
       members={members}
       accounts={accounts}
       contacts={contacts}

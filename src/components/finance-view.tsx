@@ -35,14 +35,14 @@ const fieldCls =
 
 export function FinanceView({
   heading,
-  scopeProductId,
+  scopeProjectId,
   accounts,
   initialInvoices,
   initialExpenses,
 }: {
   heading: string;
-  scopeProductId: string | null;
-  products: Project[];
+  scopeProjectId: string | null;
+  projects: Project[];
   accounts: CrmAccount[];
   initialInvoices: InvoiceWithRelations[];
   initialExpenses: ExpenseWithRelations[];
@@ -119,7 +119,7 @@ export function FinanceView({
               size="sm"
               variant="outline"
               className="ml-auto gap-1.5"
-              onClick={() => start(async () => { await createInvoice({ productId: scopeProductId }); refresh(); })}
+              onClick={() => start(async () => { await createInvoice({ projectId: scopeProjectId }); refresh(); })}
             >
               <Plus className="size-4" /> New invoice
             </Button>
@@ -130,7 +130,7 @@ export function FinanceView({
                 key={inv.id}
                 invoice={inv}
                 accounts={accounts}
-                showProduct={!scopeProductId}
+                showProject={!scopeProjectId}
                 onChanged={refresh}
               />
             ))}
@@ -152,14 +152,14 @@ export function FinanceView({
               size="sm"
               variant="outline"
               className="ml-auto gap-1.5"
-              onClick={() => start(async () => { await createExpense({ productId: scopeProductId }); refresh(); })}
+              onClick={() => start(async () => { await createExpense({ projectId: scopeProjectId }); refresh(); })}
             >
               <Plus className="size-4" /> New expense
             </Button>
           </div>
           <div className="space-y-1.5">
             {initialExpenses.map((e) => (
-              <ExpenseRow key={e.id} expense={e} showProduct={!scopeProductId} onChanged={refresh} />
+              <ExpenseRow key={e.id} expense={e} showProject={!scopeProjectId} onChanged={refresh} />
             ))}
             {initialExpenses.length === 0 && (
               <div className="py-6 text-center text-sm text-muted-foreground">No expenses yet.</div>
@@ -171,12 +171,12 @@ export function FinanceView({
   );
 }
 
-function ProductTag({ product }: { product: Project | null }) {
-  if (!product) return null;
+function ProjectTag({ project }: { project: Project | null }) {
+  if (!project) return null;
   return (
     <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-      <span className="size-2 rounded-full" style={{ backgroundColor: product.color }} />
-      {product.name}
+      <span className="size-2 rounded-full" style={{ backgroundColor: project.color }} />
+      {project.name}
     </span>
   );
 }
@@ -184,12 +184,12 @@ function ProductTag({ product }: { product: Project | null }) {
 function InvoiceRow({
   invoice,
   accounts,
-  showProduct,
+  showProject,
   onChanged,
 }: {
   invoice: InvoiceWithRelations;
   accounts: CrmAccount[];
-  showProduct: boolean;
+  showProject: boolean;
   onChanged: () => void;
 }) {
   const [, start] = useTransition();
@@ -203,7 +203,7 @@ function InvoiceRow({
         onBlur={(e) => e.target.value !== (invoice.number ?? "") && upd({ number: e.target.value || null })}
         className={fieldCls + " w-28 font-mono"}
       />
-      {showProduct && <ProductTag product={invoice.product} />}
+      {showProject && <ProjectTag project={invoice.project} />}
       <select
         defaultValue={invoice.accountId ?? ""}
         onChange={(e) => upd({ accountId: e.target.value || null })}
@@ -244,11 +244,11 @@ function InvoiceRow({
 
 function ExpenseRow({
   expense,
-  showProduct,
+  showProject,
   onChanged,
 }: {
   expense: ExpenseWithRelations;
-  showProduct: boolean;
+  showProject: boolean;
   onChanged: () => void;
 }) {
   const [, start] = useTransition();
@@ -262,7 +262,7 @@ function ExpenseRow({
         onBlur={(e) => e.target.value !== (expense.vendor ?? "") && upd({ vendor: e.target.value || null })}
         className={fieldCls + " min-w-32 flex-1 font-medium"}
       />
-      {showProduct && <ProductTag product={expense.product} />}
+      {showProject && <ProjectTag project={expense.project} />}
       <select defaultValue={expense.category} onChange={(e) => upd({ category: e.target.value })} className={fieldCls}>
         {EXPENSE_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
       </select>

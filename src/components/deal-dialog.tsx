@@ -35,11 +35,11 @@ const fieldCls =
 
 type Props = {
   deal: DealWithRelations | null;
-  products: Project[];
+  projects: Project[];
   accounts: CrmAccount[];
   contacts: ContactWithAccount[];
   members: Member[];
-  scopeProductId: string | null;
+  scopeProjectId: string | null;
   onSaved: () => void;
   onClose: () => void;
 };
@@ -64,17 +64,17 @@ export function DealDialog({
 
 function DealForm({
   deal,
-  products,
+  projects,
   accounts,
   contacts,
   members,
-  scopeProductId,
+  scopeProjectId,
   onSaved,
   onClose,
 }: Props) {
   const isEdit = !!deal;
   const [name, setName] = useState(deal?.name ?? "");
-  const [productId, setProductId] = useState<string | null>(deal?.productId ?? scopeProductId);
+  const [projectId, setProjectId] = useState<string | null>(deal?.projectId ?? scopeProjectId);
   const [accountId, setAccountId] = useState<string | null>(deal?.accountId ?? null);
   const [contactId, setContactId] = useState<string | null>(deal?.contactId ?? null);
   const [stage, setStage] = useState(deal?.stage ?? "lead");
@@ -100,8 +100,8 @@ function DealForm({
   }, [deal]);
 
   function save() {
-    if (!productId) {
-      toast.error("Pick a product for this deal.");
+    if (!projectId) {
+      toast.error("Pick a project for this deal.");
       return;
     }
     startTransition(async () => {
@@ -119,7 +119,7 @@ function DealForm({
         toast.success("Deal updated");
       } else {
         await createDeal({
-          productId,
+          projectId,
           name,
           accountId,
           contactId,
@@ -143,7 +143,7 @@ function DealForm({
         body: actBody.trim(),
         dealId: deal.id,
         accountId: deal.accountId,
-        productId: deal.productId,
+        projectId: deal.projectId,
       });
       setActBody("");
       setActivities(await loadDealActivities(deal.id));
@@ -170,15 +170,15 @@ function DealForm({
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Deal name" />
 
         <div className="grid grid-cols-2 gap-3">
-          <Labeled label="Product">
+          <Labeled label="Project">
             <select
               className={fieldCls}
-              value={productId ?? ""}
-              disabled={!!scopeProductId}
-              onChange={(e) => setProductId(e.target.value || null)}
+              value={projectId ?? ""}
+              disabled={!!scopeProjectId}
+              onChange={(e) => setProjectId(e.target.value || null)}
             >
               <option value="">Select…</option>
-              {products.map((p) => (
+              {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
