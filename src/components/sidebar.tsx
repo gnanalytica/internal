@@ -86,6 +86,7 @@ export function Sidebar({
   const [showOps, setShowOps] = useState(true);
   const [showPages, setShowPages] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
+  const peopleHr = projects.find((p) => p.key === "PPL");
 
   function signOut() {
     startTransition(async () => {
@@ -164,11 +165,13 @@ export function Sidebar({
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => router.push("/members")}
+              onClick={() =>
+                router.push(peopleHr ? `/projects/${peopleHr.id}` : "/projects")
+              }
               className="gap-2 text-sm"
             >
               <Users className="size-4" />
-              Members
+              People &amp; HR
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => router.push("/settings/slack")}

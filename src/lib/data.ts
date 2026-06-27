@@ -196,12 +196,28 @@ export async function getMembersWithRole(
   workspaceId: string,
 ): Promise<MemberWithRole[]> {
   const rows = await db
-    .select({ user: users, role: workspaceMembers.role })
+    .select({
+      user: users,
+      role: workspaceMembers.role,
+      title: workspaceMembers.title,
+      entity: workspaceMembers.entity,
+      employment: workspaceMembers.employment,
+      startDate: workspaceMembers.startDate,
+      managerId: workspaceMembers.managerId,
+    })
     .from(workspaceMembers)
     .innerJoin(users, eq(workspaceMembers.userId, users.id))
     .where(eq(workspaceMembers.workspaceId, workspaceId))
     .orderBy(asc(users.name));
-  return rows.map((r) => ({ ...r.user, role: r.role }));
+  return rows.map((r) => ({
+    ...r.user,
+    role: r.role,
+    title: r.title,
+    entity: r.entity,
+    employment: r.employment,
+    startDate: r.startDate,
+    managerId: r.managerId,
+  }));
 }
 
 /** The current user's role in the workspace ("admin" | "member"). */

@@ -47,7 +47,13 @@ export const workspaceMembers = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: text("role").notNull().default("member"), // member | admin
+    role: text("role").notNull().default("member"), // member | admin (access)
+    // HR / directory fields (the People & HR home).
+    title: text("title"), // job title, e.g. "Full-stack Engineer"
+    entity: text("entity").notNull().default("Global"), // India | Netherlands | Global
+    employment: text("employment").notNull().default("employee"), // employee | contractor
+    startDate: timestamp("start_date", { withTimezone: true }),
+    managerId: uuid("manager_id").references(() => users.id, { onDelete: "set null" }),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );

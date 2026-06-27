@@ -38,7 +38,15 @@ export type WorkspaceWithRole = Workspace & { role: string };
 
 export type Member = typeof users.$inferSelect;
 export type Role = "admin" | "member";
-export type MemberWithRole = Member & { role: string };
+export type MemberWithRole = Member & {
+  role: string;
+  // HR / directory fields (the People & HR home).
+  title: string | null;
+  entity: string;
+  employment: string; // employee | contractor
+  startDate: Date | null;
+  managerId: string | null;
+};
 export type Project = typeof projects.$inferSelect;
 export type Label = typeof labels.$inferSelect;
 export type Issue = typeof issues.$inferSelect;
