@@ -493,11 +493,21 @@ export async function getIssueRelations(
   return [...map(outgoing, "outgoing"), ...map(incoming, "incoming")];
 }
 
-export async function getPageTree(workspaceId: string): Promise<PageNode[]> {
+export async function getPageTree(
+  workspaceId: string,
+  projectId?: string,
+): Promise<PageNode[]> {
   const all = await db
     .select()
     .from(pages)
-    .where(and(eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)))
+    .where(
+      and(
+        eq(pages.workspaceId, workspaceId),
+        isNull(pages.deletedAt),
+        // No projectId → the company wiki (pages not tied to a project).
+        projectId ? eq(pages.projectId, projectId) : isNull(pages.projectId),
+      ),
+    )
     .orderBy(asc(pages.position), asc(pages.createdAt));
 
   const byParent = new Map<string | null, Page[]>();

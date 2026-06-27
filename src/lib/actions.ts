@@ -587,14 +587,29 @@ export async function setIssueLabels(issueId: string, labelIds: string[]) {
 
 // ---- Pages ----
 
-export async function createPage(parentId?: string | null) {
+export async function createPage(
+  parentId?: string | null,
+  projectId?: string | null,
+) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
+  // A sub-page inherits its parent's scope (company wiki vs a project's Docs);
+  // a root page uses the explicit projectId (null = company wiki).
+  let scope = projectId ?? null;
+  if (parentId) {
+    const [parent] = await db
+      .select({ projectId: pages.projectId })
+      .from(pages)
+      .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, parentId)))
+      .limit(1);
+    if (parent) scope = parent.projectId;
+  }
   const [created] = await db
     .insert(pages)
     .values({
       workspaceId: ws.id,
       parentId: parentId ?? null,
+      projectId: scope,
       title: "Untitled",
       creatorId: me.id,
       position: `a${Date.now()}`,
@@ -602,6 +617,7 @@ export async function createPage(parentId?: string | null) {
     .returning();
   await dispatchWebhook(ws.id, "page.created", { id: created.id, title: created.title });
   revalidatePath("/", "layout");
+  if (scope) revalidatePath(`/projects/${scope}/docs`);
   return created;
 }
 
