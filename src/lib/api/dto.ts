@@ -23,6 +23,7 @@ export function issueDto(i: IssueWithRelations) {
     status: i.status,
     priority: i.priority,
     estimate: i.estimate,
+    startDate: i.startDate,
     dueDate: i.dueDate,
     assignee: i.assignee ? { id: i.assignee.id, name: i.assignee.name } : null,
     project: i.project

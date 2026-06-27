@@ -376,6 +376,27 @@ export function IssueDetail({
                 onChange={(ids) => persist(() => setIssueLabels(issue.id, ids))}
               />
             </PropRow>
+            <PropRow label="Start">
+              <input
+                type="date"
+                value={
+                  issue.startDate
+                    ? new Date(issue.startDate).toISOString().slice(0, 10)
+                    : ""
+                }
+                max={
+                  issue.dueDate
+                    ? new Date(issue.dueDate).toISOString().slice(0, 10)
+                    : undefined
+                }
+                onChange={(e) =>
+                  persist(() =>
+                    updateIssue(issue.id, { startDate: e.target.value || null }),
+                  )
+                }
+                className="w-full rounded-md border bg-transparent px-2 py-1 text-xs outline-none focus:border-brand"
+              />
+            </PropRow>
             <PropRow label="Due">
               <input
                 type="date"
@@ -383,6 +404,11 @@ export function IssueDetail({
                   issue.dueDate
                     ? new Date(issue.dueDate).toISOString().slice(0, 10)
                     : ""
+                }
+                min={
+                  issue.startDate
+                    ? new Date(issue.startDate).toISOString().slice(0, 10)
+                    : undefined
                 }
                 onChange={(e) =>
                   persist(() =>

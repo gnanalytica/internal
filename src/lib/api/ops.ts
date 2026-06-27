@@ -35,6 +35,7 @@ export async function apiCreateIssue(
     priority?: string;
     assigneeId?: string | null;
     estimate?: number | null;
+    startDate?: string | null;
     dueDate?: string | null;
     description?: string;
   },
@@ -62,6 +63,7 @@ export async function apiCreateIssue(
       priority: input.priority && isPriority(input.priority) ? input.priority : "none",
       assigneeId: input.assigneeId ?? null,
       estimate: input.estimate ?? null,
+      startDate: input.startDate ? new Date(input.startDate) : null,
       dueDate: input.dueDate ? new Date(input.dueDate) : null,
       description: input.description ? textToDoc(input.description) : null,
       creatorId: userId,
@@ -101,6 +103,7 @@ export async function apiUpdateIssue(
   if ("projectId" in patch) values.projectId = patch.projectId ?? null;
   if ("cycleId" in patch) values.cycleId = patch.cycleId ?? null;
   if ("estimate" in patch) values.estimate = patch.estimate ?? null;
+  if ("startDate" in patch) values.startDate = patch.startDate ? new Date(patch.startDate as string) : null;
   if ("dueDate" in patch) values.dueDate = patch.dueDate ? new Date(patch.dueDate as string) : null;
   if (typeof patch.description === "string") values.description = textToDoc(patch.description);
 

@@ -319,6 +319,8 @@ export async function createIssue(input: {
   assigneeId?: string | null;
   parentId?: string | null;
   featureId?: string | null;
+  startDate?: string | null;
+  dueDate?: string | null;
 }) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
@@ -346,6 +348,8 @@ export async function createIssue(input: {
       assigneeId: input.assigneeId ?? null,
       creatorId: me.id,
       sortKey: `a${Date.now()}`,
+      startDate: input.startDate ? new Date(input.startDate) : null,
+      dueDate: input.dueDate ? new Date(input.dueDate) : null,
     })
     .returning();
 
@@ -495,6 +499,7 @@ export async function updateIssue(
     projectId: string | null;
     cycleId: string | null;
     parentId: string | null;
+    startDate: string | null;
     dueDate: string | null;
     estimate: number | null;
     sortKey: string;
@@ -522,6 +527,8 @@ export async function updateIssue(
   if (patch.projectId !== undefined) values.projectId = patch.projectId;
   if (patch.cycleId !== undefined) values.cycleId = patch.cycleId;
   if (patch.parentId !== undefined) values.parentId = patch.parentId;
+  if (patch.startDate !== undefined)
+    values.startDate = patch.startDate ? new Date(patch.startDate) : null;
   if (patch.dueDate !== undefined)
     values.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
   if (patch.estimate !== undefined) values.estimate = patch.estimate;

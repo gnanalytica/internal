@@ -19,10 +19,13 @@ import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { CalendarClock } from "lucide-react";
+
 import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
 import { IssueContextMenu } from "@/components/issue-context-menu";
 import { LabelChip } from "@/components/pickers";
 import { STATUSES, type StatusId, type PriorityId } from "@/lib/constants";
+import { formatDue, isOverdue } from "@/lib/issue-dates";
 import type { IssueWithRelations, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -225,11 +228,24 @@ function BoardCard({
       >
         {issue.title}
       </Link>
-      {issue.labels.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+      {(issue.labels.length > 0 || issue.dueDate) && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {issue.labels.slice(0, 3).map((l) => (
             <LabelChip key={l.id} label={l} />
           ))}
+          {issue.dueDate && (
+            <span
+              className={cn(
+                "ml-auto flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[10px]",
+                isOverdue(issue.dueDate, issue.status)
+                  ? "bg-destructive/10 text-destructive"
+                  : "text-muted-foreground",
+              )}
+            >
+              <CalendarClock className="size-3" />
+              {formatDue(issue.dueDate)}
+            </span>
+          )}
         </div>
       )}
     </div>
