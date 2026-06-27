@@ -34,6 +34,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   addField,
@@ -41,6 +48,7 @@ import {
   deleteDatabase,
   deleteField,
   deleteRow,
+  duplicateRow,
   setFieldWidth,
   updateCell,
   updateDatabase,
@@ -422,13 +430,17 @@ function TableView({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr
-                key={row.id}
-                className={cn(
-                  "group/r border-b last:border-0 hover:bg-accent/30",
-                  selected.has(row.id) && "bg-accent/40",
-                )}
-              >
+              <ContextMenu key={row.id}>
+                <ContextMenuTrigger
+                  render={
+                    <tr
+                      className={cn(
+                        "group/r border-b last:border-0 hover:bg-accent/30",
+                        selected.has(row.id) && "bg-accent/40",
+                      )}
+                    />
+                  }
+                >
                 <td className="border-r px-2 text-center">
                   <input
                     type="checkbox"
@@ -452,7 +464,22 @@ function TableView({
                     <Trash2 className="size-3" />
                   </button>
                 </td>
-              </tr>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    onClick={() => persist(() => duplicateRow(row.id, database.id))}
+                  >
+                    Duplicate row
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    variant="destructive"
+                    onClick={() => persist(() => deleteRow(row.id, database.id))}
+                  >
+                    Delete row
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             ))}
             <tr>
               <td colSpan={database.fields.length + 2} className="px-3 py-1.5">

@@ -39,7 +39,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { createPage, setActiveWorkspace } from "@/lib/actions";
+import { toast } from "sonner";
+
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { createPage, deletePage, deleteProject, setActiveWorkspace } from "@/lib/actions";
 import { visibleDepartments, type DepartmentSlug } from "@/lib/departments";
 import { authClient } from "@/lib/auth/client";
 import type {
@@ -428,6 +437,8 @@ function ProjectNavItem({
   pathname: string;
   isAdmin: boolean;
 }) {
+  const router = useRouter();
+  const [, start] = useTransition();
   const base = `/projects/${project.id}`;
   const [open, setOpen] = useState(pathname.startsWith(base));
   const deptIcons: Record<DepartmentSlug, React.ReactNode> = {
@@ -445,13 +456,18 @@ function ProjectNavItem({
   }));
   return (
     <div>
-      <div
-        className={cn(
-          "group/prod flex items-center gap-1 rounded-md pr-1 text-sm transition-colors",
-          pathname === base
-            ? "bg-sidebar-accent font-medium text-foreground"
-            : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-        )}
+      <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <div
+            className={cn(
+              "group/prod flex items-center gap-1 rounded-md pr-1 text-sm transition-colors",
+              pathname === base
+                ? "bg-sidebar-accent font-medium text-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            )}
+          />
+        }
       >
         <button
           onClick={() => setOpen((v) => !v)}
@@ -468,7 +484,34 @@ function ProjectNavItem({
           <span className="flex-1 truncate">{project.name}</span>
           <span className="font-mono text-[10px] text-muted-foreground">{project.key}</span>
         </Link>
-      </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => router.push(base)}>Open</ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            void navigator.clipboard.writeText(`${window.location.origin}${base}`);
+            toast.success("Link copied");
+          }}
+        >
+          Copy link
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          onClick={() => {
+            if (!window.confirm(`Delete "${project.name}"? This cannot be undone.`)) return;
+            start(async () => {
+              await deleteProject(project.id);
+              toast.success("Project deleted");
+              router.push("/projects");
+              router.refresh();
+            });
+          }}
+        >
+          Delete project
+        </ContextMenuItem>
+      </ContextMenuContent>
+      </ContextMenu>
       {open &&
         depts.map((d) => (
           <Link
@@ -534,20 +577,28 @@ function PageTreeItem({
   pathname: string;
   onAddChild: (id: string) => void;
 }) {
+  const router = useRouter();
+  const [, start] = useTransition();
   const [open, setOpen] = useState(true);
   const active = pathname === `/pages/${node.id}`;
   const hasChildren = node.children.length > 0;
+  const href = `/pages/${node.id}`;
 
   return (
     <div>
-      <div
-        className={cn(
-          "group/page flex items-center gap-1 rounded-md pr-1 text-sm transition-colors",
-          active
-            ? "bg-sidebar-accent font-medium text-foreground"
-            : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-        )}
-        style={{ paddingLeft: depth * 12 + 4 }}
+      <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <div
+            className={cn(
+              "group/page flex items-center gap-1 rounded-md pr-1 text-sm transition-colors",
+              active
+                ? "bg-sidebar-accent font-medium text-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            )}
+            style={{ paddingLeft: depth * 12 + 4 }}
+          />
+        }
       >
         <button
           onClick={() => setOpen((v) => !v)}
@@ -560,7 +611,7 @@ function PageTreeItem({
           <ChevronRight className={cn("size-3 transition-transform", open && "rotate-90")} />
         </button>
         <Link
-          href={`/pages/${node.id}`}
+          href={href}
           className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5"
         >
           <span className="text-sm leading-none">{node.icon}</span>
@@ -573,7 +624,32 @@ function PageTreeItem({
         >
           <Plus className="size-3.5" />
         </button>
-      </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => onAddChild(node.id)}>New sub-page</ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            void navigator.clipboard.writeText(`${window.location.origin}${href}`);
+            toast.success("Link copied");
+          }}
+        >
+          Copy link
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          onClick={() =>
+            start(async () => {
+              await deletePage(node.id);
+              toast.success("Page moved to trash");
+              router.refresh();
+            })
+          }
+        >
+          Delete page
+        </ContextMenuItem>
+      </ContextMenuContent>
+      </ContextMenu>
       {open &&
         node.children.map((child) => (
           <PageTreeItem
