@@ -114,7 +114,7 @@ export function ProjectsView({
                     {projects.map((p) => (
                       <div
                         key={p.id}
-                        className="rounded-xl border bg-background p-4 shadow-sm transition-colors hover:border-foreground/20"
+                        className="glow hover-lift rounded-xl border bg-background p-4 shadow-sm hover:border-foreground/20"
                       >
                         <Link
                           href={`/projects/${p.id}`}

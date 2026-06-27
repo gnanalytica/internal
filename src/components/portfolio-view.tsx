@@ -68,7 +68,7 @@ export function PortfolioView({
                 key={o.id}
                 href={`/projects/${o.id}`}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/40",
+                  "press flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/40",
                   i > 0 && "border-t",
                 )}
               >
@@ -92,7 +92,7 @@ function ProjectCard({ row }: { row: PortfolioRow }) {
   return (
     <Link
       href={`/projects/${row.id}`}
-      className="flex flex-col gap-2.5 rounded-xl border bg-background p-4 shadow-sm transition-colors hover:border-foreground/20"
+      className="glow hover-lift flex flex-col gap-2.5 rounded-xl border bg-background p-4 shadow-sm hover:border-foreground/20"
     >
       <div className="flex items-center gap-2">
         <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />

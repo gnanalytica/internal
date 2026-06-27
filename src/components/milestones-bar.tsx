@@ -38,7 +38,7 @@ export function MilestonesBar({
       {milestones.map((m) => (
         <div
           key={m.id}
-          className="group/ms flex w-56 shrink-0 flex-col gap-1.5 rounded-lg border bg-background p-2.5 shadow-sm"
+          className="group/ms glow hover-lift flex w-56 shrink-0 flex-col gap-1.5 rounded-lg border bg-background p-2.5 shadow-sm"
         >
           <div className="flex items-center gap-1.5">
             <Target className="size-3.5 shrink-0 text-brand" />

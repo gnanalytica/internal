@@ -196,7 +196,7 @@ export default async function ProjectRoute({
           <Link
             key={c.href}
             href={c.href}
-            className="rounded-xl border bg-background p-4 shadow-sm transition-colors hover:border-foreground/20"
+            className="glow hover-lift rounded-xl border bg-background p-4 shadow-sm hover:border-foreground/20"
           >
             <div className="flex items-center gap-2 font-medium">
               {c.icon}
