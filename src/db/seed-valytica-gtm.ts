@@ -123,14 +123,22 @@ async function main() {
 
   // 1. Brief page
   const briefTitle = "Valytica · WhatsApp Launch — brief";
+  // The brief is a project Doc (scoped to Valytica), not a company-wiki page.
   const [pageExists] = await db
     .select({ id: schema.pages.id })
     .from(schema.pages)
-    .where(and(eq(schema.pages.workspaceId, ws.id), eq(schema.pages.title, briefTitle)))
+    .where(
+      and(
+        eq(schema.pages.workspaceId, ws.id),
+        eq(schema.pages.projectId, project.id),
+        eq(schema.pages.title, briefTitle),
+      ),
+    )
     .limit(1);
   if (!pageExists) {
     await db.insert(schema.pages).values({
       workspaceId: ws.id,
+      projectId: project.id,
       title: briefTitle,
       icon: "📣",
       content: BRIEF,
