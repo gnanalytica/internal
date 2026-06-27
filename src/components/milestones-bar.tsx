@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Plus, Target, X } from "lucide-react";
@@ -15,14 +14,19 @@ const toDateInput = (d: Date | string | null) =>
 /**
  * Management strip for a project's milestones (release phases). Each card edits
  * a milestone inline — name, target date — and shows its feature count + issue
- * progress. The roadmap below groups features under these milestones.
+ * progress. Clicking a card's name filters the roadmap below to that milestone
+ * (click again to clear); it does not navigate away.
  */
 export function MilestonesBar({
   projectId,
   milestones,
+  selectedId,
+  onSelect,
 }: {
   projectId: string;
   milestones: MilestoneWithProgress[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -35,20 +39,27 @@ export function MilestonesBar({
 
   return (
     <div className="scrollbar-thin flex items-stretch gap-2 overflow-x-auto border-b px-4 py-2">
-      {milestones.map((m) => (
+      {milestones.map((m) => {
+        const selected = selectedId === m.id;
+        return (
         <div
           key={m.id}
-          className="group/ms glow hover-lift flex w-56 shrink-0 flex-col gap-1.5 rounded-lg border bg-background p-2.5 shadow-sm"
+          className={cn(
+            "group/ms glow hover-lift flex w-56 shrink-0 flex-col gap-1.5 rounded-lg border bg-background p-2.5 shadow-sm transition-colors",
+            selected && "border-brand ring-2 ring-brand/30",
+          )}
         >
           <div className="flex items-center gap-1.5">
             <Target className="size-3.5 shrink-0 text-brand" />
-            <Link
-              href={`/projects/${projectId}/milestones/${m.id}`}
-              className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
-              title={`Open ${m.name}`}
+            <button
+              type="button"
+              onClick={() => onSelect(m.id)}
+              aria-pressed={selected}
+              className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:text-brand"
+              title={selected ? `Showing ${m.name} — click to clear` : `Filter by ${m.name}`}
             >
               {m.name}
-            </Link>
+            </button>
             <button
               onClick={() => {
                 if (confirm(`Delete milestone "${m.name}"? Its features stay, unassigned.`))
@@ -90,7 +101,8 @@ export function MilestonesBar({
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <button
         onClick={() => run(() => createMilestone({ projectId }))}
