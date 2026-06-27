@@ -481,6 +481,10 @@ export async function getIssue(
       assignee: true,
       labels: { with: { label: true } },
       assignees: { with: { user: true } },
+      feature: {
+        columns: { id: true, title: true },
+        with: { milestone: { columns: { id: true, name: true } } },
+      },
       pageLinks: { with: { page: true } },
       parent: { with: { project: true } },
       subIssues: {
@@ -499,6 +503,9 @@ export async function getIssue(
   return {
     ...row,
     labels: row.labels.map((l) => l.label), assignees: row.assignees.map((a) => a.user),
+    feature: row.feature
+      ? { id: row.feature.id, title: row.feature.title, milestone: row.feature.milestone }
+      : null,
     linkedPages: row.pageLinks.map((p) => p.page),
     parent: row.parent
       ? {
