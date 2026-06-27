@@ -137,6 +137,7 @@ export const ACTIVITY_TYPES = [
 // ---- Marketing ----
 export const CAMPAIGN_CHANNELS = [
   { id: "email", label: "Email", color: "#6366f1" },
+  { id: "whatsapp", label: "WhatsApp", color: "#22c55e" },
   { id: "linkedin", label: "LinkedIn", color: "#0ea5e9" },
   { id: "events", label: "Events", color: "#a855f7" },
   { id: "content", label: "Content", color: "#10b981" },

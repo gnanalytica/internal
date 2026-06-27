@@ -2124,6 +2124,9 @@ export async function createCampaign(input: {
   channel?: string;
   status?: string;
   budget?: number;
+  reach?: number;
+  replies?: number;
+  conversions?: number;
   entity?: string;
   startDate?: string | null;
   endDate?: string | null;
@@ -2139,6 +2142,9 @@ export async function createCampaign(input: {
       channel: input.channel ?? "email",
       status: input.status ?? "planned",
       budget: input.budget ?? 0,
+      reach: input.reach ?? 0,
+      replies: input.replies ?? 0,
+      conversions: input.conversions ?? 0,
       entity: input.entity ?? "Global",
       startDate: toDate(input.startDate),
       endDate: toDate(input.endDate),
@@ -2156,6 +2162,9 @@ export async function updateCampaign(
     channel: string;
     status: string;
     budget: number;
+    reach: number;
+    replies: number;
+    conversions: number;
     entity: string;
     startDate: string | null;
     endDate: string | null;
@@ -2189,6 +2198,8 @@ export async function createContent(input: {
   channel?: string | null;
   status?: string;
   campaignId?: string | null;
+  url?: string | null;
+  notes?: string | null;
   publishDate?: string | null;
 }) {
   const ws = await getWorkspace();
@@ -2202,6 +2213,8 @@ export async function createContent(input: {
       channel: input.channel ?? null,
       status: input.status ?? "idea",
       campaignId: input.campaignId ?? null,
+      url: input.url ?? null,
+      notes: input.notes ?? null,
       publishDate: toDate(input.publishDate),
       ownerId: me.id,
     })
@@ -2217,6 +2230,8 @@ export async function updateContent(
     channel: string | null;
     status: string;
     campaignId: string | null;
+    url: string | null;
+    notes: string | null;
     publishDate: string | null;
   }>,
 ) {
