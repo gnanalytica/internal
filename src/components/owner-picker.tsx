@@ -25,6 +25,7 @@ export function OwnerPicker({
       <AssigneePicker
         members={members}
         value={ownerId}
+        label="No owner"
         onChange={(v) =>
           start(async () => {
             await updateProject(projectId, { ownerId: v });

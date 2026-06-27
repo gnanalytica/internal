@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Timer } from "lucide-react";
+import { useState } from "react";
+import { Check, Timer, User } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -8,6 +9,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
 import {
   PRIORITIES,
@@ -98,51 +108,79 @@ export function PriorityPicker({
   );
 }
 
+function UnassignedDot() {
+  return (
+    <span className="grid size-4 shrink-0 place-items-center rounded-full border border-dashed border-muted-foreground/60 text-muted-foreground">
+      <User className="size-2.5" />
+    </span>
+  );
+}
+
+/**
+ * Linear/Notion-style assignee picker: an avatar trigger that opens a searchable
+ * popover of members (type to filter), with avatars + a checkmark on the current
+ * pick and an "Unassigned" option. Shared by every assignee/owner surface.
+ */
 export function AssigneePicker({
   members,
   value,
   onChange,
   compact,
+  label = "Unassigned",
 }: {
   members: Member[];
   value: string | null;
   onChange: (v: string | null) => void;
   compact?: boolean;
+  /** Empty-state label (e.g. "No owner"). */
+  label?: string;
 }) {
+  const [open, setOpen] = useState(false);
   const m = members.find((x) => x.id === value) ?? null;
+
+  const pick = (id: string | null) => {
+    onChange(id);
+    setOpen(false);
+  };
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className={triggerCls} aria-label="Set assignee">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className={triggerCls} aria-label="Set assignee">
         {m ? (
           <UserAvatar name={m.name} color={m.avatarColor} className="size-4 text-[8px]" />
         ) : (
-          <span className="grid size-4 place-items-center rounded-full border border-dashed border-muted-foreground/60 text-[9px] text-muted-foreground">
-            ?
-          </span>
+          <UnassignedDot />
         )}
-        {!compact && <span>{m ? m.name : "Unassigned"}</span>}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
-        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
-          <span className="grid size-4 place-items-center rounded-full border border-dashed border-muted-foreground/60 text-[9px] text-muted-foreground">
-            ?
-          </span>
-          <span className="flex-1">Unassigned</span>
-          {!value && <Check className="size-3.5 opacity-70" />}
-        </DropdownMenuItem>
-        {members.map((mem) => (
-          <DropdownMenuItem
-            key={mem.id}
-            onClick={() => onChange(mem.id)}
-            className="gap-2 text-xs"
-          >
-            <UserAvatar name={mem.name} color={mem.avatarColor} className="size-4 text-[8px]" />
-            <span className="flex-1">{mem.name}</span>
-            {value === mem.id && <Check className="size-3.5 opacity-70" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        {!compact && <span>{m ? m.name : label}</span>}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-0">
+        <Command>
+          <CommandInput placeholder="Assign to…" className="h-9" />
+          <CommandList>
+            <CommandEmpty>No people found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem value="Unassigned" onSelect={() => pick(null)} className="gap-2">
+                <UnassignedDot />
+                <span className="flex-1">{label}</span>
+                {!value && <Check className="size-3.5 opacity-70" />}
+              </CommandItem>
+              {members.map((mem) => (
+                <CommandItem
+                  key={mem.id}
+                  value={mem.name}
+                  onSelect={() => pick(mem.id)}
+                  className="gap-2"
+                >
+                  <UserAvatar name={mem.name} color={mem.avatarColor} className="size-4 text-[8px]" />
+                  <span className="flex-1 truncate">{mem.name}</span>
+                  {value === mem.id && <Check className="size-3.5 opacity-70" />}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
