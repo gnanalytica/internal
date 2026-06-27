@@ -87,8 +87,8 @@ export const projects = pgTable(
     // 'project' = an app we ship (gets departments + CRM);
     // 'operation' = internal / back-office (no departments, no CRM).
     kind: text("kind").$type<"project" | "operation">().notNull().default("project"),
-    // Owning pod (cross-functional team). null for operations.
-    ownerTeamId: uuid("owner_team_id").references(() => teams.id, {
+    // Owner (a person). null if unassigned.
+    ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",
     }),
     startDate: timestamp("start_date", { withTimezone: true }),
@@ -124,36 +124,6 @@ export const cycles = pgTable(
   (t) => [index("cycles_workspace_idx").on(t.workspaceId)],
 );
 
-/** Sub-teams within a workspace (Linear-style teams). */
-export const teams = pgTable(
-  "teams",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    key: text("key").notNull(),
-    color: text("color").notNull().default("#6366f1"),
-    icon: text("icon").notNull().default("👥"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("teams_workspace_key_idx").on(t.workspaceId, t.key)],
-);
-
-export const teamMembers = pgTable(
-  "team_members",
-  {
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-  },
-  (t) => [primaryKey({ columns: [t.teamId, t.userId] })],
-);
-
 export const issues = pgTable(
   "issues",
   {
@@ -168,9 +138,6 @@ export const issues = pgTable(
       onDelete: "set null",
     }),
     featureId: uuid("feature_id").references(() => features.id, {
-      onDelete: "set null",
-    }),
-    teamId: uuid("team_id").references(() => teams.id, {
       onDelete: "set null",
     }),
     // Self-reference for sub-issues; null = top-level issue.
@@ -586,20 +553,6 @@ export const cyclesRelations = relations(cycles, ({ one, many }) => ({
   issues: many(issues),
 }));
 
-export const teamsRelations = relations(teams, ({ one, many }) => ({
-  workspace: one(workspaces, {
-    fields: [teams.workspaceId],
-    references: [workspaces.id],
-  }),
-  members: many(teamMembers),
-  issues: many(issues),
-}));
-
-export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
-  team: one(teams, { fields: [teamMembers.teamId], references: [teams.id] }),
-  user: one(users, { fields: [teamMembers.userId], references: [users.id] }),
-}));
-
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [projects.workspaceId],
@@ -609,9 +562,9 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     fields: [projects.initiativeId],
     references: [initiatives.id],
   }),
-  ownerTeam: one(teams, {
-    fields: [projects.ownerTeamId],
-    references: [teams.id],
+  owner: one(users, {
+    fields: [projects.ownerId],
+    references: [users.id],
   }),
   issues: many(issues),
 }));
@@ -632,10 +585,6 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   feature: one(features, {
     fields: [issues.featureId],
     references: [features.id],
-  }),
-  team: one(teams, {
-    fields: [issues.teamId],
-    references: [teams.id],
   }),
   assignee: one(users, {
     fields: [issues.assigneeId],

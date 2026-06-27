@@ -30,7 +30,6 @@ import {
   PriorityPicker,
   ProjectPicker,
   StatusPicker,
-  TeamPicker,
 } from "@/components/pickers";
 import { Topbar } from "@/components/topbar";
 import {
@@ -78,7 +77,6 @@ import type {
   Page,
   Project,
   RelationItem,
-  Team,
   TimelineItem,
 } from "@/lib/types";
 import {
@@ -97,7 +95,6 @@ export function IssueDetail({
   labels,
   allPages,
   cycles,
-  teams,
   features,
   timeline,
   githubConnected,
@@ -115,7 +112,6 @@ export function IssueDetail({
   labels: Label[];
   allPages: FlatPage[];
   cycles: Cycle[];
-  teams: Team[];
   features: { id: string; title: string }[];
   timeline: TimelineItem[];
   githubConnected: boolean;
@@ -364,13 +360,6 @@ export function IssueDetail({
                 cycles={cycles}
                 value={issue.cycleId}
                 onChange={(v) => persist(() => updateIssue(issue.id, { cycleId: v }))}
-              />
-            </PropRow>
-            <PropRow label="Team">
-              <TeamPicker
-                teams={teams}
-                value={issue.teamId}
-                onChange={(v) => persist(() => updateIssue(issue.id, { teamId: v }))}
               />
             </PropRow>
             <PropRow label="Feature">

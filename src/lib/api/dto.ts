@@ -11,7 +11,6 @@ import type {
   IssueWithRelations,
   Page,
   Project,
-  TeamWithCount,
   TicketWithRelations,
 } from "@/lib/types";
 
@@ -31,7 +30,6 @@ export function issueDto(i: IssueWithRelations) {
       ? { id: i.project.id, key: i.project.key, name: i.project.name }
       : null,
     cycleId: i.cycleId,
-    teamId: i.teamId,
     parentId: i.parentId,
     labels: i.labels.map((l) => ({ id: l.id, name: l.name, color: l.color })),
     createdAt: i.createdAt,
@@ -71,17 +69,6 @@ export function initiativeDto(i: Initiative) {
     status: i.status,
     color: i.color,
     targetDate: i.targetDate,
-  };
-}
-
-export function teamDto(t: TeamWithCount) {
-  return {
-    id: t.id,
-    name: t.name,
-    key: t.key,
-    icon: t.icon,
-    issueCount: t.issueCount,
-    memberCount: t.memberCount,
   };
 }
 

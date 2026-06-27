@@ -29,8 +29,6 @@ async function main() {
   await db.delete(schema.projects);
   await db.delete(schema.cycles);
   await db.delete(schema.initiatives);
-  await db.delete(schema.teamMembers);
-  await db.delete(schema.teams);
   await db.delete(schema.workspaceMembers);
   await db.delete(schema.users);
   await db.delete(schema.workspaces);
@@ -148,32 +146,6 @@ async function main() {
         createdIssues[0].id,
         createdIssues[1].id,
         createdIssues[3].id,
-      ]),
-    );
-
-  // A team with members and a few issues.
-  const [team] = await db
-    .insert(schema.teams)
-    .values({
-      workspaceId: ws.id,
-      name: "Core Platform",
-      key: "CORE",
-      icon: "🛠️",
-      color: "#6366f1",
-    })
-    .returning();
-  await db.insert(schema.teamMembers).values([
-    { teamId: team.id, userId: sandeep.id },
-    { teamId: team.id, userId: alex.id },
-  ]);
-  await db
-    .update(schema.issues)
-    .set({ teamId: team.id })
-    .where(
-      inArray(schema.issues.id, [
-        createdIssues[0].id,
-        createdIssues[1].id,
-        createdIssues[2].id,
       ]),
     );
 

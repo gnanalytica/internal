@@ -100,7 +100,6 @@ export async function apiUpdateIssue(
   if ("assigneeId" in patch) values.assigneeId = patch.assigneeId ?? null;
   if ("projectId" in patch) values.projectId = patch.projectId ?? null;
   if ("cycleId" in patch) values.cycleId = patch.cycleId ?? null;
-  if ("teamId" in patch) values.teamId = patch.teamId ?? null;
   if ("estimate" in patch) values.estimate = patch.estimate ?? null;
   if ("dueDate" in patch) values.dueDate = patch.dueDate ? new Date(patch.dueDate as string) : null;
   if (typeof patch.description === "string") values.description = textToDoc(patch.description);

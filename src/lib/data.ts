@@ -41,7 +41,6 @@ import {
   references,
   savedViews,
   projects,
-  teams,
   ticketComments,
   tickets,
   users,
@@ -79,8 +78,6 @@ import type {
   ProjectSummary,
   ProjectWithIssueCount,
   Role,
-  Team,
-  TeamWithCount,
   TicketWithRelations,
   TimelineItem,
   Workspace,
@@ -108,8 +105,6 @@ export type {
   Project,
   ProjectWithIssueCount,
   Role,
-  Team,
-  TeamWithCount,
   TimelineItem,
   Workspace,
   WorkspaceWithRole,
@@ -288,13 +283,12 @@ export async function getProject(
     where: and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)),
     with: {
       initiative: true,
-      ownerTeam: true,
+      owner: true,
       issues: {
         orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
         with: {
           project: true,
           cycle: true,
-          team: true,
           assignee: true,
           labels: { with: { label: true } },
         },
@@ -325,7 +319,6 @@ export async function getIssues(
     with: {
       project: true,
       cycle: true,
-      team: true,
       assignee: true,
       labels: { with: { label: true } },
     },
@@ -368,7 +361,6 @@ export async function getIssuesPage(
     with: {
       project: true,
       cycle: true,
-      team: true,
       assignee: true,
       labels: { with: { label: true } },
     },
@@ -397,7 +389,6 @@ export async function getIssue(
     with: {
       project: true,
       cycle: true,
-      team: true,
       assignee: true,
       labels: { with: { label: true } },
       pageLinks: { with: { page: true } },
@@ -407,7 +398,6 @@ export async function getIssue(
         with: {
           project: true,
           cycle: true,
-          team: true,
           assignee: true,
           labels: { with: { label: true } },
         },
@@ -609,7 +599,6 @@ export async function getPage(
             with: {
               project: true,
               cycle: true,
-              team: true,
               assignee: true,
               labels: { with: { label: true } },
             },
@@ -655,7 +644,6 @@ export async function getCycle(
         with: {
           project: true,
           cycle: true,
-          team: true,
           assignee: true,
           labels: { with: { label: true } },
         },
@@ -1239,75 +1227,6 @@ export async function getUnreadCount(workspaceId: string): Promise<number> {
   return rows.length;
 }
 
-// ---- Teams ----
-
-export async function getTeams(workspaceId: string): Promise<TeamWithCount[]> {
-  const rows = await db.query.teams.findMany({
-    where: eq(teams.workspaceId, workspaceId),
-    orderBy: [asc(teams.name)],
-    with: {
-      issues: { columns: { id: true } },
-      members: { columns: { userId: true } },
-    },
-  });
-  return rows.map((t) => ({
-    ...t,
-    issueCount: t.issues.length,
-    memberCount: t.members.length,
-  }));
-}
-
-export type OwnedProject = { id: string; name: string; color: string };
-
-export async function getTeam(
-  workspaceId: string,
-  id: string,
-): Promise<
-  | (Team & {
-      issues: IssueWithRelations[];
-      members: Member[];
-      ownedProjects: OwnedProject[];
-    })
-  | null
-> {
-  const row = await db.query.teams.findFirst({
-    where: and(eq(teams.workspaceId, workspaceId), eq(teams.id, id)),
-    with: {
-      issues: {
-        orderBy: [asc(issues.sortKey)],
-        with: {
-          project: true,
-          cycle: true,
-          team: true,
-          assignee: true,
-          labels: { with: { label: true } },
-        },
-      },
-      members: { with: { user: true } },
-    },
-  });
-  if (!row) return null;
-  const ownedProjects = await db
-    .select({ id: projects.id, name: projects.name, color: projects.color })
-    .from(projects)
-    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.ownerTeamId, id)))
-    .orderBy(asc(projects.name));
-  return {
-    ...row,
-    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label) })),
-    members: row.members.map((m) => m.user),
-    ownedProjects,
-  };
-}
-
-export async function getTeamsFlat(workspaceId: string): Promise<Team[]> {
-  return db
-    .select()
-    .from(teams)
-    .where(eq(teams.workspaceId, workspaceId))
-    .orderBy(asc(teams.name));
-}
-
 // ---- CRM / Sales / Marketing (Project × Department matrix) ----
 
 /**
@@ -1581,7 +1500,6 @@ export async function getFeature(
         with: {
           project: true,
           cycle: true,
-          team: true,
           assignee: true,
           labels: { with: { label: true } },
         },
