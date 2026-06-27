@@ -25,6 +25,7 @@
     "db:seed-atlas": "tsx --env-file=.env.local src/db/seed-atlas.ts",
     "db:seed-org-chart": "tsx --env-file=.env.local src/db/seed-org-chart.ts",
     "db:seed-website-content": "tsx --env-file=.env.local src/db/seed-website-content.ts",
+    "db:seed-valytica-setup": "tsx --env-file=.env.local src/db/seed-valytica-setup.ts",
     "db:reset": "tsx --env-file=.env.local src/db/reset.ts"
   },
   "dependencies": {
