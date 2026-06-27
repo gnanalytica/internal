@@ -2689,3 +2689,70 @@ export async function addTicketComment(ticketId: string, body: string) {
     .set({ updatedAt: new Date() })
     .where(and(eq(tickets.id, ticketId), eq(tickets.workspaceId, ws.id)));
 }
+
+// ---- Editor: link preview (bookmark cards) ----
+
+export type LinkPreview = {
+  url: string;
+  title: string;
+  description: string;
+  image: string | null;
+  favicon: string;
+  domain: string;
+};
+
+const PRIVATE_HOST =
+  /^(localhost|0\.0\.0\.0|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?)/i;
+
+/** Fetch Open Graph metadata for a URL to render a Notion-style bookmark card. */
+export async function getLinkPreview(rawUrl: string): Promise<LinkPreview> {
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    throw new Error("Invalid URL");
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("Unsupported URL");
+  if (PRIVATE_HOST.test(u.hostname)) throw new Error("Refusing to fetch a private address");
+
+  const domain = u.hostname.replace(/^www\./, "");
+  const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+
+  let html = "";
+  try {
+    const res = await fetch(u.toString(), {
+      headers: { "user-agent": "Mozilla/5.0 (compatible; GnanalyticaBot/1.0)" },
+      signal: AbortSignal.timeout(6000),
+    });
+    html = (await res.text()).slice(0, 500_000);
+  } catch {
+    // Fall through to a minimal preview from the URL itself.
+  }
+
+  const meta = (key: string): string | null => {
+    const re = new RegExp(
+      `<meta[^>]+(?:property|name)=["']${key}["'][^>]+content=["']([^"']*)["']`,
+      "i",
+    );
+    const alt = new RegExp(
+      `<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${key}["']`,
+      "i",
+    );
+    return (html.match(re)?.[1] ?? html.match(alt)?.[1] ?? null);
+  };
+  const decode = (s: string) =>
+    s
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
+
+  const titleTag = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? null;
+  const title = decode(meta("og:title") || titleTag || domain).slice(0, 200);
+  const description = decode(meta("og:description") || meta("description") || "").slice(0, 300);
+  const image = meta("og:image");
+
+  return { url: u.toString(), title, description, image, favicon, domain };
+}

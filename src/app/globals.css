@@ -401,6 +401,11 @@ a.entity-ref {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* Bookmark/embed cards are anchors but shouldn't look like inline links. */
+.tiptap a.no-underline {
+  color: inherit;
+  text-decoration: none;
+}
 /* Placeholder for empty nodes */
 .tiptap p.is-editor-empty:first-child::before,
 .tiptap .is-empty::before {
