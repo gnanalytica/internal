@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BarChart3, CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
+import { FinanceView } from "@/components/finance-view";
 import { OwnerPicker } from "@/components/owner-picker";
 import { PeopleHRView } from "@/components/people-hr-view";
 import { ProjectDetail } from "@/components/project-detail";
@@ -13,13 +14,17 @@ import {
   isDepartmentEnabled,
 } from "@/lib/departments";
 import {
+  getAccounts,
   getBacklinks,
   getCurrentUser,
   getDatabases,
+  getExpenses,
+  getInvoices,
   getMembers,
   getMembersWithRole,
   getMyRole,
   getProject,
+  getProjects,
   getProjectSummaries,
   getStatusUpdates,
   getWorkspace,
@@ -56,6 +61,27 @@ export default async function ProjectRoute({
         members={members}
         currentUserId={me.id}
         isAdmin={role === "admin"}
+      />
+    );
+  }
+
+  // Finance is the company finance home: invoices + expenses across projects
+  // (founders-only — guarded by the confidential check above).
+  if (project.kind !== "project" && project.key === "FIN") {
+    const [projects, accounts, invoicesList, expensesList] = await Promise.all([
+      getProjects(ws.id),
+      getAccounts(ws.id),
+      getInvoices(ws.id),
+      getExpenses(ws.id),
+    ]);
+    return (
+      <FinanceView
+        heading={project.name}
+        scopeProjectId={null}
+        projects={projects.filter((p) => p.kind === "project")}
+        accounts={accounts}
+        initialInvoices={invoicesList}
+        initialExpenses={expensesList}
       />
     );
   }
