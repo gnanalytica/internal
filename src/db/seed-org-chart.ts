@@ -15,14 +15,16 @@ import { db, schema } from "./index";
  *     ├─ CTO / HR — Sandeep
  *     │    ├─ AI Engineer — Sanjana
  *     │    ├─ Full Stack Engineer — Raunak
- *     │    ├─ Infrastructure & Backend Engineer — Harshith
- *     │    ├─ Data Security Consultant — Pranav Aditya
- *     │    ├─ AI Consultant — Shraddha BLS
- *     │    ├─ Lawyer & Legal Specialist — Manjusha Ksn
- *     │    └─ Delivery & Tech Transformation Consultant — Sairam
- *     └─ CMO / CPO — Jayasaagar
- *          ├─ Marketing & Social Media Outreach — Shravani
- *          └─ Business Analyst & Product Owner · Valytica — Aparna
+ *     │    └─ Infrastructure & Backend Engineer — Harshith
+ *     ├─ CMO / CPO — Jayasaagar
+ *     │    ├─ Marketing & Social Media Outreach — Shravani
+ *     │    └─ Business Analyst & Product Owner · Valytica — Aparna
+ *     ├─ Data Security Consultant — Pranav Aditya
+ *     ├─ AI Consultant — Shraddha BLS
+ *     ├─ Lawyer & Legal Specialist — Manjusha Ksn
+ *     └─ Delivery & Tech Transformation Consultant — Sairam
+ *
+ * Consultants report directly to the CEO (not embedded in a delivery line).
  *
  * Idempotent: clears the workspace's org_roles and rebuilds the tree.
  * Run: npm run db:seed-org-chart
@@ -41,10 +43,6 @@ const TREE: Role = {
         { title: "AI Engineer", email: "sanjana@gnanalytica.com" },
         { title: "Full Stack Engineer", email: "raunak@gnanalytica.com" },
         { title: "Infrastructure & Backend Engineer", email: "harshith@gnanalytica.com" },
-        { title: "Data Security Consultant", email: "gpranavaditya@gmail.com" },
-        { title: "AI Consultant", email: "shraddhabollapragada@gmail.com" },
-        { title: "Lawyer & Legal Specialist", email: "ksnmanjusha1804@gmail.com" },
-        { title: "Delivery & Technology Transformation Consultant", email: "bsairam.2002@gmail.com" },
       ],
     },
     {
@@ -55,6 +53,11 @@ const TREE: Role = {
         { title: "Business Analyst & Product Owner · Valytica", email: "aparna@gnanalytica.com" },
       ],
     },
+    // Consultants report directly to the CEO.
+    { title: "Data Security Consultant", email: "gpranavaditya@gmail.com" },
+    { title: "AI Consultant", email: "shraddhabollapragada@gmail.com" },
+    { title: "Lawyer & Legal Specialist", email: "ksnmanjusha1804@gmail.com" },
+    { title: "Delivery & Technology Transformation Consultant", email: "bsairam.2002@gmail.com" },
   ],
 };
 
