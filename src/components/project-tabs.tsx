@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { enabledDepartments } from "@/lib/departments";
+import { visibleDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
-/** Tab strip shown at the top of every project project's department pages. */
-export function ProjectTabs({ project }: { project: Project }) {
+/** Tab strip shown at the top of every project's department pages. */
+export function ProjectTabs({ project, isAdmin = false }: { project: Project; isAdmin?: boolean }) {
   const pathname = usePathname();
   const base = `/projects/${project.id}`;
   const tabs = [
     { href: base, label: "Overview" },
-    ...enabledDepartments(project.enabledDepartments).map((d) => ({
+    ...visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map((d) => ({
       href: `${base}/${d.slug}`,
       label: d.label,
     })),

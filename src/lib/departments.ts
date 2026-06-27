@@ -74,6 +74,27 @@ export const DEPARTMENT_MAP = Object.fromEntries(
 export const ALL_DEPARTMENT_SLUGS = DEPARTMENTS.map((d) => d.slug);
 
 /**
+ * Departments restricted to admins (founders) — revenue-sensitive. Finance is
+ * a company-level Operation (also confidential); HR lives in the People & HR
+ * Operation (confidential via the project flag).
+ */
+export const CONFIDENTIAL_DEPARTMENTS: DepartmentSlug[] = ["sales"];
+export const isConfidentialDepartment = (slug: string): boolean =>
+  CONFIDENTIAL_DEPARTMENTS.includes(slug as DepartmentSlug);
+
+/** Admins (founders) see confidential areas; members do not. */
+export const canSeeConfidential = (role: string): boolean => role === "admin";
+
+/** Departments visible to a given role (drops confidential ones for members). */
+export function visibleDepartments(
+  enabled: string[] | null | undefined,
+  role: string,
+): (typeof DEPARTMENTS)[number][] {
+  const list = enabledDepartments(enabled);
+  return canSeeConfidential(role) ? list : list.filter((d) => !isConfidentialDepartment(d.slug));
+}
+
+/**
  * The departments enabled for a project. `null`/`undefined` means all are on
  * (the auto-spawn default); an explicit array restricts to those slugs while
  * preserving the canonical order.

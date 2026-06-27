@@ -2,10 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BarChart3, CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
+import { OwnerPicker } from "@/components/owner-picker";
 import { PeopleHRView } from "@/components/people-hr-view";
 import { ProjectDetail } from "@/components/project-detail";
 import { ProjectModulesConfig } from "@/components/project-modules-config";
-import { isDepartmentEnabled } from "@/lib/departments";
+import { Restricted } from "@/components/restricted";
+import {
+  canSeeConfidential,
+  isConfidentialDepartment,
+  isDepartmentEnabled,
+} from "@/lib/departments";
 import {
   getBacklinks,
   getCurrentUser,
@@ -29,6 +35,12 @@ export default async function ProjectRoute({
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
+
+  // Confidential projects (Finance, People & HR) are founders-only.
+  const myRole = await getMyRole(ws.id);
+  if (project.confidential && !canSeeConfidential(myRole)) {
+    return <Restricted label={project.name} />;
+  }
 
   // People & HR is the team home: directory + org chart + management.
   if (project.kind !== "project" && project.key === "PPL") {
@@ -69,8 +81,13 @@ export default async function ProjectRoute({
   }
 
   // Projects: the department overview hub.
-  const summary = (await getProjectSummaries(ws.id)).find((p) => p.id === id);
+  const [summaries, members] = await Promise.all([
+    getProjectSummaries(ws.id),
+    getMembers(ws.id),
+  ]);
+  const summary = summaries.find((p) => p.id === id);
   if (!summary) notFound();
+  const owner = members.find((m) => m.id === summary.ownerId) ?? null;
 
   const cards = [
     {
@@ -121,7 +138,9 @@ export default async function ProjectRoute({
       stat: `${summary.openTickets} open tickets`,
       tool: "Zendesk-style ticket queue",
     },
-  ].filter((c) => isDepartmentEnabled(summary.enabledDepartments, c.slug));
+  ]
+    .filter((c) => isDepartmentEnabled(summary.enabledDepartments, c.slug))
+    .filter((c) => canSeeConfidential(myRole) || !isConfidentialDepartment(c.slug));
 
   return (
     <div className="overflow-auto p-4">
@@ -131,7 +150,16 @@ export default async function ProjectRoute({
         ) : (
           <span />
         )}
-        <ProjectModulesConfig projectId={id} enabled={summary.enabledDepartments} />
+        <div className="flex items-center gap-2">
+          {canSeeConfidential(myRole) ? (
+            <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
+          ) : (
+            <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+              Owner {owner?.name ?? "—"}
+            </span>
+          )}
+          <ProjectModulesConfig projectId={id} enabled={summary.enabledDepartments} />
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (

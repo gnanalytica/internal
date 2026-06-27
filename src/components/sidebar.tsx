@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { createPage, setActiveWorkspace } from "@/lib/actions";
-import { enabledDepartments, type DepartmentSlug } from "@/lib/departments";
+import { visibleDepartments, type DepartmentSlug } from "@/lib/departments";
 import { authClient } from "@/lib/auth/client";
 import type {
   FavoriteItem,
@@ -68,6 +68,7 @@ export function Sidebar({
   labels,
   unreadCount = 0,
   favorites = [],
+  isAdmin = false,
 }: {
   workspace: Workspace;
   workspaces: WorkspaceWithRole[];
@@ -78,6 +79,7 @@ export function Sidebar({
   labels: Label[];
   unreadCount?: number;
   favorites?: FavoriteItem[];
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -164,15 +166,15 @@ export function Sidebar({
               </div>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() =>
-                router.push(peopleHr ? `/projects/${peopleHr.id}` : "/projects")
-              }
-              className="gap-2 text-sm"
-            >
-              <Users className="size-4" />
-              People &amp; HR
-            </DropdownMenuItem>
+            {peopleHr && (
+              <DropdownMenuItem
+                onClick={() => router.push(`/projects/${peopleHr.id}`)}
+                className="gap-2 text-sm"
+              >
+                <Users className="size-4" />
+                People &amp; HR
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => router.push("/settings/slack")}
               className="gap-2 text-sm"
@@ -324,12 +326,14 @@ export function Sidebar({
           icon={<Megaphone className="size-4" />}
           label="Marketing"
         />
-        <NavItem
-          href="/sales"
-          active={pathname.startsWith("/sales")}
-          icon={<TrendingUp className="size-4" />}
-          label="Sales"
-        />
+        {isAdmin && (
+          <NavItem
+            href="/sales"
+            active={pathname.startsWith("/sales")}
+            icon={<TrendingUp className="size-4" />}
+            label="Sales"
+          />
+        )}
         <NavItem
           href="/customer-success"
           active={pathname.startsWith("/customer-success")}
@@ -380,7 +384,7 @@ export function Sidebar({
           {projects
             .filter((p) => p.kind === "project")
             .map((p) => (
-              <ProjectNavItem key={p.id} project={p} pathname={pathname} />
+              <ProjectNavItem key={p.id} project={p} pathname={pathname} isAdmin={isAdmin} />
             ))}
         </Section>
 
@@ -493,9 +497,11 @@ function NavItem({
 function ProjectNavItem({
   project,
   pathname,
+  isAdmin,
 }: {
   project: Project;
   pathname: string;
+  isAdmin: boolean;
 }) {
   const base = `/projects/${project.id}`;
   const [open, setOpen] = useState(pathname.startsWith(base));
@@ -507,7 +513,7 @@ function ProjectNavItem({
     sales: <TrendingUp className="size-3.5" />,
     "customer-success": <LifeBuoy className="size-3.5" />,
   };
-  const depts = enabledDepartments(project.enabledDepartments).map((d) => ({
+  const depts = visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map((d) => ({
     href: `${base}/${d.slug}`,
     icon: deptIcons[d.slug],
     label: d.label,

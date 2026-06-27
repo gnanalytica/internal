@@ -908,6 +908,7 @@ export async function updateProject(
     color: string;
     startDate: string | null;
     targetDate: string | null;
+    ownerId: string | null;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -915,6 +916,7 @@ export async function updateProject(
   if (patch.name !== undefined) values.name = patch.name.trim() || "Untitled project";
   if (patch.description !== undefined) values.description = patch.description;
   if (patch.color !== undefined) values.color = patch.color;
+  if (patch.ownerId !== undefined) values.ownerId = patch.ownerId;
   if (patch.startDate !== undefined)
     values.startDate = patch.startDate ? new Date(patch.startDate) : null;
   if (patch.targetDate !== undefined)

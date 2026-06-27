@@ -93,6 +93,9 @@ export const projects = pgTable(
     // 'project' = an app we ship (gets departments + CRM);
     // 'operation' = internal / back-office (no departments, no CRM).
     kind: text("kind").$type<"project" | "operation">().notNull().default("project"),
+    // Confidential projects (e.g. Finance, People & HR) are visible to admins
+    // (founders) only — enforced server-side and hidden from the nav.
+    confidential: boolean("confidential").notNull().default(false),
     // Owner (a person). null if unassigned.
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",

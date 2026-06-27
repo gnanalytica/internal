@@ -2,11 +2,13 @@ import { AppShell } from "@/components/app-shell";
 import { CommandPalette } from "@/components/command-palette";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { Sidebar } from "@/components/sidebar";
+import { canSeeConfidential } from "@/lib/departments";
 import {
   getCurrentUser,
   getFavorites,
   getLabels,
   getMembers,
+  getMyRole,
   getMyWorkspaces,
   getPageTree,
   getProjects,
@@ -26,7 +28,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const ws = await getWorkspace();
-  const [members, me, projects, pageTree, labels, myWorkspaces, unreadCount, favorites] =
+  const [members, me, projects, pageTree, labels, myWorkspaces, unreadCount, favorites, role] =
     await Promise.all([
       getMembers(ws.id),
       getCurrentUser(ws.id),
@@ -36,7 +38,11 @@ export default async function AppLayout({
       getMyWorkspaces(),
       getUnreadCount(ws.id),
       getFavorites(ws.id),
+      getMyRole(ws.id),
     ]);
+  const isAdmin = canSeeConfidential(role);
+  // Hide confidential projects (Finance, People & HR) from members' sidebar.
+  const visibleProjects = isAdmin ? projects : projects.filter((p) => !p.confidential);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -48,18 +54,19 @@ export default async function AppLayout({
             workspaces={myWorkspaces}
             members={members}
             currentUser={me}
-            projects={projects}
+            projects={visibleProjects}
             pageTree={pageTree}
             labels={labels}
             unreadCount={unreadCount}
             favorites={favorites}
+            isAdmin={isAdmin}
           />
         }
       >
         {children}
       </AppShell>
-      <CommandPalette />
-      <KeyboardShortcuts projects={projects} members={members} labels={labels} />
+      <CommandPalette isAdmin={isAdmin} />
+      <KeyboardShortcuts projects={visibleProjects} members={members} labels={labels} />
     </div>
   );
 }
