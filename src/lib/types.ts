@@ -386,7 +386,9 @@ export type SearchResult = {
 
 /** An entity that can be @-mentioned inside a rich-text body. */
 export type MentionItem = {
-  kind: "issue" | "page" | "project";
+  // "user" mentions tag a person; they render as a chip but aren't part of the
+  // issue/page/project reference graph.
+  kind: "issue" | "page" | "project" | "user";
   id: string;
   label: string;
   hint?: string;

@@ -4,17 +4,18 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
-import { CircleDot, FileText, Folder } from "lucide-react";
+import { CircleDot, FileText, Folder, User } from "lucide-react";
 import { createElement } from "react";
 
-import { entityHref, type RefKind } from "@/lib/references";
+import { entityHref, isRefKind, type RefKind } from "@/lib/references";
 import type { MentionItem } from "@/lib/types";
 import { CommandList, type CommandItem } from "./command-list";
 
 type Options = { itemsRef: { current: MentionItem[] } };
 
-function kindIcon(kind: RefKind): React.ReactNode {
+function kindIcon(kind: RefKind | "user"): React.ReactNode {
   const props = { className: "size-4 text-muted-foreground" };
+  if (kind === "user") return createElement(User, props);
   if (kind === "issue") return createElement(CircleDot, props);
   if (kind === "page") return createElement(FileText, props);
   return createElement(Folder, props);
@@ -56,15 +57,23 @@ export const EntityRef = Node.create<Options>({
   },
 
   parseHTML() {
-    return [{ tag: "a[data-entity-ref]" }];
+    return [{ tag: "a[data-entity-ref]" }, { tag: "span[data-entity-ref]" }];
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const kind = node.attrs.kind as RefKind;
+    const kind = node.attrs.kind as RefKind | "user";
+    // People mentions are chips, not links (no per-user route yet).
+    if (kind === "user") {
+      return [
+        "span",
+        mergeAttributes(HTMLAttributes, { class: "entity-ref entity-ref-user" }),
+        `${node.attrs.label}`,
+      ];
+    }
     return [
       "a",
       mergeAttributes(HTMLAttributes, {
-        href: kind ? entityHref(kind, node.attrs.id) : "#",
+        href: isRefKind(kind) ? entityHref(kind, node.attrs.id) : "#",
         class: "entity-ref",
       }),
       `${node.attrs.label}`,
