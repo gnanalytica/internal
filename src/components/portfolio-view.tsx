@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Target } from "lucide-react";
+import { ArrowUpRight, Target } from "lucide-react";
 
 import { Topbar } from "@/components/topbar";
 import { updateCompanyBets } from "@/lib/actions";
@@ -100,6 +100,33 @@ function ProjectCard({ row }: { row: PortfolioRow }) {
         <span className="font-mono text-[10px] text-muted-foreground">{row.key}</span>
         <HealthBadge health={row.health} />
       </div>
+
+      {row.tagline && (
+        <p className="-mt-1 line-clamp-2 text-xs text-muted-foreground">{row.tagline}</p>
+      )}
+
+      {row.url && (
+        <span
+          role="link"
+          tabIndex={0}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.open(row.url!, "_blank", "noopener,noreferrer");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(row.url!, "_blank", "noopener,noreferrer");
+            }
+          }}
+          className="inline-flex w-fit items-center gap-1 text-[11px] font-medium text-brand hover:underline"
+        >
+          {row.url.replace(/^https?:\/\//, "")}
+          <ArrowUpRight className="size-3" />
+        </span>
+      )}
 
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Target className="size-3.5 shrink-0 text-brand" />

@@ -71,6 +71,10 @@ export const projects = pgTable(
     // Short prefix used in issue identifiers, e.g. "ENG" -> ENG-12.
     key: text("key").notNull(),
     description: text("description"),
+    // Public-facing one-liner (from the marketing site), shown on the Overview.
+    tagline: text("tagline"),
+    // Live product URL, e.g. https://valytica.gnanalytica.com.
+    url: text("url"),
     color: text("color").notNull().default("#6366f1"),
     // Which department modules are enabled for this project. null = all enabled
     // (the auto-spawn default); an explicit array restricts to those slugs.

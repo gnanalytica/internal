@@ -43,6 +43,8 @@ export type PortfolioRow = {
   key: string;
   color: string;
   kind: "project" | "operation";
+  tagline: string | null;
+  url: string | null;
   ownerName: string | null;
   health: PortfolioHealth;
   // Current milestone (next-upcoming or latest) — projects only.
