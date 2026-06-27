@@ -74,7 +74,7 @@ const NAV = [
   { label: "Customer Success", href: "/customer-success", icon: <LifeBuoy className={ic} /> },
 ];
 
-export function CommandPalette() {
+export function CommandPalette({ isAdmin = false }: { isAdmin?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -190,7 +190,7 @@ export function CommandPalette() {
                 </CommandItem>
               </CommandGroup>
               <CommandGroup heading="Jump to">
-                {NAV.map((n) => (
+                {NAV.filter((n) => isAdmin || n.href !== "/sales").map((n) => (
                   <CommandItem key={n.href} value={n.label} onSelect={() => go(n.href)}>
                     {n.icon}
                     <span>{n.label}</span>

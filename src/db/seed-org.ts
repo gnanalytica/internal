@@ -145,23 +145,8 @@ async function main() {
     }
   }
 
-  await makeDb(
-    "People",
-    "👥",
-    [
-      { name: "Name", type: "text" },
-      { name: "Role", type: "text" },
-      { name: "Entity", type: "select", options: ENTITY },
-      { name: "Type", type: "select", options: [
-        { label: "Employee", color: "#10b981" },
-        { label: "Contractor", color: "#6366f1" },
-      ] as typeof ENTITY },
-      { name: "Start date", type: "date" },
-      { name: "Manager", type: "text" },
-    ],
-    [{ Name: "Sandeep", Role: "Founder", Entity: "Global", Type: "Employee" }],
-  );
-
+  // People live in the People & HR operation (directory + org chart), not a
+  // database — so only Tools & Subscriptions is seeded here.
   // Tools & Subscriptions doubles as the vendor list — a vendor is just a tool's
   // provider. Seeded with Odoo (the NL accounting / VAT / payroll system).
   await makeDb(

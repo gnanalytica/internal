@@ -11,6 +11,7 @@ import { Backlinks } from "@/components/backlinks";
 import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
 import { IssueRow } from "@/components/issue-row";
+import { AssigneePicker } from "@/components/pickers";
 import { Topbar } from "@/components/topbar";
 import {
   DropdownMenu,
@@ -176,15 +177,18 @@ export function ProjectDetail({
                 {project.initiative.name}
               </Link>
             )}
-            {project.owner && (
-              <span className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
-                <span
-                  className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
-                  style={{ backgroundColor: project.owner.avatarColor }}
+            <div className="flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+              <span>Owner</span>
+              {isAdmin ? (
+                <AssigneePicker
+                  members={members}
+                  value={project.ownerId}
+                  onChange={(v) => persist(() => updateProject(project.id, { ownerId: v }))}
                 />
-                {project.owner.name}
-              </span>
-            )}
+              ) : (
+                <span>{project.owner?.name ?? "Unassigned"}</span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-muted-foreground">Start</label>
               <input
