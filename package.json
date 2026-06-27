@@ -20,6 +20,8 @@
     "db:seed-standup": "tsx --env-file=.env.local src/db/seed-standup.ts",
     "db:seed-valytica-gtm": "tsx --env-file=.env.local src/db/seed-valytica-gtm.ts",
     "db:seed-valytica-roadmap": "tsx --env-file=.env.local src/db/seed-valytica-roadmap.ts",
+    "db:seed-ai-workshop-roadmap": "tsx --env-file=.env.local src/db/seed-ai-workshop-roadmap.ts",
+    "db:seed-healthytica-roadmap": "tsx --env-file=.env.local src/db/seed-healthytica-roadmap.ts",
     "db:seed-atlas": "tsx --env-file=.env.local src/db/seed-atlas.ts",
     "db:reset": "tsx --env-file=.env.local src/db/reset.ts"
   },
