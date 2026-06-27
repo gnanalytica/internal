@@ -338,6 +338,8 @@ export async function getPortfolio(workspaceId: string): Promise<PortfolioRow[]>
       key: p.key,
       color: p.color,
       kind: p.kind,
+      tagline: p.tagline,
+      url: p.url,
       ownerName: ownerName(p.ownerId),
       health: h && VALID.has(h) ? (h as PortfolioRow["health"]) : "none",
       milestoneName: ms?.name ?? null,
