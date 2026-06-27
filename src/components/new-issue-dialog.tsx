@@ -20,6 +20,8 @@ import {
   ProjectPicker,
   StatusPicker,
 } from "@/components/pickers";
+import { CalendarRange } from "lucide-react";
+
 import { createIssue, setIssueLabels } from "@/lib/actions";
 import type { Label, Member, Project } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
@@ -53,6 +55,8 @@ export function NewIssueDialog({
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId);
   const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [pending, startTransition] = useTransition();
 
   function reset() {
@@ -63,6 +67,8 @@ export function NewIssueDialog({
     setAssigneeId(null);
     setProjectId(defaultProjectId);
     setLabelIds([]);
+    setStartDate("");
+    setDueDate("");
   }
 
   function submit() {
@@ -77,6 +83,8 @@ export function NewIssueDialog({
         status,
         priority,
         assigneeId,
+        startDate: startDate || null,
+        dueDate: dueDate || null,
       });
       if (labelIds.length) await setIssueLabels(created.id, labelIds);
       if (description.trim()) {
@@ -140,6 +148,26 @@ export function NewIssueDialog({
           <AssigneePicker members={members} value={assigneeId} onChange={setAssigneeId} />
           <ProjectPicker projects={projects} value={projectId} onChange={setProjectId} />
           <LabelPicker labels={labels} value={labelIds} onChange={setLabelIds} />
+          <label className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
+            <CalendarRange className="size-3.5" />
+            <input
+              type="date"
+              value={startDate}
+              max={dueDate || undefined}
+              onChange={(e) => setStartDate(e.target.value)}
+              aria-label="Start date"
+              className="bg-transparent text-xs outline-none [color-scheme:light] dark:[color-scheme:dark]"
+            />
+            <span className="text-muted-foreground/60">→</span>
+            <input
+              type="date"
+              value={dueDate}
+              min={startDate || undefined}
+              onChange={(e) => setDueDate(e.target.value)}
+              aria-label="Due date"
+              className="bg-transparent text-xs outline-none [color-scheme:light] dark:[color-scheme:dark]"
+            />
+          </label>
         </div>
 
         <DialogFooter className="mx-0 mb-0 px-3 py-2.5">

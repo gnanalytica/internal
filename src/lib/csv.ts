@@ -17,6 +17,7 @@ const HEADERS = [
   "Project",
   "Cycle",
   "Estimate",
+  "Start",
   "Due",
   "Labels",
 ] as const;
@@ -32,6 +33,7 @@ export function issuesToCsv(issues: IssueWithRelations[]): string {
       i.project?.name ?? "",
       i.cycle?.name ?? "",
       i.estimate ?? "",
+      i.startDate ? new Date(i.startDate).toISOString().slice(0, 10) : "",
       i.dueDate ? new Date(i.dueDate).toISOString().slice(0, 10) : "",
       i.labels.map((l) => l.name).join("; "),
     ]

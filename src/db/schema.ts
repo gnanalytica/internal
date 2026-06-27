@@ -157,6 +157,7 @@ export const issues = pgTable(
     }),
     // Fractional sort key for ordering within a board column / list.
     sortKey: text("sort_key").notNull().default("a0"),
+    startDate: timestamp("start_date", { withTimezone: true }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     estimate: integer("estimate"),
     githubUrl: text("github_url"),

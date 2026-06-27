@@ -8,6 +8,7 @@ import {
   Check,
   Columns3,
   Download,
+  GanttChartSquare,
   Layers,
   List as ListIcon,
   ListFilter,
@@ -19,6 +20,7 @@ import {
 import { StatusIcon } from "@/components/glyphs";
 import { IssueBoard } from "@/components/issue-board";
 import { IssueRow } from "@/components/issue-row";
+import { IssueTimelineView } from "@/components/issue-timeline-view";
 import { NewIssueDialog } from "@/components/new-issue-dialog";
 import { Topbar } from "@/components/topbar";
 import {
@@ -66,7 +68,7 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type View = "list" | "board";
+type View = "list" | "board" | "timeline";
 
 export function IssuesView({
   initialIssues,
@@ -140,7 +142,8 @@ export function IssuesView({
     setFLabel(new Set(config.label ?? []));
     if (config.sort) setSort(config.sort as SortId);
     if (config.groupBy) setGroupBy(config.groupBy as GroupBy);
-    if (config.view === "list" || config.view === "board") setView(config.view);
+    if (config.view === "list" || config.view === "board" || config.view === "timeline")
+      setView(config.view);
   }
 
   function saveView() {
@@ -189,7 +192,8 @@ export function IssuesView({
           if (Array.isArray(s.label)) setFLabel(new Set(s.label));
           if (typeof s.sort === "string") setSort(s.sort as SortId);
           if (typeof s.groupBy === "string") setGroupBy(s.groupBy as GroupBy);
-          if (s.view === "list" || s.view === "board") setView(s.view);
+          if (s.view === "list" || s.view === "board" || s.view === "timeline")
+            setView(s.view);
         }
       } catch {
         // Ignore malformed storage.
@@ -428,6 +432,9 @@ export function IssuesView({
             <ViewButton active={view === "board"} onClick={() => setView("board")}>
               <Columns3 className="size-3.5" /> Board
             </ViewButton>
+            <ViewButton active={view === "timeline"} onClick={() => setView("timeline")}>
+              <GanttChartSquare className="size-3.5" /> Timeline
+            </ViewButton>
           </div>
         </div>
       </div>
@@ -473,6 +480,10 @@ export function IssuesView({
               ))}
             </div>
           ))}
+        </div>
+      ) : view === "timeline" ? (
+        <div className="min-h-0 flex-1">
+          <IssueTimelineView issues={visible} members={members} />
         </div>
       ) : (
         <div className="min-h-0 flex-1">
