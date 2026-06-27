@@ -6,7 +6,6 @@ import { useState, useTransition } from "react";
 import {
   BarChart3,
   Bell,
-  Boxes,
   ChevronDown,
   ChevronRight,
   CircleDot,
@@ -86,6 +85,8 @@ export function Sidebar({
   const [, startTransition] = useTransition();
   const [showProjects, setShowProjects] = useState(true);
   const [showOps, setShowOps] = useState(true);
+  const [showPlanning, setShowPlanning] = useState(false);
+  const [showCompany, setShowCompany] = useState(false);
   const [showPages, setShowPages] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
   const peopleHr = projects.find((p) => p.key === "PPL");
@@ -244,7 +245,7 @@ export function Sidebar({
       </div>
 
       <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-4">
-        {/* Primary */}
+        {/* Primary — personal + daily driver */}
         <NavItem
           href="/ask"
           active={pathname.startsWith("/ask")}
@@ -269,76 +270,6 @@ export function Sidebar({
           active={pathname === "/issues"}
           icon={<CircleDot className="size-4" />}
           label="Issues"
-        />
-        <NavItem
-          href="/cycles"
-          active={pathname.startsWith("/cycles")}
-          icon={<Timer className="size-4" />}
-          label="Cycles"
-        />
-        <NavItem
-          href="/initiatives"
-          active={pathname.startsWith("/initiatives")}
-          icon={<Target className="size-4" />}
-          label="Initiatives"
-        />
-        <NavItem
-          href="/roadmap"
-          active={pathname.startsWith("/roadmap")}
-          icon={<MapIcon className="size-4" />}
-          label="Roadmap"
-        />
-        <NavItem
-          href="/insights"
-          active={pathname.startsWith("/insights")}
-          icon={<BarChart3 className="size-4" />}
-          label="Insights"
-        />
-        <NavItem
-          href="/databases"
-          active={pathname.startsWith("/databases")}
-          icon={<Database className="size-4" />}
-          label="Databases"
-        />
-
-        {/* Departments — the company-wide lens across all projects */}
-        <NavItem
-          href="/projects"
-          active={pathname === "/projects"}
-          icon={<Boxes className="size-4" />}
-          label="Projects"
-        />
-        <NavItem
-          href="/product"
-          active={pathname.startsWith("/product")}
-          icon={<Compass className="size-4" />}
-          label="Product"
-        />
-        <NavItem
-          href="/analytics"
-          active={pathname.startsWith("/analytics")}
-          icon={<BarChart3 className="size-4" />}
-          label="Analytics"
-        />
-        <NavItem
-          href="/marketing"
-          active={pathname.startsWith("/marketing")}
-          icon={<Megaphone className="size-4" />}
-          label="Marketing"
-        />
-        {isAdmin && (
-          <NavItem
-            href="/sales"
-            active={pathname.startsWith("/sales")}
-            icon={<TrendingUp className="size-4" />}
-            label="Sales"
-          />
-        )}
-        <NavItem
-          href="/customer-success"
-          active={pathname.startsWith("/customer-success")}
-          icon={<LifeBuoy className="size-4" />}
-          label="Customer Success"
         />
 
         {/* Favorites */}
@@ -416,6 +347,84 @@ export function Sidebar({
               ))}
           </Section>
         )}
+
+        {/* Planning — workspace / portfolio execution, above any one project */}
+        <Section
+          title="Planning"
+          open={showPlanning}
+          onToggle={() => setShowPlanning((v) => !v)}
+        >
+          <NavItem
+            href="/cycles"
+            active={pathname.startsWith("/cycles")}
+            icon={<Timer className="size-4" />}
+            label="Cycles"
+          />
+          <NavItem
+            href="/initiatives"
+            active={pathname.startsWith("/initiatives")}
+            icon={<Target className="size-4" />}
+            label="Initiatives"
+          />
+          <NavItem
+            href="/roadmap"
+            active={pathname.startsWith("/roadmap")}
+            icon={<MapIcon className="size-4" />}
+            label="Roadmap"
+          />
+          <NavItem
+            href="/insights"
+            active={pathname.startsWith("/insights")}
+            icon={<BarChart3 className="size-4" />}
+            label="Insights"
+          />
+        </Section>
+
+        {/* Company — cross-project department lenses + databases */}
+        <Section
+          title="Company"
+          open={showCompany}
+          onToggle={() => setShowCompany((v) => !v)}
+        >
+          <NavItem
+            href="/product"
+            active={pathname.startsWith("/product")}
+            icon={<Compass className="size-4" />}
+            label="Product"
+          />
+          <NavItem
+            href="/analytics"
+            active={pathname.startsWith("/analytics")}
+            icon={<BarChart3 className="size-4" />}
+            label="Analytics"
+          />
+          <NavItem
+            href="/marketing"
+            active={pathname.startsWith("/marketing")}
+            icon={<Megaphone className="size-4" />}
+            label="Marketing"
+          />
+          {isAdmin && (
+            <NavItem
+              href="/sales"
+              active={pathname.startsWith("/sales")}
+              icon={<TrendingUp className="size-4" />}
+              label="Sales"
+            />
+          )}
+          <NavItem
+            href="/customer-success"
+            active={pathname.startsWith("/customer-success")}
+            icon={<LifeBuoy className="size-4" />}
+            label="Customer Success"
+          />
+          <NavItem
+            href="/databases"
+            active={pathname.startsWith("/databases")}
+            icon={<Database className="size-4" />}
+            label="Databases"
+          />
+        </Section>
 
         {/* Pages */}
         <Section
