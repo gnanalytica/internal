@@ -10,9 +10,12 @@ import type { RoadmapProject } from "@/lib/data";
 export function RoadmapView({
   projects,
   nowISO,
+  embedded = false,
 }: {
   projects: RoadmapProject[];
   nowISO: string;
+  /** Hide the page Topbar when rendered inside the Projects tabs. */
+  embedded?: boolean;
 }) {
   // Group by kind: shippable Projects first, then Operations.
   const groupsMap = new Map<string, GanttGroup>();
@@ -45,7 +48,7 @@ export function RoadmapView({
 
   return (
     <div className="flex h-full flex-col">
-      <Topbar breadcrumb={[{ label: "Roadmap" }]} />
+      {!embedded && <Topbar breadcrumb={[{ label: "Roadmap" }]} />}
       {projects.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
           <div className="grid size-12 place-items-center rounded-xl border bg-muted/50">

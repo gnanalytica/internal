@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-// Cycles are project-scoped (each project's Engineering → Cycles). The company
-// view is the Weekly rollup, so the old standalone list redirects there.
+// Cycles are project-scoped (each project's Engineering → Cycles); the
+// cross-project view is the Projects → This Week tab.
 export default function CyclesPage() {
-  redirect("/weekly");
+  redirect("/projects");
 }

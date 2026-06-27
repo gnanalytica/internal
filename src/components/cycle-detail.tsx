@@ -52,7 +52,7 @@ export function CycleDetail({
     startTransition(async () => {
       await deleteCycle(cycle.id);
       toast.success("Cycle deleted");
-      router.push("/weekly");
+      router.push("/projects");
       router.refresh();
     });
   }
@@ -60,7 +60,10 @@ export function CycleDetail({
   return (
     <div className="flex h-full flex-col">
       <Topbar
-        breadcrumb={[{ label: "Cycles", href: "/cycles" }, { label: cycle.name }]}
+        breadcrumb={[
+          { label: "Cycles", href: `/projects/${cycle.projectId}/engineering` },
+          { label: cycle.name },
+        ]}
         actions={
           <DropdownMenu>
             <DropdownMenuTrigger
