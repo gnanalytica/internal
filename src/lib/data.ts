@@ -34,6 +34,7 @@ import {
   labels,
   metricPoints,
   milestones,
+  orgRoles,
   metrics,
   notifications,
   pages,
@@ -72,6 +73,7 @@ import type {
   MetricWithRelations,
   MilestoneDetail,
   MilestoneWithProgress,
+  OrgRoleNode,
   Page,
   PageNode,
   PortfolioRow,
@@ -218,6 +220,36 @@ export async function getMembersWithRole(
     startDate: r.startDate,
     managerId: r.managerId,
   }));
+}
+
+/** The org-chart positions for a workspace, assembled into a sorted tree.
+ *  Decoupled from member managers so one person can hold several positions. */
+export async function getOrgRoles(workspaceId: string): Promise<OrgRoleNode[]> {
+  const rows = await db
+    .select({ role: orgRoles, user: users })
+    .from(orgRoles)
+    .leftJoin(users, eq(orgRoles.userId, users.id))
+    .where(eq(orgRoles.workspaceId, workspaceId))
+    .orderBy(asc(orgRoles.sortKey));
+
+  const nodes = new Map<string, OrgRoleNode>();
+  for (const r of rows) {
+    nodes.set(r.role.id, {
+      id: r.role.id,
+      title: r.role.title,
+      sortKey: r.role.sortKey,
+      user: r.user ?? null,
+      children: [],
+    });
+  }
+  const roots: OrgRoleNode[] = [];
+  for (const r of rows) {
+    const node = nodes.get(r.role.id)!;
+    const parent = r.role.parentId ? nodes.get(r.role.parentId) : null;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+  return roots;
 }
 
 /** The current user's role in the workspace ("admin" | "member"). */

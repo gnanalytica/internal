@@ -23,6 +23,7 @@
     "db:seed-ai-workshop-roadmap": "tsx --env-file=.env.local src/db/seed-ai-workshop-roadmap.ts",
     "db:seed-healthytica-roadmap": "tsx --env-file=.env.local src/db/seed-healthytica-roadmap.ts",
     "db:seed-atlas": "tsx --env-file=.env.local src/db/seed-atlas.ts",
+    "db:seed-org-chart": "tsx --env-file=.env.local src/db/seed-org-chart.ts",
     "db:reset": "tsx --env-file=.env.local src/db/reset.ts"
   },
   "dependencies": {

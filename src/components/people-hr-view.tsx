@@ -6,6 +6,7 @@ import { Check, ChevronDown, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { UserAvatar } from "@/components/glyphs";
+import { OrgChart } from "@/components/org-chart";
 import { Topbar } from "@/components/topbar";
 import {
   DropdownMenu,
@@ -23,7 +24,7 @@ import {
 } from "@/lib/actions";
 import { ENTITIES, optionMeta } from "@/lib/departments";
 import { dateInputValue } from "@/lib/matrix-format";
-import type { MemberWithRole } from "@/lib/types";
+import type { MemberWithRole, OrgRoleNode } from "@/lib/types";
 
 const EMPLOYMENT = [
   { id: "employee", label: "Employee", color: "#10b981" },
@@ -36,11 +37,13 @@ const fieldCls =
 export function PeopleHRView({
   heading,
   members,
+  orgRoles,
   currentUserId,
   isAdmin,
 }: {
   heading: string;
   members: MemberWithRole[];
+  orgRoles: OrgRoleNode[];
   currentUserId: string;
   isAdmin: boolean;
 }) {
@@ -134,7 +137,7 @@ export function PeopleHRView({
         </TabsContent>
 
         <TabsContent value="org" className="min-h-0 flex-1 overflow-auto p-4">
-          <OrgChart members={members} />
+          <OrgChart roots={orgRoles} members={members} isAdmin={isAdmin} />
         </TabsContent>
       </Tabs>
     </div>
@@ -261,64 +264,3 @@ function PersonRow({
   );
 }
 
-/** Simple reporting tree derived from each member's manager. */
-function OrgChart({ members }: { members: MemberWithRole[] }) {
-  const byManager = new Map<string | null, MemberWithRole[]>();
-  const ids = new Set(members.map((m) => m.id));
-  for (const m of members) {
-    // Treat a manager outside the set (or none) as a root.
-    const key = m.managerId && ids.has(m.managerId) ? m.managerId : null;
-    (byManager.get(key) ?? byManager.set(key, []).get(key)!).push(m);
-  }
-
-  const roots = byManager.get(null) ?? [];
-  if (members.length === 0) {
-    return <div className="py-16 text-center text-sm text-muted-foreground">No people yet.</div>;
-  }
-
-  return (
-    <div className="space-y-2">
-      {roots.map((r) => (
-        <Node key={r.id} member={r} byManager={byManager} depth={0} />
-      ))}
-      {roots.length === 0 && (
-        <div className="text-sm text-muted-foreground">
-          No reporting lines set yet. Assign managers in the Directory to build the chart.
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Node({
-  member: m,
-  byManager,
-  depth,
-}: {
-  member: MemberWithRole;
-  byManager: Map<string | null, MemberWithRole[]>;
-  depth: number;
-}) {
-  const reports = byManager.get(m.id) ?? [];
-  return (
-    <div style={{ marginLeft: depth * 24 }}>
-      <div className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-2 shadow-sm">
-        <UserAvatar name={m.name} color={m.avatarColor} className="size-7" />
-        <div>
-          <div className="text-sm font-medium leading-tight">{m.name}</div>
-          <div className="text-[11px] text-muted-foreground leading-tight">
-            {m.title ?? "—"}
-            {reports.length > 0 && ` · ${reports.length} report${reports.length > 1 ? "s" : ""}`}
-          </div>
-        </div>
-      </div>
-      {reports.length > 0 && (
-        <div className="mt-2 space-y-2 border-l pl-3">
-          {reports.map((r) => (
-            <Node key={r.id} member={r} byManager={byManager} depth={0} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
