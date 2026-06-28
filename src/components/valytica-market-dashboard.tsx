@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Building2, Check, Maximize, Printer, Target, TrendingUp, Zap } from "lucide-react";
+import { ArrowRight, Building2, Check, Maximize, Printer, Target, TrendingUp, Zap } from "lucide-react";
 
 import { Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
@@ -41,11 +41,6 @@ function fmtCr(v: number): string {
   return `₹${c.toLocaleString("en-IN", { maximumFractionDigits: c < 100 ? 1 : 0 })} cr`;
 }
 const fmtUsd = (v: number) => `$${(v / INR_PER_USD / 1e6).toFixed(v / INR_PER_USD / 1e6 < 20 ? 1 : 0)}M`;
-function fmtMoney(v: number): string {
-  if (v >= 1e5) return `₹${(v / 1e5).toFixed(1)}L`;
-  if (v >= 1000) return `₹${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`;
-  return `₹${Math.round(v)}`;
-}
 
 // ---- model, computed once ----
 const bankVol = BASE.bankVolM * 1e6;
@@ -124,7 +119,7 @@ export function ValyticaMarketDashboard() {
       <div
         id="onepager-stage"
         ref={stageRef}
-        className="relative w-full"
+        className="relative w-full overflow-hidden"
         style={fs ? undefined : { height: BASE_H * scale }}
       >
         <div
@@ -262,11 +257,11 @@ const HORIZONS: { h: string; title: string; when: string; color: string; proof: 
 
 function Horizons() {
   return (
-    <div className="flex h-full flex-col justify-between gap-1.5">
+    <div className="flex h-full flex-col gap-1.5">
       {HORIZONS.map((z) => (
         <div
           key={z.h}
-          className="flex items-center gap-2 rounded-md border px-2 py-1.5"
+          className="flex flex-1 items-center gap-2 rounded-md border px-2"
           style={{ borderColor: `${z.color}55`, background: `${z.color}0a` }}
         >
           <span className="text-[12px] font-bold" style={{ color: z.color }}>
@@ -318,33 +313,26 @@ function Financials() {
 
 // ============================ FDV ============================
 
-const FDV_META: { key: string; label: string; score: number; color: string; state: string; lever: string }[] = [
-  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong · built", lever: "India-region AI → bank credibility" },
-  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument #123 → prove demand" },
-  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship #119 + deals · enterprise-led" },
+type FdvLens = { key: string; label: string; score: number; color: string; state: string; lever: string; unlocks: string };
+const FDV_META: FdvLens[] = [
+  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong · built", lever: "India-region AI", unlocks: "credibility → Desirability" },
+  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument #123", unlocks: "proven demand → Viability" },
+  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship #119 + deals", unlocks: "revenue proof → funds H2" },
 ];
 
-/** FDV with each lens' evidence beneath its gauge — one place, no repetition.
- * Feasibility = the build & margins; Desirability = pain + value capture;
- * Viability = the two engines + revenue mix. */
+/** FDV: each lens shows its monetary pointers + a mini chart beneath its gauge,
+ * with arrows showing how fixing one lens lifts the next. One place, no repeat. */
 function FdvUnified() {
   return (
-    <div className="grid h-full grid-cols-3 gap-2.5">
+    <div className="flex h-full items-stretch gap-1.5">
       <FdvCol n={FDV_META[0]}>
-        <ul className="space-y-1">
-          {["Shipped: valuation + TEV/LIE/DPR", "~90% gross margin (₹200 − ~₹20 AI)", "Grounded AI · 98.4%, 0 hallucinations"].map((t) => (
-            <li key={t} className="flex items-start gap-1 text-[9px] leading-tight text-muted-foreground">
-              <Check className="mt-px size-2.5 shrink-0 text-emerald-500" />
-              <span>{t}</span>
-            </li>
-          ))}
-        </ul>
+        <FeasibilityEvidence />
       </FdvCol>
-
+      <FdvArrow color={FDV_META[1].color} />
       <FdvCol n={FDV_META[1]}>
         <DesirabilityEvidence />
       </FdvCol>
-
+      <FdvArrow color={FDV_META[2].color} />
       <FdvCol n={FDV_META[2]}>
         <ViabilityEvidence />
       </FdvCol>
@@ -352,12 +340,12 @@ function FdvUnified() {
   );
 }
 
-function FdvCol({ n, children }: { n: (typeof FDV_META)[number]; children: React.ReactNode }) {
+function FdvCol({ n, children }: { n: FdvLens; children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col rounded-md border p-2" style={{ borderColor: `${n.color}44`, background: `${n.color}06` }}>
+    <div className="flex h-full min-w-0 flex-1 flex-col rounded-md border p-2" style={{ borderColor: `${n.color}44`, background: `${n.color}06` }}>
       <div className="mb-1.5 flex items-center gap-2">
         <Gauge score={n.score} color={n.color} />
-        <div>
+        <div className="min-w-0">
           <div className="text-[13px] font-bold leading-none" style={{ color: n.color }}>
             {n.label}
           </div>
@@ -365,9 +353,19 @@ function FdvCol({ n, children }: { n: (typeof FDV_META)[number]; children: React
         </div>
       </div>
       <div className="min-h-0 flex-1">{children}</div>
-      <div className="mt-1 rounded bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium leading-tight" style={{ color: n.color }}>
-        ⚙ {n.lever}
+      <div className="mt-1 flex items-center justify-between gap-1.5 text-[8px] font-medium leading-tight" style={{ color: n.color }}>
+        <span className="rounded bg-muted/60 px-1.5 py-0.5">⚙ {n.lever}</span>
+        <span className="min-w-0 truncate">↗ {n.unlocks}</span>
       </div>
+    </div>
+  );
+}
+
+function FdvArrow({ color }: { color: string }) {
+  return (
+    <div className="flex shrink-0 flex-col items-center justify-center self-center">
+      <ArrowRight className="size-4" style={{ color }} />
+      <span className="mt-0.5 text-[6.5px] font-semibold uppercase tracking-wide text-muted-foreground">lifts</span>
     </div>
   );
 }
@@ -531,90 +529,88 @@ function Swot() {
   );
 }
 
-// ============================ FDV evidence (desirability · viability) ============================
+// ============================ FDV evidence — monetary pointers + a mini chart ============================
 
 type Cover = "full" | "partial" | "none";
 const COVER_COLOR: Record<Cover, string> = { full: "#10b981", partial: "#f59e0b", none: "#94a3b8" };
-const PAIN: { t: string; cover: Cover }[] = [
-  { t: "Manual document extraction", cover: "full" },
-  { t: "Cross-document conflicts", cover: "full" },
-  { t: "Per-bank report formats", cover: "full" },
-  { t: "Maintenance · tracking · audit", cover: "full" },
-  { t: "Scarce comparables data", cover: "partial" },
-  { t: "Inflated / fraud valuations", cover: "none" },
-];
+const PAIN: Cover[] = ["full", "full", "full", "full", "partial", "none"];
 
-/** Desirability evidence: pain coverage + value-capture headroom. */
-function DesirabilityEvidence() {
-  const counts = PAIN.reduce((a, i) => ((a[i.cover] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
-  const order: Cover[] = ["full", "partial", "none"];
+/** A pointer row: label on the left, a monetary (or %) data point on the right. */
+function MonRow({ k, v, color }: { k: string; v: string; color?: string }) {
   return (
-    <div className="flex h-full flex-col justify-center gap-1.5">
-      <div>
-        <div className="mb-0.5 flex items-baseline justify-between text-[8.5px]">
-          <span className="text-muted-foreground">Pain coverage</span>
-          <span className="font-bold text-foreground">{counts.full}/{PAIN.length} solved</span>
-        </div>
-        <div className="flex h-3 w-full overflow-hidden rounded">
-          {order.map((c) => (
-            <div key={c} style={{ width: `${(counts[c] / PAIN.length) * 100}%`, background: COVER_COLOR[c] }} />
-          ))}
-        </div>
-      </div>
-      <div>
-        <div className="mb-0.5 flex items-baseline justify-between text-[8.5px]">
-          <span className="text-muted-foreground">Value / report</span>
-          <span className="font-bold text-foreground">{fmtMoney(valuePerReport)}</span>
-        </div>
-        <div className="relative h-4 w-full overflow-hidden rounded bg-emerald-500/15">
-          <div
-            className="absolute inset-y-0 left-0 flex items-center rounded bg-brand px-1 text-[8px] font-semibold text-white"
-            style={{ width: `${Math.max(captureRatio * 100, 14)}%` }}
-          >
-            ₹200
-          </div>
-        </div>
-        <div className="mt-0.5 text-[8px] text-muted-foreground">
-          capture <span className="font-bold text-brand">~{Math.round(captureRatio * 100)}%</span> → headroom to grow price
-        </div>
-      </div>
+    <div className="flex items-baseline justify-between gap-1.5">
+      <span className="min-w-0 truncate text-[9px] leading-tight text-muted-foreground">{k}</span>
+      <span className="shrink-0 text-[10px] font-bold tabular-nums" style={color ? { color } : undefined}>
+        {v}
+      </span>
     </div>
   );
 }
 
-const ENGINES: { short: string; headline: string; unit: string; color: string }[] = [
-  { short: "SaaS · land", headline: "₹5.8 cr", unit: "ARR / yr (SOM)", color: "#1d4ed8" },
-  { short: "Enterprise", headline: "₹20–60L", unit: "per deal (ACV)", color: "#10b981" },
-];
+function MiniBarRow({ label, right, children }: { label: string; right: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-0.5 flex items-baseline justify-between text-[8px]">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-bold text-foreground">{right}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
 
-/** Viability evidence: the two engines + near-term revenue mix. */
+/** Feasibility: per-report economics → ~90% margin. */
+function FeasibilityEvidence() {
+  return (
+    <div className="flex h-full flex-col justify-center gap-1">
+      <MonRow k="Price / report" v="₹200" color="#10b981" />
+      <MonRow k="AI cost / report" v="−₹20" color="#0f766e" />
+      <MonRow k="Gross profit / report" v="₹180" color="#10b981" />
+      <MiniBarRow label="Gross margin · 98.4% AI accuracy" right="~90%">
+        <div className="h-2.5 w-full overflow-hidden rounded bg-emerald-500/15">
+          <div className="h-full rounded bg-emerald-500" style={{ width: "90%" }} />
+        </div>
+      </MiniBarRow>
+    </div>
+  );
+}
+
+/** Desirability: value created vs price captured + pain coverage. */
+function DesirabilityEvidence() {
+  const solved = PAIN.filter((c) => c === "full").length;
+  const order: Cover[] = ["full", "partial", "none"];
+  const counts = PAIN.reduce((a, c) => ((a[c] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
+  return (
+    <div className="flex h-full flex-col justify-center gap-1">
+      <MonRow k="Value saved / report" v={`₹${valuePerReport.toLocaleString("en-IN")}`} color="#f59e0b" />
+      <MonRow k={`Price · ~${Math.round(captureRatio * 100)}% capture`} v="₹200" color="#1d4ed8" />
+      <MonRow k="Pricing headroom" v="→ ₹400+" color="#f59e0b" />
+      <MiniBarRow label="Pain coverage" right={`${solved}/${PAIN.length} solved`}>
+        <div className="flex h-2.5 w-full overflow-hidden rounded">
+          {order.map((c) => (
+            <div key={c} style={{ width: `${(counts[c] / PAIN.length) * 100}%`, background: COVER_COLOR[c] }} />
+          ))}
+        </div>
+      </MiniBarRow>
+    </div>
+  );
+}
+
+/** Viability: the two engines + near-term revenue mix. */
 function ViabilityEvidence() {
   const ENT_REV = 3e7;
   const saasPct = (som / (som + ENT_REV)) * 100;
   return (
-    <div className="flex h-full flex-col justify-center gap-1.5">
-      <div className="grid grid-cols-2 gap-1.5">
-        {ENGINES.map((e) => (
-          <div key={e.short} className="rounded-md border p-1 text-center" style={{ borderColor: `${e.color}44`, background: `${e.color}10` }}>
-            <div className="text-[8.5px] font-semibold">{e.short}</div>
-            <div className="text-[13px] font-bold leading-tight" style={{ color: e.color }}>
-              {e.headline}
-            </div>
-            <div className="text-[7.5px] text-muted-foreground">{e.unit}</div>
-          </div>
-        ))}
-      </div>
-      <div>
-        <div className="mb-0.5 text-[8px] text-muted-foreground">Near-term revenue mix (est.)</div>
-        <div className="flex h-4 w-full overflow-hidden rounded text-[8px] font-semibold text-white">
-          <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }}>
-            SaaS
-          </div>
-          <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }}>
-            Ent.
-          </div>
+    <div className="flex h-full flex-col justify-center gap-1">
+      <MonRow k="SaaS ARR (3-yr SOM)" v={fmtCr(som)} color="#1d4ed8" />
+      <MonRow k="Enterprise ACV / deal" v="₹20–60L" color="#10b981" />
+      <MonRow k="5–10 enterprise deals" v="₹1–5 cr" color="#10b981" />
+      <MiniBarRow label="Revenue mix (est.)" right="SaaS · Ent.">
+        <div className="flex h-2.5 w-full overflow-hidden rounded text-[7px] font-semibold text-white">
+          <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }} />
+          <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }} />
         </div>
-      </div>
+      </MiniBarRow>
     </div>
   );
 }
