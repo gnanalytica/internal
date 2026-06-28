@@ -26,13 +26,14 @@ const MARKET_SEGMENTS: Slice[] = [
   { label: "Residential valuation", value: 1300, color: "#6366f1" },
   { label: "Commercial valuation", value: 800, color: "#0ea5e9" },
   { label: "Industrial / plant & machinery", value: 600, color: "#14b8a6" },
-  { label: "Feasibility — TEV / DPR", value: 350, color: "#f59e0b" },
-  { label: "Lender's engineer (LIE) + big projects", value: 400, color: "#8b5cf6" },
+  { label: "Project reports (DPR) — MSME & projects", value: 1400, color: "#8b5cf6" },
+  { label: "Techno-economic viability (TEV)", value: 450, color: "#f59e0b" },
+  { label: "Lender's engineer (LIE) — incl. big projects", value: 400, color: "#ec4899" },
 ];
-const marketTotal = MARKET_SEGMENTS.reduce((s, x) => s + x.value, 0); // ₹3,450 cr
+const marketTotal = MARKET_SEGMENTS.reduce((s, x) => s + x.value, 0); // ₹4,950 cr
 const propertyTotal = 1300 + 800 + 600; // ₹2,700 cr
-const feasibilityTotal = 350 + 400; // ₹750 cr
-const marketSAM = 850; // ₹ cr — reachable (software + early enterprise), modeled
+const feasibilityTotal = 1400 + 450 + 400; // ₹2,250 cr
+const marketSAM = 1200; // ₹ cr — reachable (software + early enterprise), modeled
 const market3yr = 18; // ₹ cr — 3-yr target (SaaS + first deals), modeled
 const saasArr = 5.8; // ₹ cr — SaaS 3-yr ARR potential (for FDV)
 const valuePerReport = 2000; // ₹ — value of time saved per report (modeled)
@@ -272,8 +273,9 @@ function Market() {
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
         Modeled estimate of annual fees paid for these reports pan-India — anchored to the Asia-Pacific
-        property-valuation market (~$1.9B, 2024), residential being ~75% of transactions, and RBI / NaBFID
-        project-finance scale. Exact splits to be confirmed.
+        property-valuation market (~$1.9B, 2024, residential ~75% of transactions), RBI / NaBFID project-finance
+        scale, and the large MSME DPR market (hundreds of thousands of project reports/yr at ₹35k–₹1.2L each).
+        Exact splits to be confirmed.
       </p>
 
       {/* What we can realistically capture */}
