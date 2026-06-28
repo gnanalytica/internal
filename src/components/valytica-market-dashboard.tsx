@@ -215,6 +215,11 @@ function Sizing({
             <span className="font-medium text-foreground">{fmtCr(m.swingLo)}–{fmtCr(m.swingHi)}</span>. Verify
             this and valuer adoption first — they move the answer most.
           </p>
+          <p className="mt-2 rounded-lg border border-brand/20 bg-brand/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Two revenue engines.</span> SaaS captures the software
+            TAM ({fmtCr(m.softwareTAM)} ceiling); the enterprise build / co-own arm addresses the far larger
+            services market ({fmtCr(m.servicesTAM)}) per deal — sales-led, sized separately.
+          </p>
         </ChartCard>
 
         {/* Assumptions */}
@@ -462,24 +467,24 @@ const VERDICT_META: Record<Verdict, { color: string; label: string }> = {
 };
 
 const CHECKLIST: { q: string; v: Verdict; note: string }[] = [
-  { q: "Problem is real and painful", v: "assumed", note: "Inferred from build depth, not user interviews" },
-  { q: "Target user (ICP) clearly defined", v: "no", note: "Hypotheses only; no written ICP — #122" },
-  { q: "Users already seek a solution today", v: "no", note: "Status-quo / alternatives unknown" },
+  { q: "Problem is real and painful", v: "yes", note: "User interviews: maintenance, cross-reference, tracking, audit, time, volume" },
+  { q: "Need is frequent & high-volume", v: "yes", note: "Recurring, high-volume workload confirmed with users" },
+  { q: "Fits the user's actual workflow", v: "yes", note: "Validated pains map to the real valuation workflow" },
   { q: "Value prop differentiated & clear", v: "yes", note: "Residency, human-in-loop, bank-ready outputs" },
-  { q: "Fits the user's actual workflow", v: "assumed", note: "Field app designed for it; not field-tested" },
-  { q: "Need is frequent & high-stakes", v: "assumed", note: "Recurring, deadline & liability driven" },
-  { q: "Users will trust AI in a regulated deliverable", v: "assumed", note: "Architecture earns it; adoption untested" },
-  { q: "Evidence of demand (usage / retention)", v: "no", note: "Only $pageview tracked — #123" },
-  { q: "Willingness-to-pay signals", v: "no", note: "No conversion data; plans can't even charge — #119" },
-  { q: "Reachable via a channel", v: "assumed", note: "WhatsApp bet placed, unproven" },
   { q: "Low adoption friction", v: "yes", note: "OTP sign-in, org-of-one, 3 free reports" },
+  { q: "Target user (ICP) clearly defined", v: "assumed", note: "Sharper after interviews; still to formalize — #122" },
+  { q: "Users will trust AI in a regulated deliverable", v: "assumed", note: "Architecture earns it; adoption at scale untested" },
+  { q: "Reachable via a channel", v: "assumed", note: "WhatsApp + enterprise outreach; reply-rate unproven" },
+  { q: "Users already seek a solution today", v: "no", note: "Status-quo / alternatives not yet mapped" },
+  { q: "Evidence of demand (usage / retention)", v: "no", note: "Only $pageview tracked — #123" },
+  { q: "Willingness-to-pay signals", v: "no", note: "Pain validated; pricing not yet tested — #119 / #124" },
   { q: "Referral / word-of-mouth potential", v: "no", note: "No NPS / feedback / referral instrumented" },
 ];
 
 const LENSES: { label: string; score: number; tag: string; color: string }[] = [
   { label: "Feasibility", score: 80, tag: "Strong — built & shipped", color: "#10b981" },
-  { label: "Desirability", score: 45, tag: "Open — well-designed, unmeasured", color: "#f59e0b" },
-  { label: "Viability", score: 35, tag: "Blocked — subscriptions stubbed (#119)", color: "#f43f5e" },
+  { label: "Desirability", score: 64, tag: "Pain validated by users; demand still unmeasured", color: "#f59e0b" },
+  { label: "Viability", score: 52, tag: "Two engines — SaaS (subs blocked) + enterprise build/co-own", color: "#f59e0b" },
 ];
 
 function Desirability() {
@@ -511,8 +516,9 @@ function Desirability() {
             ))}
           </div>
           <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-            Feasibility is the strength; viability is the bottleneck; desirability is the open question.
-            Every desirability gap is a <span className="font-medium text-foreground">measurement</span> gap — it closes once #123 (funnel) and #122 (research) ship.
+            Feasibility is built; the pain is now <span className="font-medium text-foreground">user-validated</span>.
+            What&apos;s left is measuring demand (#123) and proving willingness-to-pay across the two revenue
+            engines — SaaS self-serve and enterprise build / co-own.
           </p>
         </ChartCard>
 
@@ -540,9 +546,9 @@ function Desirability() {
       </div>
 
       <SourceNote>
-        Fastest live test: push the WhatsApp campaign to a small valuer cohort and watch how many reach a
-        <span className="font-medium text-foreground"> first finalized report</span> (activation) and a
-        <span className="font-medium text-foreground"> second</span> (retention) — that answers more than the 12 checks combined.
+        User interviews confirm the pain — maintenance, cross-reference, tracking, audit, time &amp; volume.
+        Next: instrument activation / retention (#123) and test willingness-to-pay across both the SaaS and
+        enterprise paths.
       </SourceNote>
     </div>
   );
@@ -587,8 +593,36 @@ const BLOCKERS: { id: number; t: string; type: string; color: string; status: st
 function GoToMarket() {
   return (
     <div className="space-y-4">
+      <ChartCard title="Business model — two engines" hint="land, then expand">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <span className="grid size-5 place-items-center rounded-full bg-brand/15 text-brand">1</span>
+              SaaS — self-serve
+              <span className="rounded bg-brand/15 px-1.5 text-[9px] font-semibold uppercase text-brand">initial taste</span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              Valuers sign up and run reports themselves — ₹200/report wallet + ₹499 / ₹1,999 plans. Proves
+              value, gathers usage data, and seeds the comparables index. Recurring revenue is blocked until
+              subscriptions ship (<span className="font-medium text-foreground">#119</span>).
+            </p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <span className="grid size-5 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">2</span>
+              Enterprise — custom build &amp; co-own
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              Build to a bank / firm&apos;s requirements, then co-own, hand over, or run as managed support.
+              Sales-led, high-ACV; taps the services market and bills via contracts/invoices (not Razorpay) —
+              needs GST (<span className="font-medium text-foreground">#120</span>) + ToS (<span className="font-medium text-foreground">#121</span>).
+            </p>
+          </div>
+        </div>
+      </ChartCard>
+
       <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Pricing & packaging" hint="grounded in billing.ts">
+        <ChartCard title="Pricing & packaging" hint="SaaS engine · grounded in billing.ts">
           <div className="grid grid-cols-2 gap-2">
             {TIERS.map((t) => (
               <div key={t.name} className={cn("rounded-lg border p-3", t.popular && "border-brand/50 bg-brand/[0.05]")}>
