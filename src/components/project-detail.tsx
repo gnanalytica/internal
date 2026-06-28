@@ -223,13 +223,22 @@ export function ProjectDetail({
             />
           </div>
 
-          {/* Issues */}
-          <h3 className="mt-8 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Issues
-          </h3>
+          {/* Tasks */}
+          <div className="mt-8 flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Tasks
+            </h3>
+            <Link
+              href={`/projects/${project.id}/tasks`}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Manage tasks →
+            </Link>
+          </div>
           {total === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">
-              No issues yet. Set an issue&apos;s <strong>Project</strong> to add it here.
+              No tasks yet. Open <strong>Tasks</strong> to add one, or set a task&apos;s{" "}
+              <strong>Project</strong> to this operation.
             </p>
           ) : (
             <div className="mt-2 overflow-hidden rounded-xl border">

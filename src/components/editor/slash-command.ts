@@ -196,8 +196,8 @@ const COMMANDS: Cmd[] = [
     run: callout("success"),
   },
   {
-    title: "Issue view",
-    description: "Embed a live, filtered list of issues",
+    title: "Task view",
+    description: "Embed a live, filtered list of tasks",
     icon: createElement(ListFilter, { className: "size-4" }),
     keywords: "issue view embed list linear tasks",
     group: "Embeds",

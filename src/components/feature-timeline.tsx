@@ -9,7 +9,7 @@ const statusMeta = (s: string) => FEATURE_STATUSES.find((x) => x.id === s);
 
 function metaLine(f: FeatureWithRelations): string {
   const status = statusMeta(f.status)?.label ?? f.status;
-  if (f.progress.total > 0) return `${status} · ${f.progress.done}/${f.progress.total} issues`;
+  if (f.progress.total > 0) return `${status} · ${f.progress.done}/${f.progress.total} tasks`;
   return status;
 }
 

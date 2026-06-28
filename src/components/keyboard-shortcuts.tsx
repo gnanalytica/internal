@@ -20,9 +20,9 @@ const GO_TO: Record<string, string> = {
 };
 
 const HELP = [
-  { keys: "C", label: "Create issue" },
+  { keys: "C", label: "Create task" },
   { keys: "⌘K", label: "Search / command palette" },
-  { keys: "G then I", label: "Go to Issues" },
+  { keys: "G then I", label: "Go to Tasks" },
   { keys: "G then P", label: "Go to Projects" },
   { keys: "G then N", label: "Go to Inbox" },
   { keys: "G then A", label: "Go to Ask AI" },

@@ -423,7 +423,7 @@ export async function createIssue(input: {
       featureId: input.featureId ?? null,
       milestoneId: input.milestoneId ?? null,
       number: (maxNumber ?? 0) + 1,
-      title: input.title.trim() || "Untitled issue",
+      title: input.title.trim() || "Untitled task",
       status: input.status && isStatus(input.status) ? input.status : "backlog",
       priority: input.priority && isPriority(input.priority) ? input.priority : "none",
       type: input.type && isIssueType(input.type) ? input.type : "engineering",
@@ -858,7 +858,7 @@ export async function addIssueRelation(
   relatedIssueId: string,
   type: string,
 ) {
-  if (issueId === relatedIssueId) throw new Error("An issue can't relate to itself.");
+  if (issueId === relatedIssueId) throw new Error("A task can't relate to itself.");
   if (!isRelationType(type)) throw new Error("Invalid relation type.");
   const ws = await getWorkspace();
   // Avoid duplicates in either direction for the same type.
@@ -1297,7 +1297,7 @@ export async function pushIssueToGithub(issueId: string) {
     .from(issues)
     .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)))
     .limit(1);
-  if (!issue) throw new Error("Issue not found.");
+  if (!issue) throw new Error("Task not found.");
   if (issue.githubUrl) return;
   const body = docToText(issue.description) || "_Created from the internal workspace._";
   const { number, htmlUrl } = await createGithubIssue(ws.id, {
@@ -1336,7 +1336,7 @@ export async function uploadAttachment(issueId: string, formData: FormData) {
     .from(issues)
     .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)))
     .limit(1);
-  if (!issue) throw new Error("Issue not found.");
+  if (!issue) throw new Error("Task not found.");
 
   const blob = await put(`${ws.id}/${issueId}/${file.name}`, file, {
     access: "public",

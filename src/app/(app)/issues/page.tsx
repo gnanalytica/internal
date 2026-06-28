@@ -36,7 +36,7 @@ export default async function IssuesPage({
       projects={projects}
       members={members}
       labels={labels}
-      heading={activeProject ? activeProject.name : "All issues"}
+      heading={activeProject ? activeProject.name : "All tasks"}
       defaultProjectId={activeProject?.id ?? null}
       savedViews={savedViews}
     />

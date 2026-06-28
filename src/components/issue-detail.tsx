@@ -142,7 +142,7 @@ export function IssueDetail({
     <div className="flex h-full flex-col">
       <Topbar
         breadcrumb={[
-          { label: "Issues", href: "/issues" },
+          { label: "Tasks", href: "/issues" },
           { label: issueIdentifier(issue) },
         ]}
         actions={
@@ -162,13 +162,13 @@ export function IssueDetail({
                 onClick={() =>
                   persist(async () => {
                     await deleteIssue(issue.id);
-                    toast.success("Issue deleted");
+                    toast.success("Task deleted");
                     router.push("/issues");
                   })
                 }
                 className="gap-2 text-destructive focus:text-destructive"
               >
-                <Trash2 className="size-4" /> Delete issue
+                <Trash2 className="size-4" /> Delete task
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -194,10 +194,10 @@ export function IssueDetail({
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
-                void updateIssue(issue.id, { title: e.target.value.trim() || "Untitled issue" });
+                void updateIssue(issue.id, { title: e.target.value.trim() || "Untitled task" });
               }}
               rows={1}
-              placeholder="Issue title"
+              placeholder="Task title"
               className="w-full resize-none overflow-hidden bg-transparent text-2xl font-semibold leading-snug outline-none placeholder:text-muted-foreground/40"
               onInput={(e) => {
                 const t = e.currentTarget;
@@ -583,9 +583,9 @@ function IssueRelations({
               ))}
             </div>
             <Command>
-              <CommandInput placeholder="Search issues…" className="h-9" />
+              <CommandInput placeholder="Search tasks…" className="h-9" />
               <CommandList>
-                <CommandEmpty>No issues.</CommandEmpty>
+                <CommandEmpty>No tasks.</CommandEmpty>
                 <CommandGroup>
                   {pickable.map((i) => (
                     <CommandItem
@@ -688,7 +688,7 @@ function SubIssues({
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Sub-issues
+            Sub-tasks
           </h3>
           {total > 0 && (
             <span className="flex items-center gap-1.5">
@@ -707,13 +707,13 @@ function SubIssues({
           className="h-6 gap-1 text-xs"
           onClick={() => setAdding((v) => !v)}
         >
-          <Plus className="size-3.5" /> Add sub-issue
+          <Plus className="size-3.5" /> Add sub-task
         </Button>
       </div>
 
       {subIssues.length === 0 && !adding ? (
         <p className="text-xs text-muted-foreground">
-          Break this issue down into smaller sub-issues.
+          Break this task down into smaller sub-tasks.
         </p>
       ) : (
         <div className="space-y-0.5">
@@ -758,7 +758,7 @@ function SubIssues({
               if (e.key === "Enter") create();
               if (e.key === "Escape") setAdding(false);
             }}
-            placeholder="Sub-issue title…"
+            placeholder="Sub-task title…"
             className="h-8 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus:border-brand"
           />
           <Button size="sm" className="h-8" onClick={create} disabled={pending || !title.trim()}>

@@ -138,7 +138,7 @@ export function groupIssues(
       ];
       break;
     case "none":
-      defs = [{ key: "all", label: "All issues", match: () => true }];
+      defs = [{ key: "all", label: "All tasks", match: () => true }];
       break;
     default:
       defs = STATUSES.map((s) => ({

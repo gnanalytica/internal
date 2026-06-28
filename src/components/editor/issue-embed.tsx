@@ -66,7 +66,7 @@ function IssueEmbedView({ node, updateAttributes, editor }: NodeViewProps) {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-3 py-1.5">
         <ListFilter className="size-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium">Issues</span>
+        <span className="text-xs font-medium">Tasks</span>
 
         {editable ? (
           <>
@@ -129,7 +129,7 @@ function IssueEmbedView({ node, updateAttributes, editor }: NodeViewProps) {
       {loading ? (
         <div className="px-3 py-3 text-xs text-muted-foreground">Loading…</div>
       ) : issues.length === 0 ? (
-        <div className="px-3 py-3 text-xs text-muted-foreground">No matching issues.</div>
+        <div className="px-3 py-3 text-xs text-muted-foreground">No matching tasks.</div>
       ) : (
         <div className="divide-y">
           {issues.map((i) => (

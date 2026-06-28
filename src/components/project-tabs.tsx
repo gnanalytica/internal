@@ -16,6 +16,7 @@ export function ProjectTabs({ project, isAdmin = false }: { project: Project; is
     project.kind === "operation"
       ? [
           { href: base, label: "Overview" },
+          { href: `${base}/tasks`, label: "Tasks" },
           { href: `${base}/docs`, label: "Docs" },
         ]
       : [

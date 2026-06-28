@@ -73,7 +73,7 @@ export function NewIssueDialog({
 
   function submit() {
     if (!title.trim()) {
-      toast.error("Give the issue a title");
+      toast.error("Give the task a title");
       return;
     }
     startTransition(async () => {
@@ -102,7 +102,7 @@ export function NewIssueDialog({
           },
         });
       }
-      toast.success("Issue created");
+      toast.success("Task created");
       setOpen(false);
       reset();
       router.push(`/issues/${created.id}`);
@@ -121,7 +121,7 @@ export function NewIssueDialog({
       >
         <DialogHeader className="px-4 pt-4">
           <DialogTitle className="text-xs font-medium text-muted-foreground">
-            New issue
+            New task
           </DialogTitle>
         </DialogHeader>
 
@@ -130,7 +130,7 @@ export function NewIssueDialog({
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Issue title"
+            placeholder="Task title"
             className="w-full bg-transparent text-lg font-medium outline-none placeholder:text-muted-foreground"
           />
           <textarea
@@ -178,7 +178,7 @@ export function NewIssueDialog({
             Cancel
           </Button>
           <Button size="sm" onClick={submit} disabled={pending}>
-            {pending ? "Creating…" : "Create issue"}
+            {pending ? "Creating…" : "Create task"}
           </Button>
         </DialogFooter>
       </DialogContent>

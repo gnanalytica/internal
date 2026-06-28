@@ -217,7 +217,7 @@ export function Sidebar({
         </DropdownMenu>
       </div>
 
-      {/* New issue + search */}
+      {/* New task + search */}
       <div className="flex items-center gap-1.5 px-3 pb-2">
         <NewIssueDialog
           projects={projects}
@@ -230,7 +230,7 @@ export function Sidebar({
               variant="ghost"
             >
               <PenSquare className="size-4 text-brand" />
-              New issue
+              New task
             </Button>
           }
         />
@@ -279,7 +279,7 @@ export function Sidebar({
           href="/issues"
           active={pathname === "/issues"}
           icon={<CircleDot className="size-4" />}
-          label="Issues"
+          label="Tasks"
         />
 
         {/* Favorites */}

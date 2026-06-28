@@ -60,8 +60,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {isSignUp
-              ? "Start using your docs + issues workspace."
-              : "Sign in to your docs + issues workspace."}
+              ? "Start using your docs + tasks workspace."
+              : "Sign in to your docs + tasks workspace."}
           </p>
         </div>
       </div>

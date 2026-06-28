@@ -135,7 +135,7 @@ export function ProjectsView({
                           </p>
                         )}
                         <div className="mt-3 grid grid-cols-5 gap-2 text-center">
-                          <Stat value={String(p.openIssues)} label="Issues" />
+                          <Stat value={String(p.openIssues)} label="Tasks" />
                           <Stat value={formatMoney(p.pipelineValue)} label={`${p.openDeals} deals`} />
                           <Stat value={String(p.activeCampaigns)} label="Campaigns" />
                           <Stat value={formatMoney(p.revenue)} label="Revenue" />

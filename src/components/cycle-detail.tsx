@@ -135,9 +135,9 @@ export function CycleDetail({
       <div className="scrollbar-thin flex-1 overflow-y-auto">
         {cycle.issues.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-20 text-center">
-            <p className="text-sm font-medium">No issues in this cycle</p>
+            <p className="text-sm font-medium">No tasks in this cycle</p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Add issues by opening an issue and setting its <strong>Cycle</strong> property.
+              Add tasks by opening a task and setting its <strong>Cycle</strong> property.
             </p>
           </div>
         ) : (

@@ -67,7 +67,7 @@ export function IssueTimelineView({
       groups={groups}
       nowISO={nowISO}
       scale="month"
-      labelHeader="Issue"
+      labelHeader="Task"
       showGroupHeaders
       onReschedule={reschedule}
       legend={

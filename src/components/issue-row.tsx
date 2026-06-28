@@ -54,7 +54,7 @@ export function IssueRow({
           checked={selected ?? false}
           onChange={onToggleSelect}
           className="size-3.5 shrink-0 accent-[var(--brand)]"
-          aria-label="Select issue"
+          aria-label="Select task"
         />
       )}
       <PriorityPicker
