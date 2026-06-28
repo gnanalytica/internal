@@ -11,7 +11,6 @@ import {
   Layers,
   Maximize,
   Printer,
-  Receipt,
   Rocket,
   Target,
   TrendingUp,
@@ -106,9 +105,7 @@ const VALUATION: Cfg = {
     { label: "Bank valuations / yr", value: "~5M", sub: "report volume", icon: Layers },
     { label: "Registered valuers", value: "~6,176", sub: "IBBI-registered", icon: Users },
     { label: "Bank-empanelled pool", value: "10k+", sub: "wider supply", icon: Landmark },
-    { label: "Avg valuation fee", value: "₹2.5–4k", sub: "per report", icon: Banknote },
-    { label: "Price per report", value: "₹200", sub: "what banks pay", tone: "brand", icon: Receipt },
-    { label: "Gross margin", value: "~90%", sub: "₹180 of ₹200", tone: "emerald", icon: TrendingUp },
+    { label: "Fee per valuation", value: "₹2.5–4k", sub: "borrower pays · bank-mandated", tone: "brand", icon: Banknote },
   ],
   segments: [
     { label: "Residential valuation", value: 1300, color: "#6366f1" },
