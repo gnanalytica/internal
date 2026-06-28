@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Minus, RotateCcw, TriangleAlert, X } from "lucide-react";
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
-import { Topbar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
 
 /**
@@ -43,13 +42,11 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: "gtm", label: "Go-to-market" },
 ];
 
-export function ValyticaMarketDashboard({
-  projectName,
-  projectId,
-}: {
-  projectName: string;
-  projectId: string;
-}) {
+/**
+ * Renders inside the Marketing tab as the "Market" sub-tab (Campaigns · Content
+ * · Market). No Topbar of its own — the Marketing view supplies the page chrome.
+ */
+export function ValyticaMarketDashboard() {
   const [section, setSection] = useState<Section>("sizing");
   const [bankVolM, setBankVolM] = useState(DEFAULTS.bankVolM);
   const [avgFee, setAvgFee] = useState(DEFAULTS.avgFee);
@@ -116,54 +113,46 @@ export function ValyticaMarketDashboard({
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <Topbar
-        breadcrumb={[{ label: projectName, href: `/projects/${projectId}` }, { label: "Market" }]}
-        actions={
-          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-            Modeled estimates · verify (#122)
-          </span>
-        }
-      />
-
-      <div className="scrollbar-thin flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-5xl px-5 py-6 md:px-8">
-          {/* Hero */}
-          <header className="mb-5">
-            <h1 className="text-2xl font-bold tracking-tight">India property valuation &amp; feasibility-report market</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Sizing, pain points, desirability and go-to-market for Valytica — an AI valuation copilot for
-              Indian valuers. Figures are a model you can adjust; market data is unverified.
-            </p>
-          </header>
-
-          {/* Section tabs */}
-          <div className="mb-5 flex flex-wrap gap-1 rounded-lg border bg-muted/40 p-1">
-            {SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSection(s.id)}
-                aria-pressed={section === s.id}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm transition-colors",
-                  section === s.id
-                    ? "bg-background font-medium text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-
-          {section === "sizing" && (
-            <Sizing m={m} bankVolM={bankVolM} setBankVolM={setBankVolM} avgFee={avgFee} setAvgFee={setAvgFee} adoptPct={adoptPct} setAdoptPct={setAdoptPct} reset={reset} />
-          )}
-          {section === "pain" && <PainPoints />}
-          {section === "fdv" && <Desirability />}
-          {section === "gtm" && <GoToMarket />}
+    <div className="mx-auto w-full max-w-5xl">
+      {/* Hero */}
+      <header className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">India property valuation &amp; feasibility-report market</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Sizing, pain points, desirability and go-to-market for Valytica — an AI valuation copilot for
+            Indian valuers. Figures are a model you can adjust; market data is unverified.
+          </p>
         </div>
+        <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+          Modeled estimates · verify (#122)
+        </span>
+      </header>
+
+      {/* Section tabs */}
+      <div className="mb-5 flex flex-wrap gap-1 rounded-lg border bg-muted/40 p-1">
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSection(s.id)}
+            aria-pressed={section === s.id}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm transition-colors",
+              section === s.id
+                ? "bg-background font-medium text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
+
+      {section === "sizing" && (
+        <Sizing m={m} bankVolM={bankVolM} setBankVolM={setBankVolM} avgFee={avgFee} setAvgFee={setAvgFee} adoptPct={adoptPct} setAdoptPct={setAdoptPct} reset={reset} />
+      )}
+      {section === "pain" && <PainPoints />}
+      {section === "fdv" && <Desirability />}
+      {section === "gtm" && <GoToMarket />}
     </div>
   );
 }

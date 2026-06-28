@@ -24,8 +24,6 @@ export function ProjectTabs({ project, isAdmin = false }: { project: Project; is
           ...visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map(
             (d) => ({ href: `${base}/${d.slug}`, label: d.label }),
           ),
-          // Valytica-specific strategy dashboard (content is product-specific).
-          ...(project.key === "VAL" ? [{ href: `${base}/market`, label: "Market" }] : []),
           { href: `${base}/docs`, label: "Docs" },
         ];
   return (
