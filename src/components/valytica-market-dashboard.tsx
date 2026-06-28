@@ -415,7 +415,7 @@ const CONFIGS: Record<VisionVariant, Cfg> = { valuation: VALUATION, feasibility:
 // ============================ shell (scaled slide) ============================
 
 const BASE_W = 1600;
-const BASE_H = 1040;
+const BASE_H = 900;
 
 export function MarketVisionDashboard({ variant = "valuation" }: { variant?: VisionVariant }) {
   const cfg = CONFIGS[variant];
@@ -501,11 +501,10 @@ function Slide({ cfg }: { cfg: Cfg }) {
           <MarketBody cfg={cfg} />
         </Panel>
 
-        <Panel className="col-span-2" title="NABC — Need · Approach · Benefit · Competition" icon={Check}>
+        <Panel title="NABC — Need · Approach · Benefit · Competition" icon={Check}>
           <NabcBody cfg={cfg} />
         </Panel>
-
-        <Panel className="col-span-2" title="Where we stand · SWOT" icon={Zap}>
+        <Panel title="Where we stand · SWOT" icon={Zap}>
           <SwotBody cfg={cfg} />
         </Panel>
       </div>
@@ -654,7 +653,7 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
 
 function NabcBody({ cfg }: { cfg: Cfg }) {
   return (
-    <div className="grid h-full grid-cols-4 gap-2">
+    <div className="grid h-full grid-cols-2 grid-rows-2 gap-2">
       {cfg.nabc.map((n) => (
         <div key={n.key} className="flex min-h-0 flex-col rounded-md border p-2" style={{ borderColor: `${n.color}44`, background: `${n.color}07` }}>
           <div className="flex items-center gap-1.5">
