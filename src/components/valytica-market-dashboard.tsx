@@ -373,26 +373,26 @@ function Competition() {
 
 type FdvLens = { key: string; label: string; score: number; color: string; state: string; lever: string; unlocks: string };
 const FDV_META: FdvLens[] = [
-  { key: "F", label: "Can we build it?", score: 80, color: "#10b981", state: "Yes — it's built", lever: "Move AI to India servers", unlocks: "banks trust us" },
-  { key: "D", label: "Do they want it?", score: 64, color: "#f59e0b", state: "Problem confirmed", lever: "Measure real usage", unlocks: "proves they want it" },
-  { key: "V", label: "Can we earn?", score: 52, color: "#f59e0b", state: "Two ways to earn", lever: "Launch + win first deals", unlocks: "proves the money" },
+  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Shipped · proven unit economics", lever: "Migrate AI to India-based infrastructure", unlocks: "earns bank confidence" },
+  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Demand validated, not yet measured", lever: "Instrument usage & retention", unlocks: "validates real demand" },
+  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Model defined, revenue unproven", lever: "Activate billing, land first accounts", unlocks: "proves the revenue model" },
 ];
 
 function Fdv() {
   return (
-    <Section title="The three big questions — fix the gaps in order" icon={Check}>
+    <Section title="Feasibility · Desirability · Viability — close the gaps in sequence" icon={Check}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         <FdvCard n={FDV_META[0]}>
           <StatList
             rows={[
-              { s: "ok", t: "Built and live" },
-              { s: "ok", t: "Accurate AI — no made-up facts" },
-              { s: "ok", t: "Profit per report", v: "₹180" },
-              { s: "ok", t: "Sells ₹200 · costs ₹20" },
-              { s: "next", t: "Move AI to India servers" },
+              { s: "ok", t: "Live across valuations & feasibility reports" },
+              { s: "ok", t: "Reliable, source-checked AI output" },
+              { s: "ok", t: "Gross profit per report", v: "₹180" },
+              { s: "ok", t: "Unit cost per report", v: "₹20" },
+              { s: "next", t: "India-based AI infrastructure" },
             ]}
           />
-          <Bar label="Profit margin" right="~90%">
+          <Bar label="Gross margin" right="~90%">
             <div className="h-3 w-full overflow-hidden rounded-full bg-emerald-500/15">
               <div className="h-full rounded-full bg-emerald-500" style={{ width: "90%" }} />
             </div>
@@ -404,14 +404,14 @@ function Fdv() {
         <FdvCard n={FDV_META[1]}>
           <StatList
             rows={[
-              { s: "ok", t: "Real problem, confirmed with users" },
-              { s: "ok", t: "Saves per report", v: `₹${valuePerReport.toLocaleString("en-IN")}` },
-              { s: "ok", t: "Room to raise the price", v: "→ ₹400+" },
-              { s: "next", t: "Prove people keep using it" },
-              { s: "next", t: "Find out what they'll pay" },
+              { s: "ok", t: "Pain confirmed in user interviews" },
+              { s: "ok", t: "Value delivered per report", v: `₹${valuePerReport.toLocaleString("en-IN")}` },
+              { s: "ok", t: "Pricing headroom", v: "→ ₹400+" },
+              { s: "next", t: "Measure usage & retention" },
+              { s: "next", t: "Validate willingness to pay" },
             ]}
           />
-          <Bar label="Problems we solve" right="4 of 6">
+          <Bar label="Pains addressed" right="4 of 6">
             <div className="flex h-3 w-full overflow-hidden rounded-full">
               <div style={{ width: "67%", background: "#10b981" }} />
               <div style={{ width: "16%", background: "#f59e0b" }} />
@@ -425,14 +425,14 @@ function Fdv() {
         <FdvCard n={FDV_META[2]}>
           <StatList
             rows={[
-              { s: "ok", t: "Two ways to earn money" },
-              { s: "ok", t: "Subscriptions could reach", v: `${fmtCr(som)}/yr` },
-              { s: "ok", t: "Each custom build", v: "₹20–60L" },
-              { s: "next", t: "Switch on subscriptions" },
-              { s: "next", t: "Win the first big customer" },
+              { s: "ok", t: "Two revenue engines" },
+              { s: "ok", t: "Subscription ARR potential", v: `${fmtCr(som)}` },
+              { s: "ok", t: "Enterprise contract value", v: "₹20–60L" },
+              { s: "next", t: "Activate recurring billing" },
+              { s: "next", t: "Close first enterprise account" },
             ]}
           />
-          <Bar label="Where revenue comes from" right="subscriptions · custom">
+          <Bar label="Revenue mix" right="subscription · enterprise">
             <div className="flex h-3 w-full overflow-hidden rounded-full">
               <div style={{ width: "16%", background: "#1d4ed8" }} />
               <div style={{ width: "84%", background: "#10b981" }} />
