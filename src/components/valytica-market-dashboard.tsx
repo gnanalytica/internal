@@ -5,6 +5,7 @@ import {
   Banknote,
   Building2,
   Check,
+  ChevronRight,
   Clock,
   Landmark,
   Layers,
@@ -647,33 +648,48 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
 }
 
 function NabcBody({ cfg }: { cfg: Cfg }) {
+  // Process flow: Need → Approach → Benefit → Competition, connected by arrows.
   return (
-    <div className="grid h-full grid-cols-2 grid-rows-2 gap-2">
-      {cfg.nabc.map((n) => (
-        <div key={n.key} className="flex min-h-0 flex-col rounded-md border p-2" style={{ borderColor: `${n.color}44`, background: `${n.color}07` }}>
-          <div className="flex items-center gap-1.5">
-            <span className="grid size-6 shrink-0 place-items-center rounded-md text-[13px] font-bold text-white" style={{ backgroundColor: n.color }}>{n.key}</span>
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-bold leading-none" style={{ color: n.color }}>{n.title}</div>
-              <div className="mt-0.5 text-[9px] leading-tight text-muted-foreground">{n.subtitle}</div>
+    <div className="flex h-full items-stretch">
+      {cfg.nabc.map((n, i) => (
+        <div key={n.key} className="flex min-w-0 flex-1 items-stretch">
+          <div
+            className="flex min-w-0 flex-1 flex-col rounded-md border p-2"
+            style={{ borderColor: `${n.color}44`, background: `${n.color}0a` }}
+          >
+            {/* stage header */}
+            <div className="flex items-center gap-1.5">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white" style={{ backgroundColor: n.color }}>{n.key}</span>
+              <div className="min-w-0">
+                <div className="truncate text-[11.5px] font-bold leading-none" style={{ color: n.color }}>{n.title}</div>
+                <div className="mt-0.5 truncate text-[8px] leading-tight text-muted-foreground">{n.subtitle}</div>
+              </div>
+            </div>
+            {/* points */}
+            <ul className="mt-1.5 min-h-0 flex-1 space-y-1">
+              {n.points.map((p) => (
+                <li key={p} className="flex items-start gap-1 text-[9px] leading-snug text-foreground/90">
+                  <span className="mt-1 size-1 shrink-0 rounded-full" style={{ backgroundColor: n.color }} />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
+            {/* stage stats */}
+            <div className="mt-1.5 space-y-1">
+              {n.stats.map((s) => (
+                <div key={s.l} className="rounded px-1 py-0.5 text-center" style={{ background: `${n.color}14` }}>
+                  <div className="text-[11px] font-bold leading-none" style={{ color: n.color }}>{s.v}</div>
+                  <div className="mt-0.5 text-[7.5px] leading-tight text-muted-foreground">{s.l}</div>
+                </div>
+              ))}
             </div>
           </div>
-          <ul className="mt-2 min-h-0 flex-1 space-y-1">
-            {n.points.map((p) => (
-              <li key={p} className="flex items-start gap-1 text-[10px] leading-snug text-foreground/90">
-                <span className="mt-1 size-1 shrink-0 rounded-full" style={{ backgroundColor: n.color }} />
-                <span>{p}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-            {n.stats.map((s) => (
-              <div key={s.l} className="rounded bg-muted/50 px-1 py-1 text-center">
-                <div className="text-[13px] font-bold leading-none" style={{ color: n.color }}>{s.v}</div>
-                <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{s.l}</div>
-              </div>
-            ))}
-          </div>
+          {/* arrow connector */}
+          {i < cfg.nabc.length - 1 && (
+            <div className="flex w-4 shrink-0 items-center justify-center">
+              <ChevronRight className="size-4 text-muted-foreground/40" />
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -681,24 +697,45 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
 }
 
 function SwotBody({ cfg }: { cfg: Cfg }) {
+  // 2×2 matrix: columns = Helpful / Harmful, rows = Internal / External.
+  // cfg.swot order (S, W, O, T) maps row-major onto exactly that grid.
+  const sign: Record<string, string> = { S: "+", W: "−", O: "+", T: "−" };
   return (
-    <div className="grid h-full grid-cols-2 grid-rows-2 gap-1.5">
-      {cfg.swot.map((q) => (
-        <div key={q.key} className="flex min-h-0 flex-col overflow-hidden rounded-md border p-1.5" style={{ borderColor: `${q.color}44` }}>
-          <div className="mb-0.5 flex shrink-0 items-center gap-1">
-            <span className="grid size-3.5 place-items-center rounded-sm text-[9px] font-bold text-white" style={{ backgroundColor: q.color }}>{q.key}</span>
-            <h4 className="text-[11px] font-semibold leading-none">{q.title}</h4>
-          </div>
-          <ul className="min-h-0 flex-1 space-y-px">
-            {q.items.map((it) => (
-              <li key={it} className="flex items-start gap-1 text-[9.5px] leading-[1.2] text-muted-foreground">
-                <span className="mt-1 size-[3px] shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
-                <span className="min-w-0">{it}</span>
-              </li>
-            ))}
-          </ul>
+    <div className="flex h-full gap-1">
+      {/* row-axis labels (Internal / External) */}
+      <div className="flex w-3 shrink-0 flex-col pt-3">
+        <div className="flex flex-1 items-center justify-center">
+          <span className="-rotate-90 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">Internal</span>
         </div>
-      ))}
+        <div className="flex flex-1 items-center justify-center">
+          <span className="-rotate-90 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">External</span>
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {/* column-axis labels (Helpful / Harmful) */}
+        <div className="flex shrink-0 gap-1.5 text-center text-[8px] font-semibold uppercase tracking-wider">
+          <div className="flex-1 text-emerald-600 dark:text-emerald-400">Helpful</div>
+          <div className="flex-1 text-rose-500">Harmful</div>
+        </div>
+        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-1.5">
+          {cfg.swot.map((q) => (
+            <div key={q.key} className="flex min-h-0 flex-col overflow-hidden rounded-md border p-1.5" style={{ borderColor: `${q.color}55`, background: `${q.color}0e` }}>
+              <div className="mb-0.5 flex shrink-0 items-center gap-1">
+                <span className="grid size-4 place-items-center rounded-sm text-[10px] font-bold text-white" style={{ backgroundColor: q.color }}>{sign[q.key] ?? q.key}</span>
+                <h4 className="text-[10.5px] font-semibold leading-none">{q.title}</h4>
+              </div>
+              <ul className="min-h-0 flex-1 space-y-px">
+                {q.items.map((it) => (
+                  <li key={it} className="flex items-start gap-1 text-[9.5px] leading-[1.2] text-muted-foreground">
+                    <span className="mt-1 size-[3px] shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
+                    <span className="min-w-0">{it}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
