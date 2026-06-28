@@ -5,7 +5,6 @@ import { ArrowRight, Check, Maximize, Minus, Printer, RotateCcw, TriangleAlert, 
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -249,21 +248,21 @@ const WHITE_SPACE =
   "No incumbent is an AI copilot for the valuer/consultant that produces bank-ready, human-in-the-loop, India-resident reports across BOTH valuation and TEV/LIE/DPR. Consumer AVMs aren't defensible; global AVMs lack India fit; services firms have no software.";
 
 // FDV as a linked chain — each red is a lever that lifts the next lens.
-const FDV_CHAIN: { key: string; label: string; score: number; color: string; state: string; lever: string; leverShort: string; lifts: string }[] = [
-  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong", lever: "Migrate AI to India-region (Vertex/Bedrock); promote off Flash-Lite", leverShort: "India-region AI", lifts: "→ credibility for banks & enterprise" },
-  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument funnel #123 — activation & retention", leverShort: "Instrument #123", lifts: "→ proves demand → Viability" },
-  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship subscriptions #119 + close 1–2 enterprise deals", leverShort: "Ship #119 + deals", lifts: "→ revenue proof" },
+const FDV_CHAIN: { key: string; label: string; score: number; color: string; state: string; fin: string; lever: string; leverShort: string; lifts: string }[] = [
+  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong · built", fin: "₹200 price − ~₹20 AI cost ≈ ~90% gross margin/report", lever: "Migrate AI to India-region (Vertex/Bedrock); promote off Flash-Lite", leverShort: "India-region AI", lifts: "→ credibility for banks & enterprise" },
+  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", fin: "₹2,000 value/report · ₹200 = ~10% capture", lever: "Instrument funnel #123 — activation & retention", leverShort: "Instrument #123", lifts: "→ proves demand → Viability" },
+  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", fin: "SaaS ₹5.8 cr ARR · Enterprise ₹20–60L/deal", lever: "Ship subscriptions #119 + close 1–2 enterprise deals", leverShort: "Ship #119 + deals", lifts: "→ revenue proof" },
 ];
 
 // Competitor positioning map (one-pager): x = manual→AI, y = consumer→bank-grade.
-const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean; note: string }[] = [
-  { name: "Valytica", x: 84, y: 14, color: "#1d4ed8", star: true, note: "AI copilot · bank-ready, human-in-loop, India-resident · spans valuation + TEV/LIE/DPR" },
-  { name: "In-house bank AI", x: 76, y: 30, color: "#64748b", note: "Captive cross-checks (RBI nudge); not a product sold to valuers" },
-  { name: "Global AVMs", x: 90, y: 52, color: "#94a3b8", note: "Zillow / HouseCanary / CoreLogic — US-only; no India residency or bank formats" },
-  { name: "Sigmavalue", x: 66, y: 60, color: "#6366f1", note: "India AI valuation + geospatial feasibility + PropGPT — closest competitor" },
-  { name: "Housing/99acres", x: 74, y: 84, color: "#94a3b8", note: "Consumer listing price estimates — not bank-grade / defensible" },
-  { name: "TEV/LIE firms", x: 22, y: 26, color: "#0ea5e9", note: "Resurgent, Sapient, MITCON… manual services, bank-empanelled" },
-  { name: "Big advisory", x: 16, y: 44, color: "#94a3b8", note: "Colliers / CBRE / C&W / Knight Frank — high-end commercial valuation" },
+const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean }[] = [
+  { name: "Valytica", x: 84, y: 14, color: "#1d4ed8", star: true },
+  { name: "In-house bank AI", x: 76, y: 30, color: "#64748b" },
+  { name: "Global AVMs", x: 90, y: 52, color: "#94a3b8" },
+  { name: "Sigmavalue", x: 66, y: 60, color: "#6366f1" },
+  { name: "Housing/99acres", x: 74, y: 84, color: "#94a3b8" },
+  { name: "TEV/LIE firms", x: 22, y: 26, color: "#0ea5e9" },
+  { name: "Big advisory", x: 16, y: 44, color: "#94a3b8" },
 ];
 
 const ENGINES: { name: string; color: string; pricing: string[]; econ: string; note: string }[] = [
@@ -646,6 +645,7 @@ function FDVChain() {
               <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-muted/60">
                 <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${n.score}%`, backgroundColor: n.color }} />
               </div>
+              <div className="mb-1 rounded bg-muted/40 px-1.5 py-1 text-[10px] font-medium leading-snug">💰 {n.fin}</div>
               <div className="text-[11px] leading-snug">
                 <span className="font-medium text-foreground">Lever:</span> <span className="text-muted-foreground">{n.lever}</span>
               </div>
@@ -734,6 +734,14 @@ function OPHead({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>;
 }
 
+function RowLabel({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</div>;
+}
+
+function Cell({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  return <div className={cn("rounded border bg-muted/30 px-1.5 py-1 leading-tight", className)} style={style}>{children}</div>;
+}
+
 function OnePager({ m }: { m: Model }) {
   const painItems = PAIN.flatMap((g) => g.items);
   const painCounts = painItems.reduce((a, i) => ((a[i.cover] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
@@ -746,6 +754,12 @@ function OnePager({ m }: { m: Model }) {
   ];
   const ENT_REV = 3e7; // ₹3 cr illustrative near-term enterprise revenue
   const saasPct = (m.som / (m.som + ENT_REV)) * 100;
+  // Per-lens financials, mapped across the FDV columns (dynamic with the model).
+  const fdvFin = [
+    "₹200 price − ~₹20 AI cost ≈ ~90% gross margin/report",
+    `${fmtMoney(m.valuePerReport)} value/report · ₹200 = ~${Math.round(m.captureRatio * 100)}% capture`,
+    `SaaS ${fmtCr(m.som)} ARR · Enterprise ₹20–60L/deal`,
+  ];
 
   return (
     <div id="market-onepager" className="overflow-hidden rounded-xl border bg-card shadow-sm">
@@ -766,9 +780,9 @@ function OnePager({ m }: { m: Model }) {
         <div className="rounded-lg border p-3">
           <OPHead>Market opportunity</OPHead>
           <div className="grid grid-cols-3 gap-2">
-            <OPStat label="Services" value={fmtCr(m.servicesTAM)} sub="₹/yr activity" tip="Total fees valuers & consultants earn per year — the activity Valytica rides (property valuation + TEV/LIE/DPR)." />
-            <OPStat label="Software TAM" value={fmtCr(m.softwareTAM)} sub="SaaS ceiling" tone="brand" tip="Valytica's revenue ceiling if every report ran on a tool: reports × ₹200 + project-report software." />
-            <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR target" tone="emerald" tip="Realistic near-term SaaS ARR at the modeled 3-yr capture rate (adjust in the Interactive view)." />
+            <OPStat label="Services" value={fmtCr(m.servicesTAM)} sub="₹/yr activity" />
+            <OPStat label="Software TAM" value={fmtCr(m.softwareTAM)} sub="SaaS ceiling" tone="brand" />
+            <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR target" tone="emerald" />
           </div>
           <div className="mt-2.5 grid grid-cols-2 gap-3">
             {/* funnel */}
@@ -793,15 +807,28 @@ function OnePager({ m }: { m: Model }) {
           {/* firms as number chips */}
           <div className="mt-2.5 grid grid-cols-4 gap-1.5">
             {[
-              { k: "6,176", l: "IBBI valuers", t: "IBBI registered valuers across all 3 asset classes (live registry)." },
-              { k: "3,000+", l: "L&B valuers", t: "Land & Building — the largest asset class (~half of registered valuers)." },
-              { k: "10k+", l: "empanelled", t: "Wider practicing / bank-empanelled valuer pool (IOV etc.) beyond IBBI-registered." },
-              { k: "100s", l: "TEV/LIE firms", t: "TEV/LIE/DPR consultancies — fragmented; majors empanelled on 20–38+ bank panels." },
+              { k: "6,176", l: "IBBI valuers" },
+              { k: "3,000+", l: "L&B valuers" },
+              { k: "10k+", l: "empanelled" },
+              { k: "100s", l: "TEV/LIE firms" },
             ].map((f) => (
-              <Tip key={f.l} className="rounded-md bg-muted/50 px-1.5 py-1 text-center" content={f.t}>
+              <div key={f.l} className="rounded-md bg-muted/50 px-1.5 py-1 text-center">
                 <div className="text-[13px] font-bold leading-none">{f.k}</div>
                 <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{f.l}</div>
-              </Tip>
+              </div>
+            ))}
+          </div>
+          {/* demand drivers as chips */}
+          <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+            {[
+              { k: "231M", l: "retail loans/yr" },
+              { k: "35%", l: "lending = project fin" },
+              { k: "$1.18T", l: "RE by 2033" },
+            ].map((d) => (
+              <div key={d.l} className="rounded-md border bg-sky-500/5 px-1.5 py-1 text-center">
+                <div className="text-[12px] font-bold leading-none text-sky-600 dark:text-sky-400">{d.k}</div>
+                <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{d.l}</div>
+              </div>
             ))}
           </div>
         </div>
@@ -809,26 +836,44 @@ function OnePager({ m }: { m: Model }) {
         <div className="rounded-lg border p-3">
           <OPHead>Competitive landscape</OPHead>
           <PositioningMatrix />
+          <div className="mt-1.5 text-[8px] leading-snug text-muted-foreground">
+            Scale: Resurgent <span className="font-semibold text-foreground">1,500+</span> TEV · empanelled <span className="font-semibold text-foreground">20+</span> banks · ~<span className="font-semibold text-foreground">6,176</span> IBBI valuers. White space (top-right) = AI · bank-grade · India · both markets.
+          </div>
         </div>
       </div>
 
-      {/* FDV — radial gauges chained */}
+      {/* FDV — 3 columns, points mapped across */}
       <div className="px-4 pt-3">
         <div className="rounded-lg border p-2.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">FDV — fix a red, lift the next</span>
-          <div className="mt-1.5 flex items-center justify-between gap-1.5">
-            {FDV_CHAIN.map((n, i) => (
-              <div key={n.key} className="flex flex-1 items-center justify-center gap-1.5">
-                <Tip
-                  className="flex flex-col items-center"
-                  content={<><span className="font-semibold">{n.label} — {n.score}/100 · {n.state}</span><br />Lever: {n.lever}<br /><span style={{ color: n.color }}>{n.lifts}</span></>}
-                >
-                  <Gauge score={n.score} color={n.color} />
-                  <div className="mt-0.5 text-[10px] font-semibold">{n.label}</div>
-                  <div className="text-[8.5px] font-medium leading-tight" style={{ color: n.color }}>⚙ {n.leverShort}</div>
-                </Tip>
-                {i < FDV_CHAIN.length - 1 && <ArrowRight className="size-4 shrink-0 text-muted-foreground" />}
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">FDV — Feasibility → Desirability → Viability · fix a red, lift the next</span>
+            <span className="text-[9px] text-muted-foreground">/100</span>
+          </div>
+          <div className="grid grid-cols-[3.5rem_1fr_1fr_1fr] gap-x-2 gap-y-1 text-[9px]">
+            {/* header row: gauges */}
+            <div />
+            {FDV_CHAIN.map((n) => (
+              <div key={n.key} className="flex items-center justify-center gap-1.5 pb-0.5">
+                <Gauge score={n.score} color={n.color} />
+                <span className="text-[11px] font-bold" style={{ color: n.color }}>{n.label}</span>
               </div>
+            ))}
+            {/* mapped rows */}
+            <RowLabel>Status</RowLabel>
+            {FDV_CHAIN.map((n) => (
+              <Cell key={n.key}>{n.state}</Cell>
+            ))}
+            <RowLabel>Economics</RowLabel>
+            {fdvFin.map((f, i) => (
+              <Cell key={i} className="font-semibold text-foreground">{f}</Cell>
+            ))}
+            <RowLabel>Lever (red→green)</RowLabel>
+            {FDV_CHAIN.map((n) => (
+              <Cell key={n.key} style={{ color: n.color }}>⚙ {n.lever}</Cell>
+            ))}
+            <RowLabel>Unlocks</RowLabel>
+            {FDV_CHAIN.map((n) => (
+              <Cell key={n.key} className="font-medium" style={{ color: n.color }}>{n.lifts}</Cell>
             ))}
           </div>
         </div>
@@ -875,29 +920,24 @@ function OnePager({ m }: { m: Model }) {
           <OPHead>Viability · two engines</OPHead>
           <div className="grid grid-cols-2 gap-1.5">
             {ENGINES.map((e, i) => (
-              <Tip
-                key={e.name}
-                className="rounded-md border p-1.5 text-center"
-                style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}
-                content={<><span className="font-semibold">{e.name}</span><br />{e.pricing.join(" · ")}<br /><span className="font-medium">{e.econ}</span><br />{e.note}</>}
-              >
+              <div key={e.name} className="rounded-md border p-1.5 text-center" style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}>
                 <div className="text-[9px] font-semibold">{i === 0 ? "SaaS · land" : "Enterprise"}</div>
                 <div className="text-[12px] font-bold leading-tight" style={{ color: e.color }}>{i === 0 ? "₹5.8 cr" : "₹20–60L"}</div>
                 <div className="text-[7.5px] text-muted-foreground">{i === 0 ? "ARR / yr" : "per deal"}</div>
-              </Tip>
+              </div>
             ))}
           </div>
           <div className="mt-2 text-[8px] text-muted-foreground">Near-term revenue mix (est.)</div>
-          <div className="mt-0.5 flex h-4 w-full cursor-help overflow-hidden rounded text-[8px] font-semibold text-white">
-            <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }} title="SaaS — ~₹5.8 cr ARR (many small accounts)">SaaS</div>
-            <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }} title="Enterprise — ~₹3 cr (est.; few high-ACV deals)">Ent.</div>
+          <div className="mt-0.5 flex h-4 w-full overflow-hidden rounded text-[8px] font-semibold text-white">
+            <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }}>SaaS</div>
+            <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }}>Ent.</div>
           </div>
           <div className="mt-1 text-[8px] text-muted-foreground">SaaS blocked on #119 · enterprise contract-billed</div>
         </div>
       </div>
 
       <div className="px-4 pb-3 pt-2.5 text-[8px] leading-snug text-muted-foreground">
-        <span className="font-semibold text-foreground">✦ Hover any chart for detail.</span> Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs. Market figures modeled (#122); funnel uninstrumented (#123). IBBI governs valuation; TEV/LIE/DPR is bank-empanelled.
+        Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs. Market figures modeled (#122); funnel uninstrumented (#123). IBBI governs valuation; TEV/LIE/DPR is bank-empanelled.
       </div>
     </div>
   );
@@ -919,7 +959,7 @@ function Gauge({ score, color }: { score: number; color: string }) {
 
 function MiniBar({ label, value, pct, color }: { label: string; value: string; pct: number; color: string }) {
   return (
-    <div className="flex cursor-help items-center gap-2" title={`${label}: ${value} · ${Math.round(pct)}% of TAM`}>
+    <div className="flex items-center gap-2">
       <span className="w-7 shrink-0 text-[9px] font-semibold text-muted-foreground">{label}</span>
       <div className="h-4 flex-1 overflow-hidden rounded bg-muted/60">
         <div className="h-full rounded" style={{ width: `${Math.max(pct, 4)}%`, backgroundColor: color }} />
@@ -942,15 +982,13 @@ function PositioningMatrix() {
         <span className="absolute right-1.5 top-1 text-[7.5px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">white space</span>
         {/* dots */}
         {COMP_MAP.map((c) => (
-          <Tip
-            key={c.name}
-            className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1"
-            style={{ left: `${c.x}%`, top: `${c.y}%` }}
-            content={<><span className="font-semibold">{c.name}</span><br />{c.note}</>}
-          >
-            <span className={cn("shrink-0 rounded-full", c.star ? "size-3 ring-2 ring-brand/30" : "size-2")} style={{ backgroundColor: c.color }} />
+          <div key={c.name} className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${c.x}%`, top: `${c.y}%` }}>
+            <span
+              className={cn("shrink-0 rounded-full", c.star ? "size-3 ring-2 ring-brand/30" : "size-2")}
+              style={{ backgroundColor: c.color }}
+            />
             <span className={cn("whitespace-nowrap text-[8px] leading-none", c.star ? "font-bold text-foreground" : "text-muted-foreground")}>{c.name}</span>
-          </Tip>
+          </div>
         ))}
       </div>
       {/* axis labels */}
@@ -979,23 +1017,12 @@ function shortPain(t: string): string {
   return map[t] ?? t;
 }
 
-/** Hover-tooltip wrapper — the wrapped element itself becomes the trigger
- * (no extra nesting), so layout/grid sizing is preserved. */
-function Tip({ content, className, style, children }: { content: React.ReactNode; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+function OPStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: "brand" | "emerald" }) {
   return (
-    <Tooltip>
-      <TooltipTrigger render={<div className={cn("cursor-help", className)} style={style} />}>{children}</TooltipTrigger>
-      <TooltipContent className="max-w-[230px] text-[11px] leading-snug">{content}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function OPStat({ label, value, sub, tone, tip }: { label: string; value: string; sub: string; tone?: "brand" | "emerald"; tip?: string }) {
-  return (
-    <Tip content={tip ?? label} className={cn("rounded-md border p-2", tone === "brand" && "border-brand/30 bg-brand/5", tone === "emerald" && "border-emerald-500/30 bg-emerald-500/5")}>
+    <div className={cn("rounded-md border p-2", tone === "brand" && "border-brand/30 bg-brand/5", tone === "emerald" && "border-emerald-500/30 bg-emerald-500/5")}>
       <div className="text-[8.5px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="text-sm font-bold leading-tight">{value}</div>
       <div className="text-[8.5px] text-muted-foreground">{sub}</div>
-    </Tip>
+    </div>
   );
 }
