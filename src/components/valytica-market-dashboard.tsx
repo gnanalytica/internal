@@ -419,7 +419,7 @@ const CONFIGS: Record<VisionVariant, Cfg> = { valuation: VALUATION, feasibility:
 // ============================ shell (scaled slide) ============================
 
 const BASE_W = 1600;
-const BASE_H = 840;
+const BASE_H = 1040;
 
 export function MarketVisionDashboard({ variant = "valuation" }: { variant?: VisionVariant }) {
   const cfg = CONFIGS[variant];
@@ -512,7 +512,7 @@ function Slide({ cfg }: { cfg: Cfg }) {
           <SwotBody cfg={cfg} />
         </Panel>
       </div>
-      <p className="mt-2 shrink-0 text-[10px] leading-snug text-muted-foreground">{cfg.footer}</p>
+      <p className="mt-2 shrink-0 text-[12.5px] leading-snug text-muted-foreground">{cfg.footer}</p>
     </div>
   );
 }
@@ -521,18 +521,18 @@ function Header({ cfg }: { cfg: Cfg }) {
   return (
     <div className="-mx-6 -mt-5 px-6 py-5 text-white" style={{ background: "linear-gradient(120deg,#0f172a 0%,#1e293b 50%,#4338ca 130%)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-200">{cfg.eyebrow}</div>
+        <div className="text-[13.5px] font-semibold uppercase tracking-[0.18em] text-indigo-200">{cfg.eyebrow}</div>
         <div className="flex items-center gap-1.5">
-          <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-100">{cfg.badgeOk}</span>
-          <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-100">{cfg.badgeWarn}</span>
+          <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2.5 py-0.5 text-[13.5px] font-semibold text-emerald-100">{cfg.badgeOk}</span>
+          <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-0.5 text-[13.5px] font-semibold text-amber-100">{cfg.badgeWarn}</span>
         </div>
       </div>
 
-      <h1 className="mt-2.5 text-[31px] font-bold leading-[1.04] tracking-tight">{cfg.title}</h1>
+      <h1 className="mt-2.5 text-[38px] font-bold leading-[1.04] tracking-tight">{cfg.title}</h1>
 
       {cfg.problem && (
-        <p className="mt-3 max-w-[1180px] text-[13px] leading-snug text-indigo-50">
-          <span className="mr-1.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+        <p className="mt-3 max-w-[1180px] text-[15.5px] leading-snug text-indigo-50">
+          <span className="mr-1.5 rounded bg-white/15 px-1.5 py-0.5 text-[12.5px] font-bold uppercase tracking-wide text-white">
             The problem
           </span>
           {cfg.problem}
@@ -545,7 +545,7 @@ function Header({ cfg }: { cfg: Cfg }) {
 function Panel({ title, icon: Icon, className, children }: { title: string; icon?: React.ComponentType<{ className?: string }>; className?: string; children: React.ReactNode }) {
   return (
     <div className={cn("flex min-h-0 flex-col overflow-hidden rounded-lg border bg-background p-2.5", className)}>
-      <h3 className="mb-1.5 flex shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-1.5 flex shrink-0 items-center gap-1 text-[13.5px] font-semibold uppercase tracking-wide text-muted-foreground">
         {Icon && <Icon className="size-3 text-brand" />}
         {title}
       </h3>
@@ -565,21 +565,21 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
       {/* market by type — stacked bar */}
       <div className="flex w-[290px] shrink-0 flex-col justify-center gap-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Market by type</span>
-          <span className="text-[16px] font-bold leading-none">{inCr(total)}/yr</span>
+          <span className="text-[12.5px] font-semibold uppercase tracking-wide text-muted-foreground">Market by type</span>
+          <span className="text-[20px] font-bold leading-none">{inCr(total)}/yr</span>
         </div>
-        <div className="flex h-7 w-full overflow-hidden rounded-md">
+        <div className="flex h-10 w-full overflow-hidden rounded-md">
           {cfg.segments.map((s) => (
             <div key={s.label} style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }} title={`${s.label}: ${inCr(s.value)}`} />
           ))}
         </div>
         <ul className="space-y-1">
           {cfg.segments.map((s) => (
-            <li key={s.label} className="flex items-center gap-1.5 text-[10.5px]">
+            <li key={s.label} className="flex items-center gap-1.5 text-[13px]">
               <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
               <span className="min-w-0 flex-1 truncate text-muted-foreground">{s.label}</span>
               <span className="shrink-0 font-bold tabular-nums">{inCr(s.value)}</span>
-              <span className="w-7 shrink-0 text-right text-[9px] text-muted-foreground">{Math.round((s.value / total) * 100)}%</span>
+              <span className="w-7 shrink-0 text-right text-[11.5px] text-muted-foreground">{Math.round((s.value / total) * 100)}%</span>
             </li>
           ))}
         </ul>
@@ -591,7 +591,7 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
           {cfg.funnel.map((f) => (
             <div
               key={f.l}
-              className="mx-auto flex items-center justify-between rounded px-2.5 py-1 text-[10px] font-semibold text-white"
+              className="mx-auto flex items-center justify-between rounded px-2.5 py-1 text-[12.5px] font-semibold text-white"
               style={{ width: `${Math.max((f.v / fmax) * 100, 36)}%`, backgroundColor: f.color }}
             >
               <span>{f.l}</span>
@@ -601,14 +601,14 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
         </div>
         {cfg.trajectory && (
           <div className="mt-0.5">
-            <div className="mb-0.5 flex items-baseline justify-between text-[10px]">
+            <div className="mb-0.5 flex items-baseline justify-between text-[12.5px]">
               <span className="font-medium text-muted-foreground">3-yr revenue ramp</span>
               <span className="font-bold">{inCr(cfg.trajectory.years[cfg.trajectory.years.length - 1].value)} by Y3</span>
             </div>
             <AreaChart
               data={cfg.trajectory.years.map((y) => ({ label: y.label, value: y.value }))}
               color="#10b981"
-              height={56}
+              height={88}
               format={(n) => `₹${n}cr`}
             />
           </div>
@@ -628,20 +628,20 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
               )}
             >
               {t.icon && <t.icon className="mb-0.5 size-3.5 text-brand" />}
-              <div className="text-[16px] font-bold leading-none tabular-nums">{t.value}</div>
-              <div className="mt-0.5 text-[9.5px] font-medium leading-tight">{t.label}</div>
-              <div className="text-[8.5px] leading-tight text-muted-foreground">{t.sub}</div>
+              <div className="text-[20px] font-bold leading-none tabular-nums">{t.value}</div>
+              <div className="mt-0.5 text-[12px] font-medium leading-tight">{t.label}</div>
+              <div className="text-[11px] leading-tight text-muted-foreground">{t.sub}</div>
             </div>
           ))}
         </div>
-        <div className="text-[9.5px] leading-snug text-muted-foreground">
+        <div className="text-[12px] leading-snug text-muted-foreground">
           <span className="font-semibold text-foreground">Commissioned by: </span>
           {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
         </div>
         {cfg.customer && (
-          <div className="rounded bg-brand/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-brand">{cfg.customer}</div>
+          <div className="rounded bg-brand/10 px-1.5 py-0.5 text-[12px] font-semibold text-brand">{cfg.customer}</div>
         )}
-        {cfg.combinedNote && <div className="text-[9.5px] text-muted-foreground">{cfg.combinedNote}</div>}
+        {cfg.combinedNote && <div className="text-[12px] text-muted-foreground">{cfg.combinedNote}</div>}
       </div>
     </div>
   );
@@ -659,16 +659,16 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
           >
             {/* stage header */}
             <div className="flex items-center gap-1.5">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white" style={{ backgroundColor: n.color }}>{n.key}</span>
+              <span className="grid size-7 shrink-0 place-items-center rounded-full text-[14.5px] font-bold text-white" style={{ backgroundColor: n.color }}>{n.key}</span>
               <div className="min-w-0">
-                <div className="truncate text-[11.5px] font-bold leading-none" style={{ color: n.color }}>{n.title}</div>
-                <div className="mt-0.5 truncate text-[8px] leading-tight text-muted-foreground">{n.subtitle}</div>
+                <div className="truncate text-[14px] font-bold leading-none" style={{ color: n.color }}>{n.title}</div>
+                <div className="mt-0.5 truncate text-[10.5px] leading-tight text-muted-foreground">{n.subtitle}</div>
               </div>
             </div>
             {/* points */}
             <ul className="mt-1.5 min-h-0 flex-1 space-y-1">
               {n.points.map((p) => (
-                <li key={p} className="flex items-start gap-1 text-[9px] leading-snug text-foreground/90">
+                <li key={p} className="flex items-start gap-1 text-[11.5px] leading-snug text-foreground/90">
                   <span className="mt-1 size-1 shrink-0 rounded-full" style={{ backgroundColor: n.color }} />
                   <span>{p}</span>
                 </li>
@@ -678,8 +678,8 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
             <div className="mt-1.5 space-y-1">
               {n.stats.map((s) => (
                 <div key={s.l} className="rounded px-1 py-0.5 text-center" style={{ background: `${n.color}14` }}>
-                  <div className="text-[11px] font-bold leading-none" style={{ color: n.color }}>{s.v}</div>
-                  <div className="mt-0.5 text-[7.5px] leading-tight text-muted-foreground">{s.l}</div>
+                  <div className="text-[13.5px] font-bold leading-none" style={{ color: n.color }}>{s.v}</div>
+                  <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{s.l}</div>
                 </div>
               ))}
             </div>
@@ -705,15 +705,15 @@ function SwotBody({ cfg }: { cfg: Cfg }) {
       {/* row-axis labels (Internal / External) */}
       <div className="flex w-3 shrink-0 flex-col pt-3">
         <div className="flex flex-1 items-center justify-center">
-          <span className="-rotate-90 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">Internal</span>
+          <span className="-rotate-90 whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">Internal</span>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <span className="-rotate-90 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">External</span>
+          <span className="-rotate-90 whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">External</span>
         </div>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {/* column-axis labels (Helpful / Harmful) */}
-        <div className="flex shrink-0 gap-1.5 text-center text-[8px] font-semibold uppercase tracking-wider">
+        <div className="flex shrink-0 gap-1.5 text-center text-[10.5px] font-semibold uppercase tracking-wider">
           <div className="flex-1 text-emerald-600 dark:text-emerald-400">Helpful</div>
           <div className="flex-1 text-rose-500">Harmful</div>
         </div>
@@ -721,12 +721,12 @@ function SwotBody({ cfg }: { cfg: Cfg }) {
           {cfg.swot.map((q) => (
             <div key={q.key} className="flex min-h-0 flex-col overflow-hidden rounded-md border p-1.5" style={{ borderColor: `${q.color}55`, background: `${q.color}0e` }}>
               <div className="mb-0.5 flex shrink-0 items-center gap-1">
-                <span className="grid size-4 place-items-center rounded-sm text-[10px] font-bold text-white" style={{ backgroundColor: q.color }}>{sign[q.key] ?? q.key}</span>
-                <h4 className="text-[10.5px] font-semibold leading-none">{q.title}</h4>
+                <span className="grid size-5 place-items-center rounded-sm text-[12.5px] font-bold text-white" style={{ backgroundColor: q.color }}>{sign[q.key] ?? q.key}</span>
+                <h4 className="text-[13px] font-semibold leading-none">{q.title}</h4>
               </div>
               <ul className="min-h-0 flex-1 space-y-px">
                 {q.items.map((it) => (
-                  <li key={it} className="flex items-start gap-1 text-[9.5px] leading-[1.2] text-muted-foreground">
+                  <li key={it} className="flex items-start gap-1 text-[12px] leading-[1.2] text-muted-foreground">
                     <span className="mt-1 size-[3px] shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
                     <span className="min-w-0">{it}</span>
                   </li>
