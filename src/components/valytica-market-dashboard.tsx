@@ -24,17 +24,26 @@ import { cn } from "@/lib/utils";
 // Exact per-segment splits still to be confirmed with primary data.
 const MARKET_SEGMENTS: Slice[] = [
   { label: "Residential valuation", value: 1300, color: "#6366f1" },
-  { label: "Commercial valuation", value: 800, color: "#0ea5e9" },
-  { label: "Industrial / plant & machinery", value: 600, color: "#14b8a6" },
-  { label: "Project reports (DPR) — MSME & projects", value: 1400, color: "#8b5cf6" },
-  { label: "Techno-economic viability (TEV)", value: 450, color: "#f59e0b" },
-  { label: "Lender's engineer (LIE) — incl. big projects", value: 400, color: "#ec4899" },
+  { label: "Commercial valuation", value: 900, color: "#0ea5e9" },
+  { label: "Industrial / plant & machinery", value: 800, color: "#14b8a6" },
+  { label: "Project reports (DPR)", value: 2500, color: "#8b5cf6" },
+  { label: "Techno-economic viability (TEV)", value: 1000, color: "#f59e0b" },
+  { label: "Lender's engineer / project monitoring (LIE)", value: 1000, color: "#ec4899" },
 ];
-const marketTotal = MARKET_SEGMENTS.reduce((s, x) => s + x.value, 0); // ₹4,950 cr
-const propertyTotal = 1300 + 800 + 600; // ₹2,700 cr
-const feasibilityTotal = 1400 + 450 + 400; // ₹2,250 cr
-const marketSAM = 1200; // ₹ cr — reachable (software + early enterprise), modeled
-const market3yr = 18; // ₹ cr — 3-yr target (SaaS + first deals), modeled
+const marketTotal = MARKET_SEGMENTS.reduce((s, x) => s + x.value, 0); // ₹7,500 cr
+const propertyTotal = 1300 + 900 + 800; // ₹3,000 cr
+const feasibilityTotal = 2500 + 1000 + 1000; // ₹4,500 cr
+
+// Who commissions these reports (same total, cut by buyer) — modeled.
+const BUYERS: Slice[] = [
+  { label: "Banks & NBFCs", value: 3400, color: "#1d4ed8" },
+  { label: "Government & tenders", value: 1900, color: "#0ea5e9" },
+  { label: "Private corporates (capex)", value: 1500, color: "#10b981" },
+  { label: "Investors / PE / M&A", value: 700, color: "#8b5cf6" },
+];
+
+const marketSAM = 1500; // ₹ cr — reachable (software + early enterprise), modeled
+const market3yr = 20; // ₹ cr — 3-yr target (SaaS + first deals), modeled
 const saasArr = 5.8; // ₹ cr — SaaS 3-yr ARR potential (for FDV)
 const valuePerReport = 2000; // ₹ — value of time saved per report (modeled)
 
@@ -229,12 +238,6 @@ const FIRMS: { k: string; v: string }[] = [
   { k: "10k+", v: "bank-approved" },
   { k: "100s", v: "feasibility firms" },
 ];
-const DEMAND: { k: string; v: string }[] = [
-  { k: "231M", v: "loans a year" },
-  { k: "35%", v: "need feasibility checks" },
-  { k: "$1.18T", v: "property market by 2033" },
-];
-
 function Market() {
   const funnel: { l: string; v: number; pct: number; c: string }[] = [
     { l: "Whole market", v: marketTotal, pct: 100, c: "#6366f1" },
@@ -272,10 +275,11 @@ function Market() {
         </ul>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Modeled estimate of annual fees paid for these reports pan-India — anchored to the Asia-Pacific
-        property-valuation market (~$1.9B, 2024, residential ~75% of transactions), RBI / NaBFID project-finance
-        scale, and the large MSME DPR market (hundreds of thousands of project reports/yr at ₹35k–₹1.2L each).
-        Exact splits to be confirmed.
+        Modeled estimate of annual fees for these reports across <span className="font-medium text-foreground">all
+        buyers</span> pan-India — not just banks: lenders, government &amp; PPP/tender projects (9,000+ infra
+        projects; IIPDF-funded feasibility/DPRs), private corporates (~₹4.9 lakh cr capex intended FY26), and
+        investors/PE doing due diligence. Anchored to the APAC property-valuation market (~$1.9B, 2024) and the
+        large MSME DPR market (₹35k–₹1.2L each). Range ~₹6,000–9,000 cr; exact splits to confirm.
       </p>
 
       {/* What we can realistically capture */}
@@ -291,19 +295,29 @@ function Market() {
         ))}
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      {/* Who pays for these reports */}
+      <h3 className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Who commissions these reports
+      </h3>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {BUYERS.map((b) => (
+          <div key={b.label} className="rounded-xl border bg-background p-4 text-center" style={{ borderColor: `${b.color}40` }}>
+            <div className="text-xl font-bold" style={{ color: b.color }}>{inCr(b.value)}</div>
+            <div className="mt-1 text-sm leading-tight text-foreground/90">{b.label}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{Math.round((b.value / marketTotal) * 100)}%</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Who does the work today */}
+      <h3 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Who does the work today
+      </h3>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {FIRMS.map((f) => (
           <div key={f.v} className="rounded-xl bg-muted/50 p-4 text-center">
             <div className="text-2xl font-bold text-brand">{f.k}</div>
             <div className="mt-1 text-sm text-muted-foreground">{f.v}</div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {DEMAND.map((d) => (
-          <div key={d.v} className="rounded-xl border bg-sky-500/5 p-4 text-center">
-            <div className="text-xl font-bold text-sky-600 dark:text-sky-400">{d.k}</div>
-            <div className="mt-1 text-sm text-muted-foreground">{d.v}</div>
           </div>
         ))}
       </div>
