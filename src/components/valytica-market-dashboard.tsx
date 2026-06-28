@@ -15,7 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 
-import { ColumnChart, Donut, type Slice } from "@/components/charts";
+import { AreaChart, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -561,83 +561,86 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
   const bt = cfg.buyers.reduce((s, x) => s + x.value, 0);
   return (
     <div className="flex h-full items-stretch gap-4">
-      {/* market size: donut + segments */}
-      <div className="flex shrink-0 items-center gap-3 pr-4">
-        <Donut
-          data={cfg.segments}
-          size={120}
-          thickness={16}
-          center={
-            <div className="text-center">
-              <div className="text-[15px] font-bold leading-none">{inCr(total)}</div>
-              <div className="text-[9.5px] text-muted-foreground">per year</div>
-            </div>
-          }
-        />
-        <ul className="space-y-1.5">
+      {/* market by type — stacked bar */}
+      <div className="flex w-[290px] shrink-0 flex-col justify-center gap-2">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Market by type</span>
+          <span className="text-[16px] font-bold leading-none">{inCr(total)}/yr</span>
+        </div>
+        <div className="flex h-7 w-full overflow-hidden rounded-md">
           {cfg.segments.map((s) => (
-            <li key={s.label} className="flex items-center gap-1.5 text-[11px]">
+            <div key={s.label} style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }} title={`${s.label}: ${inCr(s.value)}`} />
+          ))}
+        </div>
+        <ul className="space-y-1">
+          {cfg.segments.map((s) => (
+            <li key={s.label} className="flex items-center gap-1.5 text-[10.5px]">
               <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
-              <span className="max-w-[150px] truncate text-muted-foreground">{s.label}</span>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">{s.label}</span>
               <span className="shrink-0 font-bold tabular-nums">{inCr(s.value)}</span>
+              <span className="w-7 shrink-0 text-right text-[9px] text-muted-foreground">{Math.round((s.value / total) * 100)}%</span>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* reachable funnel + buyers */}
+      {/* reachable funnel (shape) + 3-yr area ramp */}
       <div className="flex flex-1 flex-col justify-center gap-2 border-x px-4">
-        {cfg.funnel.map((f) => (
-          <div key={f.l} className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[10.5px] font-medium text-muted-foreground">{f.l}</span>
-            <div className="h-4 flex-1 overflow-hidden rounded bg-muted/60">
-              <div className="h-full rounded" style={{ width: `${Math.max((f.v / fmax) * 100, 3)}%`, backgroundColor: f.color }} />
+        <div className="space-y-1">
+          {cfg.funnel.map((f) => (
+            <div
+              key={f.l}
+              className="mx-auto flex items-center justify-between rounded px-2.5 py-1 text-[10px] font-semibold text-white"
+              style={{ width: `${Math.max((f.v / fmax) * 100, 36)}%`, backgroundColor: f.color }}
+            >
+              <span>{f.l}</span>
+              <span className="tabular-nums">{inCr(f.v)}</span>
             </div>
-            <span className="w-14 shrink-0 text-right text-[12px] font-bold tabular-nums">{inCr(f.v)}</span>
-          </div>
-        ))}
+          ))}
+        </div>
         {cfg.trajectory && (
-          <div className="mt-1">
+          <div className="mt-0.5">
             <div className="mb-0.5 flex items-baseline justify-between text-[10px]">
               <span className="font-medium text-muted-foreground">3-yr revenue ramp</span>
-              <span className="font-bold">{inCr(cfg.trajectory.years[cfg.trajectory.years.length - 1].value)} by {cfg.trajectory.years[cfg.trajectory.years.length - 1].label}</span>
+              <span className="font-bold">{inCr(cfg.trajectory.years[cfg.trajectory.years.length - 1].value)} by Y3</span>
             </div>
-            <ColumnChart
-              data={cfg.trajectory.years.map((y) => ({ label: y.label, value: y.value, color: "#10b981" }))}
-              height={58}
+            <AreaChart
+              data={cfg.trajectory.years.map((y) => ({ label: y.label, value: y.value }))}
+              color="#10b981"
+              height={56}
               format={(n) => `₹${n}cr`}
             />
           </div>
         )}
-        <div className="text-[10px] leading-snug text-muted-foreground">
+      </div>
+
+      {/* stats + who pays / who we sell to */}
+      <div className="flex w-[440px] shrink-0 flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          {cfg.numbers.map((t) => (
+            <div
+              key={t.label}
+              className={cn(
+                "flex flex-col justify-center rounded-md border px-2 py-1",
+                t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
+                t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
+              )}
+            >
+              {t.icon && <t.icon className="mb-0.5 size-3.5 text-brand" />}
+              <div className="text-[16px] font-bold leading-none tabular-nums">{t.value}</div>
+              <div className="mt-0.5 text-[9.5px] font-medium leading-tight">{t.label}</div>
+              <div className="text-[8.5px] leading-tight text-muted-foreground">{t.sub}</div>
+            </div>
+          ))}
+        </div>
+        <div className="text-[9.5px] leading-snug text-muted-foreground">
           <span className="font-semibold text-foreground">Commissioned by: </span>
           {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
         </div>
         {cfg.customer && (
-          <div className="rounded bg-brand/10 px-1.5 py-1 text-[10px] font-semibold text-brand">{cfg.customer}</div>
+          <div className="rounded bg-brand/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-brand">{cfg.customer}</div>
         )}
-        {cfg.combinedNote && (
-          <div className="text-[10px] font-medium text-muted-foreground">{cfg.combinedNote}</div>
-        )}
-      </div>
-
-      {/* demand & supply stats */}
-      <div className="grid w-[440px] shrink-0 grid-cols-2 gap-2">
-        {cfg.numbers.map((t) => (
-          <div
-            key={t.label}
-            className={cn(
-              "flex flex-col justify-center rounded-md border px-2 py-1",
-              t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
-              t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
-            )}
-          >
-            {t.icon && <t.icon className="mb-0.5 size-3.5 text-brand" />}
-            <div className="text-[17px] font-bold leading-none tabular-nums">{t.value}</div>
-            <div className="mt-0.5 text-[10px] font-medium leading-tight">{t.label}</div>
-            <div className="text-[9px] leading-tight text-muted-foreground">{t.sub}</div>
-          </div>
-        ))}
+        {cfg.combinedNote && <div className="text-[9.5px] text-muted-foreground">{cfg.combinedNote}</div>}
       </div>
     </div>
   );
