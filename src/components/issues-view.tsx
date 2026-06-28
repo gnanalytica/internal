@@ -76,7 +76,7 @@ export function IssuesView({
   projects,
   members,
   labels,
-  heading = "All issues",
+  heading = "All tasks",
   defaultProjectId = null,
   savedViews = [],
   embedded = false,
@@ -283,7 +283,7 @@ export function IssuesView({
     <div className="flex h-full flex-col">
       {!embedded && (
         <Topbar
-          breadcrumb={[{ label: "Issues", href: "/issues" }, { label: heading }]}
+          breadcrumb={[{ label: "Tasks", href: "/issues" }, { label: heading }]}
           actions={
             <NewIssueDialog
               projects={projects}
@@ -450,6 +450,19 @@ export function IssuesView({
               <GanttChartSquare className="size-3.5" /> Timeline
             </ViewButton>
           </div>
+          {embedded && (
+            <NewIssueDialog
+              projects={projects}
+              members={members}
+              labels={labels}
+              defaultProjectId={defaultProjectId}
+              trigger={
+                <Button size="sm" className="h-7 gap-1.5">
+                  <Plus className="size-4" /> New
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
 
@@ -462,7 +475,7 @@ export function IssuesView({
         />
       ) : visible.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-          <p className="text-sm font-medium">No matching issues</p>
+          <p className="text-sm font-medium">No matching tasks</p>
           <button
             onClick={clearFilters}
             className="text-xs text-brand hover:underline"
@@ -700,8 +713,8 @@ function EmptyState({
         <StatusIcon status="todo" className="size-6" />
       </div>
       <div>
-        <p className="text-sm font-medium">No issues yet</p>
-        <p className="text-xs text-muted-foreground">Create your first issue to get started.</p>
+        <p className="text-sm font-medium">No tasks yet</p>
+        <p className="text-xs text-muted-foreground">Create your first task to get started.</p>
       </div>
       <NewIssueDialog
         projects={projects}
@@ -710,7 +723,7 @@ function EmptyState({
         defaultProjectId={defaultProjectId}
         trigger={
           <Button size="sm" className="gap-1.5">
-            <Plus className="size-4" /> New issue
+            <Plus className="size-4" /> New task
           </Button>
         }
       />

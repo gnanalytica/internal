@@ -37,7 +37,7 @@ const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
 };
 
 const KIND_GROUP: Record<SearchResultKind, string> = {
-  issue: "Issues",
+  issue: "Tasks",
   page: "Pages",
   project: "Projects",
   database: "Databases",
@@ -63,7 +63,7 @@ const NAV_GROUPS: {
     items: [
       { label: "Ask AI", href: "/ask", icon: <Sparkles className={ic} /> },
       { label: "Inbox", href: "/inbox", icon: <Bell className={ic} /> },
-      { label: "Issues", href: "/issues", icon: <CircleDot className={ic} /> },
+      { label: "Tasks", href: "/issues", icon: <CircleDot className={ic} /> },
       { label: "Projects", href: "/projects", icon: <Folder className={ic} /> },
       { label: "Wiki", href: "/pages", icon: <BookText className={ic} /> },
     ],
@@ -154,7 +154,7 @@ export function CommandPalette() {
       onOpenChange={change}
       className="max-w-xl"
       title="Search"
-      description="Search issues, pages, projects and more"
+      description="Search tasks, pages, projects and more"
     >
       <Command shouldFilter={false}>
         <CommandInput
@@ -166,9 +166,9 @@ export function CommandPalette() {
           {query.trim() === "" ? (
             <>
               <CommandGroup heading="Create">
-                <CommandItem value="new issue" onSelect={newIssue}>
+                <CommandItem value="new task" onSelect={newIssue}>
                   <Plus className={ic} />
-                  <span>New issue</span>
+                  <span>New task</span>
                 </CommandItem>
                 <CommandItem
                   value="new page"

@@ -96,7 +96,7 @@ export function MilestonesBar({
               <span className="tabular-nums">
                 {m.progress.total > 0
                   ? `${m.progress.done}/${m.progress.total} · ${m.progress.pct}%`
-                  : "no issues"}
+                  : "no tasks"}
               </span>
             </div>
           </div>

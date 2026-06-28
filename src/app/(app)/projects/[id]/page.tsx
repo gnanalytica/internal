@@ -137,8 +137,8 @@ export default async function ProjectRoute({
       href: `/projects/${id}/engineering`,
       icon: <CircleDot className="size-4" />,
       label: "Engineering",
-      stat: `${summary.openIssues} open issues`,
-      tool: "Linear-style issues",
+      stat: `${summary.openIssues} open tasks`,
+      tool: "Linear-style tasks",
     },
     {
       slug: "analytics" as const,

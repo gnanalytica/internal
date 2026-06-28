@@ -210,23 +210,23 @@ export function PageView({
             />
           </div>
 
-          {/* Linked issues */}
+          {/* Linked tasks */}
           <div className="mt-10 border-t pt-5">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Linked issues
+                Linked tasks
               </h3>
               <Popover open={linkOpen} onOpenChange={setLinkOpen}>
                 <PopoverTrigger
                   render={<Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" />}
                 >
-                  <Link2 className="size-3.5" /> Link issue
+                  <Link2 className="size-3.5" /> Link task
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-72 p-0">
                   <Command>
-                    <CommandInput placeholder="Search issues…" className="h-9" />
+                    <CommandInput placeholder="Search tasks…" className="h-9" />
                     <CommandList>
-                      <CommandEmpty>No issues found.</CommandEmpty>
+                      <CommandEmpty>No tasks found.</CommandEmpty>
                       <CommandGroup>
                         {linkable.map((i) => (
                           <CommandItem
@@ -253,7 +253,7 @@ export function PageView({
             </div>
             {page.linkedIssues.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                No linked issues. Connect work to this doc.
+                No linked tasks. Connect work to this doc.
               </p>
             ) : (
               <div className="space-y-0.5">
@@ -272,7 +272,7 @@ export function PageView({
                     <button
                       onClick={() => persist(() => unlinkIssueFromPage(issue.id, page.id))}
                       className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-black/5 hover:text-foreground group-hover:opacity-100"
-                      aria-label="Unlink issue"
+                      aria-label="Unlink task"
                     >
                       <X className="size-3.5" />
                     </button>

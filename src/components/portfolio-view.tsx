@@ -147,7 +147,7 @@ function ProjectCard({ row }: { row: PortfolioRow }) {
         <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
           <span>{row.ownerName ?? "Unassigned"}</span>
           <span className="tabular-nums">
-            {row.totalIssues > 0 ? `${row.doneIssues}/${row.totalIssues} · ${pct}%` : "no issues"}
+            {row.totalIssues > 0 ? `${row.doneIssues}/${row.totalIssues} · ${pct}%` : "no tasks"}
           </span>
         </div>
       </div>

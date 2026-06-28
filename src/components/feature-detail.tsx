@@ -169,7 +169,7 @@ export function FeatureDetailView({
             </div>
             {feature.issues.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">
-                No issues linked yet. Set an issue&apos;s <strong>Feature</strong> to add it here.
+                No tasks linked yet. Set a task&apos;s <strong>Feature</strong> to add it here.
               </p>
             ) : (
               <div className="mt-2 divide-y rounded-lg border">

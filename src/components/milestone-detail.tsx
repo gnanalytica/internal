@@ -64,7 +64,7 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
               {milestone.featureCount} feature{milestone.featureCount === 1 ? "" : "s"}
             </span>
             <span className="text-xs tabular-nums text-muted-foreground">
-              {total > 0 ? `${done}/${total} issues · ${pct}%` : "no issues yet"}
+              {total > 0 ? `${done}/${total} tasks · ${pct}%` : "no tasks yet"}
             </span>
           </div>
 

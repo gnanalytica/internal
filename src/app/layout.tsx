@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Acme — Docs & Issues",
+  title: "Acme — Docs & Tasks",
   description: "A combined Notion + Linear workspace.",
 };
 

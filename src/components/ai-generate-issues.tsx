@@ -42,7 +42,7 @@ export function AiGenerateIssues({
     proposeIssuesFromPage(pageId)
       .then((p) => {
         if (p.length === 0) {
-          toast.info("No issues found in this doc.");
+          toast.info("No tasks found in this doc.");
           return;
         }
         setProposals(p);
@@ -50,7 +50,7 @@ export function AiGenerateIssues({
         setOpen(true);
       })
       .catch((err) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't generate issues"),
+        toast.error(err instanceof Error ? err.message : "Couldn't generate tasks"),
       )
       .finally(() => setProposing(false));
   }
@@ -69,7 +69,7 @@ export function AiGenerateIssues({
     if (chosen.length === 0) return;
     startCreate(async () => {
       const n = await createIssuesFromProposals(pageId, chosen);
-      toast.success(`Created ${n} issue${n === 1 ? "" : "s"}`);
+      toast.success(`Created ${n} task${n === 1 ? "" : "s"}`);
       setOpen(false);
       router.refresh();
     });
@@ -85,15 +85,15 @@ export function AiGenerateIssues({
         disabled={proposing}
       >
         <Sparkles className="size-3.5" />
-        {proposing ? "Reading…" : "Generate issues"}
+        {proposing ? "Reading…" : "Generate tasks"}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Generate issues from this doc</DialogTitle>
+            <DialogTitle>Generate tasks from this doc</DialogTitle>
             <DialogDescription>
-              Review what to create. Each issue links back to this page.
+              Review what to create. Each task links back to this page.
             </DialogDescription>
           </DialogHeader>
 
@@ -122,7 +122,7 @@ export function AiGenerateIssues({
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{selected.size} selected</span>
             <Button size="sm" onClick={create} disabled={creating || selected.size === 0}>
-              Create {selected.size} issue{selected.size === 1 ? "" : "s"}
+              Create {selected.size} task{selected.size === 1 ? "" : "s"}
             </Button>
           </div>
         </DialogContent>

@@ -14,7 +14,7 @@ import type {
 } from "@/lib/types";
 
 /**
- * A project's Engineering surface: Issues (the board) + Cycles (this project's
+ * A project's Engineering surface: Tasks (the board) + Cycles (this project's
  * sprints). Planning and daily standups happen per project, so cycles live
  * here; the company-wide "Weekly" is a separate rollup.
  */
@@ -42,7 +42,7 @@ export function EngineeringView({
       <Topbar breadcrumb={[{ label: heading }]} />
       <Tabs defaultValue="issues" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">
-          <TabsTrigger value="issues">Issues</TabsTrigger>
+          <TabsTrigger value="issues">Tasks</TabsTrigger>
           <TabsTrigger value="cycles">
             Cycles{cycles.length > 0 ? ` · ${cycles.length}` : ""}
           </TabsTrigger>

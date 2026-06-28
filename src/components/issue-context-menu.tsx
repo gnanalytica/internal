@@ -102,11 +102,11 @@ export function IssueContextMenu({
           onClick={() =>
             run(async () => {
               await deleteIssue(issue.id);
-              toast.success("Issue deleted");
+              toast.success("Task deleted");
             })
           }
         >
-          Delete issue
+          Delete task
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
