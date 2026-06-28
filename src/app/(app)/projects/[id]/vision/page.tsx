@@ -4,8 +4,8 @@ import { VisionView } from "@/components/vision-view";
 import { getProject, getWorkspace } from "@/lib/data";
 
 /**
- * Per-product Vision tab. The strategy dashboard content is currently
- * Valytica-specific (key=VAL); other products render the placeholder.
+ * Per-product Vision tab. Valytica (VAL) shows the valuation strategy and Atlas
+ * (ATL) the feasibility strategy; other products render the placeholder.
  */
 export default async function ProjectVisionPage({
   params,
@@ -17,5 +17,5 @@ export default async function ProjectVisionPage({
   const project = await getProject(ws.id, id);
   if (!project || project.kind !== "project") notFound();
 
-  return <VisionView projectName={project.name} projectId={id} hasContent={project.key === "VAL"} />;
+  return <VisionView projectName={project.name} projectId={id} productKey={project.key} />;
 }
