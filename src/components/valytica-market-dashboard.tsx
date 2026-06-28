@@ -150,7 +150,7 @@ function Slide() {
   return (
     <div className="flex h-full flex-col px-6 py-5">
       <Header />
-      <div className="mt-2.5 grid flex-1 grid-rows-[150px_236px_1fr] gap-2.5">
+      <div className="mt-2.5 grid flex-1 grid-rows-[150px_184px_1fr] gap-2.5">
         {/* Row 1 */}
         <div className="grid grid-cols-3 gap-2.5">
           <Panel title="The arc — report → workflow → benchmark" icon={Target}>
@@ -159,34 +159,23 @@ function Slide() {
           <Panel title="Financial snapshot" icon={TrendingUp}>
             <Financials />
           </Panel>
-          <Panel title="FDV — fix a red, lift the next" icon={Check}>
-            <FDV />
+          <Panel title="SWOT" icon={Zap}>
+            <Swot />
           </Panel>
         </div>
         {/* Row 2 */}
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5">
           <Panel title="Market opportunity" icon={Building2}>
             <Market />
           </Panel>
           <Panel title="Competitive landscape" icon={Target}>
             <Competition />
           </Panel>
-          <Panel title="SWOT" icon={Zap}>
-            <Swot />
-          </Panel>
         </div>
-        {/* Row 3 */}
-        <div className="grid grid-cols-3 gap-2.5">
-          <Panel title="Pain · validated">
-            <Pain />
-          </Panel>
-          <Panel title="Desirability · value">
-            <Desirability />
-          </Panel>
-          <Panel title="Viability · two engines">
-            <Viability />
-          </Panel>
-        </div>
+        {/* Row 3 — FDV with each lens' evidence in one place */}
+        <Panel title="FDV — Feasibility → Desirability → Viability · fix a red, lift the next" icon={Check}>
+          <FdvUnified />
+        </Panel>
       </div>
       <p className="mt-2 shrink-0 text-[8.5px] leading-snug text-muted-foreground">
         Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs.
@@ -329,27 +318,56 @@ function Financials() {
 
 // ============================ FDV ============================
 
-const FDV_CHAIN: { key: string; label: string; score: number; color: string; state: string; lever: string }[] = [
-  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong · built", lever: "India-region AI" },
-  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument #123" },
-  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship #119 + deals" },
+const FDV_META: { key: string; label: string; score: number; color: string; state: string; lever: string }[] = [
+  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong · built", lever: "India-region AI → bank credibility" },
+  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument #123 → prove demand" },
+  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship #119 + deals · enterprise-led" },
 ];
 
-function FDV() {
+/** FDV with each lens' evidence beneath its gauge — one place, no repetition.
+ * Feasibility = the build & margins; Desirability = pain + value capture;
+ * Viability = the two engines + revenue mix. */
+function FdvUnified() {
   return (
-    <div className="grid h-full grid-cols-3 gap-1.5">
-      {FDV_CHAIN.map((n) => (
-        <div key={n.key} className="flex flex-col items-center justify-between rounded-md border p-1.5 text-center">
-          <Gauge score={n.score} color={n.color} />
-          <div className="text-[11px] font-bold leading-none" style={{ color: n.color }}>
+    <div className="grid h-full grid-cols-3 gap-2.5">
+      <FdvCol n={FDV_META[0]}>
+        <ul className="space-y-1">
+          {["Shipped: valuation + TEV/LIE/DPR", "~90% gross margin (₹200 − ~₹20 AI)", "Grounded AI · 98.4%, 0 hallucinations"].map((t) => (
+            <li key={t} className="flex items-start gap-1 text-[9px] leading-tight text-muted-foreground">
+              <Check className="mt-px size-2.5 shrink-0 text-emerald-500" />
+              <span>{t}</span>
+            </li>
+          ))}
+        </ul>
+      </FdvCol>
+
+      <FdvCol n={FDV_META[1]}>
+        <DesirabilityEvidence />
+      </FdvCol>
+
+      <FdvCol n={FDV_META[2]}>
+        <ViabilityEvidence />
+      </FdvCol>
+    </div>
+  );
+}
+
+function FdvCol({ n, children }: { n: (typeof FDV_META)[number]; children: React.ReactNode }) {
+  return (
+    <div className="flex h-full flex-col rounded-md border p-2" style={{ borderColor: `${n.color}44`, background: `${n.color}06` }}>
+      <div className="mb-1.5 flex items-center gap-2">
+        <Gauge score={n.score} color={n.color} />
+        <div>
+          <div className="text-[13px] font-bold leading-none" style={{ color: n.color }}>
             {n.label}
           </div>
-          <div className="text-[8px] leading-tight text-muted-foreground">{n.state}</div>
-          <div className="rounded bg-muted/50 px-1 py-0.5 text-[8px] font-medium leading-tight" style={{ color: n.color }}>
-            ⚙ {n.lever}
-          </div>
+          <div className="mt-0.5 text-[8.5px] text-muted-foreground">{n.state}</div>
         </div>
-      ))}
+      </div>
+      <div className="min-h-0 flex-1">{children}</div>
+      <div className="mt-1 rounded bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium leading-tight" style={{ color: n.color }}>
+        ⚙ {n.lever}
+      </div>
     </div>
   );
 }
@@ -513,14 +531,10 @@ function Swot() {
   );
 }
 
-// ============================ PAIN / DESIRABILITY / VIABILITY ============================
+// ============================ FDV evidence (desirability · viability) ============================
 
 type Cover = "full" | "partial" | "none";
-const COVER_META: Record<Cover, { label: string; color: string }> = {
-  full: { label: "Solves", color: "#10b981" },
-  partial: { label: "Partial", color: "#f59e0b" },
-  none: { label: "Gap", color: "#94a3b8" },
-};
+const COVER_COLOR: Record<Cover, string> = { full: "#10b981", partial: "#f59e0b", none: "#94a3b8" };
 const PAIN: { t: string; cover: Cover }[] = [
   { t: "Manual document extraction", cover: "full" },
   { t: "Cross-document conflicts", cover: "full" },
@@ -530,63 +544,29 @@ const PAIN: { t: string; cover: Cover }[] = [
   { t: "Inflated / fraud valuations", cover: "none" },
 ];
 
-function Pain() {
+/** Desirability evidence: pain coverage + value-capture headroom. */
+function DesirabilityEvidence() {
   const counts = PAIN.reduce((a, i) => ((a[i.cover] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
-  const slices: Slice[] = (["full", "partial", "none"] as Cover[]).map((c) => ({ label: COVER_META[c].label, value: counts[c], color: COVER_META[c].color }));
+  const order: Cover[] = ["full", "partial", "none"];
   return (
-    <div className="flex h-full items-center gap-2">
-      <Donut
-        data={slices}
-        size={62}
-        thickness={9}
-        center={
-          <div className="text-center">
-            <div className="text-[11px] font-bold leading-none">{counts.full}/{PAIN.length}</div>
-            <div className="text-[7px] text-muted-foreground">solved</div>
-          </div>
-        }
-      />
-      <ul className="flex-1 space-y-0.5">
-        {PAIN.map((it) => (
-          <li key={it.t} className="flex items-center gap-1 text-[9px] leading-tight">
-            <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: COVER_META[it.cover].color }} />
-            <span className="min-w-0 truncate">{it.t}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-type Verdict = "yes" | "assumed" | "no";
-const VERDICT_META: Record<Verdict, { color: string; label: string }> = {
-  yes: { color: "#10b981", label: "Evidence" },
-  assumed: { color: "#f59e0b", label: "Assumed" },
-  no: { color: "#f43f5e", label: "Unvalidated" },
-};
-const DES_COUNTS: Record<Verdict, number> = { yes: 5, assumed: 3, no: 4 };
-
-function Desirability() {
-  const slices: Slice[] = (["yes", "assumed", "no"] as Verdict[]).map((v) => ({ label: VERDICT_META[v].label, value: DES_COUNTS[v], color: VERDICT_META[v].color }));
-  return (
-    <div className="flex h-full items-center gap-2">
-      <Donut
-        data={slices}
-        size={62}
-        thickness={9}
-        center={
-          <div className="text-center">
-            <div className="text-[11px] font-bold leading-none">{DES_COUNTS.yes}/12</div>
-            <div className="text-[7px] text-muted-foreground">evidenced</div>
-          </div>
-        }
-      />
-      <div className="flex-1">
-        <div className="mb-0.5 flex items-baseline justify-between text-[8px] text-muted-foreground">
-          <span>Value / report</span>
+    <div className="flex h-full flex-col justify-center gap-1.5">
+      <div>
+        <div className="mb-0.5 flex items-baseline justify-between text-[8.5px]">
+          <span className="text-muted-foreground">Pain coverage</span>
+          <span className="font-bold text-foreground">{counts.full}/{PAIN.length} solved</span>
+        </div>
+        <div className="flex h-3 w-full overflow-hidden rounded">
+          {order.map((c) => (
+            <div key={c} style={{ width: `${(counts[c] / PAIN.length) * 100}%`, background: COVER_COLOR[c] }} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="mb-0.5 flex items-baseline justify-between text-[8.5px]">
+          <span className="text-muted-foreground">Value / report</span>
           <span className="font-bold text-foreground">{fmtMoney(valuePerReport)}</span>
         </div>
-        <div className="relative h-5 w-full overflow-hidden rounded bg-emerald-500/15">
+        <div className="relative h-4 w-full overflow-hidden rounded bg-emerald-500/15">
           <div
             className="absolute inset-y-0 left-0 flex items-center rounded bg-brand px-1 text-[8px] font-semibold text-white"
             style={{ width: `${Math.max(captureRatio * 100, 14)}%` }}
@@ -607,33 +587,33 @@ const ENGINES: { short: string; headline: string; unit: string; color: string }[
   { short: "Enterprise", headline: "₹20–60L", unit: "per deal (ACV)", color: "#10b981" },
 ];
 
-function Viability() {
+/** Viability evidence: the two engines + near-term revenue mix. */
+function ViabilityEvidence() {
   const ENT_REV = 3e7;
   const saasPct = (som / (som + ENT_REV)) * 100;
   return (
-    <div className="flex h-full flex-col gap-1.5">
+    <div className="flex h-full flex-col justify-center gap-1.5">
       <div className="grid grid-cols-2 gap-1.5">
         {ENGINES.map((e) => (
-          <div key={e.short} className="rounded-md border p-1.5 text-center" style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}>
-            <div className="text-[9px] font-semibold">{e.short}</div>
-            <div className="text-[14px] font-bold leading-tight" style={{ color: e.color }}>
+          <div key={e.short} className="rounded-md border p-1 text-center" style={{ borderColor: `${e.color}44`, background: `${e.color}10` }}>
+            <div className="text-[8.5px] font-semibold">{e.short}</div>
+            <div className="text-[13px] font-bold leading-tight" style={{ color: e.color }}>
               {e.headline}
             </div>
             <div className="text-[7.5px] text-muted-foreground">{e.unit}</div>
           </div>
         ))}
       </div>
-      <div className="text-[8px] text-muted-foreground">Near-term revenue mix (est.)</div>
-      <div className="flex h-4 w-full overflow-hidden rounded text-[8px] font-semibold text-white">
-        <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }}>
-          SaaS
+      <div>
+        <div className="mb-0.5 text-[8px] text-muted-foreground">Near-term revenue mix (est.)</div>
+        <div className="flex h-4 w-full overflow-hidden rounded text-[8px] font-semibold text-white">
+          <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }}>
+            SaaS
+          </div>
+          <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }}>
+            Ent.
+          </div>
         </div>
-        <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }}>
-          Ent.
-        </div>
-      </div>
-      <div className="text-[8px] leading-tight text-muted-foreground">
-        Enterprise-led for revenue · SaaS as funnel · blocked on #119
       </div>
     </div>
   );
