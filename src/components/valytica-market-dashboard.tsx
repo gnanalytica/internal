@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Building2, Check, Circle, Landmark, Maximize, Printer, Target, TrendingUp, Zap } from "lucide-react";
+import { ArrowRight, Building2, Check, Circle, Landmark, Maximize, Printer, Rocket, Target, TrendingUp, Zap } from "lucide-react";
 
 import { Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,12 @@ type Cfg = {
   segmentsNote: string;
   funnel: { l: string; v: number; color: string }[];
   buyers: Slice[];
+  impact?: {
+    deltas: { label: string; before: string; after: string; gain: string }[];
+    whyItMatters: string[];
+    unlocks: { title: string; detail: string }[];
+    note?: string;
+  };
   fdv: FdvLens[];
   swot: { key: string; title: string; color: string; items: string[] }[];
   footer: string;
@@ -105,6 +111,28 @@ const VALUATION: Cfg = {
     { label: "Investors / M&A / insurance", value: 400, color: "#10b981" },
     { label: "Government / legal (tax, IBC)", value: 200, color: "#0ea5e9" },
   ],
+  impact: {
+    deltas: [
+      { label: "Turnaround per report", before: "2–3 days", after: "same day", gain: "~80% faster" },
+      { label: "Analyst time / report", before: "~6 hrs", after: "~1.5 hrs", gain: "~75% less" },
+      { label: "Cost to produce", before: "~₹2,000", after: "~₹220", gain: "~9× cheaper" },
+      { label: "Throughput / valuer", before: "1–2 / day", after: "4–6 / day", gain: "3–4× capacity" },
+    ],
+    whyItMatters: [
+      "Month- & quarter-end crunch — volume spikes overwhelm valuers; AI absorbs the surge",
+      "Audit-ready — every value is source-cited, so audits are faster and liability drops",
+      "Cross-document checks — auto-flags area / ownership conflicts a manual review can miss",
+      "Consistency — banks get standardized, comparable reports across all panel valuers",
+      "Maintenance & tracking — searchable case history instead of scattered files",
+    ],
+    unlocks: [
+      { title: "Small-ticket & rural loans", detail: "cases too costly to value by hand become viable — new volume" },
+      { title: "Periodic re-valuations at scale", detail: "banks can re-check collateral portfolios regularly, not rarely" },
+      { title: "Instant / digital lending", detail: "same-day valuation enables real-time loan decisions" },
+      { title: "Tier-2 / 3 expansion", detail: "serve regions where valuer supply is thin" },
+    ],
+    note: "Lower cost + faster turnaround expands the reachable market beyond today's ₹650 cr by making volume that was previously uneconomic worth doing.",
+  },
   fdv: [
     {
       label: "Feasibility",
@@ -334,6 +362,7 @@ export function MarketVisionDashboard({ variant = "valuation" }: { variant?: Vis
         <Hero cfg={cfg} />
         <Horizons cfg={cfg} />
         <Numbers cfg={cfg} />
+        <Impact cfg={cfg} />
         <Market cfg={cfg} />
         <Fdv cfg={cfg} />
         <Swot cfg={cfg} />
@@ -439,6 +468,68 @@ function Numbers({ cfg }: { cfg: Cfg }) {
             <div className="mt-1 text-xs text-muted-foreground">{t.sub}</div>
           </div>
         ))}
+      </div>
+    </Section>
+  );
+}
+
+// ============================ IMPACT ============================
+
+function Impact({ cfg }: { cfg: Cfg }) {
+  const im = cfg.impact;
+  if (!im) return null;
+  return (
+    <Section title="The impact — faster, cheaper, and it unlocks new volume" icon={Rocket}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {im.deltas.map((d) => (
+          <div key={d.label} className="rounded-xl border bg-background p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{d.label}</div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{d.before}</span>
+              <ArrowRight className="size-4 shrink-0 text-emerald-500" />
+              <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{d.after}</span>
+            </div>
+            <div className="mt-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">{d.gain}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border bg-background p-5">
+          <h3 className="mb-3 text-sm font-semibold">Why it matters</h3>
+          <ul className="space-y-2">
+            {im.whyItMatters.map((w) => {
+              const [lead, ...rest] = w.split(" — ");
+              return (
+                <li key={w} className="flex items-start gap-2 text-sm">
+                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                  <span>
+                    <span className="font-medium">{lead}</span>
+                    {rest.length > 0 && <span className="text-muted-foreground"> — {rest.join(" — ")}</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
+          <h3 className="mb-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            What it unlocks — new market
+          </h3>
+          <ul className="space-y-2.5">
+            {im.unlocks.map((u) => (
+              <li key={u.title} className="flex items-start gap-2 text-sm">
+                <Rocket className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                <span>
+                  <span className="font-semibold">{u.title}</span>{" "}
+                  <span className="text-muted-foreground">— {u.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {im.note && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{im.note}</p>}
+        </div>
       </div>
     </Section>
   );
