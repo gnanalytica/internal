@@ -98,8 +98,8 @@ const VALUATION: Cfg = {
   nabc: [
     {
       key: "N", title: "Need", subtitle: "Pain — validated", color: "#6366f1",
-      points: ["Manual extraction · per-bank formats · month-end crunch", "Inconsistent quality, hard to audit", "Confirmed in user interviews"],
-      stats: [{ v: "~5M", l: "valuations / yr" }, { v: "~6,176", l: "valuers — too few" }],
+      points: ["Manual extraction · per-bank reformatting · month-end crunch", "Inconsistent, hard to audit — real liability risk", "Validated in user interviews + live pilots"],
+      stats: [{ v: "6 hrs", l: "manual desk work / report" }, { v: "2–3 days", l: "turnaround today" }],
     },
     {
       key: "A", title: "Approach", subtitle: "Our unique solution", color: "#0ea5e9",
@@ -108,13 +108,13 @@ const VALUATION: Cfg = {
     },
     {
       key: "B", title: "Benefit", subtitle: "Value to the valuer", color: "#10b981",
-      points: ["Desk work: 6 hrs → 1.5 hrs / report", "3–4× capacity → more reports & income", "Later: banks get faster, auditable reports"],
-      stats: [{ v: "~9× cheaper", l: "₹2,000 → ₹220" }, { v: "₹180", l: "profit / report" }],
+      points: ["Desk work: 6 hrs → 1.5 hrs / report", "3–4× the reports — and income — same headcount", "Audit-ready · source-cited → less liability"],
+      stats: [{ v: "3–4×", l: "reports & income / valuer" }, { v: "4.5 hrs", l: "saved / report" }],
     },
     {
       key: "C", title: "Competition", subtitle: "Who we're up against", color: "#f59e0b",
-      points: ["Sigmavalue — closest valuer AI", "Manual / spreadsheets (status quo)", "Edge: human-in-loop · India · bank-grade"],
-      stats: [{ v: "white space", l: "AI · bank-grade · India" }, { v: "both", l: "valuation + feasibility" }],
+      points: ["Status quo: manual + spreadsheets (2–3 days)", "Sigmavalue — closest AI rival", "Banks' in-house AI — emerging threat"],
+      stats: [{ v: "same-day", l: "vs 2–3 days (manual)" }, { v: "9× cheaper", l: "₹220 vs ₹2,000 / report" }],
     },
   ],
   trajectory: {
