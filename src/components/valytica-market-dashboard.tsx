@@ -80,7 +80,6 @@ export function ValyticaMarketDashboard() {
         <Horizons />
         <Numbers />
         <Market />
-        <Competition />
         <Fdv />
         <Swot />
         <p className="px-1 text-xs leading-relaxed text-muted-foreground">
@@ -304,66 +303,6 @@ function Market() {
             <div className="mt-1 text-sm text-muted-foreground">{d.v}</div>
           </div>
         ))}
-      </div>
-    </Section>
-  );
-}
-
-// ============================ COMPETITION ============================
-
-const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean }[] = [
-  { name: "Valytica", x: 84, y: 16, color: "#1d4ed8", star: true },
-  { name: "Banks' own AI", x: 72, y: 32, color: "#64748b" },
-  { name: "Global tools", x: 90, y: 54, color: "#94a3b8" },
-  { name: "Sigmavalue", x: 62, y: 60, color: "#6366f1" },
-  { name: "Housing / 99acres", x: 72, y: 86, color: "#94a3b8" },
-  { name: "Feasibility firms", x: 22, y: 28, color: "#0ea5e9" },
-  { name: "Big advisory firms", x: 16, y: 48, color: "#94a3b8" },
-];
-
-function Competition() {
-  return (
-    <Section title="Who else is out there" icon={Target}>
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div>
-          <div className="relative h-72 w-full rounded-xl border bg-muted/20">
-            <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" />
-            <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-border" />
-            <div className="absolute right-0 top-0 h-1/2 w-1/2 rounded-tr-xl bg-emerald-500/[0.08]" />
-            <span className="absolute right-3 top-2 text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-              the open gap
-            </span>
-            {COMP_MAP.map((c) => (
-              <div
-                key={c.name}
-                className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5"
-                style={{ left: `${c.x}%`, top: `${c.y}%` }}
-              >
-                <span
-                  className={cn("shrink-0 rounded-full", c.star ? "size-4 ring-4 ring-brand/20" : "size-2.5")}
-                  style={{ backgroundColor: c.color }}
-                />
-                <span className={cn("whitespace-nowrap text-xs", c.star ? "font-bold text-foreground" : "text-muted-foreground")}>
-                  {c.name}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-            <span>Done by hand</span>
-            <span>Done by AI →</span>
-          </div>
-        </div>
-        <div className="flex flex-col justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
-          <div className="text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-            The open gap
-          </div>
-          <p className="mt-2 text-base leading-relaxed">
-            The top-right corner is empty: a tool that&apos;s <span className="font-semibold">AI-powered,
-            bank-ready, India-based, and does both jobs</span> — valuations and feasibility reports.
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">No rival does all four. That&apos;s our space.</p>
-        </div>
       </div>
     </Section>
   );
