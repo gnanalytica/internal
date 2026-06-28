@@ -62,6 +62,7 @@ type Cfg = {
   segments: Slice[];
   segmentsNote: string;
   funnel: { l: string; v: number; color: string }[];
+  combinedNote?: string;
   buyers: Slice[];
   impact?: {
     deltas: { label: string; before: string; after: string; gain: string }[];
@@ -117,9 +118,9 @@ const VALUATION: Cfg = {
     "Modeled estimate of property-valuation fees pan-India — anchored to the APAC valuation market (~$1.9B, 2024; residential ~75% of transactions). Range ~₹2,500–3,500 cr; exact splits to confirm.",
   funnel: [
     { l: "Whole market", v: 3000, color: "#6366f1" },
-    { l: "We can reach", v: 650, color: "#8b5cf6" },
-    { l: "3-year target", v: 6, color: "#10b981" },
+    { l: "We can reach", v: 800, color: "#8b5cf6" },
   ],
+  combinedNote: "₹3,000 cr valuation · ₹7,500 cr with feasibility (Atlas)",
   buyers: [
     { label: "Banks & NBFCs (lending)", value: 2400, color: "#1d4ed8" },
     { label: "Investors / M&A / insurance", value: 400, color: "#10b981" },
@@ -257,11 +258,11 @@ const VALUATION: Cfg = {
   ],
   trajectory: {
     years: [
-      { label: "Year 1", value: 0.5 },
-      { label: "Year 2", value: 2.5 },
-      { label: "Year 3", value: 6 },
+      { label: "Year 1", value: 3 },
+      { label: "Year 2", value: 10 },
+      { label: "Year 3", value: 25 },
     ],
-    note: "Modeled SaaS revenue ramp to the ₹6 cr SOM. Enterprise / custom-build upside sits on top (via Atlas).",
+    note: "Modeled 3-yr revenue ramp: SaaS (₹6 cr floor) + value-based pricing + enterprise / co-own deals.",
   },
   footer:
     "Prices are real. Market sizes are modeled estimates we still need to confirm — based on public industry and government data. Valuation and feasibility are two related but separate markets (feasibility lives in Atlas).",
@@ -304,8 +305,8 @@ const FEASIBILITY: Cfg = {
   funnel: [
     { l: "Whole market", v: 4500, color: "#8b5cf6" },
     { l: "We can reach", v: 900, color: "#f59e0b" },
-    { l: "3-year target", v: 15, color: "#10b981" },
   ],
+  combinedNote: "₹4,500 cr feasibility · ₹7,500 cr with valuation (Valytica)",
   buyers: [
     { label: "Banks & NBFCs", value: 1500, color: "#1d4ed8" },
     { label: "Government & tenders", value: 1500, color: "#0ea5e9" },
@@ -397,6 +398,14 @@ const FEASIBILITY: Cfg = {
       stats: [{ v: "100s", l: "consultancies" }, { v: "AI-first", l: "vs manual" }],
     },
   ],
+  trajectory: {
+    years: [
+      { label: "Year 1", value: 2 },
+      { label: "Year 2", value: 8 },
+      { label: "Year 3", value: 20 },
+    ],
+    note: "Modeled 3-yr revenue ramp from enterprise / co-own deals (₹2–50L ACV) plus recurring LIE.",
+  },
   footer:
     "Prices/values are indicative; market sizes are modeled estimates to confirm — based on public industry and government data (govt capex, private-capex survey, MSME DPR pricing). Atlas is the planned carve-out of Valytica's feasibility engine.",
 };
@@ -516,9 +525,8 @@ function Header({ cfg }: { cfg: Cfg }) {
       <div className="min-w-0 flex-1">
         <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-blue-200">{cfg.eyebrow}</div>
         <h1 className="mt-1 text-[30px] font-bold leading-[1.05] tracking-tight">{cfg.title}</h1>
-        <p className="mt-1 max-w-[760px] text-[13.5px] leading-snug text-blue-100">{cfg.subtitle}</p>
         {cfg.problem && (
-          <p className="mt-2 max-w-[820px] border-l-2 border-white/40 pl-2.5 text-[12px] leading-snug text-blue-50">
+          <p className="mt-3 max-w-[860px] border-l-2 border-white/40 pl-3 text-[13px] leading-snug text-blue-50">
             <span className="font-semibold text-white">The problem — </span>
             {cfg.problem}
           </p>
@@ -600,6 +608,9 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
           <span className="font-semibold text-foreground">Buyers: </span>
           {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
         </div>
+        {cfg.combinedNote && (
+          <div className="text-[10px] font-medium text-brand">{cfg.combinedNote}</div>
+        )}
       </div>
 
       {/* demand & supply stats */}
