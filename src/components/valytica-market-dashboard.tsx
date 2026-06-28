@@ -194,7 +194,6 @@ const VALUATION: Cfg = {
       state: "Subscription model, revenue unproven",
       rows: [
         { s: "ok", t: "Pay-per-report + monthly plans" },
-        { s: "ok", t: "Subscription ARR potential", v: "₹6 cr" },
         { s: "ok", t: "Thousands of valuers to land" },
         { s: "next", t: "Activate recurring billing" },
         { s: "next", t: "Prove retention" },
@@ -312,7 +311,7 @@ const FEASIBILITY: Cfg = {
       state: "Strong, multi-buyer demand",
       rows: [
         { s: "ok", t: "Banks + government + private + investors" },
-        { s: "ok", t: "High value per engagement", v: "₹2–50L" },
+        { s: "ok", t: "High-value, repeat engagements" },
         { s: "ok", t: "LIE revenue is recurring" },
         { s: "next", t: "Quantify the live pipeline" },
         { s: "next", t: "Cover each lender's format" },
@@ -327,7 +326,7 @@ const FEASIBILITY: Cfg = {
       color: "#f59e0b",
       state: "Enterprise model, unproven",
       rows: [
-        { s: "ok", t: "Contract value", v: "₹2–50L" },
+        { s: "ok", t: "5–10 deals", v: "₹1–5 cr" },
         { s: "ok", t: "Co-own / managed-support options" },
         { s: "ok", t: "Recurring LIE monitoring revenue" },
         { s: "next", t: "Stand up an enterprise sales motion" },
