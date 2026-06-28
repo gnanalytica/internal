@@ -1,7 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
-  ArrowRight,
   Banknote,
   Building2,
   Check,
@@ -24,7 +24,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * Product Vision — a spacious, readable, full-width strategy page that scrolls.
+ * Product Strategy — a single-page infographic slide on a fixed 1600×920 canvas
+ * scaled to fit (container, full screen, or a landscape print page).
  * Two variants share one layout:
  *  - "valuation"  → Valytica: property valuation (residential/commercial/industrial)
  *  - "feasibility" → Atlas: project feasibility (DPR / TEV / LIE)
@@ -359,10 +360,38 @@ const FEASIBILITY: Cfg = {
 
 const CONFIGS: Record<VisionVariant, Cfg> = { valuation: VALUATION, feasibility: FEASIBILITY };
 
-// ============================ shell ============================
+// ============================ shell (scaled slide) ============================
+
+const BASE_W = 1600;
+const BASE_H = 920;
 
 export function MarketVisionDashboard({ variant = "valuation" }: { variant?: VisionVariant }) {
   const cfg = CONFIGS[variant];
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.6);
+  const [fs, setFs] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const d = document as Document & { webkitFullscreenElement?: Element };
+      const on = !!(document.fullscreenElement || d.webkitFullscreenElement);
+      if (on) setScale(Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H));
+      else setScale(Math.max((stageRef.current?.clientWidth ?? BASE_W) / BASE_W, 0.1));
+      setFs(on);
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (ro && stageRef.current) ro.observe(stageRef.current);
+    window.addEventListener("resize", measure);
+    document.addEventListener("fullscreenchange", measure);
+    document.addEventListener("webkitfullscreenchange", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+      document.removeEventListener("fullscreenchange", measure);
+      document.removeEventListener("webkitfullscreenchange", measure);
+    };
+  }, []);
 
   const printPage = () => {
     if (typeof document === "undefined") return;
@@ -376,17 +405,15 @@ export function MarketVisionDashboard({ variant = "valuation" }: { variant?: Vis
   };
 
   const fullscreen = () => {
-    const el = document.getElementById("market-onepager") as
-      | (HTMLElement & { webkitRequestFullscreen?: () => void })
-      | null;
+    const el = stageRef.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
     if (!el) return;
     if (el.requestFullscreen) void el.requestFullscreen();
     else el.webkitRequestFullscreen?.();
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1500px]">
-      <div className="mb-4 flex items-center justify-end gap-2">
+    <div className="mx-auto w-full max-w-[1600px]">
+      <div className="mb-3 flex items-center justify-end gap-2">
         <Button size="sm" variant="outline" className="gap-1.5" onClick={fullscreen}>
           <Maximize className="size-4" /> Full screen
         </Button>
@@ -395,18 +422,14 @@ export function MarketVisionDashboard({ variant = "valuation" }: { variant?: Vis
         </Button>
       </div>
 
-      <div id="market-onepager" className="space-y-6">
-        <Hero cfg={cfg} />
-        <Horizons cfg={cfg} />
-        <Numbers cfg={cfg} />
-        <Impact cfg={cfg} />
-        <Market cfg={cfg} />
-        <Fdv cfg={cfg} />
-        <Traction cfg={cfg} />
-        <Trajectory cfg={cfg} />
-        <Team cfg={cfg} />
-        <Swot cfg={cfg} />
-        <p className="px-1 text-xs leading-relaxed text-muted-foreground">{cfg.footer}</p>
+      <div id="onepager-stage" ref={stageRef} className="relative w-full overflow-hidden" style={fs ? undefined : { height: BASE_H * scale }}>
+        <div
+          id="market-onepager"
+          className="overflow-hidden rounded-xl border bg-card text-foreground shadow-sm"
+          style={{ width: BASE_W, height: BASE_H, transform: `scale(${scale})`, transformOrigin: fs ? "center center" : "top left" }}
+        >
+          <Slide cfg={cfg} />
+        </div>
       </div>
     </div>
   );
@@ -415,326 +438,273 @@ export function MarketVisionDashboard({ variant = "valuation" }: { variant?: Vis
 // Back-compat alias (older imports).
 export const ValyticaMarketDashboard = MarketVisionDashboard;
 
-// ============================ HERO ============================
+// ============================ the slide ============================
 
-function Hero({ cfg }: { cfg: Cfg }) {
+function Slide({ cfg }: { cfg: Cfg }) {
   return (
-    <div className="overflow-hidden rounded-2xl text-white shadow-sm" style={{ background: "linear-gradient(115deg,#0b1f3a 0%,#13315c 52%,#1d4ed8 135%)" }}>
-      <div className="px-7 py-7 sm:px-9 sm:py-9">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">{cfg.eyebrow}</div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-100">
-              {cfg.badgeOk}
-            </span>
-            <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-3 py-1 text-xs font-semibold text-amber-100">
-              {cfg.badgeWarn}
-            </span>
+    <div className="flex h-full flex-col px-6 py-5">
+      <Header cfg={cfg} />
+      <div className="mt-2.5 grid flex-1 auto-rows-fr grid-cols-12 gap-2.5">
+        <Panel className="col-span-4" title="The opportunity, by type" icon={Building2}>
+          <OpportunityBody cfg={cfg} />
+        </Panel>
+        <Panel className="col-span-5" title="Feasibility · Desirability · Viability" icon={Check}>
+          <FdvBody cfg={cfg} />
+        </Panel>
+        <Panel className="col-span-3" title="Demand & supply" icon={TrendingUp}>
+          <StatsBody cfg={cfg} />
+        </Panel>
+
+        {cfg.impact && (
+          <Panel className="col-span-5" title="The impact — faster, cheaper, unlocks volume" icon={Rocket}>
+            <ImpactBody cfg={cfg} />
+          </Panel>
+        )}
+        <Panel className="col-span-4" title="Where we stand · SWOT" icon={Zap}>
+          <SwotBody cfg={cfg} />
+        </Panel>
+        {cfg.trajectory && (
+          <Panel className="col-span-3" title="Financial trajectory" icon={TrendingUp}>
+            <TrajectoryBody cfg={cfg} />
+          </Panel>
+        )}
+
+        <Panel className={cfg.team ? "col-span-4" : "col-span-8"} title="How we grow" icon={Target}>
+          <HorizonsBody cfg={cfg} />
+        </Panel>
+        {cfg.traction && (
+          <Panel className="col-span-4" title="Where we are today" icon={Check}>
+            <TractionBody cfg={cfg} />
+          </Panel>
+        )}
+        {cfg.team && (
+          <Panel className="col-span-4" title="The team" icon={Users}>
+            <TeamBody cfg={cfg} />
+          </Panel>
+        )}
+      </div>
+      <p className="mt-2 shrink-0 text-[8px] leading-snug text-muted-foreground">{cfg.footer}</p>
+    </div>
+  );
+}
+
+function Header({ cfg }: { cfg: Cfg }) {
+  return (
+    <div className="-mx-6 -mt-5 flex items-start justify-between gap-5 px-6 py-3.5 text-white" style={{ background: "linear-gradient(115deg,#0b1f3a 0%,#13315c 52%,#1d4ed8 135%)" }}>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-200">{cfg.eyebrow}</div>
+        <h1 className="mt-1 text-[26px] font-bold leading-[1.05] tracking-tight">{cfg.title}</h1>
+        <p className="mt-1 max-w-[700px] text-[11.5px] leading-snug text-blue-100">{cfg.subtitle}</p>
+      </div>
+      <div className="flex w-[320px] shrink-0 flex-col gap-1.5">
+        <div className="flex items-center justify-end gap-1.5">
+          <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-100">{cfg.badgeOk}</span>
+          <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-0.5 text-[9px] font-semibold text-amber-100">{cfg.badgeWarn}</span>
+        </div>
+        {cfg.why.map((w) => (
+          <div key={w.t} className="flex items-center gap-1.5 rounded border border-white/15 bg-white/[0.06] px-1.5 py-1">
+            <w.icon className="size-3 shrink-0 text-blue-200" />
+            <span className="text-[9.5px] font-semibold leading-none text-white">{w.t}</span>
+            <span className="ml-auto text-[8.5px] leading-none text-blue-200">{w.s}</span>
           </div>
-        </div>
-
-        <h1 className="mt-5 max-w-4xl text-3xl font-bold leading-tight tracking-tight sm:text-[2.5rem]">{cfg.title}</h1>
-        <p className="mt-4 max-w-3xl text-base leading-relaxed text-blue-100 sm:text-lg">{cfg.subtitle}</p>
-
-        <div className="mt-7 grid gap-3 sm:grid-cols-3">
-          {cfg.why.map((w) => (
-            <div key={w.t} className="rounded-xl border border-white/15 bg-white/[0.07] p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                <w.icon className="size-4 text-blue-200" /> {w.t}
-              </div>
-              <div className="mt-1 text-sm text-blue-200">{w.s}</div>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ============================ section shell ============================
-
-function Section({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+function Panel({ title, icon: Icon, className, children }: { title: string; icon?: React.ComponentType<{ className?: string }>; className?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-      <h2 className="mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        <Icon className="size-4 text-brand" />
+    <div className={cn("flex min-h-0 flex-col overflow-hidden rounded-lg border bg-background p-2.5", className)}>
+      <h3 className="mb-1.5 flex shrink-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {Icon && <Icon className="size-3 text-brand" />}
         {title}
-      </h2>
-      {children}
-    </section>
+      </h3>
+      <div className="min-h-0 flex-1">{children}</div>
+    </div>
   );
 }
 
-// ============================ HORIZONS ============================
+// ---- bodies ----
 
-function Horizons({ cfg }: { cfg: Cfg }) {
-  return (
-    <Section title="How we grow, step by step" icon={Target}>
-      <div className="grid gap-4 md:grid-cols-3">
-        {cfg.horizons.map((z) => (
-          <div key={z.n} className="rounded-xl border p-5" style={{ borderColor: `${z.color}40`, background: `${z.color}08` }}>
-            <div className="flex items-center justify-between">
-              <span className="grid size-8 place-items-center rounded-lg text-base font-bold text-white" style={{ backgroundColor: z.color }}>
-                {z.n}
-              </span>
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">{z.when}</span>
-            </div>
-            <div className="mt-3 text-lg font-semibold">{z.title}</div>
-            <div className="mt-1 text-sm text-muted-foreground">{z.proof}</div>
-          </div>
-        ))}
-      </div>
-    </Section>
-  );
-}
-
-// ============================ NUMBERS ============================
-
-function Numbers({ cfg }: { cfg: Cfg }) {
-  const cols = cfg.numbers.length <= 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-6";
-  return (
-    <Section title="Demand & supply at a glance" icon={TrendingUp}>
-      <div className={cn("grid grid-cols-2 gap-4", cols)}>
-        {cfg.numbers.map((t) => (
-          <div
-            key={t.label}
-            className={cn(
-              "rounded-xl border bg-background p-4",
-              t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
-              t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
-            )}
-          >
-            {t.icon && (
-              <div className="mb-2 grid size-8 place-items-center rounded-lg bg-muted/70">
-                <t.icon className="size-4 text-brand" />
-              </div>
-            )}
-            <div className="text-2xl font-bold tabular-nums sm:text-3xl">{t.value}</div>
-            <div className="mt-1 text-sm font-medium">{t.label}</div>
-            <div className="text-xs text-muted-foreground">{t.sub}</div>
-          </div>
-        ))}
-      </div>
-    </Section>
-  );
-}
-
-// ============================ IMPACT ============================
-
-function Impact({ cfg }: { cfg: Cfg }) {
-  const im = cfg.impact;
-  if (!im) return null;
-  return (
-    <Section title="The impact — faster, cheaper, and it unlocks new volume" icon={Rocket}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {im.deltas.map((d) => (
-          <div key={d.label} className="rounded-xl border bg-background p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{d.label}</div>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{d.before}</span>
-              <ArrowRight className="size-4 shrink-0 text-emerald-500" />
-              <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{d.after}</span>
-            </div>
-            <div className="mt-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">{d.gain}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border bg-background p-5">
-          <h3 className="mb-3 text-sm font-semibold">Why it matters</h3>
-          <ul className="space-y-2">
-            {im.whyItMatters.map((w) => {
-              const [lead, ...rest] = w.split(" — ");
-              return (
-                <li key={w} className="flex items-start gap-2 text-sm">
-                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
-                  <span>
-                    <span className="font-medium">{lead}</span>
-                    {rest.length > 0 && <span className="text-muted-foreground"> — {rest.join(" — ")}</span>}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
-          <h3 className="mb-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-            What it unlocks — new market
-          </h3>
-          <ul className="space-y-2.5">
-            {im.unlocks.map((u) => (
-              <li key={u.title} className="flex items-start gap-2 text-sm">
-                <Rocket className="mt-0.5 size-4 shrink-0 text-emerald-500" />
-                <span>
-                  <span className="font-semibold">{u.title}</span>{" "}
-                  <span className="text-muted-foreground">— {u.detail}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          {im.note && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{im.note}</p>}
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-// ============================ MARKET ============================
-
-function Market({ cfg }: { cfg: Cfg }) {
+function OpportunityBody({ cfg }: { cfg: Cfg }) {
   const total = cfg.segments.reduce((s, x) => s + x.value, 0);
+  const bt = cfg.buyers.reduce((s, x) => s + x.value, 0);
   return (
-    <Section title="The opportunity, by type" icon={Building2}>
-      <div className="grid items-center gap-6 lg:grid-cols-[auto_1fr]">
-        <div className="mx-auto">
-          <Donut
-            data={cfg.segments}
-            size={210}
-            thickness={36}
-            center={
-              <div className="text-center">
-                <div className="text-2xl font-bold leading-none">{inCr(total)}</div>
-                <div className="mt-1 text-xs text-muted-foreground">per year</div>
-              </div>
-            }
-          />
-        </div>
-        <ul className="space-y-2.5">
+    <div className="flex h-full flex-col gap-1.5">
+      <div className="flex items-center gap-2.5">
+        <Donut
+          data={cfg.segments}
+          size={92}
+          thickness={13}
+          center={
+            <div className="text-center">
+              <div className="text-[11px] font-bold leading-none">{inCr(total)}</div>
+              <div className="text-[7px] text-muted-foreground">per year</div>
+            </div>
+          }
+        />
+        <ul className="flex-1 space-y-1">
           {cfg.segments.map((s) => (
-            <li key={s.label} className="flex items-center gap-3 text-sm">
-              <span className="size-3.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
-              <span className="flex-1 text-foreground/90">{s.label}</span>
+            <li key={s.label} className="flex items-center gap-1.5 text-[9px]">
+              <span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">{s.label}</span>
               <span className="shrink-0 font-bold tabular-nums">{inCr(s.value)}</span>
-              <span className="w-10 shrink-0 text-right text-xs font-medium text-muted-foreground">
-                {Math.round((s.value / total) * 100)}%
-              </span>
+              <span className="w-7 shrink-0 text-right text-[8px] text-muted-foreground">{Math.round((s.value / total) * 100)}%</span>
             </li>
           ))}
         </ul>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">{cfg.segmentsNote}</p>
-
-      <div className="mt-6 space-y-3">
-        {cfg.funnel.map((f) => (
-          <div key={f.l} className="flex items-center gap-3">
-            <span className="w-28 shrink-0 text-sm font-medium text-muted-foreground">{f.l}</span>
-            <div className="h-8 flex-1 overflow-hidden rounded-lg bg-muted/60">
-              <div className="h-full rounded-lg" style={{ width: `${Math.max((f.v / total) * 100, 2)}%`, backgroundColor: f.color }} />
-            </div>
-            <span className="w-20 shrink-0 text-right text-base font-bold tabular-nums">{inCr(f.v)}</span>
-          </div>
-        ))}
-      </div>
-
-      <h3 className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Who commissions these reports
-      </h3>
-      <div className={cn("grid gap-3", cfg.buyers.length === 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 sm:grid-cols-3")}>
-        {cfg.buyers.map((b) => {
-          const btotal = cfg.buyers.reduce((s, x) => s + x.value, 0);
-          return (
-            <div key={b.label} className="rounded-xl border bg-background p-4 text-center" style={{ borderColor: `${b.color}40` }}>
-              <div className="text-xl font-bold" style={{ color: b.color }}>{inCr(b.value)}</div>
-              <div className="mt-1 text-sm leading-tight text-foreground/90">{b.label}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">{Math.round((b.value / btotal) * 100)}%</div>
-            </div>
-          );
-        })}
-      </div>
-    </Section>
-  );
-}
-
-// ============================ FDV ============================
-
-function Fdv({ cfg }: { cfg: Cfg }) {
-  return (
-    <Section title="Feasibility · Desirability · Viability — close the gaps in sequence" icon={Check}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-        {cfg.fdv.map((n, i) => (
-          <div key={n.label} className="flex flex-1 items-stretch gap-4">
-            <FdvCard n={n} />
-            {i < cfg.fdv.length - 1 && (
-              <div className="hidden shrink-0 flex-col items-center justify-center self-center lg:flex">
-                <ArrowRight className="size-6" style={{ color: cfg.fdv[i + 1].color }} />
-                <span className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">leads to</span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </Section>
-  );
-}
-
-function FdvCard({ n }: { n: FdvLens }) {
-  return (
-    <div className="flex flex-1 flex-col rounded-xl border p-5" style={{ borderColor: `${n.color}44`, background: `${n.color}07` }}>
-      <div className="flex items-center gap-3">
-        <Gauge score={n.score} color={n.color} />
-        <div>
-          <div className="text-lg font-bold leading-tight" style={{ color: n.color }}>
-            {n.label}
-          </div>
-          <div className="text-sm text-muted-foreground">{n.state}</div>
-        </div>
-      </div>
-      <ul className="mt-4 flex-1 space-y-2">
-        {n.rows.map((r) => {
-          const ok = r.s === "ok";
-          const Icon = ok ? Check : Circle;
-          const color = ok ? "#10b981" : "#f59e0b";
-          return (
-            <li key={r.t} className="flex items-center gap-2 text-sm">
-              <Icon className="size-4 shrink-0" style={{ color }} />
-              <span className="min-w-0 flex-1 text-foreground/90">{r.t}</span>
-              {r.v && <span className="shrink-0 font-bold tabular-nums" style={{ color }}>{r.v}</span>}
-            </li>
-          );
-        })}
-      </ul>
-      <div className="mt-4">
-        <div className="mb-1.5 flex items-baseline justify-between text-sm">
-          <span className="text-muted-foreground">{n.bar.label}</span>
-          <span className="font-bold">{n.bar.right}</span>
-        </div>
-        <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/40">
-          {n.bar.parts.map((p, i) => (
-            <div key={i} style={{ width: `${p.pct}%`, background: p.color }} />
-          ))}
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-medium" style={{ color: n.color }}>
-        <span className="rounded-lg bg-muted/60 px-2.5 py-1">Next: {n.lever}</span>
-        <span className="inline-flex items-center gap-1">
-          <ArrowRight className="size-3.5" /> {n.unlocks}
-        </span>
+      <div className="mt-auto rounded bg-muted/40 px-1.5 py-1 text-[8.5px] leading-snug text-muted-foreground">
+        <span className="font-semibold text-foreground">Buyers: </span>
+        {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
       </div>
     </div>
   );
 }
 
-function Gauge({ score, color }: { score: number; color: string }) {
+function FdvBody({ cfg }: { cfg: Cfg }) {
   return (
-    <Donut
-      size={64}
-      thickness={8}
-      data={[
-        { label: "", value: score, color },
-        { label: "", value: Math.max(100 - score, 0.001), color: "transparent" },
-      ]}
-      center={
-        <span className="text-base font-bold" style={{ color }}>
-          {score}
-        </span>
-      }
-    />
+    <div className="grid h-full grid-cols-3 gap-1.5">
+      {cfg.fdv.map((n) => (
+        <div key={n.label} className="flex min-h-0 flex-col rounded-md border p-1.5" style={{ borderColor: `${n.color}44`, background: `${n.color}08` }}>
+          <div className="flex items-center gap-1.5">
+            <Gauge score={n.score} color={n.color} />
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold leading-none" style={{ color: n.color }}>{n.label}</div>
+              <div className="mt-0.5 text-[7.5px] leading-tight text-muted-foreground">{n.state}</div>
+            </div>
+          </div>
+          <ul className="mt-1.5 min-h-0 flex-1 space-y-0.5">
+            {n.rows.slice(0, 4).map((r) => {
+              const ok = r.s === "ok";
+              const Icon = ok ? Check : Circle;
+              const color = ok ? "#10b981" : "#f59e0b";
+              return (
+                <li key={r.t} className="flex items-center gap-1 text-[7.5px] leading-tight">
+                  <Icon className="size-2.5 shrink-0" style={{ color }} />
+                  <span className="min-w-0 flex-1 truncate text-foreground/90">{r.t}</span>
+                  {r.v && <span className="shrink-0 font-bold tabular-nums" style={{ color }}>{r.v}</span>}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-1 rounded bg-muted/50 px-1 py-0.5 text-[7.5px] font-medium leading-tight" style={{ color: n.color }}>
+            → {n.lever}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
-// ============================ TRACTION ============================
+function StatsBody({ cfg }: { cfg: Cfg }) {
+  return (
+    <div className="grid h-full grid-cols-2 gap-1.5">
+      {cfg.numbers.map((t) => (
+        <div
+          key={t.label}
+          className={cn(
+            "flex flex-col justify-center rounded-md border px-1.5",
+            t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
+            t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
+          )}
+        >
+          {t.icon && <t.icon className="mb-0.5 size-3 text-brand" />}
+          <div className="text-[15px] font-bold leading-none tabular-nums">{t.value}</div>
+          <div className="mt-0.5 text-[8px] font-medium leading-tight">{t.label}</div>
+          <div className="text-[7.5px] leading-tight text-muted-foreground">{t.sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ImpactBody({ cfg }: { cfg: Cfg }) {
+  const im = cfg.impact!;
+  return (
+    <div className="flex h-full flex-col gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
+        {im.deltas.map((d) => (
+          <div key={d.label} className="rounded-md border bg-background px-1.5 py-1">
+            <div className="text-[7.5px] uppercase tracking-wide text-muted-foreground">{d.label}</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[8px] text-muted-foreground">{d.before}</span>
+              <span className="text-[8px] text-emerald-500">→</span>
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{d.after}</span>
+            </div>
+            <div className="text-[7px] font-semibold text-emerald-600 dark:text-emerald-400">{d.gain}</div>
+          </div>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1">
+        <div className="text-[8px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Unlocks new volume</div>
+        <ul className="mt-0.5 grid grid-cols-2 gap-x-2 gap-y-0.5">
+          {im.unlocks.map((u) => (
+            <li key={u.title} className="flex items-start gap-1 text-[8px] leading-tight">
+              <Rocket className="mt-px size-2.5 shrink-0 text-emerald-500" />
+              <span className="font-medium">{u.title}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function SwotBody({ cfg }: { cfg: Cfg }) {
+  return (
+    <div className="grid h-full grid-cols-2 grid-rows-2 gap-1.5">
+      {cfg.swot.map((q) => (
+        <div key={q.key} className="flex min-h-0 flex-col overflow-hidden rounded-md border p-1.5" style={{ borderColor: `${q.color}44` }}>
+          <div className="mb-0.5 flex shrink-0 items-center gap-1">
+            <span className="grid size-3.5 place-items-center rounded-sm text-[7px] font-bold text-white" style={{ backgroundColor: q.color }}>{q.key}</span>
+            <h4 className="text-[9px] font-semibold leading-none">{q.title}</h4>
+          </div>
+          <ul className="min-h-0 flex-1 space-y-px">
+            {q.items.map((it) => (
+              <li key={it} className="flex items-start gap-1 text-[7.5px] leading-[1.2] text-muted-foreground">
+                <span className="mt-1 size-[3px] shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
+                <span className="min-w-0">{it}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrajectoryBody({ cfg }: { cfg: Cfg }) {
+  const data: Slice[] = cfg.trajectory!.years.map((y) => ({ label: y.label, value: y.value, color: "#1d4ed8" }));
+  return (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1">
+        <ColumnChart data={data} height={120} format={(n) => `₹${n}cr`} />
+      </div>
+      <p className="mt-1 text-[7.5px] leading-tight text-muted-foreground">{cfg.trajectory!.note}</p>
+    </div>
+  );
+}
+
+function HorizonsBody({ cfg }: { cfg: Cfg }) {
+  return (
+    <div className="flex h-full flex-col justify-between gap-1.5">
+      {cfg.horizons.map((z) => (
+        <div key={z.n} className="flex flex-1 items-center gap-2 rounded-md border px-2" style={{ borderColor: `${z.color}55`, background: `${z.color}0a` }}>
+          <span className="text-[12px] font-bold" style={{ color: z.color }}>{z.n}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-[11px] font-semibold leading-tight">{z.title}</span>
+              <span className="shrink-0 text-[7.5px] font-medium text-muted-foreground">{z.when}</span>
+            </div>
+            <div className="truncate text-[8.5px] leading-tight text-muted-foreground">{z.proof}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const TRACTION_META: Record<"done" | "now" | "next", { color: string; tag: string }> = {
   done: { color: "#10b981", tag: "Done" },
@@ -742,48 +712,24 @@ const TRACTION_META: Record<"done" | "now" | "next", { color: string; tag: strin
   next: { color: "#94a3b8", tag: "Next" },
 };
 
-function Traction({ cfg }: { cfg: Cfg }) {
-  if (!cfg.traction) return null;
+function TractionBody({ cfg }: { cfg: Cfg }) {
   return (
-    <Section title="Where we are today" icon={Check}>
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {cfg.traction.map((s, i) => {
-          const m = TRACTION_META[s.state];
-          return (
-            <div key={s.label} className="rounded-xl border bg-background p-4" style={{ borderColor: `${m.color}40` }}>
-              <div className="flex items-center justify-between">
-                <span className="grid size-6 place-items-center rounded-full text-white" style={{ backgroundColor: m.color }}>
-                  {s.state === "done" ? <Check className="size-3.5" /> : <span className="text-xs font-bold">{i + 1}</span>}
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: m.color }}>
-                  {m.tag}
-                </span>
-              </div>
-              <div className="mt-2 text-sm font-medium leading-snug">{s.label}</div>
-            </div>
-          );
-        })}
-      </div>
-    </Section>
+    <div className="flex h-full flex-col justify-center gap-1.5">
+      {cfg.traction!.map((s, i) => {
+        const m = TRACTION_META[s.state];
+        return (
+          <div key={s.label} className="flex items-center gap-2 text-[9px]">
+            <span className="grid size-4 shrink-0 place-items-center rounded-full text-white" style={{ backgroundColor: m.color }}>
+              {s.state === "done" ? <Check className="size-2.5" /> : <span className="text-[7px] font-bold">{i + 1}</span>}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{s.label}</span>
+            <span className="shrink-0 text-[7px] font-semibold uppercase tracking-wide" style={{ color: m.color }}>{m.tag}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
-
-// ============================ TRAJECTORY ============================
-
-function Trajectory({ cfg }: { cfg: Cfg }) {
-  if (!cfg.trajectory) return null;
-  const data: Slice[] = cfg.trajectory.years.map((y) => ({ label: y.label, value: y.value, color: "#1d4ed8" }));
-  return (
-    <Section title="Financial trajectory" icon={TrendingUp}>
-      <div className="rounded-xl border bg-background p-5">
-        <ColumnChart data={data} height={170} format={(n) => `₹${n} cr`} />
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">{cfg.trajectory.note}</p>
-    </Section>
-  );
-}
-
-// ============================ TEAM ============================
 
 const initials = (n: string) =>
   n
@@ -793,51 +739,33 @@ const initials = (n: string) =>
     .join("")
     .toUpperCase();
 
-function Team({ cfg }: { cfg: Cfg }) {
-  if (!cfg.team) return null;
+function TeamBody({ cfg }: { cfg: Cfg }) {
   return (
-    <Section title="The team" icon={Users}>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {cfg.team.map((m) => (
-          <div key={m.name} className="flex flex-col items-center rounded-xl border bg-background p-4 text-center">
-            <div className="grid size-12 place-items-center rounded-full text-base font-bold text-white" style={{ backgroundColor: m.color }}>
-              {initials(m.name)}
-            </div>
-            <div className="mt-2 text-sm font-semibold">{m.name}</div>
-            <div className="text-xs leading-tight text-muted-foreground">{m.role}</div>
+    <div className="flex h-full flex-col gap-1.5">
+      <div className="grid flex-1 grid-cols-3 gap-1.5">
+        {cfg.team!.map((m) => (
+          <div key={m.name} className="flex flex-col items-center justify-center rounded-md border bg-background p-1 text-center">
+            <span className="grid size-8 place-items-center rounded-full text-[11px] font-bold text-white" style={{ backgroundColor: m.color }}>{initials(m.name)}</span>
+            <div className="mt-1 text-[9px] font-semibold leading-none">{m.name}</div>
+            <div className="text-[7px] leading-tight text-muted-foreground">{m.role}</div>
           </div>
         ))}
       </div>
-      {cfg.teamNote && <p className="mt-3 text-xs text-muted-foreground">{cfg.teamNote}</p>}
-    </Section>
+      {cfg.teamNote && <p className="shrink-0 text-[7.5px] leading-tight text-muted-foreground">{cfg.teamNote}</p>}
+    </div>
   );
 }
 
-// ============================ SWOT ============================
-
-function Swot({ cfg }: { cfg: Cfg }) {
+function Gauge({ score, color }: { score: number; color: string }) {
   return (
-    <Section title="Where we stand — an honest look" icon={Zap}>
-      <div className="grid gap-4 md:grid-cols-2">
-        {cfg.swot.map((q) => (
-          <div key={q.key} className="rounded-xl border p-5" style={{ borderColor: `${q.color}40` }}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="grid size-7 place-items-center rounded-lg text-sm font-bold text-white" style={{ backgroundColor: q.color }}>
-                {q.key}
-              </span>
-              <h3 className="text-base font-semibold">{q.title}</h3>
-            </div>
-            <ul className="space-y-2">
-              {q.items.map((it) => (
-                <li key={it} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
-                  <span>{it}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </Section>
+    <Donut
+      size={40}
+      thickness={5}
+      data={[
+        { label: "", value: score, color },
+        { label: "", value: Math.max(100 - score, 0.001), color: "transparent" },
+      ]}
+      center={<span className="text-[10px] font-bold" style={{ color }}>{score}</span>}
+    />
   );
 }
