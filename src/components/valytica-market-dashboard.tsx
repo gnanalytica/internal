@@ -51,6 +51,8 @@ type Cfg = {
   nabc: { key: string; title: string; subtitle: string; color: string; points: string[]; stats: { v: string; l: string }[] }[];
   // "Where we are" execution band — proof (done/now/next), the honest gaps, and the upside.
   stand: { done: string[]; now: string[]; next: string[]; prove: string[]; upside: string };
+  // KPI impact strip rendered above the footer.
+  kpis?: { v: string; l: string }[];
   trajectory?: { years: { label: string; value: number }[]; note: string };
   footer: string;
 };
@@ -95,6 +97,14 @@ const VALUATION: Cfg = {
     prove: ["Recurring revenue", "Willingness to pay / report", "Retention at scale"],
     upside: "Learns from each valuer → comparable-data moat · Atlas (feasibility) cross-sell · digital-lending tailwind",
   },
+  kpis: [
+    { v: "3–4×", l: "throughput" },
+    { v: "−75%", l: "desk time" },
+    { v: "same-day", l: "turnaround" },
+    { v: "−89%", l: "cost / report" },
+    { v: "98.4%", l: "accuracy · 0 hallucinations" },
+    { v: "audit-ready", l: "IBBI deficiencies removed" },
+  ],
   nabc: [
     {
       key: "N", title: "Need", subtitle: "Pain — validated", color: "#6366f1",
@@ -104,7 +114,7 @@ const VALUATION: Cfg = {
     {
       key: "A", title: "Approach", subtitle: "Our unique solution", color: "#0ea5e9",
       points: ["AI does extraction · cross-check · drafting → bank-ready report", "Valuer keeps inspection & sign-off · human-in-loop", "India-resident · source-cited · res / com / industrial"],
-      stats: [{ v: "98.4%", l: "AI accuracy" }, { v: "2–3 days → same day", l: "turnaround" }],
+      stats: [{ v: "98.4%", l: "accuracy · vs ~7.7% manual" }, { v: "2–3 days → same day", l: "turnaround" }],
     },
     {
       key: "B", title: "Benefit", subtitle: "Value to the valuer", color: "#10b981",
@@ -168,6 +178,14 @@ const FEASIBILITY: Cfg = {
     prove: ["Standalone tenancy & auth", "Quantified live pipeline", "Each lender's format"],
     upside: "Benchmark project data → moat · bank empanelment · govt + private capex surge",
   },
+  kpis: [
+    { v: "weeks → days", l: "turnaround" },
+    { v: "engineer-reviewed", l: "every report" },
+    { v: "0", l: "made-up facts" },
+    { v: "~70%", l: "build readiness" },
+    { v: "₹1–5 cr", l: "from 5–10 deals" },
+    { v: "recurring", l: "LIE monitoring" },
+  ],
   nabc: [
     {
       key: "N", title: "Need", subtitle: "Pain — confirmed", color: "#6366f1",
@@ -300,6 +318,16 @@ function Slide({ cfg }: { cfg: Cfg }) {
           <StandBody cfg={cfg} />
         </Panel>
       </div>
+      {cfg.kpis && (
+        <div className="mt-2 flex shrink-0 gap-1.5">
+          {cfg.kpis.map((k) => (
+            <div key={k.l} className="flex flex-1 flex-col items-center justify-center rounded-md border bg-muted/30 px-1.5 py-1 text-center">
+              <div className="text-[15px] font-bold leading-none text-brand">{k.v}</div>
+              <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{k.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="mt-2 shrink-0 text-[12.5px] leading-snug text-muted-foreground">{cfg.footer}</p>
     </div>
   );
