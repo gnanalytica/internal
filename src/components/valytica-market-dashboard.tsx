@@ -55,6 +55,7 @@ type Cfg = {
   eyebrow: string;
   title: string;
   subtitle: string;
+  problem?: string;
   badgeOk: string;
   badgeWarn: string;
   why: { icon: React.ComponentType<{ className?: string }>; t: string; s: string }[];
@@ -88,6 +89,8 @@ const VALUATION: Cfg = {
   title: "Trusted property valuation, in minutes — for every bank loan.",
   subtitle:
     "Residential, commercial, and industrial valuations that are fast, consistent, and bank-ready — the product-led wedge.",
+  problem:
+    "Banks have digitised nearly every step of lending — except the valuation it all rests on. It's still manual, subjective, and slow, leaving collateral integrity, turnaround, and audit defensibility dependent on a shrinking pool of valuers.",
   badgeOk: "✓ Problem confirmed",
   badgeWarn: "⚠ Market estimated",
   why: [
@@ -250,6 +253,8 @@ const FEASIBILITY: Cfg = {
   title: "Bankable project feasibility — TEV, LIE & DPR, on demand.",
   subtitle:
     "Techno-economic viability, lender's-engineer monitoring, and detailed project reports — for banks, government, and investors. The high-value engine.",
+  problem:
+    "Project lending and big-ticket capex hinge on feasibility — TEV, LIE, DPR — yet these stay slow, manual, consultant-bound studies that take weeks and vary in quality, even as government and private capex surge. Banks and sponsors wait, and bankability is hard to standardise or audit.",
   badgeOk: "✓ Demand confirmed",
   badgeWarn: "⚙ Carve-out from Valytica (planned)",
   why: [
@@ -358,7 +363,7 @@ const CONFIGS: Record<VisionVariant, Cfg> = { valuation: VALUATION, feasibility:
 // ============================ shell (scaled slide) ============================
 
 const BASE_W = 1600;
-const BASE_H = 980;
+const BASE_H = 1000;
 
 export function MarketVisionDashboard({ variant = "valuation" }: { variant?: VisionVariant }) {
   const cfg = CONFIGS[variant];
@@ -440,24 +445,21 @@ function Slide({ cfg }: { cfg: Cfg }) {
     <div className="flex h-full flex-col px-6 py-5">
       <Header cfg={cfg} />
       <div className="mt-2.5 grid flex-1 auto-rows-fr grid-cols-2 gap-2.5">
-        <Panel title="The opportunity, by type" icon={Building2}>
-          <OpportunityBody cfg={cfg} />
+        <Panel className="col-span-2" title="The market" icon={Building2}>
+          <MarketBody cfg={cfg} />
         </Panel>
+
         <Panel title="Feasibility · Desirability · Viability" icon={Check}>
           <FdvBody cfg={cfg} />
         </Panel>
-
         {cfg.impact && (
           <Panel title="The impact — faster, cheaper, unlocks volume" icon={Rocket}>
             <ImpactBody cfg={cfg} />
           </Panel>
         )}
+
         <Panel title="Where we stand · SWOT" icon={Zap}>
           <SwotBody cfg={cfg} />
-        </Panel>
-
-        <Panel title="Demand & supply" icon={TrendingUp}>
-          <StatsBody cfg={cfg} />
         </Panel>
         {cfg.trajectory && (
           <Panel title="Financial trajectory" icon={TrendingUp}>
@@ -476,7 +478,13 @@ function Header({ cfg }: { cfg: Cfg }) {
       <div className="min-w-0 flex-1">
         <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-blue-200">{cfg.eyebrow}</div>
         <h1 className="mt-1 text-[30px] font-bold leading-[1.05] tracking-tight">{cfg.title}</h1>
-        <p className="mt-1 max-w-[700px] text-[13.5px] leading-snug text-blue-100">{cfg.subtitle}</p>
+        <p className="mt-1 max-w-[760px] text-[13.5px] leading-snug text-blue-100">{cfg.subtitle}</p>
+        {cfg.problem && (
+          <p className="mt-2 max-w-[820px] border-l-2 border-white/40 pl-2.5 text-[12px] leading-snug text-blue-50">
+            <span className="font-semibold text-white">The problem — </span>
+            {cfg.problem}
+          </p>
+        )}
       </div>
       <div className="flex w-[320px] shrink-0 flex-col gap-1.5">
         <div className="flex items-center justify-end gap-1.5">
@@ -509,51 +517,70 @@ function Panel({ title, icon: Icon, className, children }: { title: string; icon
 
 // ---- bodies ----
 
-function OpportunityBody({ cfg }: { cfg: Cfg }) {
+function MarketBody({ cfg }: { cfg: Cfg }) {
   const total = cfg.segments.reduce((s, x) => s + x.value, 0);
-  const bt = cfg.buyers.reduce((s, x) => s + x.value, 0);
   const fmax = cfg.funnel[0].v;
+  const bt = cfg.buyers.reduce((s, x) => s + x.value, 0);
   return (
-    <div className="flex h-full flex-col gap-2">
-      <div className="flex items-center gap-3">
+    <div className="flex h-full items-stretch gap-4">
+      {/* market size: donut + segments */}
+      <div className="flex shrink-0 items-center gap-3 pr-4">
         <Donut
           data={cfg.segments}
-          size={104}
-          thickness={15}
+          size={120}
+          thickness={16}
           center={
             <div className="text-center">
-              <div className="text-[14px] font-bold leading-none">{inCr(total)}</div>
+              <div className="text-[15px] font-bold leading-none">{inCr(total)}</div>
               <div className="text-[9.5px] text-muted-foreground">per year</div>
             </div>
           }
         />
-        <ul className="flex-1 space-y-1.5">
+        <ul className="space-y-1.5">
           {cfg.segments.map((s) => (
-            <li key={s.label} className="flex items-center gap-1.5 text-[11.5px]">
+            <li key={s.label} className="flex items-center gap-1.5 text-[11px]">
               <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">{s.label}</span>
+              <span className="max-w-[150px] truncate text-muted-foreground">{s.label}</span>
               <span className="shrink-0 font-bold tabular-nums">{inCr(s.value)}</span>
-              <span className="w-7 shrink-0 text-right text-[10.5px] text-muted-foreground">{Math.round((s.value / total) * 100)}%</span>
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="flex-1 space-y-1.5">
+      {/* reachable funnel + buyers */}
+      <div className="flex flex-1 flex-col justify-center gap-2 border-x px-4">
         {cfg.funnel.map((f) => (
           <div key={f.l} className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[11px] font-medium text-muted-foreground">{f.l}</span>
+            <span className="w-20 shrink-0 text-[10.5px] font-medium text-muted-foreground">{f.l}</span>
             <div className="h-4 flex-1 overflow-hidden rounded bg-muted/60">
               <div className="h-full rounded" style={{ width: `${Math.max((f.v / fmax) * 100, 3)}%`, backgroundColor: f.color }} />
             </div>
             <span className="w-14 shrink-0 text-right text-[12px] font-bold tabular-nums">{inCr(f.v)}</span>
           </div>
         ))}
+        <div className="text-[10px] leading-snug text-muted-foreground">
+          <span className="font-semibold text-foreground">Buyers: </span>
+          {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
+        </div>
       </div>
 
-      <div className="rounded bg-muted/40 px-1.5 py-1 text-[10.5px] leading-snug text-muted-foreground">
-        <span className="font-semibold text-foreground">Buyers: </span>
-        {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
+      {/* demand & supply stats */}
+      <div className="grid w-[440px] shrink-0 grid-cols-2 gap-2">
+        {cfg.numbers.map((t) => (
+          <div
+            key={t.label}
+            className={cn(
+              "flex flex-col justify-center rounded-md border px-2 py-1",
+              t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
+              t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
+            )}
+          >
+            {t.icon && <t.icon className="mb-0.5 size-3.5 text-brand" />}
+            <div className="text-[17px] font-bold leading-none tabular-nums">{t.value}</div>
+            <div className="mt-0.5 text-[10px] font-medium leading-tight">{t.label}</div>
+            <div className="text-[9px] leading-tight text-muted-foreground">{t.sub}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -588,28 +615,6 @@ function FdvBody({ cfg }: { cfg: Cfg }) {
           <div className="mt-1 rounded bg-muted/50 px-1 py-0.5 text-[9.5px] font-medium leading-tight" style={{ color: n.color }}>
             → {n.lever}
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function StatsBody({ cfg }: { cfg: Cfg }) {
-  return (
-    <div className="grid h-full grid-cols-2 gap-1.5">
-      {cfg.numbers.map((t) => (
-        <div
-          key={t.label}
-          className={cn(
-            "flex flex-col justify-center rounded-md border px-1.5",
-            t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
-            t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
-          )}
-        >
-          {t.icon && <t.icon className="mb-0.5 size-3 text-brand" />}
-          <div className="text-[17px] font-bold leading-none tabular-nums">{t.value}</div>
-          <div className="mt-0.5 text-[10px] font-medium leading-tight">{t.label}</div>
-          <div className="text-[9.5px] leading-tight text-muted-foreground">{t.sub}</div>
         </div>
       ))}
     </div>
