@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Minus, RotateCcw, TriangleAlert, X } from "lucide-react";
+import { Check, Minus, Printer, RotateCcw, TriangleAlert, X } from "lucide-react";
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,6 +48,7 @@ const SECTIONS: { id: Section; label: string }[] = [
  * · Market). No Topbar of its own — the Marketing view supplies the page chrome.
  */
 export function ValyticaMarketDashboard() {
+  const [mode, setMode] = useState<"interactive" | "onepager">("interactive");
   const [section, setSection] = useState<Section>("sizing");
   const [bankVolM, setBankVolM] = useState(DEFAULTS.bankVolM);
   const [avgFee, setAvgFee] = useState(DEFAULTS.avgFee);
@@ -112,47 +114,90 @@ export function ValyticaMarketDashboard() {
     setAdoptPct(DEFAULTS.adoptPct);
   };
 
+  const printPager = () => {
+    if (typeof document === "undefined") return;
+    document.body.classList.add("printing-onepager");
+    const done = () => {
+      document.body.classList.remove("printing-onepager");
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+  };
+
   return (
     <div className="mx-auto w-full max-w-5xl">
-      {/* Hero */}
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">India property valuation &amp; feasibility-report market</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Sizing, pain points, desirability and go-to-market for Valytica — an AI valuation copilot for
-            Indian valuers. Figures are a model you can adjust; market data is unverified.
-          </p>
+      {/* View toggle: explore interactively, or the print-ready one-pager. */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex gap-1 rounded-lg border bg-muted/40 p-1">
+          {(["interactive", "onepager"] as const).map((md) => (
+            <button
+              key={md}
+              onClick={() => setMode(md)}
+              aria-pressed={mode === md}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm transition-colors",
+                mode === md
+                  ? "bg-background font-medium text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {md === "interactive" ? "Interactive" : "One-pager"}
+            </button>
+          ))}
         </div>
-        <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-          Modeled estimates · verify (#122)
-        </span>
-      </header>
-
-      {/* Section tabs */}
-      <div className="mb-5 flex flex-wrap gap-1 rounded-lg border bg-muted/40 p-1">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setSection(s.id)}
-            aria-pressed={section === s.id}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm transition-colors",
-              section === s.id
-                ? "bg-background font-medium text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {s.label}
-          </button>
-        ))}
+        {mode === "onepager" && (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={printPager}>
+            <Printer className="size-4" /> Print / PDF
+          </Button>
+        )}
       </div>
 
-      {section === "sizing" && (
-        <Sizing m={m} bankVolM={bankVolM} setBankVolM={setBankVolM} avgFee={avgFee} setAvgFee={setAvgFee} adoptPct={adoptPct} setAdoptPct={setAdoptPct} reset={reset} />
+      {mode === "onepager" ? (
+        <OnePager m={m} />
+      ) : (
+        <>
+          {/* Hero */}
+          <header className="mb-5 flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">India property valuation &amp; feasibility-report market</h1>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Sizing, pain points, desirability and go-to-market for Valytica — an AI valuation copilot for
+                Indian valuers. Figures are a model you can adjust; market data is unverified.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              Modeled estimates · verify (#122)
+            </span>
+          </header>
+
+          {/* Section tabs */}
+          <div className="mb-5 flex flex-wrap gap-1 rounded-lg border bg-muted/40 p-1">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSection(s.id)}
+                aria-pressed={section === s.id}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm transition-colors",
+                  section === s.id
+                    ? "bg-background font-medium text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {section === "sizing" && (
+            <Sizing m={m} bankVolM={bankVolM} setBankVolM={setBankVolM} avgFee={avgFee} setAvgFee={setAvgFee} adoptPct={adoptPct} setAdoptPct={setAdoptPct} reset={reset} />
+          )}
+          {section === "pain" && <PainPoints />}
+          {section === "fdv" && <Desirability />}
+          {section === "gtm" && <GoToMarket />}
+        </>
       )}
-      {section === "pain" && <PainPoints />}
-      {section === "fdv" && <Desirability />}
-      {section === "gtm" && <GoToMarket />}
     </div>
   );
 }
@@ -679,6 +724,154 @@ function GoToMarket() {
       </div>
 
       <SourceNote>Motion: WhatsApp outreach → free sample report → wallet / paid plan. Enterprise → sales@. Tasks live under the &quot;GTM · WhatsApp Launch&quot; milestone.</SourceNote>
+    </div>
+  );
+}
+
+// ============================ ONE-PAGER (print-ready slide) ============================
+
+function OPHead({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>
+  );
+}
+
+function OPStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: "brand" | "emerald" }) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border p-2",
+        tone === "brand" && "border-brand/30 bg-brand/5",
+        tone === "emerald" && "border-emerald-500/30 bg-emerald-500/5",
+      )}
+    >
+      <div className="text-[8.5px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-sm font-bold leading-tight">{value}</div>
+      <div className="text-[8.5px] text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+/** Compact, print-ready single-page version of the dashboard. Market numbers
+ * track the live model `m` so the two views never drift. */
+function OnePager({ m }: { m: Model }) {
+  return (
+    <div id="market-onepager" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      {/* Header band */}
+      <div
+        className="flex items-end justify-between gap-3 px-5 py-4 text-white"
+        style={{ background: "linear-gradient(110deg,#0b1f3a 0%,#13315c 55%,#1d4ed8 130%)" }}
+      >
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-200">Market &amp; Strategy · India</div>
+          <h2 className="mt-1 text-xl font-bold leading-tight">Property Valuation &amp; Feasibility-Report Market</h2>
+          <p className="mt-1 max-w-xl text-xs text-blue-100/90">Valytica — an AI valuation copilot for Indian valuers (Valuation · TEV · LIE · DPR).</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-1 text-[10px] font-semibold text-emerald-100">✓ Pain validated with users</span>
+          <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-1 text-[10px] font-semibold text-amber-100">⚠ Market figures modeled</span>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="grid gap-3 p-4 md:grid-cols-3">
+        {/* Market */}
+        <div className="rounded-lg border p-3">
+          <OPHead>Market opportunity</OPHead>
+          <div className="grid grid-cols-3 gap-2">
+            <OPStat label="Services" value={fmtCr(m.servicesTAM)} sub="activity" />
+            <OPStat label="Software TAM" value={fmtCr(m.softwareTAM)} sub="SaaS ceiling" tone="brand" />
+            <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR" tone="emerald" />
+          </div>
+          <div className="mt-3 space-y-2">
+            <FunnelBar label="TAM software market" value={m.softwareTAM} pct={100} color="#6366f1" note="all reports" />
+            <FunnelBar label="SAM reachable" value={m.sam} pct={40} color="#8b5cf6" note="40%" />
+            <FunnelBar label="SOM 3-yr capture" value={m.som} pct={(m.som / m.softwareTAM) * 100} color="#10b981" note="" />
+          </div>
+          <p className="mt-2 rounded-md border border-brand/20 bg-brand/5 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+            <span className="font-medium text-foreground">Two engines:</span> SaaS = software TAM ({fmtCr(m.softwareTAM)}); enterprise build / co-own taps services ({fmtCr(m.servicesTAM)}).
+          </p>
+        </div>
+
+        {/* Pain */}
+        <div className="rounded-lg border p-3">
+          <OPHead>Pain points · user-validated</OPHead>
+          <div className="space-y-2">
+            {PAIN.map((g) => (
+              <div key={g.group}>
+                <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold">
+                  <span className="size-2 rounded-full" style={{ backgroundColor: g.accent }} />
+                  {g.group}
+                </div>
+                <ul className="space-y-1">
+                  {g.items.slice(0, 3).map((it) => (
+                    <li key={it.t} className="flex items-start gap-1.5 text-[10.5px] leading-snug">
+                      <CoverDot cover={it.cover} />
+                      <span className="min-w-0">{it.t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* FDV */}
+        <div className="rounded-lg border p-3">
+          <OPHead>Desirability · FDV</OPHead>
+          <div className="space-y-2.5">
+            {LENSES.map((l) => (
+              <div key={l.label}>
+                <div className="mb-1 flex items-baseline justify-between text-[11px]">
+                  <span className="font-medium">{l.label}</span>
+                  <span className="text-[9.5px] text-muted-foreground">{l.tag}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60">
+                  <div className="h-full rounded-full" style={{ width: `${l.score}%`, backgroundColor: l.color }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 rounded-md px-2.5 py-2 text-[10px] leading-snug text-blue-50" style={{ backgroundColor: "#0b1f3a" }}>
+            <span className="font-semibold text-white">Built; pain validated.</span> Two engines — SaaS (subs blocked #119) + enterprise build / co-own (contract-billed). Left: demand (#123) &amp; willingness-to-pay.
+          </p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="grid gap-3 px-4 pb-3 md:grid-cols-2">
+        <div className="rounded-lg border p-3">
+          <OPHead>Pricing · SaaS engine</OPHead>
+          <div className="flex flex-wrap gap-2">
+            {TIERS.map((t) => (
+              <div key={t.name} className={cn("rounded-md border px-2.5 py-1.5", t.popular && "border-brand/50 bg-brand/5")}>
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{t.name}</div>
+                <div className="text-sm font-bold leading-tight">{t.price}</div>
+                <div className="text-[9px] text-muted-foreground">{t.note}</div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            <span className="font-medium text-brand">₹200/report</span> wallet (live) · subscriptions blocked (#119) · enterprise = contract-billed
+          </p>
+        </div>
+        <div className="rounded-lg border p-3">
+          <OPHead>Launch blockers &amp; tasks</OPHead>
+          <div className="flex flex-wrap gap-1.5">
+            {BLOCKERS.map((b) => (
+              <span key={b.id} className="flex items-center gap-1.5 rounded-full border bg-muted/40 px-2 py-1 text-[10px]">
+                <span className="font-mono text-[9px] text-muted-foreground">#{b.id}</span>
+                <span className="rounded px-1 text-[8px] font-bold uppercase text-white" style={{ backgroundColor: b.color }}>{b.type}</span>
+                <span className="max-w-[130px] truncate">{b.t}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 pb-4 text-[9.5px] leading-snug text-muted-foreground">
+        <span className="font-semibold">Sources / verify —</span> IBBI (valuer counts), RBI (loan &amp; project-finance volumes), RVOs (IOV / ICAI RVO / CVSRTA), plus valuer interviews. Software TAM = ₹200/report (grounded) + project reports; conversion funnel not yet instrumented — no numbers invented.
+      </div>
     </div>
   );
 }

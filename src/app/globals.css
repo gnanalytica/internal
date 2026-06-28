@@ -564,3 +564,26 @@ a.entity-ref {
   padding: 0.05em 0.15em;
   color: inherit;
 }
+
+/* Print just the Valytica market one-pager (hide all app chrome). Activated by
+   toggling `printing-onepager` on <body> around window.print(). */
+@media print {
+  body.printing-onepager * {
+    visibility: hidden;
+  }
+  body.printing-onepager #market-onepager,
+  body.printing-onepager #market-onepager * {
+    visibility: visible;
+  }
+  body.printing-onepager #market-onepager {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 24px;
+  }
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+}
