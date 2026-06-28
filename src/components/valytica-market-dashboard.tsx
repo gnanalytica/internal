@@ -5,13 +5,11 @@ import {
   Banknote,
   Building2,
   Check,
-  Circle,
   Clock,
   Landmark,
   Layers,
   Maximize,
   Printer,
-  Rocket,
   TrendingUp,
   Users,
   Zap,
@@ -72,6 +70,7 @@ type Cfg = {
     note?: string;
   };
   fdv: FdvLens[];
+  nabc: { key: string; title: string; subtitle: string; color: string; points: string[]; stats: { v: string; l: string }[] }[];
   swot: { key: string; title: string; color: string; items: string[] }[];
   team?: { name: string; role: string; color: string }[];
   teamNote?: string;
@@ -218,6 +217,28 @@ const VALUATION: Cfg = {
     { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["Comparable-data moat over time", "Cross-sell to feasibility (Atlas)", "Proptech / digital-lending tailwind"] },
     { key: "T", title: "Threats", color: "#f59e0b", items: ["Free / portal AVMs", "Banks' in-house AI", "Low willingness to pay per report"] },
   ],
+  nabc: [
+    {
+      key: "N", title: "Need", subtitle: "Pain — validated", color: "#6366f1",
+      points: ["Manual extraction · per-bank formats · month-end crunch", "Inconsistent quality, hard to audit", "Confirmed in user interviews"],
+      stats: [{ v: "~5M", l: "valuations / yr" }, { v: "~6,176", l: "valuers — too few" }],
+    },
+    {
+      key: "A", title: "Approach", subtitle: "Our unique solution", color: "#0ea5e9",
+      points: ["AI copilot: extract → cross-check → bank-ready report", "Human-in-loop · India-resident · source-cited", "Across residential, commercial & industrial"],
+      stats: [{ v: "98.4%", l: "AI accuracy" }, { v: "same day", l: "turnaround" }],
+    },
+    {
+      key: "B", title: "Benefit", subtitle: "Quantifiable value", color: "#10b981",
+      points: ["Valuer: 6 hrs → 1.5 hrs per report", "3–4× capacity · ~90% gross margin", "Bank: faster disbursal · audit-ready · lower NPA risk"],
+      stats: [{ v: "~9× cheaper", l: "₹2,000 → ₹220" }, { v: "₹180", l: "profit / report" }],
+    },
+    {
+      key: "C", title: "Competition", subtitle: "Who we're up against", color: "#f59e0b",
+      points: ["Sigmavalue (closest AI)", "Banks' in-house AI · portal estimators", "Our edge: bank-grade + human-in-loop + India"],
+      stats: [{ v: "white space", l: "AI · bank-grade · India" }, { v: "both", l: "valuation + feasibility" }],
+    },
+  ],
   team: [
     { name: "Sandeep", role: "CEO / CTO / Head of AI", color: "#5e6ad2" },
     { name: "Jayasaagar", role: "Chief Marketing & Product", color: "#0ea5e9" },
@@ -354,6 +375,28 @@ const FEASIBILITY: Cfg = {
     { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["Government + private capex surge", "Bank empanelment (Atlas-type firms)", "Benchmark project data over time"] },
     { key: "T", title: "Threats", color: "#f59e0b", items: ["Entrenched consultancies (Resurgent, Sapient)", "Relationship-driven sales", "Trust in AI for large projects"] },
   ],
+  nabc: [
+    {
+      key: "N", title: "Need", subtitle: "Pain — confirmed", color: "#6366f1",
+      points: ["TEV / LIE / DPR are slow, manual, consultant-bound", "Weeks of turnaround · uneven quality", "Demand across banks, govt, private, investors"],
+      stats: [{ v: "100k+", l: "DPRs / yr" }, { v: "₹2–50L", l: "per engagement" }],
+    },
+    {
+      key: "A", title: "Approach", subtitle: "Our unique solution", color: "#0ea5e9",
+      points: ["AI-drafted TEV/LIE/DPR, engineer-reviewed", "Declarative financial-model engine", "Chaptered · lender-ready · source-cited"],
+      stats: [{ v: "weeks → days", l: "turnaround" }, { v: "0", l: "made-up facts" }],
+    },
+    {
+      key: "B", title: "Benefit", subtitle: "Quantifiable value", color: "#10b981",
+      points: ["Firms: more engagements with the same team", "Banks: faster, standardised, auditable appraisals", "Recurring LIE monitoring revenue"],
+      stats: [{ v: "₹1–5 cr", l: "from 5–10 deals" }, { v: "recurring", l: "LIE revenue" }],
+    },
+    {
+      key: "C", title: "Competition", subtitle: "Who we're up against", color: "#f59e0b",
+      points: ["Resurgent · Sapient · MITCON (manual, weeks)", "Banks' in-house project teams", "Our edge: AI speed, same lender formats"],
+      stats: [{ v: "100s", l: "consultancies" }, { v: "AI-first", l: "vs manual" }],
+    },
+  ],
   footer:
     "Prices/values are indicative; market sizes are modeled estimates to confirm — based on public industry and government data (govt capex, private-capex survey, MSME DPR pricing). Atlas is the planned carve-out of Valytica's feasibility engine.",
 };
@@ -449,16 +492,11 @@ function Slide({ cfg }: { cfg: Cfg }) {
           <MarketBody cfg={cfg} />
         </Panel>
 
-        <Panel title="Feasibility · Desirability · Viability" icon={Check}>
-          <FdvBody cfg={cfg} />
+        <Panel className="col-span-2" title="NABC — Need · Approach · Benefit · Competition" icon={Check}>
+          <NabcBody cfg={cfg} />
         </Panel>
-        {cfg.impact && (
-          <Panel title="The impact — faster, cheaper, unlocks volume" icon={Rocket}>
-            <ImpactBody cfg={cfg} />
-          </Panel>
-        )}
 
-        <Panel title="Where we stand · SWOT" icon={Zap}>
+        <Panel className={cfg.trajectory ? undefined : "col-span-2"} title="Where we stand · SWOT" icon={Zap}>
           <SwotBody cfg={cfg} />
         </Panel>
         {cfg.trajectory && (
@@ -586,69 +624,36 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
   );
 }
 
-function FdvBody({ cfg }: { cfg: Cfg }) {
+function NabcBody({ cfg }: { cfg: Cfg }) {
   return (
-    <div className="grid h-full grid-cols-3 gap-1.5">
-      {cfg.fdv.map((n) => (
-        <div key={n.label} className="flex min-h-0 flex-col rounded-md border p-1.5" style={{ borderColor: `${n.color}44`, background: `${n.color}08` }}>
+    <div className="grid h-full grid-cols-4 gap-2">
+      {cfg.nabc.map((n) => (
+        <div key={n.key} className="flex min-h-0 flex-col rounded-md border p-2" style={{ borderColor: `${n.color}44`, background: `${n.color}07` }}>
           <div className="flex items-center gap-1.5">
-            <Gauge score={n.score} color={n.color} />
+            <span className="grid size-6 shrink-0 place-items-center rounded-md text-[13px] font-bold text-white" style={{ backgroundColor: n.color }}>{n.key}</span>
             <div className="min-w-0">
-              <div className="text-[12px] font-bold leading-none" style={{ color: n.color }}>{n.label}</div>
-              <div className="mt-0.5 text-[9.5px] leading-tight text-muted-foreground">{n.state}</div>
+              <div className="text-[12.5px] font-bold leading-none" style={{ color: n.color }}>{n.title}</div>
+              <div className="mt-0.5 text-[9px] leading-tight text-muted-foreground">{n.subtitle}</div>
             </div>
           </div>
-          <ul className="mt-1.5 flex min-h-0 flex-1 flex-col justify-between">
-            {n.rows.map((r) => {
-              const ok = r.s === "ok";
-              const Icon = ok ? Check : Circle;
-              const color = ok ? "#10b981" : "#f59e0b";
-              return (
-                <li key={r.t} className="flex items-center gap-1 text-[9.5px] leading-tight">
-                  <Icon className="size-2.5 shrink-0" style={{ color }} />
-                  <span className="min-w-0 flex-1 truncate text-foreground/90">{r.t}</span>
-                  {r.v && <span className="shrink-0 font-bold tabular-nums" style={{ color }}>{r.v}</span>}
-                </li>
-              );
-            })}
+          <ul className="mt-2 min-h-0 flex-1 space-y-1">
+            {n.points.map((p) => (
+              <li key={p} className="flex items-start gap-1 text-[10px] leading-snug text-foreground/90">
+                <span className="mt-1 size-1 shrink-0 rounded-full" style={{ backgroundColor: n.color }} />
+                <span>{p}</span>
+              </li>
+            ))}
           </ul>
-          <div className="mt-1 rounded bg-muted/50 px-1 py-0.5 text-[9.5px] font-medium leading-tight" style={{ color: n.color }}>
-            → {n.lever}
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            {n.stats.map((s) => (
+              <div key={s.l} className="rounded bg-muted/50 px-1 py-1 text-center">
+                <div className="text-[13px] font-bold leading-none" style={{ color: n.color }}>{s.v}</div>
+                <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{s.l}</div>
+              </div>
+            ))}
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function ImpactBody({ cfg }: { cfg: Cfg }) {
-  const im = cfg.impact!;
-  return (
-    <div className="flex h-full flex-col gap-1.5">
-      <div className="grid grid-cols-2 gap-1.5">
-        {im.deltas.map((d) => (
-          <div key={d.label} className="rounded-md border bg-background px-1.5 py-1">
-            <div className="text-[9.5px] uppercase tracking-wide text-muted-foreground">{d.label}</div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[10px] text-muted-foreground">{d.before}</span>
-              <span className="text-[10px] text-emerald-500">→</span>
-              <span className="text-[13px] font-bold text-emerald-600 dark:text-emerald-400">{d.after}</span>
-            </div>
-            <div className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{d.gain}</div>
-          </div>
-        ))}
-      </div>
-      <div className="min-h-0 flex-1">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Unlocks new volume</div>
-        <ul className="mt-0.5 grid grid-cols-2 gap-x-2 gap-y-0.5">
-          {im.unlocks.map((u) => (
-            <li key={u.title} className="flex items-start gap-1 text-[10px] leading-tight">
-              <Rocket className="mt-px size-2.5 shrink-0 text-emerald-500" />
-              <span className="font-medium">{u.title}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }
@@ -685,19 +690,5 @@ function TrajectoryBody({ cfg }: { cfg: Cfg }) {
       </div>
       <p className="mt-1 text-[9.5px] leading-tight text-muted-foreground">{cfg.trajectory!.note}</p>
     </div>
-  );
-}
-
-function Gauge({ score, color }: { score: number; color: string }) {
-  return (
-    <Donut
-      size={40}
-      thickness={5}
-      data={[
-        { label: "", value: score, color },
-        { label: "", value: Math.max(100 - score, 0.001), color: "transparent" },
-      ]}
-      center={<span className="text-[12px] font-bold" style={{ color }}>{score}</span>}
-    />
   );
 }
