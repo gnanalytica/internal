@@ -15,7 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 
-import { AreaChart, type Slice } from "@/components/charts";
+import { ColumnChart, Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -346,8 +346,10 @@ function Panel({ title, icon: Icon, className, children }: { title: string; icon
 
 function MarketBody({ cfg }: { cfg: Cfg }) {
   const total = cfg.segments.reduce((s, x) => s + x.value, 0);
-  const fmax = cfg.funnel[0].v;
   const bt = cfg.buyers.reduce((s, x) => s + x.value, 0);
+  const whole = cfg.funnel[0].v;
+  const reach = cfg.funnel[1].v;
+  const reachPct = Math.round((reach / whole) * 100);
   return (
     <div className="flex h-full items-stretch gap-4">
       {/* market by type — stacked bar */}
@@ -373,30 +375,52 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
         </ul>
       </div>
 
-      {/* reachable funnel (shape) + 3-yr area ramp */}
-      <div className="flex flex-1 flex-col justify-center gap-2 border-x px-4">
-        <div className="space-y-1">
-          {cfg.funnel.map((f) => (
-            <div
-              key={f.l}
-              className="mx-auto flex items-center justify-between rounded px-2.5 py-1 text-[12.5px] font-semibold text-white"
-              style={{ width: `${Math.max((f.v / fmax) * 100, 36)}%`, backgroundColor: f.color }}
-            >
-              <span>{f.l}</span>
-              <span className="tabular-nums">{inCr(f.v)}</span>
-            </div>
-          ))}
+      {/* reachability donut + 3-yr revenue columns */}
+      <div className="flex flex-1 flex-col justify-center gap-3 border-x px-4">
+        <div>
+          <div className="mb-1.5 text-[12.5px] font-semibold uppercase tracking-wide text-muted-foreground">Reachable market</div>
+          <div className="flex items-center gap-3">
+            <Donut
+              size={96}
+              thickness={15}
+              data={[
+                { label: cfg.funnel[1].l, value: reach, color: cfg.funnel[1].color },
+                { label: "Rest of market", value: whole - reach, color: "#cbd5e1" },
+              ]}
+              center={
+                <div className="leading-none">
+                  <div className="text-[18px] font-bold tabular-nums">{reachPct}%</div>
+                  <div className="mt-0.5 text-[9px] text-muted-foreground">reach</div>
+                </div>
+              }
+            />
+            <ul className="min-w-0 flex-1 space-y-1.5 text-[12.5px]">
+              <li className="flex items-center gap-1.5">
+                <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: cfg.funnel[1].color }} />
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">{cfg.funnel[1].l}</span>
+                <span className="shrink-0 font-bold tabular-nums">{inCr(reach)}</span>
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="size-2.5 shrink-0 rounded-sm bg-slate-300" />
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">{cfg.funnel[0].l}</span>
+                <span className="shrink-0 font-bold tabular-nums">{inCr(whole)}</span>
+              </li>
+            </ul>
+          </div>
         </div>
         {cfg.trajectory && (
-          <div className="mt-0.5">
+          <div>
             <div className="mb-0.5 flex items-baseline justify-between text-[12.5px]">
               <span className="font-medium text-muted-foreground">3-yr revenue ramp</span>
               <span className="font-bold">{inCr(cfg.trajectory.years[cfg.trajectory.years.length - 1].value)} by Y3</span>
             </div>
-            <AreaChart
-              data={cfg.trajectory.years.map((y) => ({ label: y.label, value: y.value }))}
-              color="#10b981"
-              height={88}
+            <ColumnChart
+              data={cfg.trajectory.years.map((y, i) => ({
+                label: y.label.replace("Year ", "Y"),
+                value: y.value,
+                color: ["#6ee7b7", "#34d399", "#10b981"][i] ?? "#10b981",
+              }))}
+              height={96}
               format={(n) => `₹${n}cr`}
             />
           </div>
@@ -453,8 +477,8 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
                 <div className="mt-0.5 truncate text-[10.5px] leading-tight text-muted-foreground">{n.subtitle}</div>
               </div>
             </div>
-            {/* points */}
-            <ul className="mt-2 shrink-0 space-y-1.5">
+            {/* points — absorb the slack so every metric block lands at the same height */}
+            <ul className="mt-2 min-h-0 flex-1 space-y-1.5">
               {n.points.map((p) => (
                 <li key={p} className="flex items-start gap-1 text-[11.5px] leading-snug text-foreground/90">
                   <span className="mt-1 size-1 shrink-0 rounded-full" style={{ backgroundColor: n.color }} />
@@ -462,9 +486,9 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
                 </li>
               ))}
             </ul>
-            {/* hero metric — grows to fill the column and anchors the payoff of each stage */}
+            {/* hero metric — fixed height + bottom-aligned so all four squares are uniform */}
             <div
-              className="mt-2 flex min-h-0 flex-1 flex-col justify-center rounded-md px-2 py-2 text-center"
+              className="mt-2 flex h-44 shrink-0 flex-col justify-center rounded-md px-2 py-2 text-center"
               style={{ background: `${n.color}16`, border: `1px solid ${n.color}26` }}
             >
               <div className="text-[22px] font-extrabold leading-[1.05]" style={{ color: n.color }}>{n.stats[0].v}</div>
