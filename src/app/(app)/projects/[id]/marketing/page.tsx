@@ -31,6 +31,7 @@ export default async function ProjectMarketingPage({
     <MarketingView
       heading={`${project.name} · Marketing`}
       scopeProjectId={id}
+      productKey={project.key}
       projects={projects}
       initialCampaigns={campaigns}
       initialContent={content}
