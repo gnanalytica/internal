@@ -103,12 +103,12 @@ const VALUATION: Cfg = {
     },
     {
       key: "A", title: "Approach", subtitle: "Our unique solution", color: "#0ea5e9",
-      points: ["AI copilot: extract → cross-check → bank-ready report", "Human-in-loop · India-resident · source-cited", "Across residential, commercial & industrial"],
-      stats: [{ v: "98.4%", l: "AI accuracy" }, { v: "same day", l: "turnaround" }],
+      points: ["AI does extraction · cross-check · drafting → bank-ready report", "Valuer keeps inspection & sign-off · human-in-loop", "India-resident · source-cited · res / com / industrial"],
+      stats: [{ v: "98.4%", l: "AI accuracy" }, { v: "2–3 days → same day", l: "turnaround" }],
     },
     {
       key: "B", title: "Benefit", subtitle: "Value to the valuer", color: "#10b981",
-      points: ["6 hrs → 1.5 hrs per report", "3–4× capacity → more reports & income", "Later: banks get faster, auditable reports"],
+      points: ["Desk work: 6 hrs → 1.5 hrs / report", "3–4× capacity → more reports & income", "Later: banks get faster, auditable reports"],
       stats: [{ v: "~9× cheaper", l: "₹2,000 → ₹220" }, { v: "₹180", l: "profit / report" }],
     },
     {
