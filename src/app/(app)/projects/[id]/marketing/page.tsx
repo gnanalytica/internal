@@ -34,7 +34,6 @@ export default async function ProjectMarketingPage({
       projects={projects}
       initialCampaigns={campaigns}
       initialContent={content}
-      showMarket={project.key === "VAL"}
     />
   );
 }
