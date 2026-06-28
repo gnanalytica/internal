@@ -67,9 +67,9 @@ const VALUATION: Cfg = {
   badgeOk: "✓ Problem confirmed",
   badgeWarn: "⚠ Market estimated",
   numbers: [
-    { label: "Bank valuations / yr", value: "~5M", sub: "report volume", icon: Layers },
-    { label: "Registered valuers", value: "~6,176", sub: "IBBI-registered", icon: Users },
-    { label: "Bank-empanelled pool", value: "10k+", sub: "wider supply", icon: Landmark },
+    { label: "Valuations needed / yr", value: "~5M", sub: "total property-loan demand", icon: Layers },
+    { label: "Addressable paid reports", value: "~1M", sub: "res / com / industrial", icon: Landmark },
+    { label: "Registered valuers", value: "~6,176", sub: "IBBI · too few for the load", icon: Users },
     { label: "Fee per valuation", value: "₹2.5–4k", sub: "borrower pays · bank-mandated", tone: "brand", icon: Banknote },
   ],
   segments: [
@@ -126,7 +126,7 @@ const VALUATION: Cfg = {
     note: "Modeled 3-yr revenue ramp: SaaS (₹6 cr floor) + value-based pricing + enterprise / co-own deals.",
   },
   footer:
-    "Prices are real. Market sizes are modeled estimates we still need to confirm — based on public industry and government data. Valuation and feasibility are two related but separate markets (feasibility lives in Atlas).",
+    "Prices are real. Market sizes are modeled estimates we still need to confirm. ₹3,000 cr ≈ ~1M paid res/com/industrial reports at ₹2.5–4k — the addressable subset of ~5M total property-loan valuations. Valuation and feasibility are separate markets (feasibility lives in Atlas).",
 };
 
 // ============================ ATLAS · feasibility ============================
