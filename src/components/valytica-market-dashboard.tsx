@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Minus, Printer, RotateCcw, TriangleAlert, X } from "lucide-react";
+import { Check, Maximize, Minus, Printer, RotateCcw, TriangleAlert, X } from "lucide-react";
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,15 @@ export function ValyticaMarketDashboard() {
     window.print();
   };
 
+  const fullscreenPager = () => {
+    const el = document.getElementById("market-onepager") as
+      | (HTMLElement & { webkitRequestFullscreen?: () => void })
+      | null;
+    if (!el) return;
+    if (el.requestFullscreen) void el.requestFullscreen();
+    else el.webkitRequestFullscreen?.();
+  };
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       {/* View toggle: explore interactively, or the print-ready one-pager. */}
@@ -147,9 +156,14 @@ export function ValyticaMarketDashboard() {
           ))}
         </div>
         {mode === "onepager" && (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={printPager}>
-            <Printer className="size-4" /> Print / PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={fullscreenPager}>
+              <Maximize className="size-4" /> Full screen
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={printPager}>
+              <Printer className="size-4" /> Print / PDF
+            </Button>
+          </div>
         )}
       </div>
 
