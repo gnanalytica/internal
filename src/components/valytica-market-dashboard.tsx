@@ -54,6 +54,7 @@ type Cfg = {
   title: string;
   subtitle: string;
   problem?: string;
+  customer?: string;
   badgeOk: string;
   badgeWarn: string;
   why: { icon: React.ComponentType<{ className?: string }>; t: string; s: string }[];
@@ -86,11 +87,11 @@ const inCr = (v: number) => `₹${v.toLocaleString("en-IN")} cr`;
 
 const VALUATION: Cfg = {
   eyebrow: "Valytica · CEO Vision · India",
-  title: "Trusted property valuation, in minutes — for every bank loan.",
+  title: "Valuation reports in minutes — built for India's valuers.",
   subtitle:
     "Residential, commercial, and industrial valuations that are fast, consistent, and bank-ready — the product-led wedge.",
   problem:
-    "Banks have digitised nearly every step of lending — except the valuation it all rests on. It's still manual, subjective, and slow, leaving collateral integrity, turnaround, and audit defensibility dependent on a shrinking pool of valuers.",
+    "India's property valuers are buried in manual work — document extraction, per-bank reformatting, month-end crunch — capping their throughput and income while output stays slow and inconsistent, just as the empanelled pool shrinks.",
   badgeOk: "✓ Problem confirmed",
   badgeWarn: "⚠ Market estimated",
   why: [
@@ -121,6 +122,7 @@ const VALUATION: Cfg = {
     { l: "We can reach", v: 800, color: "#8b5cf6" },
   ],
   combinedNote: "₹3,000 cr valuation · ₹7,500 cr with feasibility (Atlas)",
+  customer: "We sell to: empanelled valuers & firms · banks = later",
   buyers: [
     { label: "Banks & NBFCs (lending)", value: 2400, color: "#1d4ed8" },
     { label: "Investors / M&A / insurance", value: 400, color: "#10b981" },
@@ -230,13 +232,13 @@ const VALUATION: Cfg = {
       stats: [{ v: "98.4%", l: "AI accuracy" }, { v: "same day", l: "turnaround" }],
     },
     {
-      key: "B", title: "Benefit", subtitle: "Quantifiable value", color: "#10b981",
-      points: ["Valuer: 6 hrs → 1.5 hrs per report", "3–4× capacity · ~90% gross margin", "Bank: faster disbursal · audit-ready · lower NPA risk"],
+      key: "B", title: "Benefit", subtitle: "Value to the valuer", color: "#10b981",
+      points: ["6 hrs → 1.5 hrs per report", "3–4× capacity → more reports & income", "Later: banks get faster, auditable reports"],
       stats: [{ v: "~9× cheaper", l: "₹2,000 → ₹220" }, { v: "₹180", l: "profit / report" }],
     },
     {
       key: "C", title: "Competition", subtitle: "Who we're up against", color: "#f59e0b",
-      points: ["Sigmavalue (closest AI)", "Banks' in-house AI · portal estimators", "Our edge: bank-grade + human-in-loop + India"],
+      points: ["Sigmavalue — closest valuer AI", "Manual / spreadsheets (status quo)", "Edge: human-in-loop · India · bank-grade"],
       stats: [{ v: "white space", l: "AI · bank-grade · India" }, { v: "both", l: "valuation + feasibility" }],
     },
   ],
@@ -276,7 +278,7 @@ const FEASIBILITY: Cfg = {
   subtitle:
     "Techno-economic viability, lender's-engineer monitoring, and detailed project reports — for banks, government, and investors. The high-value engine.",
   problem:
-    "Project lending and big-ticket capex hinge on feasibility — TEV, LIE, DPR — yet these stay slow, manual, consultant-bound studies that take weeks and vary in quality, even as government and private capex surge. Banks and sponsors wait, and bankability is hard to standardise or audit.",
+    "Advisory and engineering firms producing TEV / LIE / DPR are stuck with slow, manual, weeks-long studies that cap how many projects they can take on — even as government and private capex surge and bankability stays hard to standardise.",
   badgeOk: "✓ Demand confirmed",
   badgeWarn: "⚙ Carve-out from Valytica (planned)",
   why: [
@@ -307,6 +309,7 @@ const FEASIBILITY: Cfg = {
     { l: "We can reach", v: 900, color: "#f59e0b" },
   ],
   combinedNote: "₹4,500 cr feasibility · ₹7,500 cr with valuation (Valytica)",
+  customer: "We sell to: advisory & engineering firms · banks/govt = later",
   buyers: [
     { label: "Banks & NBFCs", value: 1500, color: "#1d4ed8" },
     { label: "Government & tenders", value: 1500, color: "#0ea5e9" },
@@ -388,8 +391,8 @@ const FEASIBILITY: Cfg = {
       stats: [{ v: "weeks → days", l: "turnaround" }, { v: "0", l: "made-up facts" }],
     },
     {
-      key: "B", title: "Benefit", subtitle: "Quantifiable value", color: "#10b981",
-      points: ["Firms: more engagements with the same team", "Banks: faster, standardised, auditable appraisals", "Recurring LIE monitoring revenue"],
+      key: "B", title: "Benefit", subtitle: "Value to the firm", color: "#10b981",
+      points: ["More engagements with the same team", "Recurring LIE monitoring revenue", "Later: banks get faster, auditable appraisals"],
       stats: [{ v: "₹1–5 cr", l: "from 5–10 deals" }, { v: "recurring", l: "LIE revenue" }],
     },
     {
@@ -607,11 +610,14 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
           </div>
         )}
         <div className="text-[10px] leading-snug text-muted-foreground">
-          <span className="font-semibold text-foreground">Buyers: </span>
+          <span className="font-semibold text-foreground">Commissioned by: </span>
           {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
         </div>
+        {cfg.customer && (
+          <div className="rounded bg-brand/10 px-1.5 py-1 text-[10px] font-semibold text-brand">{cfg.customer}</div>
+        )}
         {cfg.combinedNote && (
-          <div className="text-[10px] font-medium text-brand">{cfg.combinedNote}</div>
+          <div className="text-[10px] font-medium text-muted-foreground">{cfg.combinedNote}</div>
         )}
       </div>
 
