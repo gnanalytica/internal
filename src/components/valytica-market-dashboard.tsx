@@ -358,7 +358,7 @@ const CONFIGS: Record<VisionVariant, Cfg> = { valuation: VALUATION, feasibility:
 // ============================ shell (scaled slide) ============================
 
 const BASE_W = 1600;
-const BASE_H = 820;
+const BASE_H = 980;
 
 export function MarketVisionDashboard({ variant = "valuation" }: { variant?: VisionVariant }) {
   const cfg = CONFIGS[variant];
@@ -439,27 +439,28 @@ function Slide({ cfg }: { cfg: Cfg }) {
   return (
     <div className="flex h-full flex-col px-6 py-5">
       <Header cfg={cfg} />
-      <div className="mt-2.5 grid flex-1 auto-rows-fr grid-cols-12 gap-2.5">
-        <Panel className="col-span-4" title="The opportunity, by type" icon={Building2}>
+      <div className="mt-2.5 grid flex-1 auto-rows-fr grid-cols-2 gap-2.5">
+        <Panel title="The opportunity, by type" icon={Building2}>
           <OpportunityBody cfg={cfg} />
         </Panel>
-        <Panel className="col-span-5" title="Feasibility · Desirability · Viability" icon={Check}>
+        <Panel title="Feasibility · Desirability · Viability" icon={Check}>
           <FdvBody cfg={cfg} />
-        </Panel>
-        <Panel className="col-span-3" title="Demand & supply" icon={TrendingUp}>
-          <StatsBody cfg={cfg} />
         </Panel>
 
         {cfg.impact && (
-          <Panel className="col-span-5" title="The impact — faster, cheaper, unlocks volume" icon={Rocket}>
+          <Panel title="The impact — faster, cheaper, unlocks volume" icon={Rocket}>
             <ImpactBody cfg={cfg} />
           </Panel>
         )}
-        <Panel className={cfg.impact ? "col-span-4" : "col-span-12"} title="Where we stand · SWOT" icon={Zap}>
+        <Panel title="Where we stand · SWOT" icon={Zap}>
           <SwotBody cfg={cfg} />
         </Panel>
+
+        <Panel title="Demand & supply" icon={TrendingUp}>
+          <StatsBody cfg={cfg} />
+        </Panel>
         {cfg.trajectory && (
-          <Panel className="col-span-3" title="Financial trajectory" icon={TrendingUp}>
+          <Panel title="Financial trajectory" icon={TrendingUp}>
             <TrajectoryBody cfg={cfg} />
           </Panel>
         )}
