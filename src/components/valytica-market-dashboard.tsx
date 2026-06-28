@@ -11,7 +11,6 @@ import {
   Layers,
   Maximize,
   Printer,
-  TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
@@ -37,47 +36,21 @@ export type VisionVariant = "valuation" | "feasibility";
 // ============================ config types ============================
 
 type Tile = { label: string; value: string; sub: string; tone?: "brand" | "emerald"; icon?: React.ComponentType<{ className?: string }> };
-type Stat = "ok" | "next";
-type StatRowT = { s: Stat; t: string; v?: string };
-type BarT = { label: string; right: string; parts: { pct: number; color: string }[] };
-type FdvLens = {
-  label: string;
-  score: number;
-  color: string;
-  state: string;
-  rows: StatRowT[];
-  bar: BarT;
-  lever: string;
-  unlocks: string;
-};
 type Cfg = {
   eyebrow: string;
   title: string;
-  subtitle: string;
   problem?: string;
   customer?: string;
   badgeOk: string;
   badgeWarn: string;
-  why: { icon: React.ComponentType<{ className?: string }>; t: string; s: string }[];
-  horizons: { n: string; title: string; when: string; color: string; proof: string }[];
   numbers: Tile[];
   segments: Slice[];
-  segmentsNote: string;
   funnel: { l: string; v: number; color: string }[];
   combinedNote?: string;
   buyers: Slice[];
-  impact?: {
-    deltas: { label: string; before: string; after: string; gain: string }[];
-    whyItMatters: string[];
-    unlocks: { title: string; detail: string }[];
-    note?: string;
-  };
-  fdv: FdvLens[];
   nabc: { key: string; title: string; subtitle: string; color: string; points: string[]; stats: { v: string; l: string }[] }[];
-  swot: { key: string; title: string; color: string; items: string[] }[];
-  team?: { name: string; role: string; color: string }[];
-  teamNote?: string;
-  traction?: { label: string; state: "done" | "now" | "next" }[];
+  // "Where we are" execution band — proof (done/now/next), the honest gaps, and the upside.
+  stand: { done: string[]; now: string[]; next: string[]; prove: string[]; upside: string };
   trajectory?: { years: { label: string; value: number }[]; note: string };
   footer: string;
 };
@@ -89,22 +62,10 @@ const inCr = (v: number) => `₹${v.toLocaleString("en-IN")} cr`;
 const VALUATION: Cfg = {
   eyebrow: "Valytica · CEO Vision · India",
   title: "Valuation reports in minutes — built for India's valuers.",
-  subtitle:
-    "Residential, commercial, and industrial valuations that are fast, consistent, and bank-ready — the product-led wedge.",
   problem:
     "India's property valuers are buried in manual work — document extraction, per-bank reformatting, month-end crunch — capping their throughput and income while output stays slow and inconsistent, just as the empanelled pool shrinks.",
   badgeOk: "✓ Problem confirmed",
   badgeWarn: "⚠ Market estimated",
-  why: [
-    { icon: TrendingUp, t: "More loans every year", s: "231M loans a year in India" },
-    { icon: Building2, t: "Too few valuers", s: "~6,176 registered valuers" },
-    { icon: Zap, t: "AI is finally good enough", s: "bank-ready reports, fast" },
-  ],
-  horizons: [
-    { n: "1", title: "Win the report", when: "Now", color: "#1d4ed8", proof: "Live now — ₹180 profit per report" },
-    { n: "2", title: "Own the workflow", when: "1–2 years", color: "#7c3aed", proof: "Subscriptions + firm accounts" },
-    { n: "3", title: "Set the standard", when: "2 years +", color: "#10b981", proof: "Comparable data no rival can copy" },
-  ],
   numbers: [
     { label: "Bank valuations / yr", value: "~5M", sub: "report volume", icon: Layers },
     { label: "Registered valuers", value: "~6,176", sub: "IBBI-registered", icon: Users },
@@ -116,8 +77,6 @@ const VALUATION: Cfg = {
     { label: "Commercial valuation", value: 900, color: "#0ea5e9" },
     { label: "Industrial / plant & machinery", value: 800, color: "#14b8a6" },
   ],
-  segmentsNote:
-    "Modeled estimate of property-valuation fees pan-India — anchored to the APAC valuation market (~$1.9B, 2024; residential ~75% of transactions). Range ~₹2,500–3,500 cr; exact splits to confirm.",
   funnel: [
     { l: "Whole market", v: 3000, color: "#6366f1" },
     { l: "We can reach", v: 800, color: "#8b5cf6" },
@@ -129,98 +88,13 @@ const VALUATION: Cfg = {
     { label: "Investors / M&A / insurance", value: 400, color: "#10b981" },
     { label: "Government / legal (tax, IBC)", value: 200, color: "#0ea5e9" },
   ],
-  impact: {
-    deltas: [
-      { label: "Turnaround per report", before: "2–3 days", after: "same day", gain: "~80% faster" },
-      { label: "Analyst time / report", before: "~6 hrs", after: "~1.5 hrs", gain: "~75% less" },
-      { label: "Cost to produce", before: "~₹2,000", after: "~₹220", gain: "~9× cheaper" },
-      { label: "Throughput / valuer", before: "1–2 / day", after: "4–6 / day", gain: "3–4× capacity" },
-    ],
-    whyItMatters: [
-      "Month- & quarter-end crunch — volume spikes overwhelm valuers; AI absorbs the surge",
-      "Audit-ready — every value is source-cited, so audits are faster and liability drops",
-      "Cross-document checks — auto-flags area / ownership conflicts a manual review can miss",
-      "Consistency — banks get standardized, comparable reports across all panel valuers",
-      "Maintenance & tracking — searchable case history instead of scattered files",
-    ],
-    unlocks: [
-      { title: "Small-ticket & rural loans", detail: "cases too costly to value by hand become viable — new volume" },
-      { title: "Periodic re-valuations at scale", detail: "banks can re-check collateral portfolios regularly, not rarely" },
-      { title: "Instant / digital lending", detail: "same-day valuation enables real-time loan decisions" },
-      { title: "Tier-2 / 3 expansion", detail: "serve regions where valuer supply is thin" },
-    ],
-    note: "Lower cost + faster turnaround expands the reachable market beyond today's ₹650 cr by making volume that was previously uneconomic worth doing.",
+  stand: {
+    done: ["Built & live · 3 asset classes", "Grounded AI · 98.4% · 0 hallucinations", "~90% gross margin · ₹180 / report"],
+    now: ["Early users & pilots", "Instrumenting usage & retention"],
+    next: ["Switch on subscriptions", "Land bank / enterprise deals"],
+    prove: ["Recurring revenue", "Willingness to pay / report", "Retention at scale"],
+    upside: "Learns from each valuer → comparable-data moat · Atlas (feasibility) cross-sell · digital-lending tailwind",
   },
-  fdv: [
-    {
-      label: "Feasibility",
-      score: 80,
-      color: "#10b981",
-      state: "Shipped · proven unit economics",
-      rows: [
-        { s: "ok", t: "Live for residential, commercial, industrial" },
-        { s: "ok", t: "Reliable, source-checked AI output" },
-        { s: "ok", t: "Gross profit per report", v: "₹180" },
-        { s: "ok", t: "Sells ₹200 · costs ₹20" },
-        { s: "next", t: "India-based AI infrastructure" },
-      ],
-      bar: { label: "Gross margin", right: "~90%", parts: [{ pct: 90, color: "#10b981" }] },
-      lever: "Move AI to India servers",
-      unlocks: "banks trust us",
-    },
-    {
-      label: "Desirability",
-      score: 64,
-      color: "#f59e0b",
-      state: "Demand validated, not yet measured",
-      rows: [
-        { s: "ok", t: "Pain confirmed in user interviews" },
-        { s: "ok", t: "Value delivered per report", v: "₹2,000" },
-        { s: "ok", t: "Pricing headroom", v: "→ ₹400+" },
-        { s: "next", t: "Measure usage & retention" },
-        { s: "next", t: "Validate willingness to pay" },
-      ],
-      bar: {
-        label: "Pains addressed",
-        right: "4 of 6",
-        parts: [
-          { pct: 67, color: "#10b981" },
-          { pct: 16, color: "#f59e0b" },
-          { pct: 17, color: "#94a3b8" },
-        ],
-      },
-      lever: "Instrument usage & retention",
-      unlocks: "validates real demand",
-    },
-    {
-      label: "Viability",
-      score: 52,
-      color: "#f59e0b",
-      state: "Subscription model, revenue unproven",
-      rows: [
-        { s: "ok", t: "Pay-per-report + monthly plans" },
-        { s: "ok", t: "Thousands of valuers to land" },
-        { s: "next", t: "Activate recurring billing" },
-        { s: "next", t: "Prove retention" },
-      ],
-      bar: {
-        label: "Revenue mix",
-        right: "mostly subscription",
-        parts: [
-          { pct: 84, color: "#1d4ed8" },
-          { pct: 16, color: "#10b981" },
-        ],
-      },
-      lever: "Launch subscriptions",
-      unlocks: "proves the model",
-    },
-  ],
-  swot: [
-    { key: "S", title: "Strengths", color: "#10b981", items: ["Built & live across 3 asset classes", "~90% gross margin per report", "Bank-ready, accurate AI"] },
-    { key: "W", title: "Weaknesses", color: "#f43f5e", items: ["Subscriptions not switched on", "No usage tracking yet", "Per-report fee commoditizing"] },
-    { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["Comparable-data moat over time", "Cross-sell to feasibility (Atlas)", "Proptech / digital-lending tailwind"] },
-    { key: "T", title: "Threats", color: "#f59e0b", items: ["Free / portal AVMs", "Banks' in-house AI", "Low willingness to pay per report"] },
-  ],
   nabc: [
     {
       key: "N", title: "Need", subtitle: "Pain — validated", color: "#6366f1",
@@ -243,22 +117,6 @@ const VALUATION: Cfg = {
       stats: [{ v: "white space", l: "AI · bank-grade · India" }, { v: "both", l: "valuation + feasibility" }],
     },
   ],
-  team: [
-    { name: "Sandeep", role: "CEO / CTO / Head of AI", color: "#5e6ad2" },
-    { name: "Jayasaagar", role: "Chief Marketing & Product", color: "#0ea5e9" },
-    { name: "Aparna", role: "Product Owner", color: "#a855f7" },
-    { name: "Sanjana", role: "AI Engineer", color: "#10b981" },
-    { name: "Raunak", role: "Full-stack Engineer", color: "#f59e0b" },
-    { name: "Harshith", role: "Infra & Backend", color: "#ef4444" },
-  ],
-  teamNote: "+ contractors: legal (DPDP), data security, AI advisory, delivery",
-  traction: [
-    { label: "Product built & live", state: "done" },
-    { label: "Grounded AI · 98.4%, 0 hallucinations", state: "done" },
-    { label: "Early users & pilots", state: "now" },
-    { label: "Recurring revenue", state: "next" },
-    { label: "Bank / enterprise deals", state: "next" },
-  ],
   trajectory: {
     years: [
       { label: "Year 1", value: 3 },
@@ -276,22 +134,10 @@ const VALUATION: Cfg = {
 const FEASIBILITY: Cfg = {
   eyebrow: "Atlas · CEO Vision · India",
   title: "Bankable project feasibility — TEV, LIE & DPR, on demand.",
-  subtitle:
-    "Techno-economic viability, lender's-engineer monitoring, and detailed project reports — for banks, government, and investors. The high-value engine.",
   problem:
     "Advisory and engineering firms producing TEV / LIE / DPR are stuck with slow, manual, weeks-long studies that cap how many projects they can take on — even as government and private capex surge and bankability stays hard to standardise.",
   badgeOk: "✓ Demand confirmed",
   badgeWarn: "⚙ Carve-out from Valytica (planned)",
-  why: [
-    { icon: Landmark, t: "Government capex surging", s: "₹11.1 lakh cr; 9,000+ projects" },
-    { icon: TrendingUp, t: "Private capex reviving", s: "~₹4.9 lakh cr intended FY26" },
-    { icon: Zap, t: "Every project needs a DPR", s: "banks, schemes, investors" },
-  ],
-  horizons: [
-    { n: "1", title: "Carve out the engine", when: "v0", color: "#1d4ed8", proof: "TEV/LIE/DPR engine out of Valytica" },
-    { n: "2", title: "Own the engagement", when: "1–2 years", color: "#7c3aed", proof: "Staged workflow + lender templates" },
-    { n: "3", title: "Become the standard", when: "2 years +", color: "#10b981", proof: "Benchmark project data" },
-  ],
   numbers: [
     { label: "DPRs / year", value: "100k+", sub: "MSME · govt · private", icon: Layers },
     { label: "TEV / LIE firms", value: "~100s", sub: "fragmented supply", icon: Users },
@@ -303,8 +149,6 @@ const FEASIBILITY: Cfg = {
     { label: "Techno-economic viability (TEV)", value: 1000, color: "#f59e0b" },
     { label: "Lender's engineer / monitoring (LIE)", value: 1000, color: "#ec4899" },
   ],
-  segmentsNote:
-    "Modeled estimate of feasibility / project-report fees pan-India — hundreds of thousands of DPRs/yr (₹35k–₹1.2L each), bank TEV studies, and recurring LIE on 9,000+ government + private projects. Range ~₹3,500–5,500 cr; exact splits to confirm.",
   funnel: [
     { l: "Whole market", v: 4500, color: "#8b5cf6" },
     { l: "We can reach", v: 900, color: "#f59e0b" },
@@ -317,69 +161,13 @@ const FEASIBILITY: Cfg = {
     { label: "Private corporates (capex)", value: 1100, color: "#10b981" },
     { label: "Investors / PE", value: 400, color: "#8b5cf6" },
   ],
-  fdv: [
-    {
-      label: "Feasibility",
-      score: 75,
-      color: "#10b981",
-      state: "Engine already built in Valytica",
-      rows: [
-        { s: "ok", t: "TEV / LIE / DPR engine live" },
-        { s: "ok", t: "Declarative financial-model engine" },
-        { s: "ok", t: "Chaptered, lender-ready reports" },
-        { s: "next", t: "Standalone tenancy & auth" },
-        { s: "next", t: "India-based AI infrastructure" },
-      ],
-      bar: { label: "Build readiness", right: "~70%", parts: [{ pct: 70, color: "#10b981" }] },
-      lever: "Carve out + stand up Atlas",
-      unlocks: "an independent product",
-    },
-    {
-      label: "Desirability",
-      score: 70,
-      color: "#10b981",
-      state: "Strong, multi-buyer demand",
-      rows: [
-        { s: "ok", t: "Banks + government + private + investors" },
-        { s: "ok", t: "High-value, repeat engagements" },
-        { s: "ok", t: "LIE revenue is recurring" },
-        { s: "next", t: "Quantify the live pipeline" },
-        { s: "next", t: "Cover each lender's format" },
-      ],
-      bar: { label: "Buyer breadth", right: "4 of 4", parts: [{ pct: 100, color: "#10b981" }] },
-      lever: "Build a named pipeline",
-      unlocks: "proves real demand",
-    },
-    {
-      label: "Viability",
-      score: 55,
-      color: "#f59e0b",
-      state: "Enterprise model, unproven",
-      rows: [
-        { s: "ok", t: "5–10 deals", v: "₹1–5 cr" },
-        { s: "ok", t: "Co-own / managed-support options" },
-        { s: "ok", t: "Recurring LIE monitoring revenue" },
-        { s: "next", t: "Stand up an enterprise sales motion" },
-        { s: "next", t: "Land the first lighthouse client" },
-      ],
-      bar: {
-        label: "Revenue mix",
-        right: "mostly enterprise",
-        parts: [
-          { pct: 20, color: "#1d4ed8" },
-          { pct: 80, color: "#10b981" },
-        ],
-      },
-      lever: "Win the first lighthouse client",
-      unlocks: "proves the model",
-    },
-  ],
-  swot: [
-    { key: "S", title: "Strengths", color: "#10b981", items: ["Engine already built inside Valytica", "Demand across banks/govt/private/investors", "High ACV + recurring LIE revenue"] },
-    { key: "W", title: "Weaknesses", color: "#f43f5e", items: ["Not a standalone product yet", "No enterprise sales team", "Pipeline not yet quantified"] },
-    { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["Government + private capex surge", "Bank empanelment (Atlas-type firms)", "Benchmark project data over time"] },
-    { key: "T", title: "Threats", color: "#f59e0b", items: ["Entrenched consultancies (Resurgent, Sapient)", "Relationship-driven sales", "Trust in AI for large projects"] },
-  ],
+  stand: {
+    done: ["TEV / LIE / DPR engine live in Valytica", "Declarative financial-model engine", "Chaptered, lender-ready reports"],
+    now: ["Carving out as standalone Atlas", "Building a named pipeline"],
+    next: ["Stand up enterprise sales", "Land first lighthouse client"],
+    prove: ["Standalone tenancy & auth", "Quantified live pipeline", "Each lender's format"],
+    upside: "Benchmark project data → moat · bank empanelment · govt + private capex surge",
+  },
   nabc: [
     {
       key: "N", title: "Need", subtitle: "Pain — confirmed", color: "#6366f1",
@@ -508,8 +296,8 @@ function Slide({ cfg }: { cfg: Cfg }) {
         <Panel title="NABC — Need · Approach · Benefit · Competition" icon={Check}>
           <NabcBody cfg={cfg} />
         </Panel>
-        <Panel title="Where we stand · SWOT" icon={Zap}>
-          <SwotBody cfg={cfg} />
+        <Panel title="Where we are · proof &amp; what's left" icon={Zap}>
+          <StandBody cfg={cfg} />
         </Panel>
       </div>
       <p className="mt-2 shrink-0 text-[12.5px] leading-snug text-muted-foreground">{cfg.footer}</p>
@@ -658,7 +446,7 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
             style={{ borderColor: `${n.color}44`, background: `${n.color}0a` }}
           >
             {/* stage header */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1.5">
               <span className="grid size-7 shrink-0 place-items-center rounded-full text-[14.5px] font-bold text-white" style={{ backgroundColor: n.color }}>{n.key}</span>
               <div className="min-w-0">
                 <div className="truncate text-[14px] font-bold leading-none" style={{ color: n.color }}>{n.title}</div>
@@ -666,7 +454,7 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
               </div>
             </div>
             {/* points */}
-            <ul className="mt-1.5 min-h-0 flex-1 space-y-1">
+            <ul className="mt-2 shrink-0 space-y-1.5">
               {n.points.map((p) => (
                 <li key={p} className="flex items-start gap-1 text-[11.5px] leading-snug text-foreground/90">
                   <span className="mt-1 size-1 shrink-0 rounded-full" style={{ backgroundColor: n.color }} />
@@ -674,14 +462,19 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
                 </li>
               ))}
             </ul>
-            {/* stage stats */}
-            <div className="mt-1.5 space-y-1">
-              {n.stats.map((s) => (
-                <div key={s.l} className="rounded px-1 py-0.5 text-center" style={{ background: `${n.color}14` }}>
-                  <div className="text-[13.5px] font-bold leading-none" style={{ color: n.color }}>{s.v}</div>
-                  <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{s.l}</div>
+            {/* hero metric — grows to fill the column and anchors the payoff of each stage */}
+            <div
+              className="mt-2 flex min-h-0 flex-1 flex-col justify-center rounded-md px-2 py-2 text-center"
+              style={{ background: `${n.color}16`, border: `1px solid ${n.color}26` }}
+            >
+              <div className="text-[22px] font-extrabold leading-[1.05]" style={{ color: n.color }}>{n.stats[0].v}</div>
+              <div className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{n.stats[0].l}</div>
+              {n.stats[1] && (
+                <div className="mt-2 border-t pt-2" style={{ borderColor: `${n.color}26` }}>
+                  <div className="text-[15px] font-bold leading-none" style={{ color: n.color }}>{n.stats[1].v}</div>
+                  <div className="mt-0.5 text-[10.5px] leading-tight text-muted-foreground">{n.stats[1].l}</div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
           {/* arrow connector */}
@@ -696,45 +489,46 @@ function NabcBody({ cfg }: { cfg: Cfg }) {
   );
 }
 
-function SwotBody({ cfg }: { cfg: Cfg }) {
-  // 2×2 matrix: columns = Helpful / Harmful, rows = Internal / External.
-  // cfg.swot order (S, W, O, T) maps row-major onto exactly that grid.
-  const sign: Record<string, string> = { S: "+", W: "−", O: "+", T: "−" };
+function StandBody({ cfg }: { cfg: Cfg }) {
+  // Execution band: proof (done / now / next) as three columns, then the honest
+  // gaps ("still to prove") and the single-line upside. Replaces the old SWOT grid.
+  const cols = [
+    { key: "done", label: "Done", mark: "✓", color: "#10b981", items: cfg.stand.done },
+    { key: "now", label: "Now", mark: "●", color: "#f59e0b", items: cfg.stand.now },
+    { key: "next", label: "Next", mark: "○", color: "#94a3b8", items: cfg.stand.next },
+  ];
   return (
-    <div className="flex h-full gap-1">
-      {/* row-axis labels (Internal / External) */}
-      <div className="flex w-3 shrink-0 flex-col pt-3">
-        <div className="flex flex-1 items-center justify-center">
-          <span className="-rotate-90 whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">Internal</span>
-        </div>
-        <div className="flex flex-1 items-center justify-center">
-          <span className="-rotate-90 whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">External</span>
-        </div>
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {/* column-axis labels (Helpful / Harmful) */}
-        <div className="flex shrink-0 gap-1.5 text-center text-[10.5px] font-semibold uppercase tracking-wider">
-          <div className="flex-1 text-emerald-600 dark:text-emerald-400">Helpful</div>
-          <div className="flex-1 text-rose-500">Harmful</div>
-        </div>
-        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-1.5">
-          {cfg.swot.map((q) => (
-            <div key={q.key} className="flex min-h-0 flex-col overflow-hidden rounded-md border p-1.5" style={{ borderColor: `${q.color}55`, background: `${q.color}0e` }}>
-              <div className="mb-0.5 flex shrink-0 items-center gap-1">
-                <span className="grid size-5 place-items-center rounded-sm text-[12.5px] font-bold text-white" style={{ backgroundColor: q.color }}>{sign[q.key] ?? q.key}</span>
-                <h4 className="text-[13px] font-semibold leading-none">{q.title}</h4>
-              </div>
-              <ul className="min-h-0 flex-1 space-y-px">
-                {q.items.map((it) => (
-                  <li key={it} className="flex items-start gap-1 text-[12px] leading-[1.2] text-muted-foreground">
-                    <span className="mt-1 size-[3px] shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
-                    <span className="min-w-0">{it}</span>
-                  </li>
-                ))}
-              </ul>
+    <div className="flex h-full flex-col gap-2">
+      {/* proof columns */}
+      <div className="grid min-h-0 flex-1 grid-cols-3 gap-2">
+        {cols.map((c) => (
+          <div key={c.key} className="flex min-h-0 flex-col rounded-md border p-2" style={{ borderColor: `${c.color}40`, background: `${c.color}0c` }}>
+            <div className="mb-1.5 flex shrink-0 items-center gap-1.5">
+              <span className="grid size-5 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white" style={{ backgroundColor: c.color }}>{c.mark}</span>
+              <span className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: c.color }}>{c.label}</span>
             </div>
-          ))}
-        </div>
+            <ul className="min-h-0 flex-1 space-y-1.5">
+              {c.items.map((it) => (
+                <li key={it} className="flex items-start gap-1.5 text-[12.5px] leading-snug text-foreground/90">
+                  <span className="mt-1 size-1 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+                  <span>{it}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      {/* the honest gaps */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <span className="text-[12px] font-semibold uppercase tracking-wide text-rose-500">Still to prove</span>
+        {cfg.stand.prove.map((p) => (
+          <span key={p} className="rounded-full border border-rose-400/40 bg-rose-400/10 px-2 py-0.5 text-[12px] font-medium text-rose-600 dark:text-rose-300">{p}</span>
+        ))}
+      </div>
+      {/* the upside */}
+      <div className="shrink-0 rounded-md border border-brand/30 bg-brand/[0.06] px-2.5 py-1.5 text-[12.5px] leading-snug">
+        <span className="font-semibold text-brand">Upside · </span>
+        <span className="text-foreground/80">{cfg.stand.upside}</span>
       </div>
     </div>
   );
