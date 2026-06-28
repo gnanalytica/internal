@@ -248,10 +248,10 @@ const WHITE_SPACE =
   "No incumbent is an AI copilot for the valuer/consultant that produces bank-ready, human-in-the-loop, India-resident reports across BOTH valuation and TEV/LIE/DPR. Consumer AVMs aren't defensible; global AVMs lack India fit; services firms have no software.";
 
 // FDV as a linked chain — each red is a lever that lifts the next lens.
-const FDV_CHAIN: { key: string; label: string; score: number; color: string; state: string; lever: string; leverShort: string; lifts: string }[] = [
-  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong", lever: "Migrate AI to India-region (Vertex/Bedrock); promote off Flash-Lite", leverShort: "India-region AI", lifts: "→ credibility for banks & enterprise" },
-  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument funnel #123 — activation & retention", leverShort: "Instrument #123", lifts: "→ proves demand → Viability" },
-  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship subscriptions #119 + close 1–2 enterprise deals", leverShort: "Ship #119 + deals", lifts: "→ revenue proof" },
+const FDV_CHAIN: { key: string; label: string; score: number; color: string; state: string; fin: string; lever: string; leverShort: string; lifts: string }[] = [
+  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong · built", fin: "₹200 price − ~₹20 AI cost ≈ ~90% gross margin/report", lever: "Migrate AI to India-region (Vertex/Bedrock); promote off Flash-Lite", leverShort: "India-region AI", lifts: "→ credibility for banks & enterprise" },
+  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", fin: "₹2,000 value/report · ₹200 = ~10% capture", lever: "Instrument funnel #123 — activation & retention", leverShort: "Instrument #123", lifts: "→ proves demand → Viability" },
+  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", fin: "SaaS ₹5.8 cr ARR · Enterprise ₹20–60L/deal", lever: "Ship subscriptions #119 + close 1–2 enterprise deals", leverShort: "Ship #119 + deals", lifts: "→ revenue proof" },
 ];
 
 // Competitor positioning map (one-pager): x = manual→AI, y = consumer→bank-grade.
@@ -645,6 +645,7 @@ function FDVChain() {
               <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-muted/60">
                 <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${n.score}%`, backgroundColor: n.color }} />
               </div>
+              <div className="mb-1 rounded bg-muted/40 px-1.5 py-1 text-[10px] font-medium leading-snug">💰 {n.fin}</div>
               <div className="text-[11px] leading-snug">
                 <span className="font-medium text-foreground">Lever:</span> <span className="text-muted-foreground">{n.lever}</span>
               </div>
@@ -733,6 +734,14 @@ function OPHead({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>;
 }
 
+function RowLabel({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</div>;
+}
+
+function Cell({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  return <div className={cn("rounded border bg-muted/30 px-1.5 py-1 leading-tight", className)} style={style}>{children}</div>;
+}
+
 function OnePager({ m }: { m: Model }) {
   const painItems = PAIN.flatMap((g) => g.items);
   const painCounts = painItems.reduce((a, i) => ((a[i.cover] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
@@ -745,6 +754,12 @@ function OnePager({ m }: { m: Model }) {
   ];
   const ENT_REV = 3e7; // ₹3 cr illustrative near-term enterprise revenue
   const saasPct = (m.som / (m.som + ENT_REV)) * 100;
+  // Per-lens financials, mapped across the FDV columns (dynamic with the model).
+  const fdvFin = [
+    "₹200 price − ~₹20 AI cost ≈ ~90% gross margin/report",
+    `${fmtMoney(m.valuePerReport)} value/report · ₹200 = ~${Math.round(m.captureRatio * 100)}% capture`,
+    `SaaS ${fmtCr(m.som)} ARR · Enterprise ₹20–60L/deal`,
+  ];
 
   return (
     <div id="market-onepager" className="overflow-hidden rounded-xl border bg-card shadow-sm">
@@ -803,28 +818,62 @@ function OnePager({ m }: { m: Model }) {
               </div>
             ))}
           </div>
+          {/* demand drivers as chips */}
+          <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+            {[
+              { k: "231M", l: "retail loans/yr" },
+              { k: "35%", l: "lending = project fin" },
+              { k: "$1.18T", l: "RE by 2033" },
+            ].map((d) => (
+              <div key={d.l} className="rounded-md border bg-sky-500/5 px-1.5 py-1 text-center">
+                <div className="text-[12px] font-bold leading-none text-sky-600 dark:text-sky-400">{d.k}</div>
+                <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{d.l}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="rounded-lg border p-3">
           <OPHead>Competitive landscape</OPHead>
           <PositioningMatrix />
+          <div className="mt-1.5 text-[8px] leading-snug text-muted-foreground">
+            Scale: Resurgent <span className="font-semibold text-foreground">1,500+</span> TEV · empanelled <span className="font-semibold text-foreground">20+</span> banks · ~<span className="font-semibold text-foreground">6,176</span> IBBI valuers. White space (top-right) = AI · bank-grade · India · both markets.
+          </div>
         </div>
       </div>
 
-      {/* FDV — radial gauges chained */}
+      {/* FDV — 3 columns, points mapped across */}
       <div className="px-4 pt-3">
         <div className="rounded-lg border p-2.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">FDV — fix a red, lift the next</span>
-          <div className="mt-1.5 flex items-center justify-between gap-1.5">
-            {FDV_CHAIN.map((n, i) => (
-              <div key={n.key} className="flex flex-1 items-center justify-center gap-1.5">
-                <div className="flex flex-col items-center">
-                  <Gauge score={n.score} color={n.color} />
-                  <div className="mt-0.5 text-[10px] font-semibold">{n.label}</div>
-                  <div className="text-[8.5px] font-medium leading-tight" style={{ color: n.color }}>⚙ {n.leverShort}</div>
-                </div>
-                {i < FDV_CHAIN.length - 1 && <ArrowRight className="size-4 shrink-0 text-muted-foreground" />}
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">FDV — Feasibility → Desirability → Viability · fix a red, lift the next</span>
+            <span className="text-[9px] text-muted-foreground">/100</span>
+          </div>
+          <div className="grid grid-cols-[3.5rem_1fr_1fr_1fr] gap-x-2 gap-y-1 text-[9px]">
+            {/* header row: gauges */}
+            <div />
+            {FDV_CHAIN.map((n) => (
+              <div key={n.key} className="flex items-center justify-center gap-1.5 pb-0.5">
+                <Gauge score={n.score} color={n.color} />
+                <span className="text-[11px] font-bold" style={{ color: n.color }}>{n.label}</span>
               </div>
+            ))}
+            {/* mapped rows */}
+            <RowLabel>Status</RowLabel>
+            {FDV_CHAIN.map((n) => (
+              <Cell key={n.key}>{n.state}</Cell>
+            ))}
+            <RowLabel>Economics</RowLabel>
+            {fdvFin.map((f, i) => (
+              <Cell key={i} className="font-semibold text-foreground">{f}</Cell>
+            ))}
+            <RowLabel>Lever (red→green)</RowLabel>
+            {FDV_CHAIN.map((n) => (
+              <Cell key={n.key} style={{ color: n.color }}>⚙ {n.lever}</Cell>
+            ))}
+            <RowLabel>Unlocks</RowLabel>
+            {FDV_CHAIN.map((n) => (
+              <Cell key={n.key} className="font-medium" style={{ color: n.color }}>{n.lifts}</Cell>
             ))}
           </div>
         </div>
