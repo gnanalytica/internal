@@ -575,23 +575,33 @@ a.entity-ref {
   body.printing-onepager #market-onepager * {
     visibility: visible;
   }
+  /* The slide is a fixed 1600×920 canvas; scale it to fit a landscape page. */
+  body.printing-onepager #onepager-stage {
+    height: auto !important;
+    overflow: visible !important;
+  }
   body.printing-onepager #market-onepager {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
+    transform: scale(0.68) !important;
+    transform-origin: top left !important;
+    box-shadow: none !important;
   }
   @page {
-    margin: 12mm;
+    size: landscape;
+    margin: 8mm;
   }
 }
 
-/* Full-screen presentation: fill the screen and scroll the spacious page. */
-#market-onepager:fullscreen,
-#market-onepager:-webkit-full-screen {
+/* Full-screen presentation: the stage fills the screen and centers the scaled
+   slide canvas (letterboxed on a dark backdrop). */
+#onepager-stage:fullscreen,
+#onepager-stage:-webkit-full-screen {
   width: 100vw;
   height: 100vh;
-  overflow: auto;
-  background: var(--background);
-  padding: 28px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #0b1f3a;
 }
