@@ -2,17 +2,23 @@ import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
-import { and, eq, max } from "drizzle-orm";
+import { and, eq, isNull, max } from "drizzle-orm";
 
 import { db, schema } from "./index";
 
 /**
- * Seed the Valytica WhatsApp-marketing GTM initiative into the hub:
- * - a brief wiki page (single source of truth)
- * - a Marketing campaign (channel=whatsapp) + content deliverables
+ * Seed the Valytica go-to-market initiative into the hub:
+ * - a WhatsApp-launch brief + Marketing campaign + content deliverables
  * - a "GTM & WhatsApp Launch Readiness" roadmap feature + engineering tickets
+ * - a "Go-To-Market" Docs tree: Pricing & Packaging, Positioning & ICP,
+ *   GTM Launch Plan, Analytics & KPIs (all grounded in the real valytica repo)
+ * - cross-functional launch tasks under the GTM milestone, spanning the new
+ *   functional task types (engineering/finance/legal/research/product/sales)
+ *
  * Enterprise inquiries route into Sales (CRM); feedback into Support — no new
- * department. Idempotent. Run: npm run db:seed-valytica-gtm
+ * department. Nothing is fabricated: every figure traces to the valytica code,
+ * and missing market data is tracked as a research task, not invented.
+ * Idempotent (upserts by title). Run: npm run db:seed-valytica-gtm
  */
 
 const EMAIL: Record<string, string> = {
@@ -100,6 +106,256 @@ const GTM_TICKETS: [title: string, who: string, status: IssueStatus][] = [
   [`Route feedback submissions → Support tickets (${SUPPORT_EMAIL})`, "harshith", "backlog"],
   [`Enterprise / custom-requirements CTA (landing + footer → ${SALES_EMAIL})`, "raunak", "todo"],
   ["Route enterprise inquiries → Sales CRM (leads/deals)", "harshith", "backlog"],
+];
+
+// ---- GTM strategy docs (grounded in the valytica repo) ----
+const GTM_DOCS: { title: string; icon: string; nodes: Node[] }[] = [
+  {
+    title: "Pricing & Packaging",
+    icon: "💰",
+    nodes: [
+      h(1, "Pricing & Packaging"),
+      p("Grounded in the live Valytica billing code. Plan tiers and the prepaid wallet are real; items marked (decision) or (not yet built) are flagged, not assumed."),
+      h(2, "Plans"),
+      bullets([
+        "Free — ₹0. 3 reports included, watermarked. Monthly AI budget ₹200. Default for every new organisation.",
+        "Individual — ₹499/mo. Unlimited reports, no watermark. Monthly AI budget ₹2,000.",
+        "Team — ₹1,999/mo (marked “Popular”). Multi-user firm with a shared wallet; custom branding + analytics. Monthly AI budget ₹10,000.",
+        "Business — custom, postpaid. Dedicated support and API access; contact sales@gnanalytica.com. Monthly AI budget ₹50,000 (Enterprise ceiling ₹2,00,000).",
+      ]),
+      h(2, "Pay-per-report (wallet)"),
+      bullets([
+        "₹200 per finalised report (REPORT_COST_INR), debited atomically from a prepaid wallet (charge_org_for_report RPC, race-safe).",
+        "After the 3 free reports, an org needs ≥₹200 wallet balance to finalise a report.",
+        "Wallet recharge amounts: ₹100 / ₹500 / ₹1,000 / ₹5,000 (custom min ₹100).",
+      ]),
+      h(2, "What's gated"),
+      bullets([
+        "Watermark: free / trial reports are watermarked; paid tiers are not.",
+        "AI budget ceilings per plan enforce monthly model spend (quota mode warn → enforce).",
+      ]),
+      h(2, "Billing status (as built)"),
+      bullets([
+        "Wallet recharge is LIVE end-to-end: Razorpay order + HMAC-verified webhook credits the wallet on payment.captured.",
+        "Plan subscriptions are STUBBED — billing/actions.ts has a TODO(razorpay); upgrades currently flip the plan without charging. This is the revenue go-live blocker.",
+      ]),
+      h(2, "Open decisions"),
+      bullets([
+        "Annual billing / discount — not in code; decide before the pricing page ships. (decision)",
+        "Trial design — 3 free watermarked reports vs a time-boxed trial. (decision)",
+        "Team “custom branding + analytics” and Business “API” are advertised but not yet built — confirm scope or adjust the tier copy. (not yet built)",
+      ]),
+      p("Sources: src/lib/billing.ts (REPORT_COST_INR), src/lib/ai/quota.ts (budgets), billing/billing-client.tsx (tiers + recharge), api/billing/razorpay/* (wallet), billing/actions.ts (subscription TODO)."),
+    ],
+  },
+  {
+    title: "Positioning & ICP",
+    icon: "🎯",
+    nodes: [
+      h(1, "Positioning & ICP"),
+      p("Truthful positioning drawn from the product as built. Market sizing and competitor analysis do not yet exist and are tracked as research — no numbers are asserted here."),
+      h(2, "One-liner"),
+      p("An AI valuation copilot for Indian valuers: upload property and loan documents, get AI-extracted and source-cited facts, compute a defensible value three ways, and generate bank-ready reports in minutes."),
+      h(2, "What it does"),
+      bullets([
+        "Four engagement types: Valuation (IVS / IBBI), TEV, LIE, DPR.",
+        "Ingests 14 document types (sale deed, EC, tax receipt, approved plan, RERA, RTC, …) as PDF / PNG / JPEG / WebP.",
+        "Gemini extraction with confidence scores + source citations; cross-document conflict detection; ≥0.8-confidence auto-fill into empty fields only.",
+        "Three valuation approaches (cost / comparable sales / income), with comparables retrieved from the firm's own finalised cases via pgvector.",
+        "Android field app for site visits: GPS-geotagged photos, voice notes, checklists.",
+        "Outputs: IBBI PDF + bank-format .docx (e.g. SBI), with AI-drafted, fact-checked narrative.",
+      ]),
+      h(2, "Why it's different (grounded)"),
+      bullets([
+        "India-only data residency (Supabase Mumbai, Vercel bom1, AWS SES Mumbai); DPDP-aware.",
+        "Human-in-the-loop by design — never fabricates official portal results, never overwrites a human-entered value.",
+        "Bank-ready deliverables, not just a number — purpose-driven basis of value (loan origination / SARFAESI / capital gains).",
+        "Comparables grounded in the firm's own history, org-isolated by RLS.",
+      ]),
+      h(2, "ICP — hypotheses to validate (not yet researched)"),
+      bullets([
+        "Independent IBBI-registered valuers doing bank-mandated property valuations.",
+        "Valuation firms on bank panels handling volume.",
+        "TEV / LIE / DPR consultants and lender's independent engineers.",
+      ]),
+      h(2, "TBD — needs research (do not fabricate)"),
+      bullets([
+        "Market size (number of registered valuers / firms; annual bank-valuation volume).",
+        "Competitive landscape and incumbent pricing.",
+        "Willingness to pay vs the ₹200/report and ₹499–₹1,999/mo points.",
+      ]),
+      p("Tracked as the “Market sizing & competitive research” task. Sources: engagement.ts, document-types.ts, billing.ts, ARCHITECTURE.md."),
+    ],
+  },
+  {
+    title: "GTM Launch Plan",
+    icon: "🚀",
+    nodes: [
+      h(1, "GTM Launch Plan"),
+      p("How Valytica goes to market. The WhatsApp campaign brief, content and build tickets live alongside this doc; this is the cross-functional plan and the go / no-go gate."),
+      h(2, "Motion"),
+      bullets([
+        "WhatsApp outreach to valuers → free sample report (3 free, watermarked) → wallet top-up / paid plan.",
+        "Enterprise / custom inquiries → sales@gnanalytica.com → Sales CRM.",
+        "Feedback → support@gnanalytica.com → Support tickets.",
+      ]),
+      h(2, "Readiness (as built)"),
+      bullets([
+        "Live: case lifecycle, AI extraction & verification, 3-way valuation, IBBI / bank reports, prepaid wallet billing (m0 / m1).",
+        "Wallet recharge works end-to-end via Razorpay.",
+      ]),
+      h(2, "Blockers before charging real money"),
+      bullets([
+        "Razorpay plan subscriptions are stubbed — paid upgrades don't actually charge. (engineering, blocker)",
+        "No public landing or pricing page yet at valytica.gnanalytica.com. (marketing)",
+        "No Terms of Service / refund-cancellation / updated Privacy Policy for paid use — Razorpay requires these. (legal)",
+        "GST tax-invoice flow for recharges / subscriptions unverified. (finance)",
+        "Only $pageview is instrumented — the conversion funnel isn't measurable yet. (product)",
+      ]),
+      h(2, "Go / no-go criteria"),
+      bullets([
+        "Subscriptions charge successfully in production (or launch wallet-only and hide plan upgrades).",
+        "Public landing + pricing page live with accurate tier copy.",
+        "ToS, refund / cancellation and privacy pages published.",
+        "Activation + monetisation funnel events firing in PostHog.",
+      ]),
+      p("Cross-functional tasks for each blocker are tracked under the “GTM · WhatsApp Launch” milestone."),
+    ],
+  },
+  {
+    title: "Analytics & KPIs",
+    icon: "📊",
+    nodes: [
+      h(1, "Analytics & KPIs"),
+      p("What we can measure, what we want to measure, and the instrumentation gap between them. No values are asserted — these are definitions and targets."),
+      h(2, "Measurable today"),
+      bullets([
+        "PostHog: $pageview only (EU host, identified-only profiles), env-gated.",
+        "Sentry: client errors in production (10% trace sample).",
+        "audit_logs: server-side events incl. report-finalisation billing.",
+      ]),
+      h(2, "Funnel & KPIs to define"),
+      bullets([
+        "Acquisition → signup (email / phone / Google OTP).",
+        "Activation → first case created → first report finalised.",
+        "Monetisation → wallet recharge; paid plan upgrade; ₹200/report consumption.",
+        "Retention → repeat reports per org per month; weeks-active.",
+      ]),
+      h(2, "North-star candidate"),
+      p("Finalised reports per active organisation per month — it ties product value (a delivered valuation) to revenue (₹200/report + plan)."),
+      h(2, "Instrumentation gap → events to add"),
+      bullets([
+        "identify(org, plan) on sign-in; signup_completed.",
+        "case_created, document_uploaded, extraction_completed.",
+        "report_finalised (with charge source: free / wallet).",
+        "wallet_recharge_succeeded, plan_upgrade_succeeded.",
+        "feedback_submitted, enterprise_cta_clicked.",
+      ]),
+      p("Sources: posthog-provider.tsx (pageview only), instrumentation-client.ts (Sentry), audit.ts."),
+    ],
+  },
+];
+
+// ---- cross-functional launch tasks (Milestone → Task, varied functional types) ----
+const XFN_TASKS: {
+  title: string;
+  type: string;
+  priority: string;
+  status: IssueStatus;
+  desc: string;
+  reqs: string[];
+}[] = [
+  {
+    title: "Wire Razorpay plan subscriptions — revenue go-live blocker",
+    type: "engineering",
+    priority: "urgent",
+    status: "todo",
+    desc: "Wallet recharge is live, but plan subscriptions are stubbed (TODO(razorpay) in billing/actions.ts) — paid upgrades flip the plan without charging, so ₹499/₹1,999 revenue can't flow.",
+    reqs: [
+      "Razorpay subscription / checkout for plan upgrades.",
+      "Webhook performs the plan flip on payment, idempotently.",
+      "Handle proration, downgrade and cancellation.",
+      "Fallback: hide plan upgrades and launch wallet-only if not ready by go-live.",
+    ],
+  },
+  {
+    title: "GST-compliant tax invoices for wallet recharges & subscriptions",
+    type: "finance",
+    priority: "high",
+    status: "backlog",
+    desc: "Indian B2B buyers need GST tax invoices. Validate invoice generation for wallet recharges and (once live) subscriptions before charging real money.",
+    reqs: [
+      "Tax invoice with GSTIN, HSN / SAC, place of supply.",
+      "Sequential, auditable invoice numbering.",
+      "Download / email from the billing page.",
+      "Reconcile against billing_transactions.",
+    ],
+  },
+  {
+    title: "Terms of Service, refund/cancellation & Privacy Policy for paid launch",
+    type: "legal",
+    priority: "high",
+    status: "backlog",
+    desc: "Razorpay and DPDP require published Terms of Service, a refund / cancellation policy, and an updated Privacy Policy before taking payments. Sub-processors are already listed in /privacy §6.",
+    reqs: [
+      "Terms of Service.",
+      "Refund & cancellation policy (wallet + subscriptions).",
+      "Privacy Policy updated for paid use + DPDP.",
+      "Linked from signup, checkout and footer.",
+    ],
+  },
+  {
+    title: "Market sizing & competitive research (validate ICP, willingness to pay)",
+    type: "research",
+    priority: "medium",
+    status: "backlog",
+    desc: "No market or competitor analysis exists in either repo. Size the market and validate the ICP and price points before scaling spend — do not assume.",
+    reqs: [
+      "Count of IBBI-registered valuers / valuation firms.",
+      "Annual bank-valuation volume.",
+      "Competitor scan + incumbent pricing.",
+      "Willingness-to-pay vs ₹200/report and ₹499–₹1,999/mo.",
+    ],
+  },
+  {
+    title: "Instrument PostHog activation & conversion funnel events",
+    type: "product",
+    priority: "high",
+    status: "todo",
+    desc: "Only $pageview is tracked today, so the activation / conversion funnel is invisible. Instrument the events needed to measure the KPIs in the Analytics & KPIs doc.",
+    reqs: [
+      "identify(org, plan) + signup_completed.",
+      "case_created, document_uploaded, extraction_completed.",
+      "report_finalised (with charge source).",
+      "wallet_recharge_succeeded, plan_upgrade_succeeded.",
+    ],
+  },
+  {
+    title: "Confirm launch pricing & packaging (annual, trial vs 3-free, tier scope)",
+    type: "product",
+    priority: "medium",
+    status: "backlog",
+    desc: "Tiers are coded (Free / ₹499 / ₹1,999 / custom + ₹200/report) but annual billing, trial design, and whether Team branding/analytics and Business API are in scope are open.",
+    reqs: [
+      "Annual plan + discount, or not.",
+      "Trial: 3 free watermarked reports vs time-boxed.",
+      "Team custom-branding / analytics scope.",
+      "Business API scope, or remove it from the tier copy.",
+    ],
+  },
+  {
+    title: "Define Business/Enterprise sales motion + sales@ qualification & API scope",
+    type: "sales",
+    priority: "medium",
+    status: "backlog",
+    desc: "Business is “custom, contact sales@”. Define how enterprise deals are qualified, priced and closed, and scope the advertised API.",
+    reqs: [
+      "Qualification criteria + sales@ routing into the CRM.",
+      "Pricing approach for postpaid / custom.",
+      "Demo + sample-report flow.",
+      "API scope (currently not built).",
+    ],
+  },
 ];
 
 async function main() {
@@ -258,7 +514,110 @@ async function main() {
     }
   }
 
-  console.log(`Valytica GTM seeded: brief page, campaign, ${contentCount} content items, ${ticketCount} tickets.`);
+  // 4. Go-To-Market Docs tree (Pricing, Positioning & ICP, Launch Plan, KPIs).
+  async function upsertPage(
+    title: string,
+    icon: string,
+    content: Node,
+    parentId: string | null,
+    position: string,
+  ): Promise<string> {
+    const [existing] = await db
+      .select({ id: schema.pages.id })
+      .from(schema.pages)
+      .where(
+        and(
+          eq(schema.pages.workspaceId, ws.id),
+          eq(schema.pages.projectId, project.id),
+          eq(schema.pages.title, title),
+          isNull(schema.pages.deletedAt),
+        ),
+      )
+      .limit(1);
+    const values = {
+      workspaceId: ws.id,
+      projectId: project.id,
+      parentId,
+      title,
+      icon,
+      content,
+      contentText: plain(content).slice(0, 20000),
+      creatorId: uid("jay"),
+      position,
+    };
+    if (existing) {
+      await db.update(schema.pages).set(values).where(eq(schema.pages.id, existing.id));
+      return existing.id;
+    }
+    const [created] = await db.insert(schema.pages).values(values).returning({ id: schema.pages.id });
+    return created.id;
+  }
+
+  const gtmParent = await upsertPage(
+    "Go-To-Market",
+    "📣",
+    doc(
+      h(1, "Go-To-Market"),
+      p("Valytica's GTM home: pricing, positioning, the launch plan and the KPIs we'll measure. Grounded in the product as built; market data we don't have is tracked as research, not invented."),
+    ),
+    null,
+    "g00",
+  );
+  let gi = 0;
+  for (const d of GTM_DOCS) {
+    await upsertPage(d.title, d.icon, doc(...d.nodes), gtmParent, `g${String(gi + 1).padStart(2, "0")}`);
+    gi++;
+  }
+
+  // 5. Cross-functional launch tasks under the GTM milestone (Milestone → Task).
+  const [gtmMs] = await db
+    .select({ id: schema.milestones.id })
+    .from(schema.milestones)
+    .where(
+      and(
+        eq(schema.milestones.projectId, project.id),
+        eq(schema.milestones.name, "GTM · WhatsApp Launch"),
+      ),
+    )
+    .limit(1);
+
+  const existingTitles = new Set(
+    (
+      await db
+        .select({ title: schema.issues.title })
+        .from(schema.issues)
+        .where(and(eq(schema.issues.workspaceId, ws.id), eq(schema.issues.projectId, project.id)))
+    ).map((r) => r.title),
+  );
+  const [{ value: maxXfn }] = await db
+    .select({ value: max(schema.issues.number) })
+    .from(schema.issues)
+    .where(and(eq(schema.issues.workspaceId, ws.id), eq(schema.issues.projectId, project.id)));
+  let xfnNum = maxXfn ?? 0;
+  let xfnCount = 0;
+  for (let i = 0; i < XFN_TASKS.length; i++) {
+    const t = XFN_TASKS[i];
+    if (existingTitles.has(t.title)) continue;
+    await db.insert(schema.issues).values({
+      workspaceId: ws.id,
+      projectId: project.id,
+      milestoneId: gtmMs?.id ?? null,
+      number: ++xfnNum,
+      title: t.title,
+      type: t.type,
+      status: t.status,
+      priority: t.priority,
+      description: doc(p(t.desc), h(2, "Acceptance criteria"), bullets(t.reqs)),
+      creatorId: uid("jay"),
+      sortKey: `g${String(i).padStart(3, "0")}`,
+    });
+    xfnCount++;
+  }
+
+  console.log(
+    `Valytica GTM seeded: brief page, campaign, ${contentCount} content items, ` +
+      `${ticketCount} tickets, ${GTM_DOCS.length + 1} GTM docs, ${xfnCount} cross-functional tasks.`,
+  );
 }
 
 main()
