@@ -145,7 +145,7 @@ function Slide() {
   return (
     <div className="flex h-full flex-col px-6 py-5">
       <Header />
-      <div className="mt-2.5 grid flex-1 grid-rows-[150px_184px_1fr] gap-2.5">
+      <div className="mt-2.5 grid flex-1 grid-rows-[158px_172px_1fr] gap-2.5">
         {/* Row 1 */}
         <div className="grid grid-cols-3 gap-2.5">
           <Panel title="The arc — report → workflow → benchmark" icon={Target}>
@@ -237,8 +237,8 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-col rounded-lg border bg-background p-2.5">
-      <h3 className="mb-1.5 flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-background p-2.5">
+      <h3 className="mb-1.5 flex shrink-0 items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
         {Icon && <Icon className="size-3 text-brand" />}
         {title}
       </h3>
@@ -506,20 +506,20 @@ const SWOT: { key: string; title: string; color: string; items: string[] }[] = [
 
 function Swot() {
   return (
-    <div className="grid h-full grid-cols-2 grid-rows-2 gap-1.5">
+    <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
       {SWOT.map((q) => (
-        <div key={q.key} className="min-h-0 rounded-md border p-1.5" style={{ borderColor: `${q.color}44` }}>
-          <div className="mb-0.5 flex items-center gap-1">
-            <span className="grid size-3.5 place-items-center rounded text-[8px] font-bold text-white" style={{ backgroundColor: q.color }}>
+        <div key={q.key} className="flex min-h-0 flex-col overflow-hidden rounded-md border p-1" style={{ borderColor: `${q.color}44` }}>
+          <div className="mb-0.5 flex shrink-0 items-center gap-1">
+            <span className="grid size-3 place-items-center rounded-sm text-[7px] font-bold text-white" style={{ backgroundColor: q.color }}>
               {q.key}
             </span>
-            <h4 className="text-[9.5px] font-semibold">{q.title}</h4>
+            <h4 className="text-[9px] font-semibold leading-none">{q.title}</h4>
           </div>
-          <ul className="space-y-0.5">
+          <ul className="min-h-0 flex-1 space-y-px">
             {q.items.map((it) => (
-              <li key={it} className="flex items-start gap-1 text-[8px] leading-tight text-muted-foreground">
-                <span className="mt-0.5 size-0.5 shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
-                <span>{it}</span>
+              <li key={it} className="flex items-start gap-1 text-[7.5px] leading-[1.2] text-muted-foreground">
+                <span className="mt-1 size-[3px] shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
+                <span className="min-w-0">{it}</span>
               </li>
             ))}
           </ul>
@@ -562,7 +562,7 @@ function MiniBarRow({ label, right, children }: { label: string; right: string; 
 /** Feasibility: per-report economics → ~90% margin. */
 function FeasibilityEvidence() {
   return (
-    <div className="flex h-full flex-col justify-center gap-1">
+    <div className="flex h-full flex-col justify-center gap-0.5">
       <MonRow k="Price / report" v="₹200" color="#10b981" />
       <MonRow k="AI cost / report" v="−₹20" color="#0f766e" />
       <MonRow k="Gross profit / report" v="₹180" color="#10b981" />
@@ -581,7 +581,7 @@ function DesirabilityEvidence() {
   const order: Cover[] = ["full", "partial", "none"];
   const counts = PAIN.reduce((a, c) => ((a[c] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
   return (
-    <div className="flex h-full flex-col justify-center gap-1">
+    <div className="flex h-full flex-col justify-center gap-0.5">
       <MonRow k="Value saved / report" v={`₹${valuePerReport.toLocaleString("en-IN")}`} color="#f59e0b" />
       <MonRow k={`Price · ~${Math.round(captureRatio * 100)}% capture`} v="₹200" color="#1d4ed8" />
       <MonRow k="Pricing headroom" v="→ ₹400+" color="#f59e0b" />
@@ -601,7 +601,7 @@ function ViabilityEvidence() {
   const ENT_REV = 3e7;
   const saasPct = (som / (som + ENT_REV)) * 100;
   return (
-    <div className="flex h-full flex-col justify-center gap-1">
+    <div className="flex h-full flex-col justify-center gap-0.5">
       <MonRow k="SaaS ARR (3-yr SOM)" v={fmtCr(som)} color="#1d4ed8" />
       <MonRow k="Enterprise ACV / deal" v="₹20–60L" color="#10b981" />
       <MonRow k="5–10 enterprise deals" v="₹1–5 cr" color="#10b981" />
@@ -620,7 +620,7 @@ function ViabilityEvidence() {
 function Gauge({ score, color }: { score: number; color: string }) {
   return (
     <Donut
-      size={46}
+      size={42}
       thickness={6}
       data={[
         { label: "", value: score, color },
