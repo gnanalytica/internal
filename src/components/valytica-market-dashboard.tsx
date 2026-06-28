@@ -555,7 +555,7 @@ function Impact({ cfg }: { cfg: Cfg }) {
 function Market({ cfg }: { cfg: Cfg }) {
   const total = cfg.segments.reduce((s, x) => s + x.value, 0);
   return (
-    <Section title="The market, by type" icon={Building2}>
+    <Section title="The opportunity, by type" icon={Building2}>
       <div className="grid items-center gap-6 lg:grid-cols-[auto_1fr]">
         <div className="mx-auto">
           <Donut
