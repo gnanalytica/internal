@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Building2, Check, Circle, Maximize, Printer, Target, TrendingUp, Zap } from "lucide-react";
 
 import { Donut, type Slice } from "@/components/charts";
@@ -8,32 +7,26 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * Valytica · CEO Vision — a single 16:9 board slide. The whole strategy on one
- * view: north-star vision, why-now, the horizons arc, financial snapshot,
- * market, competition, FDV, SWOT, and pain → desirability → viability.
- *
- * It's a fixed 1280×720 canvas scaled to fit (so type stays crisp at any size):
- * scales to the container normally, to the viewport in Full screen, and to a
- * landscape page in Print/PDF.
+ * Valytica · CEO Vision — a spacious, readable, full-width strategy page that
+ * scrolls: the north-star vision, why-now, the plan, the numbers, the market,
+ * the competition, the three big questions (build / want / earn), and an honest
+ * self-check. Plain language, large type, real charts. Full screen + Print/PDF.
  *
  * Grounding & honesty:
- * - Pricing (₹200/report, plans) is grounded in Valytica's billing.ts.
- * - Market figures are MODELED ESTIMATES from a fixed base case (verify #122).
- * - IBBI governs the VALUATION leg only; TEV/LIE/DPR is a separate
- *   bank-empanelled consultant (engineer) market, not IBBI.
- * - Competitors & firm counts are from public sources (see footer).
+ * - Prices (₹200/report) are real (Valytica's billing).
+ * - Market figures are estimates from a fixed base case (still to confirm).
+ * - Valuation and feasibility reports are two related but separate markets.
  */
 
 // ---- model constants ----
 const TEV_VOL = 16_000;
 const TEV_FEE = 200_000;
-const REPORT_SW = 200; // ₹ per property report — grounded
+const REPORT_SW = 200; // ₹ per property report — real
 const TEV_SW = 10_000;
 const SAM_FRAC = 0.4;
 const TIME_SAVED = 0.5;
 const BASE = { bankVolM: 4, avgFee: 4000, adoptPct: 6 };
 
-// ---- formatting ----
 const cr = (v: number) => v / 1e7;
 function fmtCr(v: number): string {
   const c = cr(v);
@@ -50,41 +43,8 @@ const sam = softwareTAM * SAM_FRAC;
 const som = softwareTAM * (BASE.adoptPct / 100);
 const valuePerReport = BASE.avgFee * TIME_SAVED;
 
-const BASE_W = 1280;
-const BASE_H = 720;
-
 export function ValyticaMarketDashboard() {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.6);
-  const [fs, setFs] = useState(false);
-
-  useEffect(() => {
-    const measure = () => {
-      const d = document as Document & { webkitFullscreenElement?: Element };
-      const fsNow = !!(document.fullscreenElement || d.webkitFullscreenElement);
-      if (fsNow) {
-        setScale(Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H));
-      } else {
-        const w = stageRef.current?.clientWidth ?? BASE_W;
-        setScale(Math.max(w / BASE_W, 0.1));
-      }
-      setFs(fsNow);
-    };
-    measure();
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    if (ro && stageRef.current) ro.observe(stageRef.current);
-    window.addEventListener("resize", measure);
-    document.addEventListener("fullscreenchange", measure);
-    document.addEventListener("webkitfullscreenchange", measure);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener("resize", measure);
-      document.removeEventListener("fullscreenchange", measure);
-      document.removeEventListener("webkitfullscreenchange", measure);
-    };
-  }, []);
-
-  const printPager = () => {
+  const printPage = () => {
     if (typeof document === "undefined") return;
     document.body.classList.add("printing-onepager");
     const done = () => {
@@ -95,274 +55,173 @@ export function ValyticaMarketDashboard() {
     window.print();
   };
 
-  const fullscreenPager = () => {
-    const el = stageRef.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
+  const fullscreen = () => {
+    const el = document.getElementById("market-onepager") as
+      | (HTMLElement & { webkitRequestFullscreen?: () => void })
+      | null;
     if (!el) return;
     if (el.requestFullscreen) void el.requestFullscreen();
     else el.webkitRequestFullscreen?.();
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
-      <div className="mb-3 flex items-center justify-end gap-2">
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={fullscreenPager}>
+    <div className="mx-auto w-full max-w-[1500px]">
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={fullscreen}>
           <Maximize className="size-4" /> Full screen
         </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={printPager}>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={printPage}>
           <Printer className="size-4" /> Print / PDF
         </Button>
       </div>
 
-      <div
-        id="onepager-stage"
-        ref={stageRef}
-        className="relative w-full overflow-hidden"
-        style={fs ? undefined : { height: BASE_H * scale }}
-      >
-        <div
-          id="market-onepager"
-          className="overflow-hidden rounded-xl border bg-card text-foreground shadow-sm"
-          style={{
-            width: BASE_W,
-            height: BASE_H,
-            transform: `scale(${scale})`,
-            transformOrigin: fs ? "center center" : "top left",
-          }}
-        >
-          <Slide />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================ THE SLIDE ============================
-
-function Slide() {
-  return (
-    <div className="flex h-full flex-col px-6 py-5">
-      <Header />
-      <div className="mt-2.5 grid flex-1 grid-rows-[150px_168px_1fr] gap-2.5">
-        {/* Row 1 */}
-        <div className="grid grid-cols-3 gap-2.5">
-          <Panel title="How we grow, step by step" icon={Target}>
-            <Horizons />
-          </Panel>
-          <Panel title="The numbers" icon={TrendingUp}>
-            <Financials />
-          </Panel>
-          <Panel title="Where we stand" icon={Zap}>
-            <Swot />
-          </Panel>
-        </div>
-        {/* Row 2 */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <Panel title="Market opportunity" icon={Building2}>
-            <Market />
-          </Panel>
-          <Panel title="Competitive landscape" icon={Target}>
-            <Competition />
-          </Panel>
-        </div>
-        {/* Row 3 — FDV with each lens' evidence in one place */}
-        <Panel title="The three big questions · fix the gaps in order" icon={Check}>
-          <FdvUnified />
-        </Panel>
-      </div>
-      <p className="mt-2 shrink-0 text-[8.5px] leading-snug text-muted-foreground">
-        Prices are real. Market sizes are estimates we still need to confirm. Based on public industry and government
-        data plus competitor websites. Valuations and feasibility reports are two related but separate markets.
-      </p>
-    </div>
-  );
-}
-
-function Header() {
-  const why = [
-    { icon: TrendingUp, t: "More loans every year", s: "231M loans a year" },
-    { icon: Building2, t: "Too few valuers", s: "~6,176 in India" },
-    { icon: Zap, t: "AI is finally good enough", s: "bank-ready reports" },
-  ];
-  return (
-    <div
-      className="-mx-6 -mt-5 flex items-center justify-between gap-5 px-6 py-3.5 text-white"
-      style={{ background: "linear-gradient(115deg,#0b1f3a 0%,#13315c 52%,#1d4ed8 135%)" }}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-200">
-          Valytica · CEO Vision · India
-        </div>
-        <h1 className="mt-1 text-[30px] font-bold leading-[1.05] tracking-tight">
-          Trust infrastructure for India&apos;s secured lending.
-        </h1>
-        <p className="mt-1 max-w-[640px] text-[12.5px] leading-snug text-blue-100">
-          Make every property valuation and feasibility report <span className="font-semibold text-white">fast,
-          consistent, and trustworthy</span> — for every bank loan.
+      <div id="market-onepager" className="space-y-6">
+        <Hero />
+        <Horizons />
+        <Numbers />
+        <Market />
+        <Competition />
+        <Fdv />
+        <Swot />
+        <p className="px-1 text-xs leading-relaxed text-muted-foreground">
+          Prices are real. Market sizes are estimates we still need to confirm — based on public industry and
+          government data plus competitor websites. Valuations and feasibility reports are two related but separate
+          markets.
         </p>
       </div>
-      <div className="flex w-[300px] shrink-0 flex-col gap-1.5">
-        <div className="flex items-center justify-end gap-1.5">
-          <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-100">
-            ✓ Problem confirmed
-          </span>
-          <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-0.5 text-[9px] font-semibold text-amber-100">
-            ⚠ Market estimated
-          </span>
-        </div>
-        {why.map((w) => (
-          <div key={w.t} className="flex items-center gap-1.5 rounded border border-white/15 bg-white/[0.06] px-1.5 py-1">
-            <w.icon className="size-3 shrink-0 text-blue-200" />
-            <span className="text-[9.5px] font-semibold leading-none text-white">{w.t}</span>
-            <span className="ml-auto text-[8.5px] leading-none text-blue-200">{w.s}</span>
+    </div>
+  );
+}
+
+// ============================ HERO ============================
+
+function Hero() {
+  const why = [
+    { icon: TrendingUp, t: "More loans every year", s: "231M loans a year in India" },
+    { icon: Building2, t: "Too few valuers", s: "~6,176 registered valuers" },
+    { icon: Zap, t: "AI is finally good enough", s: "bank-ready reports, fast" },
+  ];
+  return (
+    <div className="overflow-hidden rounded-2xl text-white shadow-sm" style={{ background: "linear-gradient(115deg,#0b1f3a 0%,#13315c 52%,#1d4ed8 135%)" }}>
+      <div className="px-7 py-7 sm:px-9 sm:py-9">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+            Valytica · CEO Vision · India
           </div>
-        ))}
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-100">
+              ✓ Problem confirmed
+            </span>
+            <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-3 py-1 text-xs font-semibold text-amber-100">
+              ⚠ Market estimated
+            </span>
+          </div>
+        </div>
+
+        <h1 className="mt-5 max-w-4xl text-3xl font-bold leading-tight tracking-tight sm:text-[2.75rem]">
+          Trust infrastructure for India&apos;s secured lending.
+        </h1>
+        <p className="mt-4 max-w-3xl text-base leading-relaxed text-blue-100 sm:text-lg">
+          Make every property valuation and feasibility report{" "}
+          <span className="font-semibold text-white">fast, consistent, and trustworthy</span> — for every bank loan.
+        </p>
+
+        <div className="mt-7 grid gap-3 sm:grid-cols-3">
+          {why.map((w) => (
+            <div key={w.t} className="rounded-xl border border-white/15 bg-white/[0.07] p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                <w.icon className="size-4 text-blue-200" /> {w.t}
+              </div>
+              <div className="mt-1 text-sm text-blue-200">{w.s}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-// ---- panels ----
+// ============================ section shell ============================
 
-function Panel({
+function Section({
   title,
   icon: Icon,
   children,
 }: {
   title: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-background p-2.5">
-      <h3 className="mb-1.5 flex shrink-0 items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {Icon && <Icon className="size-3 text-brand" />}
+    <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+      <h2 className="mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <Icon className="size-4 text-brand" />
         {title}
-      </h3>
-      <div className="min-h-0 flex-1">{children}</div>
-    </div>
+      </h2>
+      {children}
+    </section>
   );
 }
 
 // ============================ HORIZONS ============================
 
-const HORIZONS: { h: string; title: string; when: string; color: string; proof: string }[] = [
-  { h: "1", title: "Win the report", when: "Now", color: "#1d4ed8", proof: "Live now · ₹180 profit per report" },
-  { h: "2", title: "Run the whole process", when: "1–2 yrs", color: "#7c3aed", proof: "Turn on subscriptions + first deals" },
-  { h: "3", title: "Set the standard", when: "2 yrs+", color: "#10b981", proof: "Data no rival can copy" },
+const HORIZONS: { n: string; title: string; when: string; color: string; proof: string }[] = [
+  { n: "1", title: "Win the report", when: "Now", color: "#1d4ed8", proof: "Live now — ₹180 profit per report" },
+  { n: "2", title: "Run the whole process", when: "1–2 years", color: "#7c3aed", proof: "Turn on subscriptions + win first deals" },
+  { n: "3", title: "Set the standard", when: "2 years +", color: "#10b981", proof: "Build data no rival can copy" },
 ];
 
 function Horizons() {
   return (
-    <div className="flex h-full flex-col gap-1.5">
-      {HORIZONS.map((z) => (
-        <div
-          key={z.h}
-          className="flex flex-1 items-center gap-2 rounded-md border px-2"
-          style={{ borderColor: `${z.color}55`, background: `${z.color}0a` }}
-        >
-          <span className="text-[12px] font-bold" style={{ color: z.color }}>
-            {z.h}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-[12px] font-semibold leading-tight">{z.title}</span>
-              <span className="shrink-0 text-[8px] font-medium text-muted-foreground">{z.when}</span>
+    <Section title="How we grow, step by step" icon={Target}>
+      <div className="grid gap-4 md:grid-cols-3">
+        {HORIZONS.map((z) => (
+          <div key={z.n} className="rounded-xl border p-5" style={{ borderColor: `${z.color}40`, background: `${z.color}08` }}>
+            <div className="flex items-center justify-between">
+              <span className="grid size-8 place-items-center rounded-lg text-base font-bold text-white" style={{ backgroundColor: z.color }}>
+                {z.n}
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">{z.when}</span>
             </div>
-            <div className="truncate text-[9px] leading-tight text-muted-foreground">{z.proof}</div>
+            <div className="mt-3 text-lg font-semibold">{z.title}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{z.proof}</div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </Section>
   );
 }
 
-// ============================ FINANCIALS ============================
+// ============================ NUMBERS ============================
 
-function Financials() {
+function Numbers() {
   const tiles: { label: string; value: string; sub: string; tone?: "brand" | "emerald" }[] = [
     { label: "Total market", value: fmtCr(softwareTAM), sub: "software, per year", tone: "brand" },
     { label: "We can reach", value: fmtCr(sam), sub: "realistically" },
-    { label: "3-yr target", value: fmtCr(som), sub: "per year", tone: "emerald" },
+    { label: "3-year target", value: fmtCr(som), sub: "per year", tone: "emerald" },
     { label: "Bigger services market", value: fmtCr(servicesTAM), sub: "custom builds" },
     { label: "Price per report", value: "₹200", sub: "what banks pay", tone: "brand" },
     { label: "Profit margin", value: "~90%", sub: "₹180 of ₹200", tone: "emerald" },
   ];
   return (
-    <div className="grid h-full grid-cols-3 grid-rows-2 gap-1.5">
-      {tiles.map((t) => (
-        <div
-          key={t.label}
-          className={cn(
-            "flex flex-col justify-center rounded-md border px-1.5",
-            t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
-            t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
-          )}
-        >
-          <div className="text-[8px] font-medium uppercase tracking-wide text-muted-foreground">{t.label}</div>
-          <div className="text-[15px] font-bold leading-none tabular-nums">{t.value}</div>
-          <div className="text-[8px] text-muted-foreground">{t.sub}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ============================ FDV ============================
-
-type FdvLens = { key: string; label: string; score: number; color: string; state: string; lever: string; unlocks: string };
-const FDV_META: FdvLens[] = [
-  { key: "F", label: "Can we build it?", score: 80, color: "#10b981", state: "Yes — it's built", lever: "Move AI to India servers", unlocks: "banks trust us" },
-  { key: "D", label: "Do they want it?", score: 64, color: "#f59e0b", state: "Problem confirmed", lever: "Measure real usage", unlocks: "proves they want it" },
-  { key: "V", label: "Can we earn?", score: 52, color: "#f59e0b", state: "Two ways to earn", lever: "Launch + win first deals", unlocks: "proves the money" },
-];
-
-/** FDV: each lens shows its monetary pointers + a mini chart beneath its gauge,
- * with arrows showing how fixing one lens lifts the next. One place, no repeat. */
-function FdvUnified() {
-  return (
-    <div className="flex h-full items-stretch gap-1.5">
-      <FdvCol n={FDV_META[0]}>
-        <FeasibilityEvidence />
-      </FdvCol>
-      <FdvArrow color={FDV_META[1].color} />
-      <FdvCol n={FDV_META[1]}>
-        <DesirabilityEvidence />
-      </FdvCol>
-      <FdvArrow color={FDV_META[2].color} />
-      <FdvCol n={FDV_META[2]}>
-        <ViabilityEvidence />
-      </FdvCol>
-    </div>
-  );
-}
-
-function FdvCol({ n, children }: { n: FdvLens; children: React.ReactNode }) {
-  return (
-    <div className="flex h-full min-w-0 flex-1 flex-col rounded-md border p-2" style={{ borderColor: `${n.color}44`, background: `${n.color}06` }}>
-      <div className="mb-1.5 flex items-center gap-2">
-        <Gauge score={n.score} color={n.color} />
-        <div className="min-w-0">
-          <div className="text-[13px] font-bold leading-none" style={{ color: n.color }}>
-            {n.label}
+    <Section title="The numbers" icon={TrendingUp}>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        {tiles.map((t) => (
+          <div
+            key={t.label}
+            className={cn(
+              "rounded-xl border bg-background p-4",
+              t.tone === "brand" && "border-brand/40 bg-brand/[0.06]",
+              t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
+            )}
+          >
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.label}</div>
+            <div className="mt-1.5 text-2xl font-bold tabular-nums sm:text-3xl">{t.value}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{t.sub}</div>
           </div>
-          <div className="mt-0.5 text-[8.5px] text-muted-foreground">{n.state}</div>
-        </div>
+        ))}
       </div>
-      <div className="min-h-0 flex-1">{children}</div>
-      <div className="mt-1 flex items-center justify-between gap-1.5 text-[8px] font-medium leading-tight" style={{ color: n.color }}>
-        <span className="rounded bg-muted/60 px-1.5 py-0.5">⚙ {n.lever}</span>
-        <span className="min-w-0 truncate">↗ {n.unlocks}</span>
-      </div>
-    </div>
-  );
-}
-
-function FdvArrow({ color }: { color: string }) {
-  return (
-    <div className="flex shrink-0 flex-col items-center justify-center self-center">
-      <ArrowRight className="size-4" style={{ color }} />
-      <span className="mt-0.5 text-[6.5px] font-semibold uppercase tracking-wide text-muted-foreground">lifts</span>
-    </div>
+    </Section>
   );
 }
 
@@ -386,53 +245,67 @@ function Market() {
     { label: "Feasibility reports", value: Math.round(cr(servicesTev)), color: "#0ea5e9" },
   ];
   const funnel: { l: string; v: number; pct: number; c: string }[] = [
-    { l: "All", v: softwareTAM, pct: 100, c: "#6366f1" },
-    { l: "Reach", v: sam, pct: SAM_FRAC * 100, c: "#8b5cf6" },
-    { l: "Target", v: som, pct: (som / softwareTAM) * 100, c: "#10b981" },
+    { l: "Whole market", v: softwareTAM, pct: 100, c: "#6366f1" },
+    { l: "We can reach", v: sam, pct: SAM_FRAC * 100, c: "#8b5cf6" },
+    { l: "3-year target", v: som, pct: (som / softwareTAM) * 100, c: "#10b981" },
   ];
   return (
-    <div className="flex h-full flex-col gap-2">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 space-y-1">
+    <Section title="The opportunity" icon={Building2}>
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <div className="space-y-3">
           {funnel.map((f) => (
-            <div key={f.l} className="flex items-center gap-1.5">
-              <span className="w-10 shrink-0 text-[9px] font-semibold text-muted-foreground">{f.l}</span>
-              <div className="h-3.5 flex-1 overflow-hidden rounded bg-muted/60">
-                <div className="h-full rounded" style={{ width: `${Math.max(f.pct, 4)}%`, backgroundColor: f.c }} />
+            <div key={f.l} className="flex items-center gap-3">
+              <span className="w-28 shrink-0 text-sm font-medium text-muted-foreground">{f.l}</span>
+              <div className="h-8 flex-1 overflow-hidden rounded-lg bg-muted/60">
+                <div className="h-full rounded-lg" style={{ width: `${Math.max(f.pct, 3)}%`, backgroundColor: f.c }} />
               </div>
-              <span className="w-12 shrink-0 text-right text-[9.5px] font-bold tabular-nums">{fmtCr(f.v)}</span>
+              <span className="w-20 shrink-0 text-right text-base font-bold tabular-nums">{fmtCr(f.v)}</span>
             </div>
           ))}
         </div>
-        <Donut
-          data={services}
-          size={72}
-          thickness={11}
-          center={
-            <div className="text-center">
-              <div className="text-[9.5px] font-bold leading-none">{fmtCr(servicesTAM)}</div>
-              <div className="text-[7px] text-muted-foreground">services</div>
-            </div>
-          }
-        />
+        <div className="flex items-center justify-center gap-5 rounded-xl border bg-background p-4">
+          <Donut
+            data={services}
+            size={130}
+            thickness={20}
+            center={
+              <div className="text-center">
+                <div className="text-base font-bold leading-tight">{fmtCr(servicesTAM)}</div>
+                <div className="text-xs text-muted-foreground">services market</div>
+              </div>
+            }
+          />
+          <div className="space-y-2">
+            {services.map((s) => (
+              <div key={s.label} className="text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="size-3 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span className="text-muted-foreground">{s.label}</span>
+                </div>
+                <div className="ml-5 font-bold">₹{s.value} cr</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-4 gap-1">
+
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {FIRMS.map((f) => (
-          <div key={f.v} className="rounded bg-muted/50 px-1 py-1 text-center">
-            <div className="text-[12px] font-bold leading-none text-brand">{f.k}</div>
-            <div className="mt-0.5 text-[7.5px] leading-tight text-muted-foreground">{f.v}</div>
+          <div key={f.v} className="rounded-xl bg-muted/50 p-4 text-center">
+            <div className="text-2xl font-bold text-brand">{f.k}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{f.v}</div>
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-1">
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {DEMAND.map((d) => (
-          <div key={d.v} className="rounded border bg-sky-500/5 px-1 py-1 text-center">
-            <div className="text-[11px] font-bold leading-none text-sky-600 dark:text-sky-400">{d.k}</div>
-            <div className="mt-0.5 text-[7.5px] leading-tight text-muted-foreground">{d.v}</div>
+          <div key={d.v} className="rounded-xl border bg-sky-500/5 p-4 text-center">
+            <div className="text-xl font-bold text-sky-600 dark:text-sky-400">{d.k}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{d.v}</div>
           </div>
         ))}
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -440,215 +313,255 @@ function Market() {
 
 const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean }[] = [
   { name: "Valytica", x: 84, y: 16, color: "#1d4ed8", star: true },
-  { name: "Banks' own AI", x: 74, y: 32, color: "#64748b" },
+  { name: "Banks' own AI", x: 72, y: 32, color: "#64748b" },
   { name: "Global tools", x: 90, y: 54, color: "#94a3b8" },
-  { name: "Sigmavalue", x: 64, y: 60, color: "#6366f1" },
-  { name: "Housing/99acres", x: 72, y: 86, color: "#94a3b8" },
+  { name: "Sigmavalue", x: 62, y: 60, color: "#6366f1" },
+  { name: "Housing / 99acres", x: 72, y: 86, color: "#94a3b8" },
   { name: "Feasibility firms", x: 22, y: 28, color: "#0ea5e9" },
-  { name: "Big advisory firms", x: 16, y: 46, color: "#94a3b8" },
+  { name: "Big advisory firms", x: 16, y: 48, color: "#94a3b8" },
 ];
 
 function Competition() {
   return (
-    <div className="flex h-full flex-col gap-1">
-      <div className="relative flex-1 rounded-md border bg-muted/20">
-        <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" />
-        <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-border" />
-        <div className="absolute right-0 top-0 h-1/2 w-1/2 rounded-tr-md bg-emerald-500/[0.08]" />
-        <span className="absolute right-1 top-0.5 text-[7px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-          the open gap
-        </span>
-        {COMP_MAP.map((c) => (
-          <div
-            key={c.name}
-            className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5"
-            style={{ left: `${c.x}%`, top: `${c.y}%` }}
-          >
-            <span
-              className={cn("shrink-0 rounded-full", c.star ? "size-2.5 ring-2 ring-brand/30" : "size-1.5")}
-              style={{ backgroundColor: c.color }}
-            />
-            <span
-              className={cn(
-                "whitespace-nowrap text-[7.5px] leading-none",
-                c.star ? "font-bold text-foreground" : "text-muted-foreground",
-              )}
-            >
-              {c.name}
+    <Section title="Who else is out there" icon={Target}>
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div>
+          <div className="relative h-72 w-full rounded-xl border bg-muted/20">
+            <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" />
+            <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-border" />
+            <div className="absolute right-0 top-0 h-1/2 w-1/2 rounded-tr-xl bg-emerald-500/[0.08]" />
+            <span className="absolute right-3 top-2 text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+              the open gap
             </span>
+            {COMP_MAP.map((c) => (
+              <div
+                key={c.name}
+                className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5"
+                style={{ left: `${c.x}%`, top: `${c.y}%` }}
+              >
+                <span
+                  className={cn("shrink-0 rounded-full", c.star ? "size-4 ring-4 ring-brand/20" : "size-2.5")}
+                  style={{ backgroundColor: c.color }}
+                />
+                <span className={cn("whitespace-nowrap text-xs", c.star ? "font-bold text-foreground" : "text-muted-foreground")}>
+                  {c.name}
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
+          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+            <span>Done by hand</span>
+            <span>Done by AI →</span>
+          </div>
+        </div>
+        <div className="flex flex-col justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
+          <div className="text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+            The open gap
+          </div>
+          <p className="mt-2 text-base leading-relaxed">
+            The top-right corner is empty: a tool that&apos;s <span className="font-semibold">AI-powered,
+            bank-ready, India-based, and does both jobs</span> — valuations and feasibility reports.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">No rival does all four. That&apos;s our space.</p>
+        </div>
       </div>
-      <div className="flex justify-between text-[7px] text-muted-foreground">
-        <span>Done by hand</span>
-        <span>Done by AI →</span>
-      </div>
-      <div className="text-[8px] leading-tight text-muted-foreground">
-        The open gap (top-right): <span className="font-semibold text-foreground">AI-powered, bank-ready,
-        India-based, and does both jobs</span>. No rival does all four.
-      </div>
-    </div>
+    </Section>
   );
 }
 
-// ============================ SWOT ============================
+// ============================ THE THREE BIG QUESTIONS (FDV) ============================
 
-const SWOT: { key: string; title: string; color: string; items: string[] }[] = [
-  { key: "S", title: "Strengths", color: "#10b981", items: ["Built and live (both report types)", "High profit per report", "India-based, bank-ready, accurate AI"] },
-  { key: "W", title: "Weaknesses", color: "#f43f5e", items: ["Subscriptions not switched on yet", "Not tracking real usage yet", "No sales team yet"] },
-  { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["Big open gap in the market", "Large custom deals: ₹20–60 lakh", "Can build data no one else has"] },
-  { key: "T", title: "Threats", color: "#f59e0b", items: ["Sigmavalue (closest rival)", "Banks building their own AI", "Will banks trust AI reports?"] },
+type FdvLens = { key: string; label: string; score: number; color: string; state: string; lever: string; unlocks: string };
+const FDV_META: FdvLens[] = [
+  { key: "F", label: "Can we build it?", score: 80, color: "#10b981", state: "Yes — it's built", lever: "Move AI to India servers", unlocks: "banks trust us" },
+  { key: "D", label: "Do they want it?", score: 64, color: "#f59e0b", state: "Problem confirmed", lever: "Measure real usage", unlocks: "proves they want it" },
+  { key: "V", label: "Can we earn?", score: 52, color: "#f59e0b", state: "Two ways to earn", lever: "Launch + win first deals", unlocks: "proves the money" },
 ];
 
-function Swot() {
+function Fdv() {
   return (
-    <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
-      {SWOT.map((q) => (
-        <div key={q.key} className="flex min-h-0 flex-col overflow-hidden rounded-md border p-1" style={{ borderColor: `${q.color}44` }}>
-          <div className="mb-0.5 flex shrink-0 items-center gap-1">
-            <span className="grid size-3 place-items-center rounded-sm text-[7px] font-bold text-white" style={{ backgroundColor: q.color }}>
-              {q.key}
-            </span>
-            <h4 className="text-[9px] font-semibold leading-none">{q.title}</h4>
+    <Section title="The three big questions — fix the gaps in order" icon={Check}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+        <FdvCard n={FDV_META[0]}>
+          <StatList
+            rows={[
+              { s: "ok", t: "Built and live" },
+              { s: "ok", t: "Accurate AI — no made-up facts" },
+              { s: "ok", t: "Profit per report", v: "₹180" },
+              { s: "ok", t: "Sells ₹200 · costs ₹20" },
+              { s: "next", t: "Move AI to India servers" },
+            ]}
+          />
+          <Bar label="Profit margin" right="~90%">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-emerald-500/15">
+              <div className="h-full rounded-full bg-emerald-500" style={{ width: "90%" }} />
+            </div>
+          </Bar>
+        </FdvCard>
+
+        <FdvArrow color={FDV_META[1].color} />
+
+        <FdvCard n={FDV_META[1]}>
+          <StatList
+            rows={[
+              { s: "ok", t: "Real problem, confirmed with users" },
+              { s: "ok", t: "Saves per report", v: `₹${valuePerReport.toLocaleString("en-IN")}` },
+              { s: "ok", t: "Room to raise the price", v: "→ ₹400+" },
+              { s: "next", t: "Prove people keep using it" },
+              { s: "next", t: "Find out what they'll pay" },
+            ]}
+          />
+          <Bar label="Problems we solve" right="4 of 6">
+            <div className="flex h-3 w-full overflow-hidden rounded-full">
+              <div style={{ width: "67%", background: "#10b981" }} />
+              <div style={{ width: "16%", background: "#f59e0b" }} />
+              <div style={{ width: "17%", background: "#94a3b8" }} />
+            </div>
+          </Bar>
+        </FdvCard>
+
+        <FdvArrow color={FDV_META[2].color} />
+
+        <FdvCard n={FDV_META[2]}>
+          <StatList
+            rows={[
+              { s: "ok", t: "Two ways to earn money" },
+              { s: "ok", t: "Subscriptions could reach", v: `${fmtCr(som)}/yr` },
+              { s: "ok", t: "Each custom build", v: "₹20–60L" },
+              { s: "next", t: "Switch on subscriptions" },
+              { s: "next", t: "Win the first big customer" },
+            ]}
+          />
+          <Bar label="Where revenue comes from" right="subscriptions · custom">
+            <div className="flex h-3 w-full overflow-hidden rounded-full">
+              <div style={{ width: "16%", background: "#1d4ed8" }} />
+              <div style={{ width: "84%", background: "#10b981" }} />
+            </div>
+          </Bar>
+        </FdvCard>
+      </div>
+    </Section>
+  );
+}
+
+function FdvCard({ n, children }: { n: FdvLens; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-1 flex-col rounded-xl border p-5" style={{ borderColor: `${n.color}44`, background: `${n.color}07` }}>
+      <div className="flex items-center gap-3">
+        <Gauge score={n.score} color={n.color} />
+        <div>
+          <div className="text-lg font-bold leading-tight" style={{ color: n.color }}>
+            {n.label}
           </div>
-          <ul className="min-h-0 flex-1 space-y-px">
-            {q.items.map((it) => (
-              <li key={it} className="flex items-start gap-1 text-[7.5px] leading-[1.2] text-muted-foreground">
-                <span className="mt-1 size-[3px] shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
-                <span className="min-w-0">{it}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="text-sm text-muted-foreground">{n.state}</div>
         </div>
-      ))}
+      </div>
+      <div className="mt-4 flex-1 space-y-3">{children}</div>
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-medium" style={{ color: n.color }}>
+        <span className="rounded-lg bg-muted/60 px-2.5 py-1">Next: {n.lever}</span>
+        <span className="inline-flex items-center gap-1">
+          <ArrowRight className="size-3.5" /> {n.unlocks}
+        </span>
+      </div>
     </div>
   );
 }
 
-// ============================ FDV evidence — monetary pointers + a mini chart ============================
-
-type Cover = "full" | "partial" | "none";
-const COVER_COLOR: Record<Cover, string> = { full: "#10b981", partial: "#f59e0b", none: "#94a3b8" };
-const PAIN: Cover[] = ["full", "full", "full", "full", "partial", "none"];
-
-type Stat = "ok" | "next";
-const STAT: Record<Stat, { Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string }> = {
-  ok: { Icon: Check, color: "#10b981" },
-  next: { Icon: Circle, color: "#f59e0b" },
-};
-
-/** A status pointer: ✓ have it · ○ still to do, with an optional figure. */
-function StatRow({ s, t, v }: { s: Stat; t: string; v?: string }) {
-  const { Icon, color } = STAT[s];
+function FdvArrow({ color }: { color: string }) {
   return (
-    <li className="flex items-center gap-1 text-[8px] leading-tight">
-      <Icon className="size-2.5 shrink-0" style={{ color }} />
-      <span className="min-w-0 flex-1 truncate text-muted-foreground">{t}</span>
-      {v && (
-        <span className="shrink-0 font-bold tabular-nums" style={{ color }}>
-          {v}
-        </span>
-      )}
-    </li>
+    <div className="hidden shrink-0 flex-col items-center justify-center self-center lg:flex">
+      <ArrowRight className="size-6" style={{ color }} />
+      <span className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">leads to</span>
+    </div>
   );
 }
 
-function MiniBarRow({ label, right, children }: { label: string; right: string; children: React.ReactNode }) {
+type Stat = "ok" | "next";
+function StatList({ rows }: { rows: { s: Stat; t: string; v?: string }[] }) {
+  return (
+    <ul className="space-y-2">
+      {rows.map((r) => {
+        const ok = r.s === "ok";
+        const Icon = ok ? Check : Circle;
+        const color = ok ? "#10b981" : "#f59e0b";
+        return (
+          <li key={r.t} className="flex items-center gap-2 text-sm">
+            <Icon className="size-4 shrink-0" style={{ color }} />
+            <span className="min-w-0 flex-1 text-foreground/90">{r.t}</span>
+            {r.v && (
+              <span className="shrink-0 font-bold tabular-nums" style={{ color }}>
+                {r.v}
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function Bar({ label, right, children }: { label: string; right: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-0.5 flex items-baseline justify-between text-[8px]">
+      <div className="mb-1.5 flex items-baseline justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-bold text-foreground">{right}</span>
+        <span className="font-bold">{right}</span>
       </div>
       {children}
     </div>
   );
 }
 
-/** Can we build it? — what's done and the per-report economics. */
-function FeasibilityEvidence() {
-  return (
-    <div className="flex h-full flex-col justify-center gap-1">
-      <ul className="space-y-0.5">
-        <StatRow s="ok" t="Built and live" />
-        <StatRow s="ok" t="Accurate AI — no made-up facts" />
-        <StatRow s="ok" t="Profit per report" v="₹180" />
-        <StatRow s="ok" t="Sells ₹200 · costs ₹20" />
-        <StatRow s="next" t="Move AI to India servers" />
-      </ul>
-      <MiniBarRow label="Profit margin" right="~90%">
-        <div className="h-2 w-full overflow-hidden rounded bg-emerald-500/15">
-          <div className="h-full rounded bg-emerald-500" style={{ width: "90%" }} />
-        </div>
-      </MiniBarRow>
-    </div>
-  );
-}
-
-/** Do they want it? — problem & value are real; demand proof still to come. */
-function DesirabilityEvidence() {
-  const solved = PAIN.filter((c) => c === "full").length;
-  const order: Cover[] = ["full", "partial", "none"];
-  const counts = PAIN.reduce((a, c) => ((a[c] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
-  return (
-    <div className="flex h-full flex-col justify-center gap-1">
-      <ul className="space-y-0.5">
-        <StatRow s="ok" t="Real problem, confirmed with users" />
-        <StatRow s="ok" t="Saves per report" v={`₹${valuePerReport.toLocaleString("en-IN")}`} />
-        <StatRow s="ok" t="Room to raise the price" v="→ ₹400+" />
-        <StatRow s="next" t="Prove people keep using it" />
-        <StatRow s="next" t="Find out what they'll pay" />
-      </ul>
-      <MiniBarRow label="Problems we solve" right={`${solved} of ${PAIN.length}`}>
-        <div className="flex h-2 w-full overflow-hidden rounded">
-          {order.map((c) => (
-            <div key={c} style={{ width: `${(counts[c] / PAIN.length) * 100}%`, background: COVER_COLOR[c] }} />
-          ))}
-        </div>
-      </MiniBarRow>
-    </div>
-  );
-}
-
-/** Can we earn? — two ways to make money; revenue not switched on yet. */
-function ViabilityEvidence() {
-  const ENT_REV = 3e7;
-  const saasPct = (som / (som + ENT_REV)) * 100;
-  return (
-    <div className="flex h-full flex-col justify-center gap-1">
-      <ul className="space-y-0.5">
-        <StatRow s="ok" t="Two ways to earn money" />
-        <StatRow s="ok" t="Subscriptions could reach" v={`${fmtCr(som)}/yr`} />
-        <StatRow s="ok" t="Each custom build" v="₹20–60L" />
-        <StatRow s="next" t="Switch on subscriptions" />
-        <StatRow s="next" t="Win the first big customer" />
-      </ul>
-      <MiniBarRow label="Where revenue comes from" right="subs · custom">
-        <div className="flex h-2 w-full overflow-hidden rounded">
-          <div style={{ width: `${saasPct}%`, background: "#1d4ed8" }} />
-          <div style={{ width: `${100 - saasPct}%`, background: "#10b981" }} />
-        </div>
-      </MiniBarRow>
-    </div>
-  );
-}
-
-// ============================ shared ============================
-
 function Gauge({ score, color }: { score: number; color: string }) {
   return (
     <Donut
-      size={42}
-      thickness={6}
+      size={64}
+      thickness={8}
       data={[
         { label: "", value: score, color },
         { label: "", value: Math.max(100 - score, 0.001), color: "transparent" },
       ]}
       center={
-        <span className="text-[11px] font-bold" style={{ color }}>
+        <span className="text-base font-bold" style={{ color }}>
           {score}
         </span>
       }
     />
+  );
+}
+
+// ============================ SWOT ============================
+
+const SWOT: { key: string; title: string; color: string; items: string[] }[] = [
+  { key: "S", title: "Strengths", color: "#10b981", items: ["Built and live (both report types)", "High profit per report (~90% margin)", "India-based, bank-ready, accurate AI"] },
+  { key: "W", title: "Weaknesses", color: "#f43f5e", items: ["Subscriptions not switched on yet", "Not tracking real usage yet", "No sales team yet"] },
+  { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["A big open gap in the market", "Large custom deals: ₹20–60 lakh each", "Can build data no one else has"] },
+  { key: "T", title: "Threats", color: "#f59e0b", items: ["Sigmavalue (closest rival)", "Banks building their own AI", "Will banks trust AI reports?"] },
+];
+
+function Swot() {
+  return (
+    <Section title="Where we stand — an honest look" icon={Zap}>
+      <div className="grid gap-4 md:grid-cols-2">
+        {SWOT.map((q) => (
+          <div key={q.key} className="rounded-xl border p-5" style={{ borderColor: `${q.color}40` }}>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="grid size-7 place-items-center rounded-lg text-sm font-bold text-white" style={{ backgroundColor: q.color }}>
+                {q.key}
+              </span>
+              <h3 className="text-base font-semibold">{q.title}</h3>
+            </div>
+            <ul className="space-y-2">
+              {q.items.map((it) => (
+                <li key={it} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
+                  <span>{it}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </Section>
   );
 }
