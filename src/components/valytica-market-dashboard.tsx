@@ -5,6 +5,7 @@ import { ArrowRight, Check, Maximize, Minus, Printer, RotateCcw, TriangleAlert, 
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -255,14 +256,14 @@ const FDV_CHAIN: { key: string; label: string; score: number; color: string; sta
 ];
 
 // Competitor positioning map (one-pager): x = manual→AI, y = consumer→bank-grade.
-const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean }[] = [
-  { name: "Valytica", x: 84, y: 14, color: "#1d4ed8", star: true },
-  { name: "In-house bank AI", x: 76, y: 30, color: "#64748b" },
-  { name: "Global AVMs", x: 90, y: 52, color: "#94a3b8" },
-  { name: "Sigmavalue", x: 66, y: 60, color: "#6366f1" },
-  { name: "Housing/99acres", x: 74, y: 84, color: "#94a3b8" },
-  { name: "TEV/LIE firms", x: 22, y: 26, color: "#0ea5e9" },
-  { name: "Big advisory", x: 16, y: 44, color: "#94a3b8" },
+const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean; note: string }[] = [
+  { name: "Valytica", x: 84, y: 14, color: "#1d4ed8", star: true, note: "AI copilot · bank-ready, human-in-loop, India-resident · spans valuation + TEV/LIE/DPR" },
+  { name: "In-house bank AI", x: 76, y: 30, color: "#64748b", note: "Captive cross-checks (RBI nudge); not a product sold to valuers" },
+  { name: "Global AVMs", x: 90, y: 52, color: "#94a3b8", note: "Zillow / HouseCanary / CoreLogic — US-only; no India residency or bank formats" },
+  { name: "Sigmavalue", x: 66, y: 60, color: "#6366f1", note: "India AI valuation + geospatial feasibility + PropGPT — closest competitor" },
+  { name: "Housing/99acres", x: 74, y: 84, color: "#94a3b8", note: "Consumer listing price estimates — not bank-grade / defensible" },
+  { name: "TEV/LIE firms", x: 22, y: 26, color: "#0ea5e9", note: "Resurgent, Sapient, MITCON… manual services, bank-empanelled" },
+  { name: "Big advisory", x: 16, y: 44, color: "#94a3b8", note: "Colliers / CBRE / C&W / Knight Frank — high-end commercial valuation" },
 ];
 
 const ENGINES: { name: string; color: string; pricing: string[]; econ: string; note: string }[] = [
@@ -765,9 +766,9 @@ function OnePager({ m }: { m: Model }) {
         <div className="rounded-lg border p-3">
           <OPHead>Market opportunity</OPHead>
           <div className="grid grid-cols-3 gap-2">
-            <OPStat label="Services" value={fmtCr(m.servicesTAM)} sub="₹/yr activity" />
-            <OPStat label="Software TAM" value={fmtCr(m.softwareTAM)} sub="SaaS ceiling" tone="brand" />
-            <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR target" tone="emerald" />
+            <OPStat label="Services" value={fmtCr(m.servicesTAM)} sub="₹/yr activity" tip="Total fees valuers & consultants earn per year — the activity Valytica rides (property valuation + TEV/LIE/DPR)." />
+            <OPStat label="Software TAM" value={fmtCr(m.softwareTAM)} sub="SaaS ceiling" tone="brand" tip="Valytica's revenue ceiling if every report ran on a tool: reports × ₹200 + project-report software." />
+            <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR target" tone="emerald" tip="Realistic near-term SaaS ARR at the modeled 3-yr capture rate (adjust in the Interactive view)." />
           </div>
           <div className="mt-2.5 grid grid-cols-2 gap-3">
             {/* funnel */}
@@ -792,15 +793,15 @@ function OnePager({ m }: { m: Model }) {
           {/* firms as number chips */}
           <div className="mt-2.5 grid grid-cols-4 gap-1.5">
             {[
-              { k: "6,176", l: "IBBI valuers" },
-              { k: "3,000+", l: "L&B valuers" },
-              { k: "10k+", l: "empanelled" },
-              { k: "100s", l: "TEV/LIE firms" },
+              { k: "6,176", l: "IBBI valuers", t: "IBBI registered valuers across all 3 asset classes (live registry)." },
+              { k: "3,000+", l: "L&B valuers", t: "Land & Building — the largest asset class (~half of registered valuers)." },
+              { k: "10k+", l: "empanelled", t: "Wider practicing / bank-empanelled valuer pool (IOV etc.) beyond IBBI-registered." },
+              { k: "100s", l: "TEV/LIE firms", t: "TEV/LIE/DPR consultancies — fragmented; majors empanelled on 20–38+ bank panels." },
             ].map((f) => (
-              <div key={f.l} className="rounded-md bg-muted/50 px-1.5 py-1 text-center">
+              <Tip key={f.l} className="rounded-md bg-muted/50 px-1.5 py-1 text-center" content={f.t}>
                 <div className="text-[13px] font-bold leading-none">{f.k}</div>
                 <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{f.l}</div>
-              </div>
+              </Tip>
             ))}
           </div>
         </div>
@@ -818,11 +819,14 @@ function OnePager({ m }: { m: Model }) {
           <div className="mt-1.5 flex items-center justify-between gap-1.5">
             {FDV_CHAIN.map((n, i) => (
               <div key={n.key} className="flex flex-1 items-center justify-center gap-1.5">
-                <div className="flex flex-col items-center">
+                <Tip
+                  className="flex flex-col items-center"
+                  content={<><span className="font-semibold">{n.label} — {n.score}/100 · {n.state}</span><br />Lever: {n.lever}<br /><span style={{ color: n.color }}>{n.lifts}</span></>}
+                >
                   <Gauge score={n.score} color={n.color} />
                   <div className="mt-0.5 text-[10px] font-semibold">{n.label}</div>
                   <div className="text-[8.5px] font-medium leading-tight" style={{ color: n.color }}>⚙ {n.leverShort}</div>
-                </div>
+                </Tip>
                 {i < FDV_CHAIN.length - 1 && <ArrowRight className="size-4 shrink-0 text-muted-foreground" />}
               </div>
             ))}
@@ -871,24 +875,29 @@ function OnePager({ m }: { m: Model }) {
           <OPHead>Viability · two engines</OPHead>
           <div className="grid grid-cols-2 gap-1.5">
             {ENGINES.map((e, i) => (
-              <div key={e.name} className="rounded-md border p-1.5 text-center" style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}>
+              <Tip
+                key={e.name}
+                className="rounded-md border p-1.5 text-center"
+                style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}
+                content={<><span className="font-semibold">{e.name}</span><br />{e.pricing.join(" · ")}<br /><span className="font-medium">{e.econ}</span><br />{e.note}</>}
+              >
                 <div className="text-[9px] font-semibold">{i === 0 ? "SaaS · land" : "Enterprise"}</div>
                 <div className="text-[12px] font-bold leading-tight" style={{ color: e.color }}>{i === 0 ? "₹5.8 cr" : "₹20–60L"}</div>
                 <div className="text-[7.5px] text-muted-foreground">{i === 0 ? "ARR / yr" : "per deal"}</div>
-              </div>
+              </Tip>
             ))}
           </div>
           <div className="mt-2 text-[8px] text-muted-foreground">Near-term revenue mix (est.)</div>
-          <div className="mt-0.5 flex h-4 w-full overflow-hidden rounded text-[8px] font-semibold text-white">
-            <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }}>SaaS</div>
-            <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }}>Ent.</div>
+          <div className="mt-0.5 flex h-4 w-full cursor-help overflow-hidden rounded text-[8px] font-semibold text-white">
+            <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }} title="SaaS — ~₹5.8 cr ARR (many small accounts)">SaaS</div>
+            <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }} title="Enterprise — ~₹3 cr (est.; few high-ACV deals)">Ent.</div>
           </div>
           <div className="mt-1 text-[8px] text-muted-foreground">SaaS blocked on #119 · enterprise contract-billed</div>
         </div>
       </div>
 
       <div className="px-4 pb-3 pt-2.5 text-[8px] leading-snug text-muted-foreground">
-        Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs. Market figures modeled (#122); funnel uninstrumented (#123). IBBI governs valuation; TEV/LIE/DPR is bank-empanelled.
+        <span className="font-semibold text-foreground">✦ Hover any chart for detail.</span> Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs. Market figures modeled (#122); funnel uninstrumented (#123). IBBI governs valuation; TEV/LIE/DPR is bank-empanelled.
       </div>
     </div>
   );
@@ -910,7 +919,7 @@ function Gauge({ score, color }: { score: number; color: string }) {
 
 function MiniBar({ label, value, pct, color }: { label: string; value: string; pct: number; color: string }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex cursor-help items-center gap-2" title={`${label}: ${value} · ${Math.round(pct)}% of TAM`}>
       <span className="w-7 shrink-0 text-[9px] font-semibold text-muted-foreground">{label}</span>
       <div className="h-4 flex-1 overflow-hidden rounded bg-muted/60">
         <div className="h-full rounded" style={{ width: `${Math.max(pct, 4)}%`, backgroundColor: color }} />
@@ -933,13 +942,15 @@ function PositioningMatrix() {
         <span className="absolute right-1.5 top-1 text-[7.5px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">white space</span>
         {/* dots */}
         {COMP_MAP.map((c) => (
-          <div key={c.name} className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${c.x}%`, top: `${c.y}%` }}>
-            <span
-              className={cn("shrink-0 rounded-full", c.star ? "size-3 ring-2 ring-brand/30" : "size-2")}
-              style={{ backgroundColor: c.color }}
-            />
+          <Tip
+            key={c.name}
+            className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1"
+            style={{ left: `${c.x}%`, top: `${c.y}%` }}
+            content={<><span className="font-semibold">{c.name}</span><br />{c.note}</>}
+          >
+            <span className={cn("shrink-0 rounded-full", c.star ? "size-3 ring-2 ring-brand/30" : "size-2")} style={{ backgroundColor: c.color }} />
             <span className={cn("whitespace-nowrap text-[8px] leading-none", c.star ? "font-bold text-foreground" : "text-muted-foreground")}>{c.name}</span>
-          </div>
+          </Tip>
         ))}
       </div>
       {/* axis labels */}
@@ -968,12 +979,23 @@ function shortPain(t: string): string {
   return map[t] ?? t;
 }
 
-function OPStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: "brand" | "emerald" }) {
+/** Hover-tooltip wrapper — the wrapped element itself becomes the trigger
+ * (no extra nesting), so layout/grid sizing is preserved. */
+function Tip({ content, className, style, children }: { content: React.ReactNode; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
   return (
-    <div className={cn("rounded-md border p-2", tone === "brand" && "border-brand/30 bg-brand/5", tone === "emerald" && "border-emerald-500/30 bg-emerald-500/5")}>
+    <Tooltip>
+      <TooltipTrigger render={<div className={cn("cursor-help", className)} style={style} />}>{children}</TooltipTrigger>
+      <TooltipContent className="max-w-[230px] text-[11px] leading-snug">{content}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function OPStat({ label, value, sub, tone, tip }: { label: string; value: string; sub: string; tone?: "brand" | "emerald"; tip?: string }) {
+  return (
+    <Tip content={tip ?? label} className={cn("rounded-md border p-2", tone === "brand" && "border-brand/30 bg-brand/5", tone === "emerald" && "border-emerald-500/30 bg-emerald-500/5")}>
       <div className="text-[8.5px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="text-sm font-bold leading-tight">{value}</div>
       <div className="text-[8.5px] text-muted-foreground">{sub}</div>
-    </div>
+    </Tip>
   );
 }
