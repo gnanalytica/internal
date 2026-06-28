@@ -734,7 +734,18 @@ function OPHead({ children }: { children: React.ReactNode }) {
 }
 
 function OnePager({ m }: { m: Model }) {
-  const fdvAvg = Math.round(FDV_CHAIN.reduce((s, n) => s + n.score, 0) / FDV_CHAIN.length);
+  const painItems = PAIN.flatMap((g) => g.items);
+  const painCounts = painItems.reduce((a, i) => ((a[i.cover] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
+  const painSlices: Slice[] = (["full", "partial", "none"] as Cover[]).map((c) => ({ label: COVER_META[c].label, value: painCounts[c], color: COVER_META[c].color }));
+  const desCounts = CHECKLIST.reduce((a, c) => ((a[c.v] += 1), a), { yes: 0, assumed: 0, no: 0 } as Record<Verdict, number>);
+  const desSlices: Slice[] = (["yes", "assumed", "no"] as Verdict[]).map((v) => ({ label: VERDICT_META[v].label, value: desCounts[v], color: VERDICT_META[v].color }));
+  const servicesSlices: Slice[] = [
+    { label: "Property", value: Math.round(cr(m.servicesProperty)), color: "#6366f1" },
+    { label: "TEV/LIE/DPR", value: Math.round(cr(m.servicesTev)), color: "#0ea5e9" },
+  ];
+  const ENT_REV = 3e7; // ₹3 cr illustrative near-term enterprise revenue
+  const saasPct = (m.som / (m.som + ENT_REV)) * 100;
+
   return (
     <div id="market-onepager" className="overflow-hidden rounded-xl border bg-card shadow-sm">
       {/* Header band */}
@@ -758,11 +769,25 @@ function OnePager({ m }: { m: Model }) {
             <OPStat label="Software TAM" value={fmtCr(m.softwareTAM)} sub="SaaS ceiling" tone="brand" />
             <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR target" tone="emerald" />
           </div>
-          {/* funnel */}
-          <div className="mt-2.5 space-y-1.5">
-            <MiniBar label="TAM" value={fmtCr(m.softwareTAM)} pct={100} color="#6366f1" />
-            <MiniBar label="SAM" value={fmtCr(m.sam)} pct={SAM_FRAC * 100} color="#8b5cf6" />
-            <MiniBar label="SOM" value={fmtCr(m.som)} pct={Math.min((m.som / m.softwareTAM) * 100, 100)} color="#10b981" />
+          <div className="mt-2.5 grid grid-cols-2 gap-3">
+            {/* funnel */}
+            <div className="space-y-1.5">
+              <MiniBar label="TAM" value={fmtCr(m.softwareTAM)} pct={100} color="#6366f1" />
+              <MiniBar label="SAM" value={fmtCr(m.sam)} pct={SAM_FRAC * 100} color="#8b5cf6" />
+              <MiniBar label="SOM" value={fmtCr(m.som)} pct={Math.min((m.som / m.softwareTAM) * 100, 100)} color="#10b981" />
+            </div>
+            {/* services split donut */}
+            <div className="flex items-center justify-center gap-2">
+              <Donut data={servicesSlices} size={74} thickness={11} center={<div className="text-center"><div className="text-[10px] font-bold leading-none">{fmtCr(m.servicesTAM)}</div><div className="text-[7px] text-muted-foreground">services</div></div>} />
+              <div className="space-y-0.5">
+                {servicesSlices.map((s) => (
+                  <div key={s.label} className="flex items-center gap-1 text-[8px] text-muted-foreground">
+                    <span className="size-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                    {s.label} <span className="font-semibold text-foreground">₹{s.value}cr</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           {/* firms as number chips */}
           <div className="mt-2.5 grid grid-cols-4 gap-1.5">
@@ -786,24 +811,16 @@ function OnePager({ m }: { m: Model }) {
         </div>
       </div>
 
-      {/* FDV CHAIN — compact */}
+      {/* FDV — radial gauges chained */}
       <div className="px-4 pt-3">
         <div className="rounded-lg border p-2.5">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">FDV — fix a red, lift the next</span>
-            <span className="text-[9px] text-muted-foreground">avg {fdvAvg}/100</span>
-          </div>
-          <div className="flex items-stretch gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">FDV — fix a red, lift the next</span>
+          <div className="mt-1.5 flex items-center justify-between gap-1.5">
             {FDV_CHAIN.map((n, i) => (
-              <div key={n.key} className="flex flex-1 items-center gap-1.5">
-                <div className="flex-1 rounded-md border p-2 text-center">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-[10px] font-semibold">{n.label}</span>
-                    <span className="text-[11px] font-bold tabular-nums" style={{ color: n.color }}>{n.score}</span>
-                  </div>
-                  <div className="my-1 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
-                    <div className="h-full rounded-full" style={{ width: `${n.score}%`, backgroundColor: n.color }} />
-                  </div>
+              <div key={n.key} className="flex flex-1 items-center justify-center gap-1.5">
+                <div className="flex flex-col items-center">
+                  <Gauge score={n.score} color={n.color} />
+                  <div className="mt-0.5 text-[10px] font-semibold">{n.label}</div>
                   <div className="text-[8.5px] font-medium leading-tight" style={{ color: n.color }}>⚙ {n.leverShort}</div>
                 </div>
                 {i < FDV_CHAIN.length - 1 && <ArrowRight className="size-4 shrink-0 text-muted-foreground" />}
@@ -815,59 +832,58 @@ function OnePager({ m }: { m: Model }) {
 
       {/* BOTTOM ROW: pain | desirability | viability */}
       <div className="grid gap-3 px-4 pt-3 lg:grid-cols-3">
-        {/* Pain — icon rows */}
+        {/* Pain — coverage donut + list */}
         <div className="rounded-lg border p-3">
           <OPHead>Pain points · validated</OPHead>
-          <ul className="space-y-1">
-            {PAIN.flatMap((g) => g.items).slice(0, 6).map((it) => (
-              <li key={it.t} className="flex items-center gap-1.5 text-[9.5px] leading-tight">
-                <CoverDot cover={it.cover} />
-                <span className="min-w-0 truncate">{shortPain(it.t)}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-2 flex items-center gap-2 text-[8.5px] text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="size-2 rounded-full" style={{ background: COVER_META.full.color }} /> solves</span>
-            <span className="flex items-center gap-1"><span className="size-2 rounded-full" style={{ background: COVER_META.partial.color }} /> partial</span>
-            <span className="flex items-center gap-1"><span className="size-2 rounded-full" style={{ background: COVER_META.none.color }} /> gap</span>
+          <div className="flex items-center gap-2">
+            <Donut data={painSlices} size={62} thickness={9} center={<div className="text-center"><div className="text-[11px] font-bold leading-none">{painCounts.full}/{painItems.length}</div><div className="text-[7px] text-muted-foreground">solved</div></div>} />
+            <ul className="flex-1 space-y-0.5">
+              {painItems.slice(0, 5).map((it) => (
+                <li key={it.t} className="flex items-center gap-1 text-[9px] leading-tight">
+                  <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: COVER_META[it.cover].color }} />
+                  <span className="min-w-0 truncate">{shortPain(it.t)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
-        {/* Desirability — value-capture bar */}
+        {/* Desirability — signals donut + value-capture bar */}
         <div className="rounded-lg border p-3">
           <OPHead>Desirability · value</OPHead>
-          <div className="mb-1 flex items-baseline justify-between text-[9px] text-muted-foreground">
-            <span>Value created / report</span>
-            <span className="font-bold text-foreground">{fmtMoney(m.valuePerReport)}</span>
-          </div>
-          <div className="relative h-6 w-full overflow-hidden rounded-md bg-emerald-500/15" title="Value created per report">
-            <div className="absolute inset-y-0 left-0 flex items-center rounded-md bg-brand px-1.5 text-[9px] font-semibold text-white" style={{ width: `${Math.max(m.captureRatio * 100, 9)}%` }}>
-              ₹200
+          <div className="flex items-center gap-2">
+            <Donut data={desSlices} size={62} thickness={9} center={<div className="text-center"><div className="text-[11px] font-bold leading-none">{desCounts.yes}/12</div><div className="text-[7px] text-muted-foreground">evidenced</div></div>} />
+            <div className="flex-1">
+              <div className="mb-0.5 flex items-baseline justify-between text-[8px] text-muted-foreground">
+                <span>Value / report</span>
+                <span className="font-bold text-foreground">{fmtMoney(m.valuePerReport)}</span>
+              </div>
+              <div className="relative h-5 w-full overflow-hidden rounded bg-emerald-500/15">
+                <div className="absolute inset-y-0 left-0 flex items-center rounded bg-brand px-1 text-[8px] font-semibold text-white" style={{ width: `${Math.max(m.captureRatio * 100, 12)}%` }}>₹200</div>
+              </div>
+              <div className="mt-0.5 text-[8px] text-muted-foreground">capture <span className="font-bold text-brand">~{Math.round(m.captureRatio * 100)}%</span> → headroom</div>
             </div>
-          </div>
-          <div className="mt-1 text-center text-[9px] text-muted-foreground">Valytica captures <span className="font-bold text-brand">~{Math.round(m.captureRatio * 100)}%</span> of the value → headroom</div>
-          <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[8.5px]">
-            <div className="rounded bg-emerald-500/10 py-1"><div className="font-bold text-foreground">5✓</div>evidence</div>
-            <div className="rounded bg-amber-500/10 py-1"><div className="font-bold text-foreground">3</div>assumed</div>
-            <div className="rounded bg-rose-500/10 py-1"><div className="font-bold text-foreground">4</div>to prove</div>
           </div>
         </div>
 
-        {/* Viability — two engines, big numbers */}
+        {/* Viability — two engines + revenue-mix bar */}
         <div className="rounded-lg border p-3">
           <OPHead>Viability · two engines</OPHead>
-          <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {ENGINES.map((e, i) => (
-              <div key={e.name} className="rounded-md border p-2" style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}>
-                <div className="flex items-center gap-1.5">
-                  <span className="grid size-4 place-items-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: e.color }}>{i + 1}</span>
-                  <span className="text-[10px] font-semibold">{i === 0 ? "SaaS — land" : "Enterprise — build & co-own"}</span>
-                </div>
-                <div className="mt-1 text-[12px] font-bold" style={{ color: e.color }}>{i === 0 ? "~₹5.8 cr ARR" : "₹20–60L / deal"}</div>
-                <div className="text-[8.5px] text-muted-foreground">{i === 0 ? "₹200/report + ₹499–1,999 plans" : "build + AMC + co-own"}</div>
+              <div key={e.name} className="rounded-md border p-1.5 text-center" style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}>
+                <div className="text-[9px] font-semibold">{i === 0 ? "SaaS · land" : "Enterprise"}</div>
+                <div className="text-[12px] font-bold leading-tight" style={{ color: e.color }}>{i === 0 ? "₹5.8 cr" : "₹20–60L"}</div>
+                <div className="text-[7.5px] text-muted-foreground">{i === 0 ? "ARR / yr" : "per deal"}</div>
               </div>
             ))}
           </div>
+          <div className="mt-2 text-[8px] text-muted-foreground">Near-term revenue mix (est.)</div>
+          <div className="mt-0.5 flex h-4 w-full overflow-hidden rounded text-[8px] font-semibold text-white">
+            <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }}>SaaS</div>
+            <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }}>Ent.</div>
+          </div>
+          <div className="mt-1 text-[8px] text-muted-foreground">SaaS blocked on #119 · enterprise contract-billed</div>
         </div>
       </div>
 
@@ -875,6 +891,20 @@ function OnePager({ m }: { m: Model }) {
         Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs. Market figures modeled (#122); funnel uninstrumented (#123). IBBI governs valuation; TEV/LIE/DPR is bank-empanelled.
       </div>
     </div>
+  );
+}
+
+function Gauge({ score, color }: { score: number; color: string }) {
+  return (
+    <Donut
+      size={56}
+      thickness={7}
+      data={[
+        { label: "", value: score, color },
+        { label: "", value: Math.max(100 - score, 0.001), color: "transparent" },
+      ]}
+      center={<span className="text-[12px] font-bold" style={{ color }}>{score}</span>}
+    />
   );
 }
 
