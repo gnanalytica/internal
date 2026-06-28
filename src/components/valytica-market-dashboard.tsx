@@ -505,14 +505,9 @@ function Slide({ cfg }: { cfg: Cfg }) {
           <NabcBody cfg={cfg} />
         </Panel>
 
-        <Panel className={cfg.trajectory ? undefined : "col-span-2"} title="Where we stand · SWOT" icon={Zap}>
+        <Panel className="col-span-2" title="Where we stand · SWOT" icon={Zap}>
           <SwotBody cfg={cfg} />
         </Panel>
-        {cfg.trajectory && (
-          <Panel title="Financial trajectory" icon={TrendingUp}>
-            <TrajectoryBody cfg={cfg} />
-          </Panel>
-        )}
       </div>
       <p className="mt-2 shrink-0 text-[10px] leading-snug text-muted-foreground">{cfg.footer}</p>
     </div>
@@ -613,6 +608,19 @@ function MarketBody({ cfg }: { cfg: Cfg }) {
             <span className="w-14 shrink-0 text-right text-[12px] font-bold tabular-nums">{inCr(f.v)}</span>
           </div>
         ))}
+        {cfg.trajectory && (
+          <div className="mt-1">
+            <div className="mb-0.5 flex items-baseline justify-between text-[10px]">
+              <span className="font-medium text-muted-foreground">3-yr revenue ramp</span>
+              <span className="font-bold">{inCr(cfg.trajectory.years[cfg.trajectory.years.length - 1].value)} by {cfg.trajectory.years[cfg.trajectory.years.length - 1].label}</span>
+            </div>
+            <ColumnChart
+              data={cfg.trajectory.years.map((y) => ({ label: y.label, value: y.value, color: "#10b981" }))}
+              height={58}
+              format={(n) => `₹${n}cr`}
+            />
+          </div>
+        )}
         <div className="text-[10px] leading-snug text-muted-foreground">
           <span className="font-semibold text-foreground">Buyers: </span>
           {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
@@ -697,18 +705,6 @@ function SwotBody({ cfg }: { cfg: Cfg }) {
           </ul>
         </div>
       ))}
-    </div>
-  );
-}
-
-function TrajectoryBody({ cfg }: { cfg: Cfg }) {
-  const data: Slice[] = cfg.trajectory!.years.map((y) => ({ label: y.label, value: y.value, color: "#1d4ed8" }));
-  return (
-    <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1">
-        <ColumnChart data={data} height={120} format={(n) => `₹${n}cr`} />
-      </div>
-      <p className="mt-1 text-[9.5px] leading-tight text-muted-foreground">{cfg.trajectory!.note}</p>
     </div>
   );
 }
