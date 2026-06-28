@@ -1,6 +1,23 @@
 "use client";
 
-import { ArrowRight, Building2, Check, Circle, Landmark, Maximize, Printer, Rocket, Target, TrendingUp, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  Banknote,
+  Building2,
+  Check,
+  Circle,
+  Clock,
+  Landmark,
+  Layers,
+  Maximize,
+  Printer,
+  Receipt,
+  Rocket,
+  Target,
+  TrendingUp,
+  Users,
+  Zap,
+} from "lucide-react";
 
 import { Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
@@ -21,7 +38,7 @@ export type VisionVariant = "valuation" | "feasibility";
 
 // ============================ config types ============================
 
-type Tile = { label: string; value: string; sub: string; tone?: "brand" | "emerald" };
+type Tile = { label: string; value: string; sub: string; tone?: "brand" | "emerald"; icon?: React.ComponentType<{ className?: string }> };
 type Stat = "ok" | "next";
 type StatRowT = { s: Stat; t: string; v?: string };
 type BarT = { label: string; right: string; parts: { pct: number; color: string }[] };
@@ -81,18 +98,12 @@ const VALUATION: Cfg = {
     { n: "3", title: "Set the standard", when: "2 years +", color: "#10b981", proof: "Comparable data no rival can copy" },
   ],
   numbers: [
-    { label: "Valuation market", value: "₹3,000 cr", sub: "per year", tone: "brand" },
-    { label: "Residential", value: "₹1,300 cr", sub: "high volume" },
-    { label: "Commercial + industrial", value: "₹1,700 cr", sub: "higher fee" },
-    { label: "We can reach", value: "₹650 cr", sub: "software + accounts", tone: "emerald" },
-    { label: "3-year target", value: "₹6 cr", sub: "subscription ARR" },
-    { label: "Reports / year", value: "~5M", sub: "bank valuations" },
-    { label: "Registered valuers", value: "~6,176", sub: "10k+ bank-empanelled" },
-    { label: "Avg valuation fee", value: "₹2.5–4k", sub: "per report" },
-    { label: "Price per report", value: "₹200", sub: "what banks pay", tone: "brand" },
-    { label: "AI cost / report", value: "₹20", sub: "at scale" },
-    { label: "Gross profit / report", value: "₹180", sub: "~90% margin", tone: "emerald" },
-    { label: "Value saved / report", value: "₹2,000", sub: "~50% of time" },
+    { label: "Bank valuations / yr", value: "~5M", sub: "report volume", icon: Layers },
+    { label: "Registered valuers", value: "~6,176", sub: "IBBI-registered", icon: Users },
+    { label: "Bank-empanelled pool", value: "10k+", sub: "wider supply", icon: Landmark },
+    { label: "Avg valuation fee", value: "₹2.5–4k", sub: "per report", icon: Banknote },
+    { label: "Price per report", value: "₹200", sub: "what banks pay", tone: "brand", icon: Receipt },
+    { label: "Gross margin", value: "~90%", sub: "₹180 of ₹200", tone: "emerald", icon: TrendingUp },
   ],
   segments: [
     { label: "Residential valuation", value: 1300, color: "#6366f1" },
@@ -228,12 +239,10 @@ const FEASIBILITY: Cfg = {
     { n: "3", title: "Become the standard", when: "2 years +", color: "#10b981", proof: "Benchmark project data" },
   ],
   numbers: [
-    { label: "Feasibility market", value: "₹4,500 cr", sub: "per year", tone: "brand" },
-    { label: "Project reports (DPR)", value: "₹2,500 cr", sub: "MSME · govt · private" },
-    { label: "Techno-economic (TEV)", value: "₹1,000 cr", sub: "bank term loans" },
-    { label: "LIE / monitoring", value: "₹1,000 cr", sub: "recurring", tone: "emerald" },
-    { label: "We can reach", value: "₹900 cr", sub: "early enterprise", tone: "emerald" },
-    { label: "Deal value", value: "₹2–50L", sub: "per engagement", tone: "brand" },
+    { label: "DPRs / year", value: "100k+", sub: "MSME · govt · private", icon: Layers },
+    { label: "TEV / LIE firms", value: "~100s", sub: "fragmented supply", icon: Users },
+    { label: "Deal value", value: "₹2–50L", sub: "per engagement", tone: "brand", icon: Banknote },
+    { label: "LIE monitoring", value: "recurring", sub: "across the build", tone: "emerald", icon: Clock },
   ],
   segments: [
     { label: "Project reports (DPR)", value: 2500, color: "#8b5cf6" },
@@ -451,9 +460,10 @@ function Horizons({ cfg }: { cfg: Cfg }) {
 // ============================ NUMBERS ============================
 
 function Numbers({ cfg }: { cfg: Cfg }) {
+  const cols = cfg.numbers.length <= 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-6";
   return (
-    <Section title="The numbers" icon={TrendingUp}>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+    <Section title="Demand & supply at a glance" icon={TrendingUp}>
+      <div className={cn("grid grid-cols-2 gap-4", cols)}>
         {cfg.numbers.map((t) => (
           <div
             key={t.label}
@@ -463,9 +473,14 @@ function Numbers({ cfg }: { cfg: Cfg }) {
               t.tone === "emerald" && "border-emerald-500/40 bg-emerald-500/[0.06]",
             )}
           >
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.label}</div>
-            <div className="mt-1.5 text-2xl font-bold tabular-nums sm:text-3xl">{t.value}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{t.sub}</div>
+            {t.icon && (
+              <div className="mb-2 grid size-8 place-items-center rounded-lg bg-muted/70">
+                <t.icon className="size-4 text-brand" />
+              </div>
+            )}
+            <div className="text-2xl font-bold tabular-nums sm:text-3xl">{t.value}</div>
+            <div className="mt-1 text-sm font-medium">{t.label}</div>
+            <div className="text-xs text-muted-foreground">{t.sub}</div>
           </div>
         ))}
       </div>
