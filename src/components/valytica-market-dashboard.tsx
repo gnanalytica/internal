@@ -415,7 +415,7 @@ const CONFIGS: Record<VisionVariant, Cfg> = { valuation: VALUATION, feasibility:
 // ============================ shell (scaled slide) ============================
 
 const BASE_W = 1600;
-const BASE_H = 900;
+const BASE_H = 840;
 
 export function MarketVisionDashboard({ variant = "valuation" }: { variant?: VisionVariant }) {
   const cfg = CONFIGS[variant];
@@ -515,39 +515,25 @@ function Slide({ cfg }: { cfg: Cfg }) {
 
 function Header({ cfg }: { cfg: Cfg }) {
   return (
-    <div className="-mx-6 -mt-5 px-6 py-4 text-white" style={{ background: "linear-gradient(115deg,#0b1f3a 0%,#13315c 52%,#1d4ed8 135%)" }}>
+    <div className="-mx-6 -mt-5 px-6 py-5 text-white" style={{ background: "linear-gradient(120deg,#0f172a 0%,#1e293b 50%,#4338ca 130%)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-200">{cfg.eyebrow}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-200">{cfg.eyebrow}</div>
         <div className="flex items-center gap-1.5">
           <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-100">{cfg.badgeOk}</span>
           <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-100">{cfg.badgeWarn}</span>
         </div>
       </div>
 
-      <h1 className="mt-2 text-[31px] font-bold leading-[1.04] tracking-tight">{cfg.title}</h1>
+      <h1 className="mt-2.5 text-[31px] font-bold leading-[1.04] tracking-tight">{cfg.title}</h1>
 
       {cfg.problem && (
-        <p className="mt-2.5 max-w-[1120px] text-[13px] leading-snug text-blue-50">
+        <p className="mt-3 max-w-[1180px] text-[13px] leading-snug text-indigo-50">
           <span className="mr-1.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
             The problem
           </span>
           {cfg.problem}
         </p>
       )}
-
-      <div className="mt-3 grid grid-cols-3 gap-2.5">
-        {cfg.why.map((w) => (
-          <div key={w.t} className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.08] px-3 py-1.5">
-            <span className="grid size-7 shrink-0 place-items-center rounded-md bg-white/10">
-              <w.icon className="size-3.5 text-blue-200" />
-            </span>
-            <div className="min-w-0">
-              <div className="text-[11.5px] font-semibold leading-tight text-white">{w.t}</div>
-              <div className="truncate text-[10px] leading-tight text-blue-200">{w.s}</div>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
