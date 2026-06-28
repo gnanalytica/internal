@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   BarChart3,
   Bell,
@@ -17,6 +17,8 @@ import {
   LogOut,
   Megaphone,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   PenSquare,
   Search,
@@ -93,7 +95,31 @@ export function Sidebar({
   const [showOps, setShowOps] = useState(true);
   const [showPages, setShowPages] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const peopleHr = projects.find((p) => p.key === "PPL");
+
+  // Restore collapsed state after mount (avoids SSR hydration mismatch).
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("sidebar-collapsed") === "1") setCollapsed(true);
+    } catch {
+      // storage may be unavailable
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
 
   function signOut() {
     startTransition(async () => {
@@ -117,6 +143,47 @@ export function Sidebar({
       router.push(`/pages/${page.id}`);
       router.refresh();
     });
+  }
+
+  if (collapsed) {
+    return (
+      <aside className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r bg-sidebar py-2 text-sidebar-foreground">
+        <button
+          onClick={toggleCollapsed}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <PanelLeftOpen className="size-4" />
+        </button>
+        <span
+          className="grid size-7 place-items-center rounded-md bg-brand text-xs font-bold text-brand-foreground"
+          title={workspace.name}
+        >
+          {workspace.name[0]}
+        </span>
+        <div className="my-1 h-px w-6 bg-border" />
+        <NewIssueDialog
+          projects={projects}
+          members={members}
+          labels={labels}
+          trigger={
+            <Button size="icon" variant="ghost" className="size-8" aria-label="New task" title="New task">
+              <PenSquare className="size-4 text-brand" />
+            </Button>
+          }
+        />
+        <RailButton onClick={() => window.dispatchEvent(new Event("open-command-palette"))} label="Search (⌘K)">
+          <Search className="size-4" />
+        </RailButton>
+        <div className="my-1 h-px w-6 bg-border" />
+        <RailLink href="/" active={pathname === "/"} label="Overview"><House className="size-4" /></RailLink>
+        <RailLink href="/ask" active={pathname.startsWith("/ask")} label="Ask AI"><Sparkles className="size-4" /></RailLink>
+        <RailLink href="/inbox" active={pathname.startsWith("/inbox")} label="Inbox"><Bell className="size-4" /></RailLink>
+        <RailLink href="/issues" active={pathname === "/issues"} label="Tasks"><CircleDot className="size-4" /></RailLink>
+        <RailLink href="/projects" active={pathname.startsWith("/projects")} label="Projects"><Folder className="size-4" /></RailLink>
+      </aside>
+    );
   }
 
   return (
@@ -215,6 +282,14 @@ export function Sidebar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <button
+          onClick={toggleCollapsed}
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <PanelLeftClose className="size-4" />
+        </button>
       </div>
 
       {/* New task + search */}
@@ -402,6 +477,37 @@ export function Sidebar({
         </Section>
       </nav>
     </aside>
+  );
+}
+
+/** Icon-only nav link for the collapsed rail. */
+function RailLink({ href, active, label, children }: { href: string; active?: boolean; label: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "grid size-8 place-items-center rounded-md transition-colors",
+        active ? "bg-sidebar-accent text-brand" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** Icon-only action button for the collapsed rail. */
+function RailButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+    >
+      {children}
+    </button>
   );
 }
 
