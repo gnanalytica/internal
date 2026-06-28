@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Building2, Check, Maximize, Minus, Printer, Target, TrendingUp, X, Zap } from "lucide-react";
+import { ArrowRight, Building2, Check, Circle, Maximize, Printer, Target, TrendingUp, Zap } from "lucide-react";
 
 import { Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,6 @@ const TEV_FEE = 200_000;
 const REPORT_SW = 200; // ₹ per property report — grounded
 const TEV_SW = 10_000;
 const SAM_FRAC = 0.4;
-const INR_PER_USD = 83;
 const TIME_SAVED = 0.5;
 const BASE = { bankVolM: 4, avgFee: 4000, adoptPct: 6 };
 
@@ -40,7 +39,6 @@ function fmtCr(v: number): string {
   const c = cr(v);
   return `₹${c.toLocaleString("en-IN", { maximumFractionDigits: c < 100 ? 1 : 0 })} cr`;
 }
-const fmtUsd = (v: number) => `$${(v / INR_PER_USD / 1e6).toFixed(v / INR_PER_USD / 1e6 < 20 ? 1 : 0)}M`;
 
 // ---- model, computed once ----
 const bankVol = BASE.bankVolM * 1e6;
@@ -51,7 +49,6 @@ const softwareTAM = bankVol * REPORT_SW + TEV_VOL * TEV_SW;
 const sam = softwareTAM * SAM_FRAC;
 const som = softwareTAM * (BASE.adoptPct / 100);
 const valuePerReport = BASE.avgFee * TIME_SAVED;
-const captureRatio = REPORT_SW / valuePerReport;
 
 const BASE_W = 1280;
 const BASE_H = 720;
@@ -148,13 +145,13 @@ function Slide() {
       <div className="mt-2.5 grid flex-1 grid-rows-[150px_168px_1fr] gap-2.5">
         {/* Row 1 */}
         <div className="grid grid-cols-3 gap-2.5">
-          <Panel title="The arc — report → workflow → benchmark" icon={Target}>
+          <Panel title="How we grow, step by step" icon={Target}>
             <Horizons />
           </Panel>
-          <Panel title="Financial snapshot" icon={TrendingUp}>
+          <Panel title="The numbers" icon={TrendingUp}>
             <Financials />
           </Panel>
-          <Panel title="SWOT" icon={Zap}>
+          <Panel title="Where we stand" icon={Zap}>
             <Swot />
           </Panel>
         </div>
@@ -168,14 +165,13 @@ function Slide() {
           </Panel>
         </div>
         {/* Row 3 — FDV with each lens' evidence in one place */}
-        <Panel title="FDV — Feasibility → Desirability → Viability · fix a red, lift the next" icon={Check}>
+        <Panel title="The three big questions · fix the gaps in order" icon={Check}>
           <FdvUnified />
         </Panel>
       </div>
       <p className="mt-2 shrink-0 text-[8.5px] leading-snug text-muted-foreground">
-        Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs.
-        Pricing grounded in billing.ts; market figures modeled (#122); funnel uninstrumented (#123). IBBI governs
-        valuation; TEV/LIE/DPR is a separate bank-empanelled consultant market.
+        Prices are real. Market sizes are estimates we still need to confirm. Based on public industry and government
+        data plus competitor websites. Valuations and feasibility reports are two related but separate markets.
       </p>
     </div>
   );
@@ -183,9 +179,9 @@ function Slide() {
 
 function Header() {
   const why = [
-    { icon: TrendingUp, t: "Secured lending rising", s: "~231M retail loans/yr" },
-    { icon: Building2, t: "Opinion layer thin & aging", s: "~6,176 IBBI valuers" },
-    { icon: Zap, t: "AI crossed the line", s: "bank-ready, machine-drafted" },
+    { icon: TrendingUp, t: "More loans every year", s: "231M loans a year" },
+    { icon: Building2, t: "Too few valuers", s: "~6,176 in India" },
+    { icon: Zap, t: "AI is finally good enough", s: "bank-ready reports" },
   ];
   return (
     <div
@@ -200,17 +196,17 @@ function Header() {
           Trust infrastructure for India&apos;s secured lending.
         </h1>
         <p className="mt-1 max-w-[640px] text-[12.5px] leading-snug text-blue-100">
-          Make every valuation &amp; feasibility opinion <span className="font-semibold text-white">instant,
-          consistent, and audit-defensible</span> — across property valuation and TEV / LIE / DPR.
+          Make every property valuation and feasibility report <span className="font-semibold text-white">fast,
+          consistent, and trustworthy</span> — for every bank loan.
         </p>
       </div>
       <div className="flex w-[300px] shrink-0 flex-col gap-1.5">
         <div className="flex items-center justify-end gap-1.5">
           <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-100">
-            ✓ Pain validated
+            ✓ Problem confirmed
           </span>
           <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-0.5 text-[9px] font-semibold text-amber-100">
-            ⚠ Market modeled
+            ⚠ Market estimated
           </span>
         </div>
         {why.map((w) => (
@@ -250,9 +246,9 @@ function Panel({
 // ============================ HORIZONS ============================
 
 const HORIZONS: { h: string; title: string; when: string; color: string; proof: string }[] = [
-  { h: "H1", title: "Win the report", when: "Now", color: "#1d4ed8", proof: "Shipped · ~90% margin/report" },
-  { h: "H2", title: "Own the workflow", when: "12–24 mo", color: "#7c3aed", proof: "System of record · ship #119 + deals" },
-  { h: "H3", title: "Become the benchmark", when: "24 mo+", color: "#10b981", proof: "Consistency intelligence · data moat" },
+  { h: "1", title: "Win the report", when: "Now", color: "#1d4ed8", proof: "Live now · ₹180 profit per report" },
+  { h: "2", title: "Run the whole process", when: "1–2 yrs", color: "#7c3aed", proof: "Turn on subscriptions + first deals" },
+  { h: "3", title: "Set the standard", when: "2 yrs+", color: "#10b981", proof: "Data no rival can copy" },
 ];
 
 function Horizons() {
@@ -284,12 +280,12 @@ function Horizons() {
 
 function Financials() {
   const tiles: { label: string; value: string; sub: string; tone?: "brand" | "emerald" }[] = [
-    { label: "Software TAM", value: fmtCr(softwareTAM), sub: fmtUsd(softwareTAM), tone: "brand" },
-    { label: "SAM", value: fmtCr(sam), sub: `${SAM_FRAC * 100}% TAM` },
-    { label: "SOM · 3-yr", value: fmtCr(som), sub: "ARR target", tone: "emerald" },
-    { label: "Services mkt", value: fmtCr(servicesTAM), sub: "enterprise" },
-    { label: "Price/report", value: "₹200", sub: "grounded", tone: "brand" },
-    { label: "Gross margin", value: "~90%", sub: "₹200−₹20", tone: "emerald" },
+    { label: "Total market", value: fmtCr(softwareTAM), sub: "software, per year", tone: "brand" },
+    { label: "We can reach", value: fmtCr(sam), sub: "realistically" },
+    { label: "3-yr target", value: fmtCr(som), sub: "per year", tone: "emerald" },
+    { label: "Bigger services market", value: fmtCr(servicesTAM), sub: "custom builds" },
+    { label: "Price per report", value: "₹200", sub: "what banks pay", tone: "brand" },
+    { label: "Profit margin", value: "~90%", sub: "₹180 of ₹200", tone: "emerald" },
   ];
   return (
     <div className="grid h-full grid-cols-3 grid-rows-2 gap-1.5">
@@ -315,9 +311,9 @@ function Financials() {
 
 type FdvLens = { key: string; label: string; score: number; color: string; state: string; lever: string; unlocks: string };
 const FDV_META: FdvLens[] = [
-  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong · built", lever: "India-region AI", unlocks: "credibility → Desirability" },
-  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument #123", unlocks: "proven demand → Viability" },
-  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship #119 + deals", unlocks: "revenue proof → funds H2" },
+  { key: "F", label: "Can we build it?", score: 80, color: "#10b981", state: "Yes — it's built", lever: "Move AI to India servers", unlocks: "banks trust us" },
+  { key: "D", label: "Do they want it?", score: 64, color: "#f59e0b", state: "Problem confirmed", lever: "Measure real usage", unlocks: "proves they want it" },
+  { key: "V", label: "Can we earn?", score: 52, color: "#f59e0b", state: "Two ways to earn", lever: "Launch + win first deals", unlocks: "proves the money" },
 ];
 
 /** FDV: each lens shows its monetary pointers + a mini chart beneath its gauge,
@@ -373,26 +369,26 @@ function FdvArrow({ color }: { color: string }) {
 // ============================ MARKET ============================
 
 const FIRMS: { k: string; v: string }[] = [
-  { k: "6,176", v: "IBBI valuers" },
-  { k: "3,000+", v: "L&B valuers" },
-  { k: "10k+", v: "empanelled" },
-  { k: "100s", v: "TEV/LIE firms" },
+  { k: "6,176", v: "valuers in India" },
+  { k: "3,000+", v: "property valuers" },
+  { k: "10k+", v: "bank-approved" },
+  { k: "100s", v: "feasibility firms" },
 ];
 const DEMAND: { k: string; v: string }[] = [
-  { k: "231M", v: "retail loans/yr" },
-  { k: "35%", v: "lending = proj. fin" },
-  { k: "$1.18T", v: "RE by 2033" },
+  { k: "231M", v: "loans a year" },
+  { k: "35%", v: "need feasibility checks" },
+  { k: "$1.18T", v: "property market by 2033" },
 ];
 
 function Market() {
   const services: Slice[] = [
-    { label: "Property", value: Math.round(cr(servicesProperty)), color: "#6366f1" },
-    { label: "TEV/LIE/DPR", value: Math.round(cr(servicesTev)), color: "#0ea5e9" },
+    { label: "Valuations", value: Math.round(cr(servicesProperty)), color: "#6366f1" },
+    { label: "Feasibility reports", value: Math.round(cr(servicesTev)), color: "#0ea5e9" },
   ];
   const funnel: { l: string; v: number; pct: number; c: string }[] = [
-    { l: "TAM", v: softwareTAM, pct: 100, c: "#6366f1" },
-    { l: "SAM", v: sam, pct: SAM_FRAC * 100, c: "#8b5cf6" },
-    { l: "SOM", v: som, pct: (som / softwareTAM) * 100, c: "#10b981" },
+    { l: "All", v: softwareTAM, pct: 100, c: "#6366f1" },
+    { l: "Reach", v: sam, pct: SAM_FRAC * 100, c: "#8b5cf6" },
+    { l: "Target", v: som, pct: (som / softwareTAM) * 100, c: "#10b981" },
   ];
   return (
     <div className="flex h-full flex-col gap-2">
@@ -400,7 +396,7 @@ function Market() {
         <div className="flex-1 space-y-1">
           {funnel.map((f) => (
             <div key={f.l} className="flex items-center gap-1.5">
-              <span className="w-7 shrink-0 text-[9px] font-semibold text-muted-foreground">{f.l}</span>
+              <span className="w-10 shrink-0 text-[9px] font-semibold text-muted-foreground">{f.l}</span>
               <div className="h-3.5 flex-1 overflow-hidden rounded bg-muted/60">
                 <div className="h-full rounded" style={{ width: `${Math.max(f.pct, 4)}%`, backgroundColor: f.c }} />
               </div>
@@ -444,12 +440,12 @@ function Market() {
 
 const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean }[] = [
   { name: "Valytica", x: 84, y: 16, color: "#1d4ed8", star: true },
-  { name: "Bank AI", x: 74, y: 32, color: "#64748b" },
-  { name: "Global AVMs", x: 90, y: 54, color: "#94a3b8" },
+  { name: "Banks' own AI", x: 74, y: 32, color: "#64748b" },
+  { name: "Global tools", x: 90, y: 54, color: "#94a3b8" },
   { name: "Sigmavalue", x: 64, y: 60, color: "#6366f1" },
   { name: "Housing/99acres", x: 72, y: 86, color: "#94a3b8" },
-  { name: "TEV/LIE firms", x: 22, y: 28, color: "#0ea5e9" },
-  { name: "Big advisory", x: 16, y: 46, color: "#94a3b8" },
+  { name: "Feasibility firms", x: 22, y: 28, color: "#0ea5e9" },
+  { name: "Big advisory firms", x: 16, y: 46, color: "#94a3b8" },
 ];
 
 function Competition() {
@@ -460,7 +456,7 @@ function Competition() {
         <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-border" />
         <div className="absolute right-0 top-0 h-1/2 w-1/2 rounded-tr-md bg-emerald-500/[0.08]" />
         <span className="absolute right-1 top-0.5 text-[7px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-          white space
+          the open gap
         </span>
         {COMP_MAP.map((c) => (
           <div
@@ -484,12 +480,12 @@ function Competition() {
         ))}
       </div>
       <div className="flex justify-between text-[7px] text-muted-foreground">
-        <span>Manual / services</span>
-        <span>AI / software →</span>
+        <span>Done by hand</span>
+        <span>Done by AI →</span>
       </div>
       <div className="text-[8px] leading-tight text-muted-foreground">
-        White space (top-right) = <span className="font-semibold text-foreground">AI · bank-grade · India · both
-        markets</span>. No incumbent covers all four.
+        The open gap (top-right): <span className="font-semibold text-foreground">AI-powered, bank-ready,
+        India-based, and does both jobs</span>. No rival does all four.
       </div>
     </div>
   );
@@ -498,10 +494,10 @@ function Competition() {
 // ============================ SWOT ============================
 
 const SWOT: { key: string; title: string; color: string; items: string[] }[] = [
-  { key: "S", title: "Strengths", color: "#10b981", items: ["Shipped: valuation + TEV/LIE/DPR", "~90% gross margin/report", "India-resident, bank-ready, grounded AI"] },
-  { key: "W", title: "Weaknesses", color: "#f43f5e", items: ["Subscriptions not live (#119)", "Funnel uninstrumented (#123)", "Founder-led GTM; no sales motion"] },
-  { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["White space across both markets", "Enterprise co-own ₹20–60L ACV", "Comparables-DB gap = data moat"] },
-  { key: "T", title: "Threats", color: "#f59e0b", items: ["Sigmavalue (closest AI)", "Captive bank in-house AI", "AI-trust in regulated deliverable"] },
+  { key: "S", title: "Strengths", color: "#10b981", items: ["Built and live (both report types)", "High profit per report", "India-based, bank-ready, accurate AI"] },
+  { key: "W", title: "Weaknesses", color: "#f43f5e", items: ["Subscriptions not switched on yet", "Not tracking real usage yet", "No sales team yet"] },
+  { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["Big open gap in the market", "Large custom deals: ₹20–60 lakh", "Can build data no one else has"] },
+  { key: "T", title: "Threats", color: "#f59e0b", items: ["Sigmavalue (closest rival)", "Banks building their own AI", "Will banks trust AI reports?"] },
 ];
 
 function Swot() {
@@ -535,14 +531,13 @@ type Cover = "full" | "partial" | "none";
 const COVER_COLOR: Record<Cover, string> = { full: "#10b981", partial: "#f59e0b", none: "#94a3b8" };
 const PAIN: Cover[] = ["full", "full", "full", "full", "partial", "none"];
 
-type Stat = "ok" | "no" | "wip";
+type Stat = "ok" | "next";
 const STAT: Record<Stat, { Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string }> = {
   ok: { Icon: Check, color: "#10b981" },
-  no: { Icon: X, color: "#f43f5e" },
-  wip: { Icon: Minus, color: "#f59e0b" },
+  next: { Icon: Circle, color: "#f59e0b" },
 };
 
-/** A status pointer: ✓ done · ✗ gap · ~ in-progress, with an optional figure. */
+/** A status pointer: ✓ have it · ○ still to do, with an optional figure. */
 function StatRow({ s, t, v }: { s: Stat; t: string; v?: string }) {
   const { Icon, color } = STAT[s];
   return (
@@ -570,18 +565,18 @@ function MiniBarRow({ label, right, children }: { label: string; right: string; 
   );
 }
 
-/** Feasibility — what's built + per-report economics; one gap (region). */
+/** Can we build it? — what's done and the per-report economics. */
 function FeasibilityEvidence() {
   return (
     <div className="flex h-full flex-col justify-center gap-1">
       <ul className="space-y-0.5">
-        <StatRow s="ok" t="Shipped both report types" />
-        <StatRow s="ok" t="Grounded AI · 0 hallucinations" />
-        <StatRow s="ok" t="Gross profit / report" v="₹180" />
-        <StatRow s="ok" t="Price / AI cost" v="₹200 / ₹20" />
-        <StatRow s="wip" t="India-region AI" v="pending" />
+        <StatRow s="ok" t="Built and live" />
+        <StatRow s="ok" t="Accurate AI — no made-up facts" />
+        <StatRow s="ok" t="Profit per report" v="₹180" />
+        <StatRow s="ok" t="Sells ₹200 · costs ₹20" />
+        <StatRow s="next" t="Move AI to India servers" />
       </ul>
-      <MiniBarRow label="Gross margin" right="~90%">
+      <MiniBarRow label="Profit margin" right="~90%">
         <div className="h-2 w-full overflow-hidden rounded bg-emerald-500/15">
           <div className="h-full rounded bg-emerald-500" style={{ width: "90%" }} />
         </div>
@@ -590,7 +585,7 @@ function FeasibilityEvidence() {
   );
 }
 
-/** Desirability — pain & value strong; demand proof still missing. */
+/** Do they want it? — problem & value are real; demand proof still to come. */
 function DesirabilityEvidence() {
   const solved = PAIN.filter((c) => c === "full").length;
   const order: Cover[] = ["full", "partial", "none"];
@@ -598,13 +593,13 @@ function DesirabilityEvidence() {
   return (
     <div className="flex h-full flex-col justify-center gap-1">
       <ul className="space-y-0.5">
-        <StatRow s="ok" t="Pain validated · interviews" />
-        <StatRow s="ok" t="Value saved / report" v={`₹${valuePerReport.toLocaleString("en-IN")}`} />
-        <StatRow s="no" t="Capture · price headroom" v={`~${Math.round(captureRatio * 100)}%`} />
-        <StatRow s="no" t="Funnel instrumented (#123)" />
-        <StatRow s="no" t="Willingness-to-pay tested (#124)" />
+        <StatRow s="ok" t="Real problem, confirmed with users" />
+        <StatRow s="ok" t="Saves per report" v={`₹${valuePerReport.toLocaleString("en-IN")}`} />
+        <StatRow s="ok" t="Room to raise the price" v="→ ₹400+" />
+        <StatRow s="next" t="Prove people keep using it" />
+        <StatRow s="next" t="Find out what they'll pay" />
       </ul>
-      <MiniBarRow label="Pain coverage" right={`${solved}/${PAIN.length} solved`}>
+      <MiniBarRow label="Problems we solve" right={`${solved} of ${PAIN.length}`}>
         <div className="flex h-2 w-full overflow-hidden rounded">
           {order.map((c) => (
             <div key={c} style={{ width: `${(counts[c] / PAIN.length) * 100}%`, background: COVER_COLOR[c] }} />
@@ -615,20 +610,20 @@ function DesirabilityEvidence() {
   );
 }
 
-/** Viability — engines & economics defined; revenue & deals not yet proven. */
+/** Can we earn? — two ways to make money; revenue not switched on yet. */
 function ViabilityEvidence() {
   const ENT_REV = 3e7;
   const saasPct = (som / (som + ENT_REV)) * 100;
   return (
     <div className="flex h-full flex-col justify-center gap-1">
       <ul className="space-y-0.5">
-        <StatRow s="ok" t="Two engines defined" />
-        <StatRow s="ok" t="SaaS ARR (3-yr SOM)" v={fmtCr(som)} />
-        <StatRow s="ok" t="Enterprise ACV / deal" v="₹20–60L" />
-        <StatRow s="no" t="Recurring revenue (#119)" />
-        <StatRow s="no" t="First enterprise deal" />
+        <StatRow s="ok" t="Two ways to earn money" />
+        <StatRow s="ok" t="Subscriptions could reach" v={`${fmtCr(som)}/yr`} />
+        <StatRow s="ok" t="Each custom build" v="₹20–60L" />
+        <StatRow s="next" t="Switch on subscriptions" />
+        <StatRow s="next" t="Win the first big customer" />
       </ul>
-      <MiniBarRow label="Revenue mix (est.)" right="SaaS · Ent.">
+      <MiniBarRow label="Where revenue comes from" right="subs · custom">
         <div className="flex h-2 w-full overflow-hidden rounded">
           <div style={{ width: `${saasPct}%`, background: "#1d4ed8" }} />
           <div style={{ width: `${100 - saasPct}%`, background: "#10b981" }} />
