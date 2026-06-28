@@ -172,7 +172,15 @@ const GTM_DOCS: { title: string; icon: string; nodes: Node[] }[] = [
         "Bank-ready deliverables, not just a number — purpose-driven basis of value (loan origination / SARFAESI / capital gains).",
         "Comparables grounded in the firm's own history, org-isolated by RLS.",
       ]),
-      h(2, "ICP — hypotheses to validate (not yet researched)"),
+      h(2, "Validated pains (user interviews)"),
+      bullets([
+        "Maintenance of records / cases over time.",
+        "Cross-referencing across documents and prior cases.",
+        "Tracking status and progress across a high case volume.",
+        "Audit trail and defensibility of every figure.",
+        "Time taken per report; throughput under volume.",
+      ]),
+      h(2, "ICP — sharpened by interviews; formalize in #122"),
       bullets([
         "Independent IBBI-registered valuers doing bank-mandated property valuations.",
         "Valuation firms on bank panels handling volume.",
@@ -193,6 +201,11 @@ const GTM_DOCS: { title: string; icon: string; nodes: Node[] }[] = [
     nodes: [
       h(1, "GTM Launch Plan"),
       p("How Valytica goes to market. The WhatsApp campaign brief, content and build tickets live alongside this doc; this is the cross-functional plan and the go / no-go gate."),
+      h(2, "Business model — two engines"),
+      bullets([
+        "SaaS (self-serve, the “initial taste”): valuers run reports themselves — ₹200/report + ₹499 / ₹1,999 plans. Proves value, gathers usage, seeds the comparables index. Recurring revenue is blocked until subscriptions ship (#119).",
+        "Enterprise (build & co-own): custom-build to a bank / firm's requirements, then co-own, hand over, or run as managed support. Sales-led, high-ACV; taps the services market and bills via contracts (not Razorpay) — needs GST (#120) + ToS (#121).",
+      ]),
       h(2, "Motion"),
       bullets([
         "WhatsApp outreach to valuers → free sample report (3 free, watermarked) → wallet top-up / paid plan.",
