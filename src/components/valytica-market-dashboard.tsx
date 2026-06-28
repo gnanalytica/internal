@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Building2, Check, Maximize, Printer, Target, TrendingUp, Zap } from "lucide-react";
+import { ArrowRight, Building2, Check, Maximize, Minus, Printer, Target, TrendingUp, X, Zap } from "lucide-react";
 
 import { Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
@@ -145,7 +145,7 @@ function Slide() {
   return (
     <div className="flex h-full flex-col px-6 py-5">
       <Header />
-      <div className="mt-2.5 grid flex-1 grid-rows-[158px_172px_1fr] gap-2.5">
+      <div className="mt-2.5 grid flex-1 grid-rows-[150px_168px_1fr] gap-2.5">
         {/* Row 1 */}
         <div className="grid grid-cols-3 gap-2.5">
           <Panel title="The arc — report → workflow → benchmark" icon={Target}>
@@ -535,15 +535,26 @@ type Cover = "full" | "partial" | "none";
 const COVER_COLOR: Record<Cover, string> = { full: "#10b981", partial: "#f59e0b", none: "#94a3b8" };
 const PAIN: Cover[] = ["full", "full", "full", "full", "partial", "none"];
 
-/** A pointer row: label on the left, a monetary (or %) data point on the right. */
-function MonRow({ k, v, color }: { k: string; v: string; color?: string }) {
+type Stat = "ok" | "no" | "wip";
+const STAT: Record<Stat, { Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string }> = {
+  ok: { Icon: Check, color: "#10b981" },
+  no: { Icon: X, color: "#f43f5e" },
+  wip: { Icon: Minus, color: "#f59e0b" },
+};
+
+/** A status pointer: ✓ done · ✗ gap · ~ in-progress, with an optional figure. */
+function StatRow({ s, t, v }: { s: Stat; t: string; v?: string }) {
+  const { Icon, color } = STAT[s];
   return (
-    <div className="flex items-baseline justify-between gap-1.5">
-      <span className="min-w-0 truncate text-[9px] leading-tight text-muted-foreground">{k}</span>
-      <span className="shrink-0 text-[10px] font-bold tabular-nums" style={color ? { color } : undefined}>
-        {v}
-      </span>
-    </div>
+    <li className="flex items-center gap-1 text-[8px] leading-tight">
+      <Icon className="size-2.5 shrink-0" style={{ color }} />
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">{t}</span>
+      {v && (
+        <span className="shrink-0 font-bold tabular-nums" style={{ color }}>
+          {v}
+        </span>
+      )}
+    </li>
   );
 }
 
@@ -559,15 +570,19 @@ function MiniBarRow({ label, right, children }: { label: string; right: string; 
   );
 }
 
-/** Feasibility: per-report economics → ~90% margin. */
+/** Feasibility — what's built + per-report economics; one gap (region). */
 function FeasibilityEvidence() {
   return (
-    <div className="flex h-full flex-col justify-center gap-0.5">
-      <MonRow k="Price / report" v="₹200" color="#10b981" />
-      <MonRow k="AI cost / report" v="−₹20" color="#0f766e" />
-      <MonRow k="Gross profit / report" v="₹180" color="#10b981" />
-      <MiniBarRow label="Gross margin · 98.4% AI accuracy" right="~90%">
-        <div className="h-2.5 w-full overflow-hidden rounded bg-emerald-500/15">
+    <div className="flex h-full flex-col justify-center gap-1">
+      <ul className="space-y-0.5">
+        <StatRow s="ok" t="Shipped both report types" />
+        <StatRow s="ok" t="Grounded AI · 0 hallucinations" />
+        <StatRow s="ok" t="Gross profit / report" v="₹180" />
+        <StatRow s="ok" t="Price / AI cost" v="₹200 / ₹20" />
+        <StatRow s="wip" t="India-region AI" v="pending" />
+      </ul>
+      <MiniBarRow label="Gross margin" right="~90%">
+        <div className="h-2 w-full overflow-hidden rounded bg-emerald-500/15">
           <div className="h-full rounded bg-emerald-500" style={{ width: "90%" }} />
         </div>
       </MiniBarRow>
@@ -575,18 +590,22 @@ function FeasibilityEvidence() {
   );
 }
 
-/** Desirability: value created vs price captured + pain coverage. */
+/** Desirability — pain & value strong; demand proof still missing. */
 function DesirabilityEvidence() {
   const solved = PAIN.filter((c) => c === "full").length;
   const order: Cover[] = ["full", "partial", "none"];
   const counts = PAIN.reduce((a, c) => ((a[c] += 1), a), { full: 0, partial: 0, none: 0 } as Record<Cover, number>);
   return (
-    <div className="flex h-full flex-col justify-center gap-0.5">
-      <MonRow k="Value saved / report" v={`₹${valuePerReport.toLocaleString("en-IN")}`} color="#f59e0b" />
-      <MonRow k={`Price · ~${Math.round(captureRatio * 100)}% capture`} v="₹200" color="#1d4ed8" />
-      <MonRow k="Pricing headroom" v="→ ₹400+" color="#f59e0b" />
+    <div className="flex h-full flex-col justify-center gap-1">
+      <ul className="space-y-0.5">
+        <StatRow s="ok" t="Pain validated · interviews" />
+        <StatRow s="ok" t="Value saved / report" v={`₹${valuePerReport.toLocaleString("en-IN")}`} />
+        <StatRow s="no" t="Capture · price headroom" v={`~${Math.round(captureRatio * 100)}%`} />
+        <StatRow s="no" t="Funnel instrumented (#123)" />
+        <StatRow s="no" t="Willingness-to-pay tested (#124)" />
+      </ul>
       <MiniBarRow label="Pain coverage" right={`${solved}/${PAIN.length} solved`}>
-        <div className="flex h-2.5 w-full overflow-hidden rounded">
+        <div className="flex h-2 w-full overflow-hidden rounded">
           {order.map((c) => (
             <div key={c} style={{ width: `${(counts[c] / PAIN.length) * 100}%`, background: COVER_COLOR[c] }} />
           ))}
@@ -596,19 +615,23 @@ function DesirabilityEvidence() {
   );
 }
 
-/** Viability: the two engines + near-term revenue mix. */
+/** Viability — engines & economics defined; revenue & deals not yet proven. */
 function ViabilityEvidence() {
   const ENT_REV = 3e7;
   const saasPct = (som / (som + ENT_REV)) * 100;
   return (
-    <div className="flex h-full flex-col justify-center gap-0.5">
-      <MonRow k="SaaS ARR (3-yr SOM)" v={fmtCr(som)} color="#1d4ed8" />
-      <MonRow k="Enterprise ACV / deal" v="₹20–60L" color="#10b981" />
-      <MonRow k="5–10 enterprise deals" v="₹1–5 cr" color="#10b981" />
+    <div className="flex h-full flex-col justify-center gap-1">
+      <ul className="space-y-0.5">
+        <StatRow s="ok" t="Two engines defined" />
+        <StatRow s="ok" t="SaaS ARR (3-yr SOM)" v={fmtCr(som)} />
+        <StatRow s="ok" t="Enterprise ACV / deal" v="₹20–60L" />
+        <StatRow s="no" t="Recurring revenue (#119)" />
+        <StatRow s="no" t="First enterprise deal" />
+      </ul>
       <MiniBarRow label="Revenue mix (est.)" right="SaaS · Ent.">
-        <div className="flex h-2.5 w-full overflow-hidden rounded text-[7px] font-semibold text-white">
-          <div className="flex items-center justify-center" style={{ width: `${saasPct}%`, background: "#1d4ed8" }} />
-          <div className="flex items-center justify-center" style={{ width: `${100 - saasPct}%`, background: "#10b981" }} />
+        <div className="flex h-2 w-full overflow-hidden rounded">
+          <div style={{ width: `${saasPct}%`, background: "#1d4ed8" }} />
+          <div style={{ width: `${100 - saasPct}%`, background: "#10b981" }} />
         </div>
       </MiniBarRow>
     </div>
