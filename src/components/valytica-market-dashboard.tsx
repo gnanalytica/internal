@@ -363,7 +363,7 @@ const CONFIGS: Record<VisionVariant, Cfg> = { valuation: VALUATION, feasibility:
 // ============================ shell (scaled slide) ============================
 
 const BASE_W = 1600;
-const BASE_H = 920;
+const BASE_H = 850;
 
 export function MarketVisionDashboard({ variant = "valuation" }: { variant?: VisionVariant }) {
   const cfg = CONFIGS[variant];
@@ -530,32 +530,46 @@ function Panel({ title, icon: Icon, className, children }: { title: string; icon
 function OpportunityBody({ cfg }: { cfg: Cfg }) {
   const total = cfg.segments.reduce((s, x) => s + x.value, 0);
   const bt = cfg.buyers.reduce((s, x) => s + x.value, 0);
+  const fmax = cfg.funnel[0].v;
   return (
-    <div className="flex h-full flex-col gap-1.5">
-      <div className="flex items-center gap-2.5">
+    <div className="flex h-full flex-col gap-2">
+      <div className="flex items-center gap-3">
         <Donut
           data={cfg.segments}
-          size={92}
-          thickness={13}
+          size={104}
+          thickness={15}
           center={
             <div className="text-center">
-              <div className="text-[11px] font-bold leading-none">{inCr(total)}</div>
-              <div className="text-[7px] text-muted-foreground">per year</div>
+              <div className="text-[12px] font-bold leading-none">{inCr(total)}</div>
+              <div className="text-[7.5px] text-muted-foreground">per year</div>
             </div>
           }
         />
-        <ul className="flex-1 space-y-1">
+        <ul className="flex-1 space-y-1.5">
           {cfg.segments.map((s) => (
-            <li key={s.label} className="flex items-center gap-1.5 text-[9px]">
-              <span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
+            <li key={s.label} className="flex items-center gap-1.5 text-[9.5px]">
+              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
               <span className="min-w-0 flex-1 truncate text-muted-foreground">{s.label}</span>
               <span className="shrink-0 font-bold tabular-nums">{inCr(s.value)}</span>
-              <span className="w-7 shrink-0 text-right text-[8px] text-muted-foreground">{Math.round((s.value / total) * 100)}%</span>
+              <span className="w-7 shrink-0 text-right text-[8.5px] text-muted-foreground">{Math.round((s.value / total) * 100)}%</span>
             </li>
           ))}
         </ul>
       </div>
-      <div className="mt-auto rounded bg-muted/40 px-1.5 py-1 text-[8.5px] leading-snug text-muted-foreground">
+
+      <div className="flex-1 space-y-1.5">
+        {cfg.funnel.map((f) => (
+          <div key={f.l} className="flex items-center gap-2">
+            <span className="w-20 shrink-0 text-[9px] font-medium text-muted-foreground">{f.l}</span>
+            <div className="h-4 flex-1 overflow-hidden rounded bg-muted/60">
+              <div className="h-full rounded" style={{ width: `${Math.max((f.v / fmax) * 100, 3)}%`, backgroundColor: f.color }} />
+            </div>
+            <span className="w-14 shrink-0 text-right text-[10px] font-bold tabular-nums">{inCr(f.v)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded bg-muted/40 px-1.5 py-1 text-[8.5px] leading-snug text-muted-foreground">
         <span className="font-semibold text-foreground">Buyers: </span>
         {cfg.buyers.map((b) => `${b.label.split(" ")[0]} ${Math.round((b.value / bt) * 100)}%`).join(" · ")}
       </div>
@@ -575,8 +589,8 @@ function FdvBody({ cfg }: { cfg: Cfg }) {
               <div className="mt-0.5 text-[7.5px] leading-tight text-muted-foreground">{n.state}</div>
             </div>
           </div>
-          <ul className="mt-1.5 min-h-0 flex-1 space-y-0.5">
-            {n.rows.slice(0, 4).map((r) => {
+          <ul className="mt-1.5 flex min-h-0 flex-1 flex-col justify-between">
+            {n.rows.map((r) => {
               const ok = r.s === "ok";
               const Icon = ok ? Check : Circle;
               const color = ok ? "#10b981" : "#f59e0b";
@@ -714,7 +728,7 @@ const TRACTION_META: Record<"done" | "now" | "next", { color: string; tag: strin
 
 function TractionBody({ cfg }: { cfg: Cfg }) {
   return (
-    <div className="flex h-full flex-col justify-center gap-1.5">
+    <div className="flex h-full flex-col justify-between gap-1.5 py-0.5">
       {cfg.traction!.map((s, i) => {
         const m = TRACTION_META[s.state];
         return (
