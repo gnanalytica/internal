@@ -5,7 +5,9 @@ import { useTransition } from "react";
 import { Plus } from "lucide-react";
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
+import { ProductGtm } from "@/components/product-gtm";
 import { Topbar } from "@/components/topbar";
+import type { VisionVariant } from "@/components/valytica-market-dashboard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -32,18 +34,23 @@ import type {
 const fieldCls =
   "h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
 
+const GTM_VARIANT: Record<string, VisionVariant> = { VAL: "valuation", ATL: "feasibility" };
+
 export function MarketingView({
   heading,
   scopeProjectId,
+  productKey,
   initialCampaigns,
   initialContent,
 }: {
   heading: string;
   scopeProjectId: string | null;
+  productKey?: string;
   projects: Project[];
   initialCampaigns: CampaignWithRelations[];
   initialContent: ContentItemWithCampaign[];
 }) {
+  const gtmVariant = productKey ? GTM_VARIANT[productKey] : undefined;
   const router = useRouter();
   const [, start] = useTransition();
   const refresh = () => router.refresh();
@@ -67,11 +74,18 @@ export function MarketingView({
         }
       />
 
-      <Tabs defaultValue="campaigns" className="flex min-h-0 flex-1 flex-col">
+      <Tabs defaultValue={gtmVariant ? "gtm" : "campaigns"} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">
+          {gtmVariant && <TabsTrigger value="gtm">Go-to-market</TabsTrigger>}
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
         </TabsList>
+
+        {gtmVariant && (
+          <TabsContent value="gtm" className="min-h-0 flex-1 overflow-auto p-4">
+            <ProductGtm variant={gtmVariant} />
+          </TabsContent>
+        )}
 
         <TabsContent value="campaigns" className="min-h-0 flex-1 overflow-auto p-4">
           {totalBudget > 0 && (

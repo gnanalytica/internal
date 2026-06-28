@@ -19,7 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 
-import { Donut, type Slice } from "@/components/charts";
+import { ColumnChart, Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +73,10 @@ type Cfg = {
   };
   fdv: FdvLens[];
   swot: { key: string; title: string; color: string; items: string[] }[];
+  team?: { name: string; role: string; color: string }[];
+  teamNote?: string;
+  traction?: { label: string; state: "done" | "now" | "next" }[];
+  trajectory?: { years: { label: string; value: number }[]; note: string };
   footer: string;
 };
 
@@ -215,6 +219,30 @@ const VALUATION: Cfg = {
     { key: "O", title: "Opportunities", color: "#1d4ed8", items: ["Comparable-data moat over time", "Cross-sell to feasibility (Atlas)", "Proptech / digital-lending tailwind"] },
     { key: "T", title: "Threats", color: "#f59e0b", items: ["Free / portal AVMs", "Banks' in-house AI", "Low willingness to pay per report"] },
   ],
+  team: [
+    { name: "Sandeep", role: "CEO / CTO / Head of AI", color: "#5e6ad2" },
+    { name: "Jayasaagar", role: "Chief Marketing & Product", color: "#0ea5e9" },
+    { name: "Aparna", role: "Product Owner", color: "#a855f7" },
+    { name: "Sanjana", role: "AI Engineer", color: "#10b981" },
+    { name: "Raunak", role: "Full-stack Engineer", color: "#f59e0b" },
+    { name: "Harshith", role: "Infra & Backend", color: "#ef4444" },
+  ],
+  teamNote: "+ contractors: legal (DPDP), data security, AI advisory, delivery",
+  traction: [
+    { label: "Product built & live", state: "done" },
+    { label: "Grounded AI · 98.4%, 0 hallucinations", state: "done" },
+    { label: "Early users & pilots", state: "now" },
+    { label: "Recurring revenue", state: "next" },
+    { label: "Bank / enterprise deals", state: "next" },
+  ],
+  trajectory: {
+    years: [
+      { label: "Year 1", value: 0.5 },
+      { label: "Year 2", value: 2.5 },
+      { label: "Year 3", value: 6 },
+    ],
+    note: "Modeled SaaS revenue ramp to the ₹6 cr SOM. Enterprise / custom-build upside sits on top (via Atlas).",
+  },
   footer:
     "Prices are real. Market sizes are modeled estimates we still need to confirm — based on public industry and government data. Valuation and feasibility are two related but separate markets (feasibility lives in Atlas).",
 };
@@ -374,6 +402,9 @@ export function MarketVisionDashboard({ variant = "valuation" }: { variant?: Vis
         <Impact cfg={cfg} />
         <Market cfg={cfg} />
         <Fdv cfg={cfg} />
+        <Traction cfg={cfg} />
+        <Trajectory cfg={cfg} />
+        <Team cfg={cfg} />
         <Swot cfg={cfg} />
         <p className="px-1 text-xs leading-relaxed text-muted-foreground">{cfg.footer}</p>
       </div>
@@ -700,6 +731,85 @@ function Gauge({ score, color }: { score: number; color: string }) {
         </span>
       }
     />
+  );
+}
+
+// ============================ TRACTION ============================
+
+const TRACTION_META: Record<"done" | "now" | "next", { color: string; tag: string }> = {
+  done: { color: "#10b981", tag: "Done" },
+  now: { color: "#1d4ed8", tag: "Now" },
+  next: { color: "#94a3b8", tag: "Next" },
+};
+
+function Traction({ cfg }: { cfg: Cfg }) {
+  if (!cfg.traction) return null;
+  return (
+    <Section title="Where we are today" icon={Check}>
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {cfg.traction.map((s, i) => {
+          const m = TRACTION_META[s.state];
+          return (
+            <div key={s.label} className="rounded-xl border bg-background p-4" style={{ borderColor: `${m.color}40` }}>
+              <div className="flex items-center justify-between">
+                <span className="grid size-6 place-items-center rounded-full text-white" style={{ backgroundColor: m.color }}>
+                  {s.state === "done" ? <Check className="size-3.5" /> : <span className="text-xs font-bold">{i + 1}</span>}
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: m.color }}>
+                  {m.tag}
+                </span>
+              </div>
+              <div className="mt-2 text-sm font-medium leading-snug">{s.label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+
+// ============================ TRAJECTORY ============================
+
+function Trajectory({ cfg }: { cfg: Cfg }) {
+  if (!cfg.trajectory) return null;
+  const data: Slice[] = cfg.trajectory.years.map((y) => ({ label: y.label, value: y.value, color: "#1d4ed8" }));
+  return (
+    <Section title="Financial trajectory" icon={TrendingUp}>
+      <div className="rounded-xl border bg-background p-5">
+        <ColumnChart data={data} height={170} format={(n) => `₹${n} cr`} />
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">{cfg.trajectory.note}</p>
+    </Section>
+  );
+}
+
+// ============================ TEAM ============================
+
+const initials = (n: string) =>
+  n
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+function Team({ cfg }: { cfg: Cfg }) {
+  if (!cfg.team) return null;
+  return (
+    <Section title="The team" icon={Users}>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {cfg.team.map((m) => (
+          <div key={m.name} className="flex flex-col items-center rounded-xl border bg-background p-4 text-center">
+            <div className="grid size-12 place-items-center rounded-full text-base font-bold text-white" style={{ backgroundColor: m.color }}>
+              {initials(m.name)}
+            </div>
+            <div className="mt-2 text-sm font-semibold">{m.name}</div>
+            <div className="text-xs leading-tight text-muted-foreground">{m.role}</div>
+          </div>
+        ))}
+      </div>
+      {cfg.teamNote && <p className="mt-3 text-xs text-muted-foreground">{cfg.teamNote}</p>}
+    </Section>
   );
 }
 
