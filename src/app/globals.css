@@ -587,3 +587,25 @@ a.entity-ref {
     margin: 12mm;
   }
 }
+
+/* Full-screen presentation mode for the one-pager: fill the screen, drop the
+   card border/radius, and vertically center when it's shorter than the viewport. */
+#market-onepager:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--card);
+}
+#market-onepager:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--card);
+}
