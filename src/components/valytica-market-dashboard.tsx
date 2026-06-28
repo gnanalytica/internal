@@ -18,30 +18,26 @@ import { cn } from "@/lib/utils";
  * - Valuation and feasibility reports are two related but separate markets.
  */
 
-// ---- model constants ----
-const TEV_VOL = 16_000;
-const TEV_FEE = 200_000;
-const REPORT_SW = 200; // ₹ per property report — real
-const TEV_SW = 10_000;
-const SAM_FRAC = 0.4;
-const TIME_SAVED = 0.5;
-const BASE = { bankVolM: 4, avgFee: 4000, adoptPct: 6 };
+// ---- market model (₹ crore / year) — modeled estimates anchored to public data ----
+// Anchors: APAC property-valuation services market ~$1.9B (2024); residential
+// ~75% of RE transactions; RBI / NaBFID project-finance scale; LIE is recurring.
+// Exact per-segment splits still to be confirmed with primary data.
+const MARKET_SEGMENTS: Slice[] = [
+  { label: "Residential valuation", value: 1300, color: "#6366f1" },
+  { label: "Commercial valuation", value: 800, color: "#0ea5e9" },
+  { label: "Industrial / plant & machinery", value: 600, color: "#14b8a6" },
+  { label: "Feasibility — TEV / DPR", value: 350, color: "#f59e0b" },
+  { label: "Lender's engineer (LIE) + big projects", value: 400, color: "#8b5cf6" },
+];
+const marketTotal = MARKET_SEGMENTS.reduce((s, x) => s + x.value, 0); // ₹3,450 cr
+const propertyTotal = 1300 + 800 + 600; // ₹2,700 cr
+const feasibilityTotal = 350 + 400; // ₹750 cr
+const marketSAM = 850; // ₹ cr — reachable (software + early enterprise), modeled
+const market3yr = 18; // ₹ cr — 3-yr target (SaaS + first deals), modeled
+const saasArr = 5.8; // ₹ cr — SaaS 3-yr ARR potential (for FDV)
+const valuePerReport = 2000; // ₹ — value of time saved per report (modeled)
 
-const cr = (v: number) => v / 1e7;
-function fmtCr(v: number): string {
-  const c = cr(v);
-  return `₹${c.toLocaleString("en-IN", { maximumFractionDigits: c < 100 ? 1 : 0 })} cr`;
-}
-
-// ---- model, computed once ----
-const bankVol = BASE.bankVolM * 1e6;
-const servicesProperty = bankVol * BASE.avgFee;
-const servicesTev = TEV_VOL * TEV_FEE;
-const servicesTAM = servicesProperty + servicesTev;
-const softwareTAM = bankVol * REPORT_SW + TEV_VOL * TEV_SW;
-const sam = softwareTAM * SAM_FRAC;
-const som = softwareTAM * (BASE.adoptPct / 100);
-const valuePerReport = BASE.avgFee * TIME_SAVED;
+const inCr = (v: number) => `₹${v.toLocaleString("en-IN")} cr`;
 
 export function ValyticaMarketDashboard() {
   const printPage = () => {
@@ -195,12 +191,12 @@ function Horizons() {
 
 function Numbers() {
   const tiles: { label: string; value: string; sub: string; tone?: "brand" | "emerald" }[] = [
-    { label: "Total market", value: fmtCr(softwareTAM), sub: "software, per year", tone: "brand" },
-    { label: "We can reach", value: fmtCr(sam), sub: "realistically" },
-    { label: "3-year target", value: fmtCr(som), sub: "per year", tone: "emerald" },
-    { label: "Bigger services market", value: fmtCr(servicesTAM), sub: "custom builds" },
-    { label: "Price per report", value: "₹200", sub: "what banks pay", tone: "brand" },
-    { label: "Profit margin", value: "~90%", sub: "₹180 of ₹200", tone: "emerald" },
+    { label: "Total market", value: inCr(marketTotal), sub: "valuation + feasibility, per year", tone: "brand" },
+    { label: "Property valuation", value: inCr(propertyTotal), sub: "residential · commercial · industrial" },
+    { label: "Project feasibility", value: inCr(feasibilityTotal), sub: "TEV · LIE · DPR, incl. big projects" },
+    { label: "We can reach", value: inCr(marketSAM), sub: "software + early enterprise", tone: "emerald" },
+    { label: "3-year target", value: inCr(market3yr), sub: "SaaS + first deals" },
+    { label: "Price per report", value: "₹200", sub: "~90% gross margin", tone: "brand" },
   ];
   return (
     <Section title="The numbers" icon={TrendingUp}>
@@ -239,53 +235,58 @@ const DEMAND: { k: string; v: string }[] = [
 ];
 
 function Market() {
-  const services: Slice[] = [
-    { label: "Valuations", value: Math.round(cr(servicesProperty)), color: "#6366f1" },
-    { label: "Feasibility reports", value: Math.round(cr(servicesTev)), color: "#0ea5e9" },
-  ];
   const funnel: { l: string; v: number; pct: number; c: string }[] = [
-    { l: "Whole market", v: softwareTAM, pct: 100, c: "#6366f1" },
-    { l: "We can reach", v: sam, pct: SAM_FRAC * 100, c: "#8b5cf6" },
-    { l: "3-year target", v: som, pct: (som / softwareTAM) * 100, c: "#10b981" },
+    { l: "Whole market", v: marketTotal, pct: 100, c: "#6366f1" },
+    { l: "We can reach", v: marketSAM, pct: (marketSAM / marketTotal) * 100, c: "#8b5cf6" },
+    { l: "3-year target", v: market3yr, pct: (market3yr / marketTotal) * 100, c: "#10b981" },
   ];
   return (
-    <Section title="The opportunity" icon={Building2}>
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-3">
-          {funnel.map((f) => (
-            <div key={f.l} className="flex items-center gap-3">
-              <span className="w-28 shrink-0 text-sm font-medium text-muted-foreground">{f.l}</span>
-              <div className="h-8 flex-1 overflow-hidden rounded-lg bg-muted/60">
-                <div className="h-full rounded-lg" style={{ width: `${Math.max(f.pct, 3)}%`, backgroundColor: f.c }} />
-              </div>
-              <span className="w-20 shrink-0 text-right text-base font-bold tabular-nums">{fmtCr(f.v)}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-center gap-5 rounded-xl border bg-background p-4">
+    <Section title="The market, by type" icon={Building2}>
+      {/* Pie of the market split + legend */}
+      <div className="grid items-center gap-6 lg:grid-cols-[auto_1fr]">
+        <div className="mx-auto">
           <Donut
-            data={services}
-            size={130}
-            thickness={20}
+            data={MARKET_SEGMENTS}
+            size={210}
+            thickness={36}
             center={
               <div className="text-center">
-                <div className="text-base font-bold leading-tight">{fmtCr(servicesTAM)}</div>
-                <div className="text-xs text-muted-foreground">services market</div>
+                <div className="text-2xl font-bold leading-none">{inCr(marketTotal)}</div>
+                <div className="mt-1 text-xs text-muted-foreground">per year</div>
               </div>
             }
           />
-          <div className="space-y-2">
-            {services.map((s) => (
-              <div key={s.label} className="text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="size-3 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="text-muted-foreground">{s.label}</span>
-                </div>
-                <div className="ml-5 font-bold">₹{s.value} cr</div>
-              </div>
-            ))}
-          </div>
         </div>
+        <ul className="space-y-2.5">
+          {MARKET_SEGMENTS.map((s) => (
+            <li key={s.label} className="flex items-center gap-3 text-sm">
+              <span className="size-3.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
+              <span className="flex-1 text-foreground/90">{s.label}</span>
+              <span className="shrink-0 font-bold tabular-nums">{inCr(s.value)}</span>
+              <span className="w-10 shrink-0 text-right text-xs font-medium text-muted-foreground">
+                {Math.round((s.value / marketTotal) * 100)}%
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Modeled estimate of annual fees paid for these reports pan-India — anchored to the Asia-Pacific
+        property-valuation market (~$1.9B, 2024), residential being ~75% of transactions, and RBI / NaBFID
+        project-finance scale. Exact splits to be confirmed.
+      </p>
+
+      {/* What we can realistically capture */}
+      <div className="mt-6 space-y-3">
+        {funnel.map((f) => (
+          <div key={f.l} className="flex items-center gap-3">
+            <span className="w-28 shrink-0 text-sm font-medium text-muted-foreground">{f.l}</span>
+            <div className="h-8 flex-1 overflow-hidden rounded-lg bg-muted/60">
+              <div className="h-full rounded-lg" style={{ width: `${Math.max(f.pct, 2)}%`, backgroundColor: f.c }} />
+            </div>
+            <span className="w-20 shrink-0 text-right text-base font-bold tabular-nums">{inCr(f.v)}</span>
+          </div>
+        ))}
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -365,7 +366,7 @@ function Fdv() {
           <StatList
             rows={[
               { s: "ok", t: "Two revenue engines" },
-              { s: "ok", t: "Subscription ARR potential", v: `${fmtCr(som)}` },
+              { s: "ok", t: "Subscription ARR potential", v: `₹${saasArr} cr` },
               { s: "ok", t: "Enterprise contract value", v: "₹20–60L" },
               { s: "next", t: "Activate recurring billing" },
               { s: "next", t: "Close first enterprise account" },
