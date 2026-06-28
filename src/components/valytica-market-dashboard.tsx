@@ -248,10 +248,21 @@ const WHITE_SPACE =
   "No incumbent is an AI copilot for the valuer/consultant that produces bank-ready, human-in-the-loop, India-resident reports across BOTH valuation and TEV/LIE/DPR. Consumer AVMs aren't defensible; global AVMs lack India fit; services firms have no software.";
 
 // FDV as a linked chain — each red is a lever that lifts the next lens.
-const FDV_CHAIN: { key: string; label: string; score: number; color: string; state: string; lever: string; lifts: string }[] = [
-  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong", lever: "Migrate AI to India-region (Vertex/Bedrock); promote off Flash-Lite", lifts: "→ credibility for banks & enterprise" },
-  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument funnel #123 — activation & retention", lifts: "→ proves demand, feeds Viability WTP" },
-  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship subscriptions #119 + close 1–2 enterprise deals", lifts: "→ revenue proof de-risks the model" },
+const FDV_CHAIN: { key: string; label: string; score: number; color: string; state: string; lever: string; leverShort: string; lifts: string }[] = [
+  { key: "F", label: "Feasibility", score: 80, color: "#10b981", state: "Strong", lever: "Migrate AI to India-region (Vertex/Bedrock); promote off Flash-Lite", leverShort: "India-region AI", lifts: "→ credibility for banks & enterprise" },
+  { key: "D", label: "Desirability", score: 64, color: "#f59e0b", state: "Pain validated", lever: "Instrument funnel #123 — activation & retention", leverShort: "Instrument #123", lifts: "→ proves demand → Viability" },
+  { key: "V", label: "Viability", score: 52, color: "#f59e0b", state: "Two engines", lever: "Ship subscriptions #119 + close 1–2 enterprise deals", leverShort: "Ship #119 + deals", lifts: "→ revenue proof" },
+];
+
+// Competitor positioning map (one-pager): x = manual→AI, y = consumer→bank-grade.
+const COMP_MAP: { name: string; x: number; y: number; color: string; star?: boolean }[] = [
+  { name: "Valytica", x: 84, y: 14, color: "#1d4ed8", star: true },
+  { name: "In-house bank AI", x: 76, y: 30, color: "#64748b" },
+  { name: "Global AVMs", x: 90, y: 52, color: "#94a3b8" },
+  { name: "Sigmavalue", x: 66, y: 60, color: "#6366f1" },
+  { name: "Housing/99acres", x: 74, y: 84, color: "#94a3b8" },
+  { name: "TEV/LIE firms", x: 22, y: 26, color: "#0ea5e9" },
+  { name: "Big advisory", x: 16, y: 44, color: "#94a3b8" },
 ];
 
 const ENGINES: { name: string; color: string; pricing: string[]; econ: string; note: string }[] = [
@@ -723,86 +734,77 @@ function OPHead({ children }: { children: React.ReactNode }) {
 }
 
 function OnePager({ m }: { m: Model }) {
+  const fdvAvg = Math.round(FDV_CHAIN.reduce((s, n) => s + n.score, 0) / FDV_CHAIN.length);
   return (
     <div id="market-onepager" className="overflow-hidden rounded-xl border bg-card shadow-sm">
       {/* Header band */}
-      <div className="flex items-end justify-between gap-3 px-5 py-3.5 text-white" style={{ background: "linear-gradient(110deg,#0b1f3a 0%,#13315c 55%,#1d4ed8 130%)" }}>
+      <div className="flex items-center justify-between gap-3 px-5 py-3 text-white" style={{ background: "linear-gradient(110deg,#0b1f3a 0%,#13315c 55%,#1d4ed8 130%)" }}>
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-200">Market &amp; Strategy · India</div>
-          <h2 className="mt-0.5 text-lg font-bold leading-tight">Property Valuation &amp; Feasibility-Report Market</h2>
-          <p className="mt-0.5 max-w-2xl text-[11px] text-blue-100/90">Valytica — AI valuation copilot for Indian valuers &amp; consultants. Two markets: IBBI valuation + bank-empanelled TEV/LIE/DPR.</p>
+          <h2 className="mt-0.5 text-lg font-bold leading-tight">Valytica — Property Valuation &amp; Feasibility Market</h2>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-0.5 text-[9.5px] font-semibold text-emerald-100">✓ Pain validated with users</span>
-          <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-0.5 text-[9.5px] font-semibold text-amber-100">⚠ Market figures modeled</span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-0.5 text-[9.5px] font-semibold text-emerald-100">✓ Pain validated</span>
+          <span className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-0.5 text-[9.5px] font-semibold text-amber-100">⚠ Modeled</span>
         </div>
       </div>
 
-      {/* TOP ROW: market opportunity | competitors */}
+      {/* TOP ROW: market opportunity | competitor positioning map */}
       <div className="grid gap-3 px-4 pt-3 lg:grid-cols-2">
         <div className="rounded-lg border p-3">
           <OPHead>Market opportunity</OPHead>
           <div className="grid grid-cols-3 gap-2">
-            <OPStat label="Services" value={fmtCr(m.servicesTAM)} sub="activity" />
+            <OPStat label="Services" value={fmtCr(m.servicesTAM)} sub="₹/yr activity" />
             <OPStat label="Software TAM" value={fmtCr(m.softwareTAM)} sub="SaaS ceiling" tone="brand" />
-            <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR" tone="emerald" />
+            <OPStat label="SOM 3-yr" value={fmtCr(m.som)} sub="ARR target" tone="emerald" />
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-            {FIRMS.map((f) => (
-              <div key={f.v} className="flex items-baseline gap-1.5">
-                <span className="shrink-0 font-mono text-[11px] font-bold text-brand">{f.k}</span>
-                <span className="text-[9.5px] leading-tight text-muted-foreground">{f.v}</span>
+          {/* funnel */}
+          <div className="mt-2.5 space-y-1.5">
+            <MiniBar label="TAM" value={fmtCr(m.softwareTAM)} pct={100} color="#6366f1" />
+            <MiniBar label="SAM" value={fmtCr(m.sam)} pct={SAM_FRAC * 100} color="#8b5cf6" />
+            <MiniBar label="SOM" value={fmtCr(m.som)} pct={Math.min((m.som / m.softwareTAM) * 100, 100)} color="#10b981" />
+          </div>
+          {/* firms as number chips */}
+          <div className="mt-2.5 grid grid-cols-4 gap-1.5">
+            {[
+              { k: "6,176", l: "IBBI valuers" },
+              { k: "3,000+", l: "L&B valuers" },
+              { k: "10k+", l: "empanelled" },
+              { k: "100s", l: "TEV/LIE firms" },
+            ].map((f) => (
+              <div key={f.l} className="rounded-md bg-muted/50 px-1.5 py-1 text-center">
+                <div className="text-[13px] font-bold leading-none">{f.k}</div>
+                <div className="mt-0.5 text-[8px] leading-tight text-muted-foreground">{f.l}</div>
               </div>
             ))}
           </div>
-          <p className="mt-2 rounded border border-brand/20 bg-brand/5 px-2 py-1 text-[9.5px] leading-snug text-muted-foreground">
-            Demand: ~231M retail loans/yr · project finance ~35% of business lending · RE → $1.18T by 2033.
-          </p>
         </div>
 
         <div className="rounded-lg border p-3">
           <OPHead>Competitive landscape</OPHead>
-          <div className="grid grid-cols-2 gap-3">
-            {COMPETITORS.map((g) => (
-              <div key={g.group}>
-                <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold">
-                  <span className="size-2 rounded-full" style={{ backgroundColor: g.accent }} />
-                  {g.group}
-                </div>
-                <ul className="space-y-0.5">
-                  {g.items.slice(0, 4).map((c) => (
-                    <li key={c.name} className="text-[9.5px] leading-tight">
-                      <span className="font-medium">{c.name}</span>
-                      <span className="text-muted-foreground"> — {c.tag}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 rounded border border-emerald-500/25 bg-emerald-500/[0.06] px-2 py-1 text-[9.5px] leading-snug text-muted-foreground">
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">White space:</span> no AI copilot does bank-ready, human-in-loop, India-resident reports across BOTH valuation &amp; TEV/LIE/DPR.
-          </p>
+          <PositioningMatrix />
         </div>
       </div>
 
-      {/* FDV CHAIN */}
+      {/* FDV CHAIN — compact */}
       <div className="px-4 pt-3">
-        <div className="rounded-lg border p-3">
-          <OPHead>FDV — each lever turns a red green &amp; lifts the next</OPHead>
+        <div className="rounded-lg border p-2.5">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">FDV — fix a red, lift the next</span>
+            <span className="text-[9px] text-muted-foreground">avg {fdvAvg}/100</span>
+          </div>
           <div className="flex items-stretch gap-1.5">
             {FDV_CHAIN.map((n, i) => (
               <div key={n.key} className="flex flex-1 items-center gap-1.5">
-                <div className="flex-1 rounded-md border p-2">
+                <div className="flex-1 rounded-md border p-2 text-center">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-[11px] font-semibold">{n.label}</span>
-                    <span className="text-[9px] text-muted-foreground">{n.state}</span>
+                    <span className="text-[10px] font-semibold">{n.label}</span>
+                    <span className="text-[11px] font-bold tabular-nums" style={{ color: n.color }}>{n.score}</span>
                   </div>
                   <div className="my-1 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
                     <div className="h-full rounded-full" style={{ width: `${n.score}%`, backgroundColor: n.color }} />
                   </div>
-                  <div className="text-[9px] leading-tight text-muted-foreground"><span className="font-medium text-foreground">Lever:</span> {n.lever}</div>
-                  <div className="text-[9px] font-medium leading-tight" style={{ color: n.color }}>{n.lifts}</div>
+                  <div className="text-[8.5px] font-medium leading-tight" style={{ color: n.color }}>⚙ {n.leverShort}</div>
                 </div>
                 {i < FDV_CHAIN.length - 1 && <ArrowRight className="size-4 shrink-0 text-muted-foreground" />}
               </div>
@@ -813,69 +815,127 @@ function OnePager({ m }: { m: Model }) {
 
       {/* BOTTOM ROW: pain | desirability | viability */}
       <div className="grid gap-3 px-4 pt-3 lg:grid-cols-3">
-        {/* Pain */}
+        {/* Pain — icon rows */}
         <div className="rounded-lg border p-3">
-          <OPHead>Pain points · user-validated</OPHead>
-          <div className="space-y-1.5">
-            {PAIN.map((g) => (
-              <div key={g.group}>
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold">
-                  <span className="size-1.5 rounded-full" style={{ backgroundColor: g.accent }} />
-                  {g.group}
-                </div>
-                <ul className="mt-0.5 space-y-0.5">
-                  {g.items.slice(0, 2).map((it) => (
-                    <li key={it.t} className="flex items-start gap-1.5 text-[9.5px] leading-tight">
-                      <CoverDot cover={it.cover} />
-                      <span className="min-w-0">{it.t}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <OPHead>Pain points · validated</OPHead>
+          <ul className="space-y-1">
+            {PAIN.flatMap((g) => g.items).slice(0, 6).map((it) => (
+              <li key={it.t} className="flex items-center gap-1.5 text-[9.5px] leading-tight">
+                <CoverDot cover={it.cover} />
+                <span className="min-w-0 truncate">{shortPain(it.t)}</span>
+              </li>
             ))}
+          </ul>
+          <div className="mt-2 flex items-center gap-2 text-[8.5px] text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="size-2 rounded-full" style={{ background: COVER_META.full.color }} /> solves</span>
+            <span className="flex items-center gap-1"><span className="size-2 rounded-full" style={{ background: COVER_META.partial.color }} /> partial</span>
+            <span className="flex items-center gap-1"><span className="size-2 rounded-full" style={{ background: COVER_META.none.color }} /> gap</span>
           </div>
         </div>
 
-        {/* Desirability with financials */}
+        {/* Desirability — value-capture bar */}
         <div className="rounded-lg border p-3">
-          <OPHead>Desirability · with $</OPHead>
-          <div className="mb-2 grid grid-cols-3 gap-1.5 text-center">
-            <div className="rounded-md border bg-emerald-500/5 p-1.5"><div className="text-[8px] uppercase text-muted-foreground">Value/report</div><div className="text-xs font-bold">{fmtMoney(m.valuePerReport)}</div></div>
-            <div className="rounded-md border bg-brand/5 p-1.5"><div className="text-[8px] uppercase text-muted-foreground">Price</div><div className="text-xs font-bold">₹200</div></div>
-            <div className="rounded-md border p-1.5"><div className="text-[8px] uppercase text-muted-foreground">Capture</div><div className="text-xs font-bold">~{Math.round(m.captureRatio * 100)}%</div></div>
+          <OPHead>Desirability · value</OPHead>
+          <div className="mb-1 flex items-baseline justify-between text-[9px] text-muted-foreground">
+            <span>Value created / report</span>
+            <span className="font-bold text-foreground">{fmtMoney(m.valuePerReport)}</span>
           </div>
-          <div className="mb-1 flex items-baseline justify-between text-[10px]"><span className="font-medium">Pain validated</span><span className="text-muted-foreground">64 / 100</span></div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60"><div className="h-full rounded-full" style={{ width: "64%", backgroundColor: "#f59e0b" }} /></div>
-          <p className="mt-2 text-[9.5px] leading-snug text-muted-foreground">
-            Strong value capture (₹200 ≈ {Math.round(m.captureRatio * 100)}% of time-value). Red → green:
-            <span className="font-medium text-foreground"> instrument demand (#123)</span>.
-          </p>
+          <div className="relative h-6 w-full overflow-hidden rounded-md bg-emerald-500/15" title="Value created per report">
+            <div className="absolute inset-y-0 left-0 flex items-center rounded-md bg-brand px-1.5 text-[9px] font-semibold text-white" style={{ width: `${Math.max(m.captureRatio * 100, 9)}%` }}>
+              ₹200
+            </div>
+          </div>
+          <div className="mt-1 text-center text-[9px] text-muted-foreground">Valytica captures <span className="font-bold text-brand">~{Math.round(m.captureRatio * 100)}%</span> of the value → headroom</div>
+          <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[8.5px]">
+            <div className="rounded bg-emerald-500/10 py-1"><div className="font-bold text-foreground">5✓</div>evidence</div>
+            <div className="rounded bg-amber-500/10 py-1"><div className="font-bold text-foreground">3</div>assumed</div>
+            <div className="rounded bg-rose-500/10 py-1"><div className="font-bold text-foreground">4</div>to prove</div>
+          </div>
         </div>
 
-        {/* Viability — two engines with financials */}
+        {/* Viability — two engines, big numbers */}
         <div className="rounded-lg border p-3">
           <OPHead>Viability · two engines</OPHead>
           <div className="space-y-1.5">
-            {ENGINES.map((e) => (
-              <div key={e.name} className="rounded-md border p-1.5" style={{ borderColor: `${e.color}44` }}>
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold">
-                  <span className="size-1.5 rounded-full" style={{ backgroundColor: e.color }} />
-                  {e.name}
+            {ENGINES.map((e, i) => (
+              <div key={e.name} className="rounded-md border p-2" style={{ borderColor: `${e.color}44`, background: `${e.color}08` }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="grid size-4 place-items-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: e.color }}>{i + 1}</span>
+                  <span className="text-[10px] font-semibold">{i === 0 ? "SaaS — land" : "Enterprise — build & co-own"}</span>
                 </div>
-                <div className="mt-0.5 text-[9px] text-muted-foreground">{e.pricing.slice(0, 3).join(" · ")}</div>
-                <div className="mt-0.5 text-[9.5px] font-medium" style={{ color: e.color }}>{e.econ}</div>
+                <div className="mt-1 text-[12px] font-bold" style={{ color: e.color }}>{i === 0 ? "~₹5.8 cr ARR" : "₹20–60L / deal"}</div>
+                <div className="text-[8.5px] text-muted-foreground">{i === 0 ? "₹200/report + ₹499–1,999 plans" : "build + AMC + co-own"}</div>
               </div>
             ))}
           </div>
-          <p className="mt-1.5 text-[9px] leading-snug text-muted-foreground">SaaS revenue blocked on #119; enterprise contract-billed (#120/#121).</p>
         </div>
       </div>
 
-      <div className="px-4 pb-3 pt-3 text-[9px] leading-snug text-muted-foreground">
-        <span className="font-semibold">Sources / verify —</span> IBBI registry (valuer counts), RBI (lending &amp; project finance), IOV/RVOs; competitors: Sigmavalue, Resurgent, Sapient, MITCON/APITCO, CRISIL/D&amp;B, global AVMs. Market figures modeled (#122); funnel uninstrumented (#123). IBBI governs valuation only; TEV/LIE/DPR is bank-empanelled.
+      <div className="px-4 pb-3 pt-2.5 text-[8px] leading-snug text-muted-foreground">
+        Sources: IBBI registry · RBI · IOV/RVOs · Sigmavalue, Resurgent, Sapient, MITCON, CRISIL/D&amp;B, global AVMs. Market figures modeled (#122); funnel uninstrumented (#123). IBBI governs valuation; TEV/LIE/DPR is bank-empanelled.
       </div>
     </div>
   );
+}
+
+function MiniBar({ label, value, pct, color }: { label: string; value: string; pct: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-7 shrink-0 text-[9px] font-semibold text-muted-foreground">{label}</span>
+      <div className="h-4 flex-1 overflow-hidden rounded bg-muted/60">
+        <div className="h-full rounded" style={{ width: `${Math.max(pct, 4)}%`, backgroundColor: color }} />
+      </div>
+      <span className="w-14 shrink-0 text-right text-[9.5px] font-bold tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+/** 2×2 competitor positioning map: x = manual→AI, y = consumer→bank-grade. */
+function PositioningMatrix() {
+  return (
+    <div className="pl-4 pt-1">
+      <div className="relative aspect-[1.7/1] w-full rounded-md border bg-muted/20">
+        {/* quadrant guides */}
+        <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" />
+        <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-border" />
+        {/* white-space highlight (top-right) */}
+        <div className="absolute right-0 top-0 h-1/2 w-1/2 rounded-tr-md bg-emerald-500/[0.07]" />
+        <span className="absolute right-1.5 top-1 text-[7.5px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">white space</span>
+        {/* dots */}
+        {COMP_MAP.map((c) => (
+          <div key={c.name} className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1" style={{ left: `${c.x}%`, top: `${c.y}%` }}>
+            <span
+              className={cn("shrink-0 rounded-full", c.star ? "size-3 ring-2 ring-brand/30" : "size-2")}
+              style={{ backgroundColor: c.color }}
+            />
+            <span className={cn("whitespace-nowrap text-[8px] leading-none", c.star ? "font-bold text-foreground" : "text-muted-foreground")}>{c.name}</span>
+          </div>
+        ))}
+      </div>
+      {/* axis labels */}
+      <div className="mt-0.5 flex justify-between text-[7.5px] text-muted-foreground">
+        <span>Manual / services</span>
+        <span>AI / software →</span>
+      </div>
+      <div className="mt-0.5 text-center text-[7.5px] text-muted-foreground">↑ Bank-grade &amp; defensible · ↓ consumer / generic</div>
+    </div>
+  );
+}
+
+function shortPain(t: string): string {
+  const map: Record<string, string> = {
+    "Manual document extraction (deeds, EC, tax, plans) — poor scans, regional languages": "Manual document extraction",
+    "Cross-document inconsistencies (area, ownership chain)": "Cross-document conflicts",
+    "Per-bank report formats (SBI, HDFC… each different)": "Per-bank report formats",
+    "Maintenance, tracking & audit across high case volume": "Maintenance · tracking · audit",
+    "Scarce / unreliable comparable sales data": "Scarce comparables data",
+    "Inconsistent quality across panel valuers": "Inconsistent panel quality",
+    "Inflated / fraudulent valuations": "Inflated / fraud valuations",
+    "Slow valuation TAT delays disbursal": "Slow TAT delays disbursal",
+    "No national comparable-transaction database": "No national comparables DB",
+    "Circle (guideline) value vs market value divergence": "Circle vs market gap",
+  };
+  return map[t] ?? t;
 }
 
 function OPStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: "brand" | "emerald" }) {
