@@ -21,7 +21,7 @@ export function ProjectTabs({ project, isAdmin = false }: { project: Project; is
         ]
       : [
           { href: base, label: "Overview" },
-          { href: `${base}/vision`, label: "Vision" },
+          { href: `${base}/vision`, label: "Strategy" },
           ...visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map(
             (d) => ({ href: `${base}/${d.slug}`, label: d.label }),
           ),

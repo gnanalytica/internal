@@ -25,7 +25,7 @@ export function VisionView({
   const variant = VARIANT_BY_KEY[productKey];
   return (
     <div className="flex h-full flex-col">
-      <Topbar breadcrumb={[{ label: projectName, href: `/projects/${projectId}` }, { label: "Vision" }]} />
+      <Topbar breadcrumb={[{ label: projectName, href: `/projects/${projectId}` }, { label: "Strategy" }]} />
       <div className="scrollbar-thin flex-1 overflow-y-auto p-4">
         {variant ? (
           <MarketVisionDashboard variant={variant} />
