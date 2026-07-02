@@ -85,6 +85,17 @@ export const projects = pgTable(
     // Confidential projects (e.g. Finance, People & HR) are visible to admins
     // (founders) only — enforced server-side and hidden from the nav.
     confidential: boolean("confidential").notNull().default(false),
+    // Per-product unit economics (the Economics department's pricing model).
+    // The company books stay in the Finance operation; this is one product's
+    // pricing assumptions, used to derive margin per unit. null = not set yet.
+    economics: jsonb("economics").$type<{
+      currency?: string; // ISO code, e.g. "INR" — defaults to INR in the UI.
+      unitLabel?: string; // what one sale is, e.g. "report".
+      pricePerUnit?: number; // what the customer pays per unit.
+      costPerUnit?: number; // COGS per unit (AI inference, fulfilment, …).
+      unitsPerMonth?: number; // expected/actual volume, for a monthly roll-up.
+      notes?: string;
+    } | null>(),
     // Owner (a person). null if unassigned.
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",
