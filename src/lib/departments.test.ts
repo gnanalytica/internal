@@ -22,6 +22,7 @@ describe("DEPARTMENTS", () => {
       "marketing",
       "sales",
       "customer-success",
+      "finance",
     ]);
   });
 });
@@ -67,6 +68,7 @@ describe("per-project department config", () => {
       "marketing",
       "sales",
       "customer-success",
+      "finance",
     ]);
     expect(isDepartmentEnabled(null, "customer-success")).toBe(true);
   });

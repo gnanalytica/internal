@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { type ReactNode, useTransition } from "react";
 import { Plus } from "lucide-react";
 
 import { AreaChart, ChartCard, ColumnChart, type Slice } from "@/components/charts";
@@ -39,6 +39,7 @@ export function FinanceView({
   accounts,
   initialInvoices,
   initialExpenses,
+  intro,
 }: {
   heading: string;
   scopeProjectId: string | null;
@@ -46,6 +47,9 @@ export function FinanceView({
   accounts: CrmAccount[];
   initialInvoices: InvoiceWithRelations[];
   initialExpenses: ExpenseWithRelations[];
+  /** Optional content rendered above the invoice/expense tabs (e.g. the
+   *  per-product unit-economics card on a product's Finance department page). */
+  intro?: ReactNode;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -96,6 +100,8 @@ export function FinanceView({
           </span>
         }
       />
+
+      {intro && <div className="px-4 pt-4">{intro}</div>}
 
       <Tabs defaultValue="invoices" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">
