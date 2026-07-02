@@ -7,30 +7,31 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "./index";
 
 /**
- * Seed Valytica's recurring operating costs as monthly expenses on the Valytica
+ * Seed Valytica's FIXED monthly operating costs as expenses on the Valytica
  * project (its Finance department). Every line traces to a real service wired
  * into the valytica repo (package.json deps + .env keys) — nothing invented:
  *
  *   Vercel .............. hosting/compute (next 16 on Vercel)
  *   Supabase ............ Postgres + auth + storage (@supabase/*, POSTGRES_*)
- *   Gemini / AI Gateway . report inference (ai v6, AI_GATEWAY_API_KEY, GOOGLE_GENERATIVE_AI)
- *   Google Maps Platform  maps + geocoding (NEXT_PUBLIC_GOOGLE_MAPS_KEY, GOOGLE_GEOCODING_KEY)
- *   Mappls / MapmyIndia . India maps (MAPPLS_CLIENT_ID/SECRET)
- *   AWS SES ............. transactional email (@aws-sdk/client-sesv2, SES_FROM_*)
- *   MSG91 ............... SMS / WhatsApp OTP (MSG91_AUTH_KEY)
  *   Sentry .............. error monitoring (@sentry/nextjs)
  *   PostHog ............. product analytics (posthog-js)
- *   2Captcha/Anti-Captcha portal-check automation (TWOCAPTCHA/ANTICAPTCHA keys)
+ *   Mappls / MapmyIndia . India maps base plan (MAPPLS_CLIENT_ID/SECRET)
  *
- * Amounts are ESTIMATES of the monthly bill, stored as whole units in each
- * line's entity currency (Global → USD, India → INR — the Finance view converts
- * them to a chosen display currency). Status is "planned" — flip to "paid" as
- * real invoices land. Razorpay (payment gateway) is intentionally omitted: it's
- * a ~2%/txn fee that scales with revenue and belongs in unit economics, not a
- * fixed monthly line.
+ * These are volume-INDEPENDENT subscriptions (flat until plan ceilings, which
+ * are high). Per-report/usage services — Gemini inference, Google Maps +
+ * Geocoding, AWS SES, MSG91 OTP, captcha solvers — are deliberately NOT here:
+ * they scale with report volume and live in the product's unit cost
+ * (projects.economics.costPerUnit ≈ ₹20/report, ~90% margin on ₹200 billing),
+ * so booking them as flat monthly lines would double-count. Razorpay (~2%/txn)
+ * likewise scales with revenue and belongs in unit economics.
  *
- * Idempotent: replaces this script's own vendor rows on re-run; leaves any
- * hand-entered expenses untouched. Run: npm run db:seed-valytica-costs
+ * Amounts are ESTIMATES, stored as whole units in each line's entity currency
+ * (Global → USD, India → INR — the Finance view converts to a display
+ * currency). Status "planned" — flip to "paid" as real invoices land.
+ *
+ * Idempotent: replaces every vendor this script has ever managed (see
+ * MANAGED_VENDORS) so dropped lines are cleaned up; leaves hand-entered
+ * expenses untouched. Run: npm run db:seed-valytica-costs
  */
 
 type Cost = {
@@ -43,14 +44,20 @@ type Cost = {
 const COSTS: Cost[] = [
   { vendor: "Vercel (hosting & compute)", category: "infra", amount: 20, entity: "Global" },
   { vendor: "Supabase (Postgres, auth, storage)", category: "infra", amount: 25, entity: "Global" },
-  { vendor: "Gemini via Vercel AI Gateway (report inference)", category: "tooling", amount: 50, entity: "Global" },
-  { vendor: "Google Maps Platform (maps + geocoding)", category: "tooling", amount: 30, entity: "Global" },
-  { vendor: "AWS SES (transactional email)", category: "infra", amount: 5, entity: "Global" },
   { vendor: "Sentry (error monitoring)", category: "tooling", amount: 26, entity: "Global" },
   { vendor: "PostHog (product analytics)", category: "tooling", amount: 20, entity: "Global" },
-  { vendor: "2Captcha / Anti-Captcha (portal automation)", category: "tooling", amount: 10, entity: "Global" },
   { vendor: "Mappls / MapmyIndia (India maps)", category: "tooling", amount: 2000, entity: "India" },
-  { vendor: "MSG91 (SMS & WhatsApp OTP)", category: "tooling", amount: 1500, entity: "India" },
+];
+
+// Every vendor this script has ever inserted — used to clean up rows dropped
+// from COSTS (e.g. the per-report services now folded into unit economics).
+const MANAGED_VENDORS = [
+  ...COSTS.map((c) => c.vendor),
+  "Gemini via Vercel AI Gateway (report inference)",
+  "Google Maps Platform (maps + geocoding)",
+  "AWS SES (transactional email)",
+  "2Captcha / Anti-Captcha (portal automation)",
+  "MSG91 (SMS & WhatsApp OTP)",
 ];
 
 async function main() {
@@ -60,11 +67,11 @@ async function main() {
     .where(eq(schema.projects.key, "VAL"));
   if (!val) throw new Error("Valytica project (key VAL) not found.");
 
-  const vendors = COSTS.map((c) => c.vendor);
-  // Idempotent: clear only this script's own rows for Valytica, then re-insert.
+  // Idempotent: clear every vendor this script manages (incl. dropped ones) for
+  // Valytica, then re-insert the current set.
   await db
     .delete(schema.expenses)
-    .where(and(eq(schema.expenses.projectId, val.id), inArray(schema.expenses.vendor, vendors)));
+    .where(and(eq(schema.expenses.projectId, val.id), inArray(schema.expenses.vendor, MANAGED_VENDORS)));
 
   const now = new Date();
   const spentDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
