@@ -37,7 +37,7 @@ async function main() {
     description: "Hiring, onboarding, the team roster and HR. Confidential.",
   });
   await rename(ws.id, "India Payroll Setup", {
-    name: "Finance", key: "FIN", color: "#22c55e",
+    name: "Company Finance", key: "FIN", color: "#22c55e",
     description: "Company finance: payroll, expenses, runway across entities (NL via Odoo). Confidential.",
   });
   await ensure(ws.id, {
