@@ -94,16 +94,45 @@ export const CONFIDENTIAL_DEPARTMENTS: DepartmentSlug[] = ["sales", "finance"];
 export const isConfidentialDepartment = (slug: string): boolean =>
   CONFIDENTIAL_DEPARTMENTS.includes(slug as DepartmentSlug);
 
+/**
+ * Confidential departments a project's *owner* may see for their own product,
+ * even without the admin role. A product lead owns their product's finances
+ * (pricing, margin, its P&L) — but Sales stays founders-only.
+ */
+export const OWNER_VISIBLE_DEPARTMENTS: DepartmentSlug[] = ["finance"];
+const isOwnerVisibleDepartment = (slug: string): boolean =>
+  OWNER_VISIBLE_DEPARTMENTS.includes(slug as DepartmentSlug);
+
 /** Admins (founders) see confidential areas; members do not. */
 export const canSeeConfidential = (role: string): boolean => role === "admin";
 
-/** Departments visible to a given role (drops confidential ones for members). */
+/**
+ * Whether a user may see a confidential department on a given project. Admins
+ * see everything; a project's owner additionally sees that project's
+ * owner-visible confidential departments (Finance, not Sales).
+ */
+export function canSeeConfidentialDept(
+  slug: string,
+  role: string,
+  isOwner: boolean,
+): boolean {
+  return canSeeConfidential(role) || (isOwner && isOwnerVisibleDepartment(slug));
+}
+
+/**
+ * Departments visible to a user for one project. Non-confidential ones always
+ * show; confidential ones show for admins, and Finance also shows for the
+ * project's owner (`isOwner`).
+ */
 export function visibleDepartments(
   enabled: string[] | null | undefined,
   role: string,
+  isOwner = false,
 ): (typeof DEPARTMENTS)[number][] {
   const list = enabledDepartments(enabled);
-  return canSeeConfidential(role) ? list : list.filter((d) => !isConfidentialDepartment(d.slug));
+  return list.filter(
+    (d) => !isConfidentialDepartment(d.slug) || canSeeConfidentialDept(d.slug, role, isOwner),
+  );
 }
 
 /**

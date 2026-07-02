@@ -6,6 +6,7 @@ import { Restricted } from "@/components/restricted";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
 import {
   getAccounts,
+  getCurrentUser,
   getExpenses,
   getInvoices,
   getProject,
@@ -24,7 +25,10 @@ export default async function ProjectFinancePage({
   const project = await getProject(ws.id, id);
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "finance")) notFound();
-  if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Finance" />;
+  // Founders see every product's Finance; a product's owner sees their own.
+  const me = await getCurrentUser(ws.id);
+  const canView = canSeeConfidential(await getMyRole(ws.id)) || project.ownerId === me.id;
+  if (!canView) return <Restricted label="Finance" />;
 
   const [invoices, expenses, accounts, projects] = await Promise.all([
     getInvoices(ws.id, id),
