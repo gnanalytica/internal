@@ -562,7 +562,7 @@ function ProjectNavItem({
     marketing: <Megaphone className="size-3.5" />,
     sales: <TrendingUp className="size-3.5" />,
     "customer-success": <LifeBuoy className="size-3.5" />,
-    economics: <Wallet className="size-3.5" />,
+    finance: <Wallet className="size-3.5" />,
   };
   const depts = visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map((d) => ({
     href: `${base}/${d.slug}`,

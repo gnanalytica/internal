@@ -39,7 +39,7 @@ const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   marketing: <Megaphone className="size-3.5" />,
   sales: <TrendingUp className="size-3.5" />,
   "customer-success": <LifeBuoy className="size-3.5" />,
-  economics: <Wallet className="size-3.5" />,
+  finance: <Wallet className="size-3.5" />,
 };
 
 export function ProjectsView({

@@ -14,7 +14,7 @@ import {
   getMyRole,
 } from "@/lib/data";
 
-export default async function ProjectEconomicsPage({
+export default async function ProjectFinancePage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -23,8 +23,8 @@ export default async function ProjectEconomicsPage({
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
-  if (!isDepartmentEnabled(project.enabledDepartments, "economics")) notFound();
-  if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Economics" />;
+  if (!isDepartmentEnabled(project.enabledDepartments, "finance")) notFound();
+  if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Finance" />;
 
   const [invoices, expenses, accounts, projects] = await Promise.all([
     getInvoices(ws.id, id),
@@ -35,7 +35,7 @@ export default async function ProjectEconomicsPage({
 
   return (
     <FinanceView
-      heading={`${project.name} · Economics`}
+      heading={`${project.name} · Finance`}
       scopeProjectId={id}
       projects={projects}
       accounts={accounts}

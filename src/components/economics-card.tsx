@@ -23,9 +23,10 @@ const fieldCls =
   "h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
 
 /**
- * The Economics department's unit-economics model for one product: pricing and
- * per-unit cost in, margin out. Founder-only (the route already gates it). The
- * scoped invoices/expenses ledger renders below this, from FinanceView.
+ * A product's unit-economics model (shown in its Finance department tab):
+ * pricing and per-unit cost in, margin out. Founder-only (the route already
+ * gates it). The scoped invoices/expenses ledger renders below this, from
+ * FinanceView.
  */
 export function EconomicsCard({
   projectId,

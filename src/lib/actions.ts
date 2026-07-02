@@ -1057,9 +1057,9 @@ export async function updateProject(
 }
 
 /**
- * Update a product's unit-economics assumptions (the Economics department).
- * Founder-only — the pricing model is confidential. Merges into whatever is
- * already stored so partial edits don't wipe the other fields.
+ * Update a product's unit-economics assumptions (the Finance department's
+ * pricing model). Founder-only — the pricing model is confidential. Merges into
+ * whatever is already stored so partial edits don't wipe the other fields.
  */
 export async function updateProjectEconomics(
   id: string,
@@ -1088,7 +1088,7 @@ export async function updateProjectEconomics(
     .update(projects)
     .set({ economics: Object.keys(next).length ? next : null })
     .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
-  revalidatePath(`/projects/${id}/economics`);
+  revalidatePath(`/projects/${id}/finance`);
 }
 
 const HEALTH = new Set(["on_track", "at_risk", "off_track"]);

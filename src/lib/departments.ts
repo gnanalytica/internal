@@ -16,13 +16,14 @@ export type DepartmentSlug =
   | "marketing"
   | "sales"
   | "customer-success"
-  | "economics";
+  | "finance";
 
-// Canonical product-org functions, in lifecycle order. The company books
-// (payroll, runway, consolidated ledger) live at the company level (the Finance
-// Operations project). "Economics" here is the per-product cut: this product's
-// pricing, unit costs, margin and its own scoped invoices/expenses — the
-// "is this product a good business?" view. Founder-only (see CONFIDENTIAL).
+// Canonical product-org functions, in lifecycle order. Finance appears at two
+// scopes, like the other functions: this per-product department is one product's
+// pricing, unit costs, margin and its own scoped invoices/expenses ("is this
+// product a good business?"); it rolls up into the company-level Finance
+// Operations project (payroll, runway, consolidated books). Founder-only
+// (see CONFIDENTIAL). The per-product pricing model lives in `projects.economics`.
 export const DEPARTMENTS = [
   {
     slug: "product",
@@ -69,11 +70,11 @@ export const DEPARTMENTS = [
     tool: "Zendesk / Intercom-style tickets",
   },
   {
-    slug: "economics",
-    label: "Economics",
+    slug: "finance",
+    label: "Finance",
     icon: "💰",
     color: "#22c55e",
-    // Pricing & unit economics + this product's scoped invoices/expenses.
+    // Product-level finance: unit economics + this product's scoped invoices/expenses.
     tool: "Unit economics & P&L",
   },
 ] as const;
@@ -89,7 +90,7 @@ export const ALL_DEPARTMENT_SLUGS = DEPARTMENTS.map((d) => d.slug);
  * a company-level Operation (also confidential); HR lives in the People & HR
  * Operation (confidential via the project flag).
  */
-export const CONFIDENTIAL_DEPARTMENTS: DepartmentSlug[] = ["sales", "economics"];
+export const CONFIDENTIAL_DEPARTMENTS: DepartmentSlug[] = ["sales", "finance"];
 export const isConfidentialDepartment = (slug: string): boolean =>
   CONFIDENTIAL_DEPARTMENTS.includes(slug as DepartmentSlug);
 

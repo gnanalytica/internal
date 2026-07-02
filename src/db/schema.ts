@@ -85,7 +85,7 @@ export const projects = pgTable(
     // Confidential projects (e.g. Finance, People & HR) are visible to admins
     // (founders) only — enforced server-side and hidden from the nav.
     confidential: boolean("confidential").notNull().default(false),
-    // Per-product unit economics (the Economics department's pricing model).
+    // Per-product unit economics (the Finance department's pricing model).
     // The company books stay in the Finance operation; this is one product's
     // pricing assumptions, used to derive margin per unit. null = not set yet.
     economics: jsonb("economics").$type<{

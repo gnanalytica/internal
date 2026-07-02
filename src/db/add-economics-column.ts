@@ -1,6 +1,6 @@
 /**
  * Idempotent migration: add the per-product `economics` jsonb column to
- * `projects` (the Economics department's unit-economics model). Safe to re-run.
+ * `projects` (the Finance department's unit-economics model). Safe to re-run.
  *
  *   npx tsx --env-file=.env.local src/db/add-economics-column.ts
  */

@@ -48,7 +48,7 @@ export function FinanceView({
   initialInvoices: InvoiceWithRelations[];
   initialExpenses: ExpenseWithRelations[];
   /** Optional content rendered above the invoice/expense tabs (e.g. the
-   *  per-product unit-economics card on the Economics department page). */
+   *  per-product unit-economics card on a product's Finance department page). */
   intro?: ReactNode;
 }) {
   const router = useRouter();
