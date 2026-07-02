@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 
 import { AreaChart, ChartCard, ColumnChart, type Slice } from "@/components/charts";
@@ -17,12 +17,20 @@ import {
   updateInvoice,
 } from "@/lib/actions";
 import {
+  CURRENCIES,
+  RATES_AS_OF,
+  convert,
+  currencySymbol,
+  entityCurrency,
+  formatCurrency,
+} from "@/lib/currency";
+import {
   ENTITIES,
   EXPENSE_CATEGORIES,
   EXPENSE_STATUSES,
   INVOICE_STATUSES,
 } from "@/lib/departments";
-import { dateInputValue, formatMoney } from "@/lib/matrix-format";
+import { dateInputValue } from "@/lib/matrix-format";
 import type {
   CrmAccount,
   ExpenseWithRelations,
@@ -40,6 +48,7 @@ export function FinanceView({
   initialInvoices,
   initialExpenses,
   intro,
+  defaultCurrency = "INR",
 }: {
   heading: string;
   scopeProjectId: string | null;
@@ -50,18 +59,27 @@ export function FinanceView({
   /** Optional content rendered above the invoice/expense tabs (e.g. the
    *  per-product unit-economics card on a product's Finance department page). */
   intro?: ReactNode;
+  /** Display currency to open in — the product's own currency, or INR. */
+  defaultCurrency?: string;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
   const refresh = () => router.refresh();
 
+  // Everything is displayed in `ccy`; each row's stored amount is in its
+  // entity's currency, converted on the fly for totals and charts.
+  const [ccy, setCcy] = useState(defaultCurrency);
+  const fmt = (n: number) => formatCurrency(n, ccy);
+  const toDisplay = (amount: number | null | undefined, entity: string) =>
+    convert(amount ?? 0, entityCurrency(entity), ccy);
+
   const revenue = initialInvoices
     .filter((i) => i.status === "paid")
-    .reduce((s, i) => s + (i.amount ?? 0), 0);
+    .reduce((s, i) => s + toDisplay(i.amount, i.entity), 0);
   const outstanding = initialInvoices
     .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((s, i) => s + (i.amount ?? 0), 0);
-  const spend = initialExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
+    .reduce((s, i) => s + toDisplay(i.amount, i.entity), 0);
+  const spend = initialExpenses.reduce((s, e) => s + toDisplay(e.amount, e.entity), 0);
 
   const monthShort = (k: string) => {
     const [y, m] = k.split("-");
@@ -75,7 +93,7 @@ export function FinanceView({
   for (const i of initialInvoices) {
     if (i.status !== "paid" || !i.issueDate) continue;
     const k = new Date(i.issueDate).toISOString().slice(0, 7);
-    revByMonth.set(k, (revByMonth.get(k) ?? 0) + (i.amount ?? 0));
+    revByMonth.set(k, (revByMonth.get(k) ?? 0) + toDisplay(i.amount, i.entity));
   }
   const revSeries = [...revByMonth.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -85,7 +103,7 @@ export function FinanceView({
     label: c.label,
     value: initialExpenses
       .filter((e) => e.category === c.id)
-      .reduce((s, e) => s + (e.amount ?? 0), 0),
+      .reduce((s, e) => s + toDisplay(e.amount, e.entity), 0),
     color: c.color,
   }));
 
@@ -94,10 +112,24 @@ export function FinanceView({
       <Topbar
         breadcrumb={[{ label: heading }]}
         actions={
-          <span className="text-xs text-muted-foreground">
-            Revenue {formatMoney(revenue)} · Outstanding {formatMoney(outstanding)} · Expenses{" "}
-            {formatMoney(spend)} · Net {formatMoney(revenue - spend)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              Revenue {fmt(revenue)} · Outstanding {fmt(outstanding)} · Expenses {fmt(spend)} · Net{" "}
+              {fmt(revenue - spend)}
+            </span>
+            <select
+              value={ccy}
+              onChange={(e) => setCcy(e.target.value)}
+              title={`Display currency · converted at static rates (${RATES_AS_OF})`}
+              className="h-7 rounded-md border bg-background px-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring/40"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.symbol} {c.id}
+                </option>
+              ))}
+            </select>
+          </div>
         }
       />
 
@@ -111,12 +143,8 @@ export function FinanceView({
 
         <TabsContent value="invoices" className="min-h-0 flex-1 overflow-auto p-4">
           {revSeries.length > 0 && (
-            <ChartCard
-              title="Revenue (paid invoices)"
-              hint={formatMoney(revenue)}
-              className="mb-4"
-            >
-              <AreaChart data={revSeries} color="#10b981" format={(n) => formatMoney(n)} />
+            <ChartCard title="Revenue (paid invoices)" hint={fmt(revenue)} className="mb-4">
+              <AreaChart data={revSeries} color="#10b981" format={fmt} />
             </ChartCard>
           )}
           <div className="mb-3 flex items-center gap-2">
@@ -148,8 +176,8 @@ export function FinanceView({
 
         <TabsContent value="expenses" className="min-h-0 flex-1 overflow-auto p-4">
           {spend > 0 && (
-            <ChartCard title="Expenses by category" hint={formatMoney(spend)} className="mb-4">
-              <ColumnChart data={expByCategory} format={(n) => formatMoney(n)} />
+            <ChartCard title="Expenses by category" hint={fmt(spend)} className="mb-4">
+              <ColumnChart data={expByCategory} format={fmt} />
             </ChartCard>
           )}
           <div className="mb-3 flex items-center gap-2">
@@ -218,13 +246,18 @@ function InvoiceRow({
         <option value="">No account</option>
         {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
       </select>
-      <input
-        type="number"
-        defaultValue={invoice.amount}
-        onBlur={(e) => Number(e.target.value) !== invoice.amount && upd({ amount: Number(e.target.value) || 0 })}
-        className={fieldCls + " w-24"}
-        placeholder="Amount"
-      />
+      <span className="flex items-center gap-1">
+        <span className="text-xs text-muted-foreground" title={entityCurrency(invoice.entity)}>
+          {currencySymbol(entityCurrency(invoice.entity))}
+        </span>
+        <input
+          type="number"
+          defaultValue={invoice.amount}
+          onBlur={(e) => Number(e.target.value) !== invoice.amount && upd({ amount: Number(e.target.value) || 0 })}
+          className={fieldCls + " w-24"}
+          placeholder="Amount"
+        />
+      </span>
       <select defaultValue={invoice.status} onChange={(e) => upd({ status: e.target.value })} className={fieldCls}>
         {INVOICE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
       </select>
@@ -272,13 +305,18 @@ function ExpenseRow({
       <select defaultValue={expense.category} onChange={(e) => upd({ category: e.target.value })} className={fieldCls}>
         {EXPENSE_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
       </select>
-      <input
-        type="number"
-        defaultValue={expense.amount}
-        onBlur={(e) => Number(e.target.value) !== expense.amount && upd({ amount: Number(e.target.value) || 0 })}
-        className={fieldCls + " w-24"}
-        placeholder="Amount"
-      />
+      <span className="flex items-center gap-1">
+        <span className="text-xs text-muted-foreground" title={entityCurrency(expense.entity)}>
+          {currencySymbol(entityCurrency(expense.entity))}
+        </span>
+        <input
+          type="number"
+          defaultValue={expense.amount}
+          onBlur={(e) => Number(e.target.value) !== expense.amount && upd({ amount: Number(e.target.value) || 0 })}
+          className={fieldCls + " w-24"}
+          placeholder="Amount"
+        />
+      </span>
       <select defaultValue={expense.status} onChange={(e) => upd({ status: e.target.value })} className={fieldCls}>
         {EXPENSE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
       </select>

@@ -45,6 +45,7 @@ export default async function ProjectFinancePage({
       accounts={accounts}
       initialInvoices={invoices}
       initialExpenses={expenses}
+      defaultCurrency={project.economics?.currency ?? "INR"}
       intro={<EconomicsCard projectId={id} economics={project.economics} />}
     />
   );

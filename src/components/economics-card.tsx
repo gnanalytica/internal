@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { updateProjectEconomics } from "@/lib/actions";
+import { CURRENCIES, currencySymbol, formatCurrency } from "@/lib/currency";
 
 type Economics = {
   currency?: string;
@@ -12,12 +13,6 @@ type Economics = {
   unitsPerMonth?: number;
   notes?: string;
 };
-
-const CURRENCIES = [
-  { id: "INR", symbol: "₹" },
-  { id: "USD", symbol: "$" },
-  { id: "EUR", symbol: "€" },
-] as const;
 
 const fieldCls =
   "h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
@@ -38,8 +33,8 @@ export function EconomicsCard({
   const [state, setState] = useState<Economics>(economics ?? { currency: "INR" });
   const [, start] = useTransition();
 
-  const symbol = CURRENCIES.find((c) => c.id === (state.currency ?? "INR"))?.symbol ?? "₹";
-  const money = (n: number) => `${symbol}${Math.round(n).toLocaleString("en-IN")}`;
+  const symbol = currencySymbol(state.currency ?? "INR");
+  const money = (n: number) => formatCurrency(n, state.currency ?? "INR");
 
   const price = state.pricePerUnit ?? 0;
   const cost = state.costPerUnit ?? 0;
