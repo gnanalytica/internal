@@ -6,11 +6,13 @@ import {
   DEPARTMENTS,
   OPEN_DEAL_STAGES,
   OPEN_TICKET_STATUSES,
+  canSeeConfidentialDept,
   enabledDepartments,
   isDealStage,
   isDepartmentEnabled,
   isTicketStatus,
   optionMeta,
+  visibleDepartments,
 } from "@/lib/departments";
 
 describe("DEPARTMENTS", () => {
@@ -80,6 +82,36 @@ describe("per-project department config", () => {
     ]);
     expect(isDepartmentEnabled(["engineering"], "sales")).toBe(false);
     expect(isDepartmentEnabled(["engineering", "sales"], "sales")).toBe(true);
+  });
+});
+
+describe("confidential department visibility", () => {
+  const slugs = (role: string, isOwner: boolean) =>
+    visibleDepartments(null, role, isOwner).map((d) => d.slug);
+
+  it("hides Sales and Finance from plain members", () => {
+    const s = slugs("member", false);
+    expect(s).not.toContain("sales");
+    expect(s).not.toContain("finance");
+  });
+
+  it("shows everything to admins", () => {
+    const s = slugs("admin", false);
+    expect(s).toContain("sales");
+    expect(s).toContain("finance");
+  });
+
+  it("shows Finance (but not Sales) to a member who owns the project", () => {
+    const s = slugs("member", true);
+    expect(s).toContain("finance");
+    expect(s).not.toContain("sales");
+  });
+
+  it("canSeeConfidentialDept: owner gets Finance, never Sales", () => {
+    expect(canSeeConfidentialDept("finance", "member", true)).toBe(true);
+    expect(canSeeConfidentialDept("sales", "member", true)).toBe(false);
+    expect(canSeeConfidentialDept("sales", "admin", false)).toBe(true);
+    expect(canSeeConfidentialDept("finance", "member", false)).toBe(false);
   });
 });
 

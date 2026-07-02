@@ -8,7 +8,15 @@ import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
 /** Tab strip shown at the top of every project's department pages. */
-export function ProjectTabs({ project, isAdmin = false }: { project: Project; isAdmin?: boolean }) {
+export function ProjectTabs({
+  project,
+  isAdmin = false,
+  isOwner = false,
+}: {
+  project: Project;
+  isAdmin?: boolean;
+  isOwner?: boolean;
+}) {
   const pathname = usePathname();
   const base = `/projects/${project.id}`;
   // Operations have no departments — just Overview + Docs.
@@ -22,9 +30,11 @@ export function ProjectTabs({ project, isAdmin = false }: { project: Project; is
       : [
           { href: base, label: "Overview" },
           { href: `${base}/vision`, label: "Strategy" },
-          ...visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map(
-            (d) => ({ href: `${base}/${d.slug}`, label: d.label }),
-          ),
+          ...visibleDepartments(
+            project.enabledDepartments,
+            isAdmin ? "admin" : "member",
+            isOwner,
+          ).map((d) => ({ href: `${base}/${d.slug}`, label: d.label })),
           { href: `${base}/docs`, label: "Docs" },
         ];
   return (

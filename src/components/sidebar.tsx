@@ -401,7 +401,13 @@ export function Sidebar({
           {projects
             .filter((p) => p.kind === "project")
             .map((p) => (
-              <ProjectNavItem key={p.id} project={p} pathname={pathname} isAdmin={isAdmin} />
+              <ProjectNavItem
+                key={p.id}
+                project={p}
+                pathname={pathname}
+                isAdmin={isAdmin}
+                isOwner={p.ownerId === currentUser.id}
+              />
             ))}
         </Section>
 
@@ -546,10 +552,12 @@ function ProjectNavItem({
   project,
   pathname,
   isAdmin,
+  isOwner = false,
 }: {
   project: Project;
   pathname: string;
   isAdmin: boolean;
+  isOwner?: boolean;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -564,7 +572,7 @@ function ProjectNavItem({
     "customer-success": <LifeBuoy className="size-3.5" />,
     finance: <Wallet className="size-3.5" />,
   };
-  const depts = visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member").map((d) => ({
+  const depts = visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member", isOwner).map((d) => ({
     href: `${base}/${d.slug}`,
     icon: deptIcons[d.slug],
     label: d.label,
