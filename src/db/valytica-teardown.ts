@@ -69,6 +69,7 @@ async function main() {
 
   // 3. Delete the rest of the project-scoped content (all ON DELETE CASCADE on
   //    projectId; their children cascade automatically).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tables: [string, any, any][] = [
     ["features", schema.features, schema.features.projectId],
     ["milestones", schema.milestones, schema.milestones.projectId],
@@ -90,6 +91,7 @@ async function main() {
   }
 
   // 4. Verify the canvas is clean (project shell intact).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const verify = async (label: string, table: any, col: any) => {
     const [{ n }] = await db.select({ n: sql<number>`count(*)` }).from(table).where(eq(col, pid));
     return `${label}=${Number(n)}`;
