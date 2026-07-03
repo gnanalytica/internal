@@ -2,506 +2,530 @@ import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
-import { and, eq, max } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
+import { VALYTICA_PRICING } from "../lib/valytica-pricing";
 import { db, schema } from "./index";
 
 /**
- * Seed the Valytica product roadmap into the Gnanalytica hub: people (members +
- * People DB rows), a Valytica initiative, monthly cycles, the phased Feature
- * roadmap (completed Dec 2025 → Jun 2026 + future), and the tickets under each
- * phase — grounded in the real Valytica codebase but stretched over 7 months.
+ * Canonical seed for the Valytica product project (key=VAL):
+ *   1. Sets projects.economics from valytica-pricing.ts (PAYG tier).
+ *   2. Upserts 6 milestones from the 2026-07-03 grounding notes.
+ *   3. Upserts 31 features from the grounding notes, each linked to its milestone.
  *
- * Idempotent: re-running skips anything already present. Run: npm run db:seed-valytica
+ * No issues/pages/docs — those are Task 5.
+ * Idempotent: safe to re-run (select-then-insert-or-update; no duplicates).
+ * No db.transaction — Neon HTTP driver; sequential awaits only.
+ *
+ * Run: npx tsx --env-file=.env.local src/db/seed-valytica.ts
  */
 
-// ---- people ----
-type Person = {
-  email: string;
+// ── Pricing (import from single source of truth; never hardcode) ──────────────
+const PAYG_TIER = VALYTICA_PRICING.tiers.find((t) => t.id === "payg")!;
+if (!PAYG_TIER) throw new Error("PAYG tier not found in VALYTICA_PRICING");
+const PRICE_PER_UNIT = PAYG_TIER.perReport as number; // 175
+const COST_PER_UNIT = VALYTICA_PRICING.costPerReport; // 20
+
+// ── Milestone definitions (from grounding notes §1) ───────────────────────────
+type MilestoneDef = {
   name: string;
-  role: string;
-  entity: "India" | "Netherlands" | "Global";
-  type: "Employee" | "Contractor";
-  color: string;
-  admin?: boolean;
-  pod?: boolean; // member of the Products pod
+  description: string;
+  targetDate: Date | null;
+  sortKey: string;
 };
 
-const PEOPLE: Person[] = [
-  { email: "sandeep@gnanalytica.com", name: "Sandeep", role: "CEO / CTO / HR / Head of AI", entity: "Global", type: "Employee", color: "#5e6ad2", admin: true, pod: true },
-  { email: "jayasaagar@gnanalytica.com", name: "Jayasaagar", role: "Chief Marketing & Product", entity: "Global", type: "Employee", color: "#0ea5e9", admin: true, pod: true },
-  { email: "aparna@gnanalytica.com", name: "Aparna", role: "Business Analyst & Product Owner — Valytica", entity: "India", type: "Employee", color: "#a855f7", pod: true },
-  { email: "sanjana@gnanalytica.com", name: "Sanjana", role: "AI Engineer", entity: "India", type: "Employee", color: "#10b981", pod: true },
-  { email: "raunak@gnanalytica.com", name: "Raunak", role: "Full Stack Engineer", entity: "India", type: "Employee", color: "#f59e0b", pod: true },
-  { email: "harshith@gnanalytica.com", name: "Harshith", role: "Infrastructure & Backend Engineer", entity: "India", type: "Employee", color: "#ef4444", pod: true },
-  { email: "shravani@gnanalytica.com", name: "Shravani", role: "Marketing & Social Media Outreach", entity: "Global", type: "Employee", color: "#ec4899" },
-  { email: "gpranavaditya@gmail.com", name: "Pranav Aditya", role: "Data Security Consultant", entity: "Global", type: "Contractor", color: "#64748b" },
-  { email: "shraddhabollapragada@gmail.com", name: "Shraddha BLS", role: "AI Consultant", entity: "Global", type: "Contractor", color: "#8b5cf6" },
-  { email: "ksnmanjusha1804@gmail.com", name: "Manjusha Ksn", role: "Lawyer & Legal Specialist", entity: "Global", type: "Contractor", color: "#0891b2" },
-  { email: "bsairam.2002@gmail.com", name: "Sairam Bollapragada", role: "Delivery & Technology Transformation Consultant", entity: "Global", type: "Contractor", color: "#d97706" },
+const MILESTONES: MilestoneDef[] = [
+  {
+    name: "M1 — Self-serve Hub Foundation",
+    description:
+      "Core multi-tenant SaaS platform: auth, orgs, cases, documents, site visits, billing wallet, PDF reports, digital portal checks, mobile app. Live at valytica.gnanalytica.com. Migrations 2026-05-23 → 2026-06-04.",
+    targetDate: new Date("2026-06-04T12:00:00Z"),
+    sortKey: "a0",
+  },
+  {
+    name: "M2 — AI Hardening",
+    description:
+      "Valuation completeness: income-capitalisation method + 3-method reconciliation. AI retrieval pipeline: document text persistence, pgvector comparable index, field observations, cross-doc conflict detection. Agent/autopilot, narrative grounding, report-fill audit, AI metering/quota, Sentry/PostHog. Migrations 2026-06-06 → 2026-06-15.",
+    targetDate: new Date("2026-06-15T12:00:00Z"),
+    sortKey: "a1",
+  },
+  {
+    name: "M3 — Platform Maturity",
+    description:
+      "Multi-select bulk actions, race-safe charge_org_for_report RPC, account/org deletion with 30-day soft-delete + retention-purge cron, RLS perf indexes, org-at-signup flow, analytics dashboard, TEV/LIE formula engine. Migrations 2026-06-19 → 2026-06-28.",
+    targetDate: new Date("2026-06-28T12:00:00Z"),
+    sortKey: "a2",
+  },
+  {
+    name: "M4 — GTM & AI Confidence",
+    description:
+      "Promote chat models off Flash-Lite; activate PostHog + Sentry env vars; subscription billing via Razorpay Subscriptions; TEV/LIE AI autopilot orchestration; DPR promotion to DB enum; mobile native Google Sign-in; L3 browser-worker portal automation; leaked-password protection; reverse-trial upgrade prompt.",
+    targetDate: null,
+    sortKey: "a3",
+  },
+  {
+    name: "M5 — Bank / BYOC / Enterprise",
+    description:
+      "Migrate AI to Vertex Mumbai or Bedrock Mumbai for DPDP bank-vendor compliance. BYOC tenant deployment tooling. Empanelment management UI (admin). Multi-bank portal coverage beyond TG/AP/KA. Enterprise SSO, custom branding, bank bulk import API.",
+    targetDate: null,
+    sortKey: "a4",
+  },
+  {
+    name: "M6 — Scale & Insights / Flywheel",
+    description:
+      "Telemetry flywheel: product-usage signals → roadmap feedback loop. Opt-in anonymized market-data pipeline for BYOC contracts. Hub analytics as self-serve insights for valuers beyond current /analytics dashboard.",
+    targetDate: null,
+    sortKey: "a5",
+  },
 ];
 
-// short key (used in tickets) -> email
-const KEY: Record<string, string> = {
-  sandeep: "sandeep@gnanalytica.com",
-  jay: "jayasaagar@gnanalytica.com",
-  aparna: "aparna@gnanalytica.com",
-  sanjana: "sanjana@gnanalytica.com",
-  raunak: "raunak@gnanalytica.com",
-  harshith: "harshith@gnanalytica.com",
-  shravani: "shravani@gnanalytica.com",
-  pranav: "gpranavaditya@gmail.com",
-  shraddha: "shraddhabollapragada@gmail.com",
-  manjusha: "ksnmanjusha1804@gmail.com",
-  sairam: "bsairam.2002@gmail.com",
-};
+// ── Feature definitions (from grounding notes §2) ────────────────────────────
+type FeatureStatus = "idea" | "planned" | "building" | "shipped" | "archived";
 
-type FeatureStatus = "idea" | "planned" | "building" | "shipped";
-type IssueStatus = "backlog" | "todo" | "in_progress" | "in_review" | "done";
-
-type Ticket = [title: string, who: string, status?: IssueStatus];
-type Phase = {
+type FeatureDef = {
   title: string;
-  desc: string;
   status: FeatureStatus;
-  start: string;
-  target: string;
-  owner: string;
-  tickets: Ticket[];
+  milestoneName: string; // must match a MILESTONES[].name exactly
+  description: string;
+  ownerEmail: string | null;
+  sortKey: string;
 };
 
-const PHASES: Phase[] = [
+const FEATURES: FeatureDef[] = [
+  // ── M1 — Self-serve Hub Foundation ──────────────────────────────────────────
   {
-    title: "Foundation & Auth",
-    desc: "Supabase Postgres (Mumbai) + Auth, the initial domain schema, RLS isolation, and role-based access for the firm workspace.",
+    title: "Multi-tenant auth & org model",
     status: "shipped",
-    start: "2025-12-01",
-    target: "2025-12-23",
-    owner: "harshith",
-    tickets: [
-      ["Initial Supabase schema: orgs, profiles, cases, documents, valuations", "harshith"],
-      ["Email OTP sign-in via AWS SES Mumbai + unified /sign-in page", "raunak"],
-      ["auth_org_id() SECURITY DEFINER helper + qualify function search paths", "harshith"],
-      ["RLS policies on core tables with per-org isolation", "harshith"],
-      ["Role enum (owner/admin/valuer/case_manager/surveyor/viewer) + gating", "raunak"],
-      ["profiles table + handle_new_user() auto-creation trigger", "harshith"],
-      ["Storage buckets (case-documents, site-photos) with RLS", "harshith"],
-      ["Security review: RLS coverage + service-role key handling", "pranav"],
-      ["3-step onboarding wizard (account type → firm → state/city)", "raunak"],
-      ["Vercel bom1 deployment config + env vars", "harshith"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "Email OTP + Google OAuth + Phone OTP (MSG91); onboarding wizard; org-of-one model; roles (owner/admin/valuer/case_manager/surveyor/viewer); RLS throughout. Migrations: 20260523141016, 20260601150900, 20260619162332.",
+    ownerEmail: "harshith@gnanalytica.com",
+    sortKey: "a00",
   },
   {
-    title: "Case Lifecycle & Documents",
-    desc: "Valuation case management aligned to IBA/IBBI — creation wizard, document handling, the 14-section report structure, and readiness scoring.",
+    title: "Case lifecycle management",
     status: "shipped",
-    start: "2025-12-23",
-    target: "2026-01-24",
-    owner: "aparna",
-    tickets: [
-      ["IBA/IBBI schema alignment: asset_class, asset_subclass, 14-section report", "aparna"],
-      ["3-step case creation wizard (property type → purpose → client)", "raunak"],
-      ["Case document uploader with document-type enum", "raunak"],
-      ["Cases list: status filter, sorting, readiness badge", "raunak"],
-      ["Case detail tabs (Overview, Documents, Valuation, Report, Activity)", "raunak"],
-      ["47-item site-visit checklist (IBA/SBI aligned) with evidence photos", "aparna"],
-      ["Per-state expected-documents checklist", "aparna"],
-      ["Readiness score (0–100) from document checklist", "raunak"],
-      ["Reference panel (Documents | Map) as mobile bottom sheet", "raunak"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "Cases with engagement types (valuation/TEV/LIE/DPR); status FSM (draft→in_review→ready_for_report→report_generated→closed); bulk select/export/delete; display IDs; intake fields. Migrations: 20260523120443, 20260607163514.",
+    ownerEmail: "aparna@gnanalytica.com",
+    sortKey: "a01",
   },
   {
-    title: "Auth Extensions & Mobile Foundation",
-    desc: "Google OAuth + phone OTP (MSG91), and the Expo Android surveyor field app with GPS, geofence, checklist and camera.",
+    title: "Document management & title chain",
     status: "shipped",
-    start: "2026-01-24",
-    target: "2026-02-18",
-    owner: "raunak",
-    tickets: [
-      ["Supabase Google OAuth + /auth/callback session exchange", "raunak"],
-      ["Phone OTP via MSG91 Send SMS Hook (DLT branded)", "harshith"],
-      ["E.164 phone normalization + 6-digit verification flow", "raunak"],
-      ["Scaffold Expo app (SDK 56, EAS Preview/Production)", "harshith"],
-      ["Mobile auth screen (email/phone/Google) with PKCE deep link", "raunak"],
-      ["Surveyor invite links + phone-only onboarding", "aparna"],
-      ["Mobile site-visit screen (GPS map, geofence, checklist, camera)", "raunak"],
-      ["EAS CI/CD for Android APK/AAB builds", "harshith"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "Multi-document upload per case; document type taxonomy; parent_document_id for title chain; extracted_text persistence; per-document chunking for retrieval. Migrations: 20260523120443, 20260610142535, 20260611082045.",
+    ownerEmail: "aparna@gnanalytica.com",
+    sortKey: "a02",
   },
   {
-    title: "AI Extraction & Suggestion Review",
-    desc: "Gemini multimodal field extraction via the Vercel AI Gateway, with an Accept/Edit/Reject review UI, confidence-gated auto-apply and per-org metering.",
+    title: "Digital portal checks",
     status: "shipped",
-    start: "2026-02-18",
-    target: "2026-03-12",
-    owner: "sanjana",
-    tickets: [
-      ["AI client wrapper routing all calls via Vercel AI Gateway (BYOK)", "sanjana"],
-      ["extractFieldsFromFile: Gemini multimodal field extraction", "sanjana"],
-      ["Suggestion review UI: value + confidence + source + Accept/Edit/Reject", "raunak"],
-      ["Auto-apply high-confidence (≥0.8) fields with lock + badge", "sanjana"],
-      ["Per-org AI usage metering via record_ai_usage RPC", "harshith"],
-      ["ai_field_observations + deterministic cross-doc conflict detection", "sanjana"],
-      ["applied_via audit column (auto/user) + RLS on ai_extracted_fields", "harshith"],
-      ["Extraction model selection + prompt design review", "shraddha"],
-      ["Quota scaffolding (QUOTA_MODE warn/enforce, PLAN_AI_BUDGET_INR)", "harshith"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "Semi-automated checks: Kaveri (KA land records), Eswathu (TS), Bhoomi (AP); captcha-solver integration; proof upload; field validation; rate limiting. Migrations: 20260527030247, 20260530152402, 20260611095448.",
+    ownerEmail: "harshith@gnanalytica.com",
+    sortKey: "a03",
   },
   {
-    title: "State Portal Checks & Verification",
-    desc: "Assisted-mode government portal checks (Kaveri, e-Swathu, Bhoomi) with captcha solving, evidence storage, rate limiting and a verification workflow.",
+    title: "Site visit management",
     status: "shipped",
-    start: "2026-03-12",
-    target: "2026-04-02",
-    owner: "harshith",
-    tickets: [
-      ["Portal-checks adapter interface + per-state registry", "harshith"],
-      ["Kaveri guideline-value adapter (property value baselines)", "sanjana"],
-      ["e-Swathu Form 9/11 adapter with 2Captcha integration", "harshith"],
-      ["Bhoomi assisted-mode adapter (RTC link, manual submit)", "harshith"],
-      ["Per-org rate limiting on portal-check runs", "harshith"],
-      ["Evidence-store helper (keyed by case, Storage upload)", "harshith"],
-      ["PortalChecksList UI + assisted-session modal", "raunak"],
-      ["Legal review: portal ToS + assisted-mode compliance", "manjusha"],
-      ["Daily cron to purge expired assisted sessions", "harshith"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "One-per-case site visit; GPS geofencing (surveyor must be on-site); photo upload with geotag burning; photo categories; IBA checklist (subclass-conditional); claimed-vs-observed field comparison; one-page-per-case invariant. Migrations: 20260525185245, 20260608023213, 20260609185341.",
+    ownerEmail: "aparna@gnanalytica.com",
+    sortKey: "a04",
   },
   {
-    title: "Valuation Engine & Maps",
-    desc: "Three-method valuation (cost, market-comparable with CMA, income), measurements sheet, purpose-driven basis of value, and interactive maps with geocoding.",
+    title: "PDF report generation",
     status: "shipped",
-    start: "2026-04-02",
-    target: "2026-04-28",
-    owner: "aparna",
-    tickets: [
-      ["Valuation schema (cost/comparable/income + primary method)", "aparna"],
-      ["Cost-approach calculator (land + depreciated building)", "raunak"],
-      ["Market-comparable workflow with CMA adjustments", "raunak"],
-      ["Income-method calculator (rent → net → capitalized value)", "raunak"],
-      ["Comparable search via pgvector (768-dim, org-scoped)", "sanjana"],
-      ["Measurements sheet (room L×W → carpet/built-up/super-built-up)", "raunak"],
-      ["Purpose-driven basis of value (loan, SARFAESI, capital gains)", "aparna"],
-      ["Map adapter (Google default, Mappls opt-in) + draggable pins", "raunak"],
-      ["Geocoding route (Mappls + Google fallback, source precedence)", "harshith"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "React-PDF renderer; section registry with purpose-driven content (PURPOSE_BASIS); IBA-aligned sections; income sub-table + 3-method reconciliation; firm report templates (DOCX upload + AI merge). Migrations: 20260601082522, 20260608194139.",
+    ownerEmail: "raunak@gnanalytica.com",
+    sortKey: "a05",
   },
   {
-    title: "Reports, Billing & Observability",
-    desc: "React-PDF 14-section reports, .docx bank-template AI-fill, wallet billing (₹200/report) via Razorpay, field-provenance audit, and Sentry/PostHog.",
+    title: "Mobile app (Android)",
     status: "shipped",
-    start: "2026-04-20",
-    target: "2026-05-14",
-    owner: "raunak",
-    tickets: [
-      ["React-PDF renderer with 14-section IBA structure", "raunak"],
-      ["docxtemplater: .docx template upload + AI-fill (SBI format)", "sanjana"],
-      ["Report-fill audit (per-field provenance rollup)", "raunak"],
-      ["charge_org_for_report RPC: atomic wallet debit (₹200)", "harshith"],
-      ["Razorpay wallet recharge: order + checkout.js + webhook", "harshith"],
-      ["Report finalize workflow (lock fields, compute final value)", "raunak"],
-      ["Sentry EU + PostHog EU (env-gated observability)", "harshith"],
-      ["Billing transaction history + wallet audit trail", "raunak"],
-      ["DPDP review: billing PII + payment data handling", "manjusha"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "Expo SDK 56 / React Native 0.85; role-split: surveyor (GPS geofence, IBA checklist, camera, voice notes, i18n en/hi/te/kn) vs full app (cases, valuation, reports, billing, analytics, map, account); EAS builds (com.gnanalytica.valytica); same Supabase project.",
+    ownerEmail: "raunak@gnanalytica.com",
+    sortKey: "a06",
   },
   {
-    title: "Project Engagements — TEV / LIE / DPR",
-    desc: "Beyond valuations: TEV (L1 line items + L2 formula engine), LIE recurring monitoring, DPR generation, multi-stage workflows and asset-class taxonomy.",
+    title: "Map integration",
     status: "shipped",
-    start: "2026-05-05",
-    target: "2026-05-30",
-    owner: "sairam",
-    tickets: [
-      ["engagement_type enum (valuation/tev/lie) + category mapping", "aparna"],
-      ["Engagement schema (financial_model JSONB, stages, deliverables)", "harshith"],
-      ["TEV L1 line-item templates (agro/trading starter packs)", "aparna"],
-      ["TEV L2 declarative formula engine (no eval, cost/revenue drivers)", "sanjana"],
-      ["LIE recurring-monitoring model (periodic reports, renewals)", "raunak"],
-      ["Multi-stage workflow UI (carry-forward, per-stage report)", "raunak"],
-      ["DPR generation + AI extraction from project reports", "sanjana"],
-      ["Delivery framework: engagement playbooks + QA gates", "sairam"],
-      ["Cadastral boundary overlay (import/preview/save)", "harshith"],
-    ],
+    milestoneName: "M1 — Self-serve Hub Foundation",
+    description:
+      "Google Maps (Advanced Markers, draggable pins, distance/area/radius tools, multi-marker); Mappls opt-in fallback; geocoded pin with save; provider preference per org/user. Migrations: 20260606054610-20260608074015.",
+    ownerEmail: "raunak@gnanalytica.com",
+    sortKey: "a07",
+  },
+
+  // ── M2 — AI Hardening ────────────────────────────────────────────────────────
+  {
+    title: "AI field extraction & review",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Gemini multimodal extraction → ai_extracted_fields (state machine: empty→ai_suggested→user_accepted/edited/rejected); auto-apply at ≥0.8 confidence; confidence + source snippet per field; extraction eval harness (98.4% / 0 hallucinations).",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "b00",
   },
   {
-    title: "AI Autopilot, RAG & Grounding",
-    desc: "Agentic orchestrator with a valuation tool set, a 7-stage autopilot pipeline, pgvector comparables retrieval, narrative grounding checks and an eval harness.",
+    title: "Cross-document conflict detection",
     status: "shipped",
-    start: "2026-05-20",
-    target: "2026-06-14",
-    owner: "sanjana",
-    tickets: [
-      ["Agent orchestrator: multi-step tools + SSE streaming (4-turn cap)", "sanjana"],
-      ["Tool set: read_document, propose_field, run_digital_check, compute_valuation", "sanjana"],
-      ["Autopilot pipeline (7 stages, ≤6 LLM calls, abort-isolated)", "sanjana"],
-      ["pgvector comparables (text-embedding-005, org-scoped RLS)", "harshith"],
-      ["Narrative grounding check ([verify: …] markers for unsupported claims)", "shraddha"],
-      ["Objection responder (evidence-grounded reviewer replies)", "sanjana"],
-      ["Extraction eval harness (golden set, baseline 98.4% / 0 hallucinations)", "shraddha"],
-      ["AI cost controls: metering dashboard + per-org budget quotas", "harshith"],
-      ["Case triage (deterministic urgency + next-action)", "raunak"],
-    ],
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Deterministic (no-LLM) detection of field disagreements across docs; conflict notes written to ai_extracted_fields; ai_field_observations table for per-(field, doc) history. Migration: 20260610163201.",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "b01",
   },
   {
-    title: "Architecture Polish & Data Retention",
-    desc: "IVS-aligned taxonomy refactor, two-pane wizard, self-service account/org deletion with a 30-day grace window, retention-purge cron and bulk case actions.",
+    title: "Photo analysis (AI vision)",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Gemini multimodal: property type/floors/condition/issues/caption + claim-consistency vs case facts; sketch measurements import; voice note transcription for surveyor remarks.",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "b02",
+  },
+  {
+    title: "Multi-method real estate valuation",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Cost, market-comparable (CMA with adjustments), income-capitalisation; primary method → final_recommended_value; carpet/built-up/super-built-up hierarchy; measurement sheet; purpose-driven report basis. Migrations: 20260606161244, 20260606163331.",
+    ownerEmail: "aparna@gnanalytica.com",
+    sortKey: "b03",
+  },
+  {
+    title: "pgvector comparable search",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Per-org semantic search over firm's valued-case history; comparable_index table with HNSW index (768-dim, text-embedding-005); pre-filter by org+state+asset_subclass; used by find_similar_cases agent tool. Migration: 20260610142536.",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "b04",
+  },
+  {
+    title: "AI agent / autopilot pipeline",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Interactive per-tab agent (SSE stream, ≤4 tool turns); 7-stage autopilot workflow; narrative grounding check (maker-checker); anomaly detection; objection responder. Files: src/lib/ai/agent.ts, autopilot.ts, narrative-check.ts, objection.ts.",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "b05",
+  },
+  {
+    title: "RAG ask-case Q&A",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Grounded Q&A over a single case (docs + fields + valuation + site visit); floating AskCasePanel; doc-chunking for retrieval; long-context per-case corpus assembly (all docs fit in Gemini 1M window). Files: src/lib/ai/ask.ts, doc-retrieval.ts.",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "b06",
+  },
+  {
+    title: "Report fill audit",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Per-field AI provenance rollup (AI-auto/AI-accepted/edited/pending/rejected) displayed on report tab; deterministic provenance for the signed report. Files: src/lib/ai/report-fill-audit.ts. PR #42.",
+    ownerEmail: "raunak@gnanalytica.com",
+    sortKey: "b07",
+  },
+  {
+    title: "AI usage metering & quota",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Per-org/month/feature rollup in ai_usage; record_ai_usage RPC; per-plan INR ceilings; QUOTA_MODE defaults to 'enforce' (402 on overrun). Migration: 20260626155120. Files: src/lib/ai/metered.ts, quota.ts, pricing.ts.",
+    ownerEmail: "harshith@gnanalytica.com",
+    sortKey: "b08",
+  },
+  {
+    title: "Error tracking + product analytics",
+    status: "shipped",
+    milestoneName: "M2 — AI Hardening",
+    description:
+      "Sentry EU + PostHog EU wired and env-gated (no-op until DSN/key set); no product analytics events defined beyond SPA pageviews. PR #43. Files: src/instrumentation.ts, src/components/posthog-provider.tsx.",
+    ownerEmail: "harshith@gnanalytica.com",
+    sortKey: "b09",
+  },
+
+  // ── M3 — Platform Maturity ───────────────────────────────────────────────────
+  {
+    title: "Analytics dashboard",
+    status: "shipped",
+    milestoneName: "M3 — Platform Maturity",
+    description:
+      "Real Supabase queries (no mock data); cases/site visits/AI fields/reports charts; Recharts; per-org scoped. Files: src/app/(app)/analytics/, src/lib/pdf/insights-data.ts.",
+    ownerEmail: "raunak@gnanalytica.com",
+    sortKey: "c00",
+  },
+  {
+    title: "Account & org management",
+    status: "shipped",
+    milestoneName: "M3 — Platform Maturity",
+    description:
+      "Profile update (name/mobile/reg-no/state/city/RVO/COP/IBBI/signature); org settings; team member invite + remove (re-homes to org-of-one); account/org deletion (30-day soft-delete + purge cron). Migration: 20260626165402.",
+    ownerEmail: "raunak@gnanalytica.com",
+    sortKey: "c01",
+  },
+  {
+    title: "Billing: wallet + PAYG",
+    status: "shipped",
+    milestoneName: "M3 — Platform Maturity",
+    description:
+      "Razorpay Standard Checkout; webhook-credited wallet; race-safe charge_org_for_report RPC (₹200/report debit); free_reports_remaining=3 (reverse-trial allowance); billing transaction history. Migrations: 20260626145533. Files: src/lib/billing.ts, src/lib/razorpay.ts.",
+    ownerEmail: "harshith@gnanalytica.com",
+    sortKey: "c02",
+  },
+  {
+    title: "TEV/LIE financial model engine",
+    status: "shipped",
+    milestoneName: "M3 — Platform Maturity",
+    description:
+      "Declarative formula engine (Pratt parser, no eval()); NPV/IRR/DSCR; tev/model-engine.ts; golden eval (pnpm eval:tev-model). Files: src/lib/tev/, evals/eval-tev-model.ts.",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "c03",
+  },
+
+  // ── M4 — GTM & AI Confidence ─────────────────────────────────────────────────
+  {
+    title: "Billing: subscriptions",
     status: "building",
-    start: "2026-06-05",
-    target: "2026-06-30",
-    owner: "sairam",
-    tickets: [
-      ["IVS-aligned engagement/asset-class taxonomy refactor", "aparna", "done"],
-      ["Two-pane wizard (sticky stepper rail + live summary)", "raunak", "done"],
-      ["request_account_deletion / request_org_deletion RPCs (30-day grace)", "harshith", "done"],
-      ["DPDP retention policy + deletion legal sign-off", "manjusha", "done"],
-      ["retention-purge cron (soft-delete → anonymize/hard-delete)", "harshith", "in_progress"],
-      ["Storage cascade cleanup (documents, photos, evidence, signatures)", "harshith", "in_progress"],
-      ["Multi-select + bulk actions on cases (export CSV, set status, delete)", "raunak", "in_review"],
-      ["AI usage metering dashboard (monthly rollup + cost estimate)", "raunak", "todo"],
-      ["Interactive architecture diagram (HTML + technical-details toggle)", "sandeep", "todo"],
-    ],
+    milestoneName: "M4 — GTM & AI Confidence",
+    description:
+      "Plan types defined (free/individual/team/business/enterprise); plan-change server action stubbed (flips plan for free); Razorpay Subscriptions not yet wired. AGENTS.md open work.",
+    ownerEmail: "raunak@gnanalytica.com",
+    sortKey: "d00",
   },
-  // ---- future ----
   {
-    title: "Bank & Enterprise Features",
-    desc: "DPDP-grade in-country AI (Vertex AI Mumbai), bank vendor onboarding, bulk imports, subscription billing, SSO and custom report branding for enterprise customers.",
+    title: "DPR engagement",
+    status: "building",
+    milestoneName: "M4 — GTM & AI Confidence",
+    description:
+      "App-level only (JSONB class_data.engagement_type); never promoted to DB enum; building blocks in src/lib/engagement.ts; no dedicated UI or report sections yet. AGENTS.md: 'Promote dpr into DB enum when DPR ships'.",
+    ownerEmail: "aparna@gnanalytica.com",
+    sortKey: "d01",
+  },
+  {
+    title: "TEV/LIE AI autopilot",
+    status: "building",
+    milestoneName: "M4 — GTM & AI Confidence",
+    description:
+      "Building blocks exist (project-extract, tev engine, chapter-synthesis, lie/); agentic orchestration not built; explicitly deferred in AGENTS.md until GTM. Files: src/lib/ai/project-extract.ts, chapter-synthesis.ts, src/lib/lie/.",
+    ownerEmail: "sanjana@gnanalytica.com",
+    sortKey: "d02",
+  },
+  {
+    title: "L3 portal automation (browser worker)",
+    status: "building",
+    milestoneName: "M4 — GTM & AI Confidence",
+    description:
+      "Design spec exists (2026-06-11-tier3-agent-browser-worker-design.md); agent-worker.ts shell present in src/lib/portal-checks/; no live browser automation infrastructure yet.",
+    ownerEmail: "harshith@gnanalytica.com",
+    sortKey: "d03",
+  },
+  {
+    title: "Empanelment management",
+    status: "building",
+    milestoneName: "M4 — GTM & AI Confidence",
+    description:
+      "Read-only viewing works (queries workspace_members.asset_class); no admin management UI yet. File: src/components/account/empanelment-card.tsx.",
+    ownerEmail: "aparna@gnanalytica.com",
+    sortKey: "d04",
+  },
+
+  // ── M5 — Bank / BYOC / Enterprise ───────────────────────────────────────────
+  {
+    title: "BYOC / enterprise deployment",
     status: "planned",
-    start: "2026-07-01",
-    target: "2026-08-29",
-    owner: "sandeep",
-    tickets: [
-      ["Migrate AI to Vertex AI Mumbai (in-country, bank procurement)", "sanjana"],
-      ["Bank integration layer: bulk case import + report download API", "harshith"],
-      ["Subscription billing (free/individual/team/business/enterprise)", "raunak"],
-      ["Enterprise SSO (SAML/OIDC, domain claim, auto-provisioning)", "harshith"],
-      ["Custom report branding (logo, footer, watermark, signature)", "raunak"],
-      ["Security & DPDP audit pack for bank vendor onboarding", "pranav"],
-      ["Compliance reporting (IBBI audit trail, retention proof)", "manjusha"],
-    ],
+    milestoneName: "M5 — Bank / BYOC / Enterprise",
+    description:
+      "No code, no config, no migrations. Product design §2.4 only. Banks need isolated tenant deployment (separate Supabase project + separate Vercel team); no infrastructure design yet.",
+    ownerEmail: "sandeep@gnanalytica.com",
+    sortKey: "e00",
   },
   {
-    title: "AI RAG & Comparables Depth",
-    desc: "Full-document-text persistence, page-level citations, title-chain reasoning, and a finalize-time comparable index for deeper retrieval across firm history.",
+    title: "Vertex Mumbai / Bedrock migration",
     status: "planned",
-    start: "2026-08-15",
-    target: "2026-10-17",
-    owner: "sanjana",
-    tickets: [
-      ["Persist extracted document text + page-level chunks for citations", "sanjana"],
-      ["buildCaseCorpus(): full text + structured facts + valuation", "sanjana"],
-      ["Recursive title-chain reasoning (parent_document_id ownership)", "sanjana"],
-      ["comparable_index embeddings on report finalize", "harshith"],
-      ["pgvector ANN query (pre-filter by state/subclass, cosine rank)", "sanjana"],
-      ["Backfill embeddings for existing finalized cases", "harshith"],
-    ],
+    milestoneName: "M5 — Bank / BYOC / Enterprise",
+    description:
+      "AGENTS.md: 'defer to first bank-panel customer'; currently Gemini via Vercel AI Gateway (global infra). Required for bank-vendor DPDP procurement compliance. Files: src/lib/ai/client.ts (upgrade path documented).",
+    ownerEmail: "harshith@gnanalytica.com",
+    sortKey: "e01",
+  },
+
+  // ── M6 — Scale & Insights / Flywheel ────────────────────────────────────────
+  {
+    title: "Telemetry / feedback flywheel",
+    status: "planned",
+    milestoneName: "M6 — Scale & Insights / Flywheel",
+    description:
+      "PostHog wired but zero product analytics events defined (no posthog.capture calls beyond automatic pageviews). Spec §2.5: product-usage signals → roadmap feedback loop. No code evidence beyond the provider.",
+    ownerEmail: "sandeep@gnanalytica.com",
+    sortKey: "f00",
   },
   {
-    title: "Advanced Analytics & Insights",
-    desc: "Portfolio dashboards, valuation-distribution analytics, risk scoring, team performance, market bulletins and scheduled exports.",
-    status: "idea",
-    start: "2026-10-01",
-    target: "2026-12-19",
-    owner: "aparna",
-    tickets: [
-      ["Portfolio overview dashboard (status, revenue, utilization)", "raunak"],
-      ["Valuation distribution analytics (state, asset class, method)", "sanjana"],
-      ["Risk-scoring model (guidance gap, method divergence, outliers)", "shraddha"],
-      ["Team performance dashboard (cases/valuer, speed, revisions)", "aparna"],
-      ["Scheduled export builder (CSV/Excel/PDF + email delivery)", "raunak"],
-      ["Monthly market-insight bulletin + peer benchmarking", "shravani"],
-    ],
+    title: "Opt-in anonymized data pipeline",
+    status: "planned",
+    milestoneName: "M6 — Scale & Insights / Flywheel",
+    description:
+      "Spec §2.5 only; inviolable data-boundary rule is design-time only. BYOC contract data-network moat — opt-in anonymized market data pipeline. Zero code evidence.",
+    ownerEmail: "sandeep@gnanalytica.com",
+    sortKey: "f01",
   },
 ];
 
-const PRIORITY_CYCLE = ["high", "medium", "medium", "low", "none", "medium", "high", "low"];
-
-const tipDoc = (text: string) => ({
-  type: "doc",
-  content: [{ type: "paragraph", content: [{ type: "text", text }] }],
-});
-
-const d = (s: string) => new Date(`${s}T12:00:00Z`);
-const monthKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-
+// ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
+  // 1. Find workspace
   const [ws] = await db
     .select({ id: schema.workspaces.id })
     .from(schema.workspaces)
     .where(eq(schema.workspaces.slug, "gnanalytica"))
     .limit(1);
   if (!ws) {
-    console.log("No gnanalytica workspace. Run db:seed-org first.");
-    return;
+    console.error("FATAL: gnanalytica workspace not found. Run db:seed-org first.");
+    process.exit(1);
   }
 
+  // 2. Find project VAL — fail loudly
   const [project] = await db
-    .select({ id: schema.projects.id })
+    .select({ id: schema.projects.id, name: schema.projects.name })
     .from(schema.projects)
-    .where(and(eq(schema.projects.workspaceId, ws.id), eq(schema.projects.name, "Valytica")))
+    .where(and(eq(schema.projects.workspaceId, ws.id), eq(schema.projects.key, "VAL")))
     .limit(1);
   if (!project) {
-    console.log("No Valytica project found.");
-    return;
+    console.error("FATAL: project key=VAL not found. Cannot seed without an existing Valytica project.");
+    process.exit(1);
   }
+  console.log(`Project: "${project.name}" (VAL) — ${project.id}`);
 
-  // ---- 1. People: users + workspace members + pod members ----
-  const userId: Record<string, string> = {};
-  for (const p of PEOPLE) {
-    let [u] = await db
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.email, p.email))
+  // 3. Set project economics from pricing module
+  await db
+    .update(schema.projects)
+    .set({
+      economics: {
+        currency: VALYTICA_PRICING.currency,
+        unitLabel: VALYTICA_PRICING.unitLabel,
+        pricePerUnit: PRICE_PER_UNIT,
+        costPerUnit: COST_PER_UNIT,
+        notes: "PAYG tier; see valytica-pricing.ts",
+      },
+    })
+    .where(eq(schema.projects.id, project.id));
+  console.log(`Economics set: currency=INR, pricePerUnit=₹${PRICE_PER_UNIT}, costPerUnit=₹${COST_PER_UNIT}`);
+
+  // 4. Build user lookup map (email → id) for feature owners
+  const userRows = await db
+    .select({ id: schema.users.id, email: schema.users.email })
+    .from(schema.users);
+  const userByEmail = new Map(userRows.map((u) => [u.email, u.id]));
+
+  // 5. Upsert milestones (select-then-insert-or-update by (projectId, name))
+  const milestoneIdByName = new Map<string, string>();
+  let msCreated = 0;
+  let msUpdated = 0;
+
+  for (const ms of MILESTONES) {
+    const [existing] = await db
+      .select({ id: schema.milestones.id })
+      .from(schema.milestones)
+      .where(and(eq(schema.milestones.projectId, project.id), eq(schema.milestones.name, ms.name)))
       .limit(1);
-    if (!u) {
-      [u] = await db
-        .insert(schema.users)
-        .values({ name: p.name, email: p.email, avatarColor: p.color })
-        .returning({ id: schema.users.id });
-    } else {
-      await db.update(schema.users).set({ name: p.name }).where(eq(schema.users.id, u.id));
-    }
-    userId[p.email] = u.id;
-    await db
-      .insert(schema.workspaceMembers)
-      .values({ workspaceId: ws.id, userId: u.id, role: p.admin ? "admin" : "member" })
-      .onConflictDoNothing();
-  }
-  console.log(`People: ${PEOPLE.length} ensured.`);
 
-  // ---- People database rows ----
-  const [peopleDb] = await db
-    .select({ id: schema.databases.id })
-    .from(schema.databases)
-    .where(and(eq(schema.databases.workspaceId, ws.id), eq(schema.databases.name, "People")))
-    .limit(1);
-  if (peopleDb) {
-    const fields = await db
-      .select({ id: schema.databaseFields.id, name: schema.databaseFields.name })
-      .from(schema.databaseFields)
-      .where(eq(schema.databaseFields.databaseId, peopleDb.id));
-    const fid = (n: string) => fields.find((f) => f.name === n)?.id;
-    const existing = await db
-      .select({ values: schema.databaseRows.values })
-      .from(schema.databaseRows)
-      .where(eq(schema.databaseRows.databaseId, peopleDb.id));
-    const nameKey = fid("Name");
-    const haveNames = new Set(
-      existing.map((r) => (nameKey ? (r.values as Record<string, unknown>)?.[nameKey] : null)),
-    );
-    let pos = existing.length;
-    for (const p of PEOPLE) {
-      if (haveNames.has(p.name)) continue;
-      const values: Record<string, unknown> = {};
-      const set = (n: string, v: unknown) => {
-        const id = fid(n);
-        if (id) values[id] = v;
-      };
-      set("Name", p.name);
-      set("Role", p.role);
-      set("Entity", p.entity);
-      set("Type", p.type);
+    if (existing) {
       await db
-        .insert(schema.databaseRows)
-        .values({ databaseId: peopleDb.id, position: `a${pos++}`, values });
-    }
-    console.log("People DB rows ensured.");
-  }
-
-  // ---- 2. Cycles (monthly, Dec 2025 → Sep 2026) ----
-  const cycleByMonth: Record<string, string> = {};
-  const existingCycles = await db
-    .select({ id: schema.cycles.id, name: schema.cycles.name, number: schema.cycles.number })
-    .from(schema.cycles)
-    .where(eq(schema.cycles.workspaceId, ws.id));
-  let cycleNum = existingCycles.reduce((m, c) => Math.max(m, c.number), 0);
-  for (let i = 0; i < 10; i++) {
-    const start = new Date(Date.UTC(2025, 11 + i, 1)); // Dec 2025 + i
-    const end = new Date(Date.UTC(2025, 11 + i + 1, 0)); // last day of month
-    const name = start.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
-    const key = monthKey(start);
-    let c = existingCycles.find((x) => x.name === name);
-    if (!c) {
+        .update(schema.milestones)
+        .set({
+          description: ms.description,
+          targetDate: ms.targetDate,
+          sortKey: ms.sortKey,
+        })
+        .where(eq(schema.milestones.id, existing.id));
+      milestoneIdByName.set(ms.name, existing.id);
+      msUpdated++;
+    } else {
       const [created] = await db
-        .insert(schema.cycles)
-        .values({ workspaceId: ws.id, projectId: project.id, name, number: ++cycleNum, startDate: start, endDate: end })
-        .returning({ id: schema.cycles.id, name: schema.cycles.name, number: schema.cycles.number });
-      c = created;
+        .insert(schema.milestones)
+        .values({
+          workspaceId: ws.id,
+          projectId: project.id,
+          name: ms.name,
+          description: ms.description,
+          targetDate: ms.targetDate,
+          sortKey: ms.sortKey,
+        })
+        .returning({ id: schema.milestones.id });
+      milestoneIdByName.set(ms.name, created.id);
+      msCreated++;
     }
-    cycleByMonth[key] = c.id;
   }
-  console.log("Cycles ensured (Dec 2025 → Sep 2026).");
+  console.log(`Milestones: ${msCreated} created, ${msUpdated} updated (${MILESTONES.length} total).`);
 
-  // ---- 4. Features (phases) + 5. Issues ----
-  const existingFeatures = await db
-    .select({ title: schema.features.title })
-    .from(schema.features)
-    .where(eq(schema.features.projectId, project.id));
-  const haveFeature = new Set(existingFeatures.map((f) => f.title));
+  // 6. Upsert features (select-then-insert-or-update by (projectId, title))
+  let ftCreated = 0;
+  let ftUpdated = 0;
 
-  const [{ value: maxNum }] = await db
-    .select({ value: max(schema.issues.number) })
-    .from(schema.issues)
-    .where(and(eq(schema.issues.workspaceId, ws.id), eq(schema.issues.projectId, project.id)));
-  let issueNum = maxNum ?? 0;
-  const creatorId = userId["sandeep@gnanalytica.com"];
+  for (const ft of FEATURES) {
+    const milestoneId = milestoneIdByName.get(ft.milestoneName);
+    if (!milestoneId) {
+      console.error(`FATAL: milestone "${ft.milestoneName}" not found — cannot link feature "${ft.title}"`);
+      process.exit(1);
+    }
 
-  let featureCount = 0;
-  let issueCount = 0;
-  for (let pi = 0; pi < PHASES.length; pi++) {
-    const ph = PHASES[pi];
-    if (haveFeature.has(ph.title)) continue;
-    const start = d(ph.start);
-    const target = d(ph.target);
-    const [feature] = await db
-      .insert(schema.features)
-      .values({
+    const ownerId = ft.ownerEmail ? (userByEmail.get(ft.ownerEmail) ?? null) : null;
+    if (ft.ownerEmail && !ownerId) {
+      console.warn(`WARN: owner email "${ft.ownerEmail}" not found in users; feature "${ft.title}" will have no owner.`);
+    }
+
+    const spec = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: ft.description }] }],
+    };
+
+    const [existing] = await db
+      .select({ id: schema.features.id })
+      .from(schema.features)
+      .where(and(eq(schema.features.projectId, project.id), eq(schema.features.title, ft.title)))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(schema.features)
+        .set({
+          status: ft.status,
+          milestoneId,
+          spec,
+          ownerId,
+          sortKey: ft.sortKey,
+        })
+        .where(eq(schema.features.id, existing.id));
+      ftUpdated++;
+    } else {
+      await db.insert(schema.features).values({
         workspaceId: ws.id,
         projectId: project.id,
-        title: ph.title,
-        status: ph.status,
-        startDate: start,
-        targetDate: target,
-        spec: tipDoc(ph.desc),
-        ownerId: userId[KEY[ph.owner]] ?? null,
-        sortKey: `a${String(pi).padStart(2, "0")}`,
-      })
-      .returning({ id: schema.features.id });
-    featureCount++;
-
-    const n = ph.tickets.length;
-    const span = target.getTime() - start.getTime();
-    for (let ti = 0; ti < n; ti++) {
-      const [title, who, explicitStatus] = ph.tickets[ti];
-      const createdAt = new Date(start.getTime() + (span * (ti + 0.5)) / n);
-      const status: IssueStatus =
-        explicitStatus ??
-        (ph.status === "shipped"
-          ? "done"
-          : ph.status === "building"
-            ? "todo"
-            : ti === 0
-              ? "todo"
-              : "backlog");
-      await db.insert(schema.issues).values({
-        workspaceId: ws.id,
-        projectId: project.id,
-        featureId: feature.id,
-        cycleId: cycleByMonth[monthKey(createdAt)] ?? null,
-        number: ++issueNum,
-        title,
-        status,
-        priority: PRIORITY_CYCLE[(pi + ti) % PRIORITY_CYCLE.length],
-        assigneeId: userId[KEY[who]] ?? null,
-        creatorId,
-        sortKey: `a${String(ti).padStart(3, "0")}`,
-        createdAt,
-        updatedAt: status === "done" ? target : createdAt,
+        milestoneId,
+        title: ft.title,
+        status: ft.status,
+        spec,
+        ownerId,
+        sortKey: ft.sortKey,
       });
-      issueCount++;
+      ftCreated++;
     }
   }
-
-  console.log(`Valytica roadmap seeded: ${featureCount} phases, ${issueCount} tickets.`);
+  console.log(`Features:   ${ftCreated} created, ${ftUpdated} updated (${FEATURES.length} total).`);
+  console.log(`\nDone. Valytica canonical seed complete: ${MILESTONES.length} milestones, ${FEATURES.length} features.`);
 }
 
 main()
