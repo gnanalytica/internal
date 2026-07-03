@@ -18,6 +18,7 @@ import {
 import { ColumnChart, Donut, type Slice } from "@/components/charts";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { contributionMargin, VALYTICA_PRICING } from "@/lib/valytica-pricing";
 
 /**
  * Product Strategy — a single-page infographic slide on a fixed 1600×920 canvas
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils";
  *  - "feasibility" → Atlas: project feasibility (DPR / TEV / LIE)
  *
  * Grounding & honesty:
- * - Prices (₹200/report) are real (Valytica's billing).
+ * - Prices are derived from src/lib/valytica-pricing.ts (single source of truth).
  * - Market figures are MODELED ESTIMATES, ranges noted, anchored to public data.
  */
 
@@ -58,6 +59,17 @@ type Cfg = {
 };
 
 const inCr = (v: number) => `₹${v.toLocaleString("en-IN")} cr`;
+
+// ============================ derived pricing (single source of truth) ============================
+// All per-report prices and margins on the slide are computed from valytica-pricing.ts so that a
+// price change in one place propagates everywhere automatically.
+const _payg = VALYTICA_PRICING.tiers.find((t) => t.id === "payg")!;
+const _paygPrice = _payg.perReport!; // ₹175 — safe: payg.perReport is never null
+const _cm = contributionMargin(_paygPrice); // ₹155
+const _marginPct = Math.round((_cm / _paygPrice) * 100); // ~89
+const _manualReportCost = 2000; // market fact: manual desk-work equivalent cost per report
+const _vsManualX = Math.round(_manualReportCost / _paygPrice); // ~11
+const _costSavingPct = Math.round(((_manualReportCost - _paygPrice) / _manualReportCost) * 100); // ~91
 
 // ============================ VALYTICA · valuation ============================
 
@@ -91,7 +103,7 @@ const VALUATION: Cfg = {
     { label: "Government / legal (tax, IBC)", value: 200, color: "#0ea5e9" },
   ],
   stand: {
-    done: ["Built & live · 3 asset classes", "Grounded AI · 98.4% · 0 hallucinations", "~90% gross margin · ₹180 / report"],
+    done: ["Built & live · 3 asset classes", "Grounded AI · 98.4% · 0 hallucinations", `~${_marginPct}% gross margin · ₹${_cm} / report CM`],
     now: ["Early users & pilots", "Instrumenting usage & retention"],
     next: ["Switch on subscriptions", "Land bank / enterprise deals"],
     prove: ["Recurring revenue", "Willingness to pay / report", "Retention at scale"],
@@ -100,8 +112,8 @@ const VALUATION: Cfg = {
   kpis: [
     { v: "3–4×", l: "throughput" },
     { v: "−75%", l: "desk time" },
-    { v: "same-day", l: "turnaround" },
-    { v: "−89%", l: "cost / report" },
+    { v: "hours, not days", l: "certified turnaround" },
+    { v: `−${_costSavingPct}%`, l: "cost / report" },
     { v: "98.4%", l: "accuracy · 0 hallucinations" },
     { v: "audit-ready", l: "IBBI deficiencies removed" },
   ],
@@ -109,12 +121,12 @@ const VALUATION: Cfg = {
     {
       key: "N", title: "Need", subtitle: "Pain — validated", color: "#6366f1",
       points: ["Manual extraction · per-bank reformatting · month-end crunch", "Inconsistent, hard to audit — real liability risk", "Validated in user interviews + live pilots"],
-      stats: [{ v: "6 hrs", l: "manual desk work / report" }, { v: "2–3 days", l: "turnaround today" }],
+      stats: [{ v: "6 hrs", l: "manual desk work / report" }, { v: "2–5 d / 1–3 wk / 2–4 wk", l: "res / com / ind TAT today" }],
     },
     {
       key: "A", title: "Approach", subtitle: "Our unique solution", color: "#0ea5e9",
       points: ["AI does extraction · cross-check · drafting → bank-ready report", "Valuer keeps inspection & sign-off · human-in-loop", "India-resident · source-cited · res / com / industrial"],
-      stats: [{ v: "98.4%", l: "accuracy · vs ~7.7% manual" }, { v: "2–3 days → same day", l: "turnaround" }],
+      stats: [{ v: "98.4%", l: "accuracy · vs ~7.7% manual" }, { v: "hours, not days", l: "certified report turnaround" }],
     },
     {
       key: "B", title: "Benefit", subtitle: "Value to the valuer", color: "#10b981",
@@ -123,8 +135,8 @@ const VALUATION: Cfg = {
     },
     {
       key: "C", title: "Competition", subtitle: "Who we're up against", color: "#f59e0b",
-      points: ["Status quo: manual + spreadsheets (2–3 days)", "Sigmavalue — closest AI rival", "Banks' in-house AI — emerging threat"],
-      stats: [{ v: "same-day", l: "vs 2–3 days (manual)" }, { v: "9× cheaper", l: "₹220 vs ₹2,000 / report" }],
+      points: ["Status quo: manual + spreadsheets (res 2–5 d, com 1–3 wk, ind 2–4 wk)", "Sigmavalue — closest AI rival (AVM + certified, not loan-usable instantly)", "Banks' in-house AI — emerging threat"],
+      stats: [{ v: "certified-fast", l: "hours vs days/wks (manual)" }, { v: `~${_vsManualX}× cheaper`, l: `₹${_paygPrice} vs ₹2,000 / report` }],
     },
   ],
   trajectory: {
