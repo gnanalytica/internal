@@ -21,9 +21,11 @@ import { db, schema } from "./index";
  */
 
 // ── Pricing (import from single source of truth; never hardcode) ──────────────
-const PAYG_TIER = VALYTICA_PRICING.tiers.find((t) => t.id === "payg")!;
-if (!PAYG_TIER) throw new Error("PAYG tier not found in VALYTICA_PRICING");
-const PRICE_PER_UNIT = PAYG_TIER.perReport as number; // 175
+const PAYG_TIER = VALYTICA_PRICING.tiers.find((t) => t.id === "payg");
+if (!PAYG_TIER || PAYG_TIER.perReport == null) {
+  throw new Error("PAYG tier or its perReport is missing from VALYTICA_PRICING");
+}
+const PRICE_PER_UNIT = PAYG_TIER.perReport; // 175 — narrowed to number by the guard above
 const COST_PER_UNIT = VALYTICA_PRICING.costPerReport; // 20
 
 // ── Milestone definitions (from grounding notes §1) ───────────────────────────
