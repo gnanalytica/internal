@@ -49,7 +49,7 @@ function buildPricingNodes(): Node[] {
     h(2, "Pricing"),
     p(
       `Currency: ${VALYTICA_PRICING.currency}. Unit: ${VALYTICA_PRICING.unitLabel}. ` +
-        `Unit cost (AI inference + fulfilment): ₹${VALYTICA_PRICING.costPerReport}/${VALYTICA_PRICING.unitLabel} — ~90% margin at PAYG.`,
+        `Unit cost (AI inference + fulfilment): ₹${VALYTICA_PRICING.costPerReport}/${VALYTICA_PRICING.unitLabel} — ~${Math.round((1 - VALYTICA_PRICING.costPerReport / PRICE_PER_UNIT) * 100)}% margin at PAYG.`,
     ),
   ];
   for (const tier of VALYTICA_PRICING.tiers) {
@@ -604,6 +604,9 @@ async function main() {
           eq(schema.pages.projectId, project.id),
           eq(schema.pages.title, title),
           isNull(schema.pages.deletedAt),
+          parentId === null
+            ? isNull(schema.pages.parentId)
+            : eq(schema.pages.parentId, parentId),
         ),
       )
       .limit(1);
@@ -678,14 +681,17 @@ async function main() {
     p(
       "Why hub-and-spoke: the supply data killed the 'small/mid firm' beachhead (118 entities vs 5,712 individuals — statistically negligible). The individual valuer is a weak standalone business (small TAM, low ATP, non-metro, price-sensitive) but an excellent on-ramp, demo surface, and supply. Budget and acute pain sit with affordable-housing HFCs.",
     ),
-    h(3, "Key pain points (verified)"),
+    h(3, "Key pain points"),
     bullets([
-      "Fulfilment gap: 6,176 IBBI valuers vs ~5M valuations/year → ~810 reports/valuer/year load vs manual cap of 1–2/day. AI lifts throughput to 4–6/day (3–4×).",
-      "Valuation variance & compliance: avg absolute variance ~7.7% (global benchmark); >90% of appraisals biased upward; IBBI penalties ₹25k–₹5L + 3mo–2yr suspension.",
-      "TAT bottleneck: 5–7 days valuation on the critical path; ROV rework adds 7–10 more days. Valytica: same-day report generation (~80%+ faster).",
-      "Cost-to-serve: ~6 hrs desk work/report; 15–20% rework rate. Valytica: desk time −75% (1.5 hrs), cost ₹2,000 → ₹220.",
+      "Fulfilment gap: 6,176 IBBI valuers vs ~5M valuations/year → ~810 reports/valuer/year load (derived) vs manual cap of 1–2/day. Valytica pilot: AI lifts throughput to 4–6/day, desk time 6 hrs → 1.5 hrs (Valytica pilot).",
+      "Valuation variance & compliance: avg absolute variance ~7.7% vs sale price; >90% biased upward; IBBI penalties ₹25k–₹5L + 3mo–2yr suspension (external benchmark — global/other-market studies, directional, not India-specific).",
+      "TAT bottleneck: valuation 5–7 days on the critical path; ROV rework adds 7–10 more days (external benchmark). Valytica pilot: certified report in hours once inspected, vs the usual 5–7 days (Valytica pilot).",
+      "Cost-to-serve: ~6 hrs desk work/report; 15–20% rework rate (external benchmark — directional). Valytica pilot: cost-to-serve (fully loaded, incl. reduced desk time) ₹2,000 → ₹220 — distinct from the ₹20 marginal AI-inference COGS in the pricing table (Valytica pilot).",
       "Peak-load inconsistency: month/quarter-end surge overwhelms fixed capacity; quality degrades under behavioural influences/fatigue.",
     ]),
+    p(
+      "Benchmark caveat: the 7.7% variance, 15–20% rework, and AVM accuracy figures are global/other-market studies used as directional benchmarks — not India-specific valuer data. Valytica pilot figures (throughput, TAT, cost-to-serve) are the primary proof points.",
+    ),
     p(
       "Competition: SigmaValue (AI AVM + certified 3–5 day reports; IIT-B IBBI valuer founder; NASSCOM/NVIDIA-backed; empanelled with banks) is the primary competitor in the certified-report-fast lane. Valytica's wedge: workflow speed for the lender vs just faster estimation.",
     ),
