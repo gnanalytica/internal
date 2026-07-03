@@ -2,7 +2,7 @@ import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { VALYTICA_PRICING } from "../lib/valytica-pricing";
 import { db, schema } from "./index";
@@ -27,6 +27,60 @@ if (!PAYG_TIER || PAYG_TIER.perReport == null) {
 }
 const PRICE_PER_UNIT = PAYG_TIER.perReport; // 175 — narrowed to number by the guard above
 const COST_PER_UNIT = VALYTICA_PRICING.costPerReport; // 20
+
+// ── TipTap document helpers ────────────────────────────────────────────────────
+type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string };
+const p = (t?: string): Node => ({ type: "paragraph", content: t ? [{ type: "text", text: t }] : [] });
+const h = (level: number, t: string): Node => ({
+  type: "heading",
+  attrs: { level },
+  content: [{ type: "text", text: t }],
+});
+const bullets = (items: string[]): Node => ({
+  type: "bulletList",
+  content: items.map((t) => ({ type: "listItem", content: [p(t)] })),
+});
+const plain = (n: Node): string =>
+  n.type === "text" ? (n.text ?? "") : (n.content ?? []).map(plain).join(" ").trim();
+
+/** Build pricing-tier nodes from VALYTICA_PRICING (no hardcoded numbers). */
+function buildPricingNodes(): Node[] {
+  const nodes: Node[] = [
+    h(2, "Pricing"),
+    p(
+      `Currency: ${VALYTICA_PRICING.currency}. Unit: ${VALYTICA_PRICING.unitLabel}. ` +
+        `Unit cost (AI inference + fulfilment): ₹${VALYTICA_PRICING.costPerReport}/${VALYTICA_PRICING.unitLabel} — ~90% margin at PAYG.`,
+    ),
+  ];
+  for (const tier of VALYTICA_PRICING.tiers) {
+    const monthlyStr =
+      tier.monthly === null
+        ? "custom / per-deal"
+        : tier.monthly === 0
+          ? "no monthly fee"
+          : `₹${tier.monthly}/month`;
+    const priceStr =
+      tier.perReport === null
+        ? "custom / per-deal"
+        : tier.perReport === 0
+          ? "₹0 (included in allowance)"
+          : `₹${tier.perReport}/${VALYTICA_PRICING.unitLabel}`;
+    const allowanceNote =
+      "allowance" in tier && tier.allowance != null
+        ? ` | Allowance: ${tier.allowance} ${VALYTICA_PRICING.unitLabel}s free`
+        : "";
+    nodes.push(
+      h(3, tier.name),
+      bullets([
+        `Audience: ${tier.audience}`,
+        `Monthly: ${monthlyStr}`,
+        `Per ${VALYTICA_PRICING.unitLabel}: ${priceStr}${allowanceNote}`,
+        tier.blurb,
+      ]),
+    );
+  }
+  return nodes;
+}
 
 // ── Milestone definitions (from grounding notes §1) ───────────────────────────
 type MilestoneDef = {
@@ -527,7 +581,381 @@ async function main() {
     }
   }
   console.log(`Features:   ${ftCreated} created, ${ftUpdated} updated (${FEATURES.length} total).`);
-  console.log(`\nDone. Valytica canonical seed complete: ${MILESTONES.length} milestones, ${FEATURES.length} features.`);
+
+  // ── 7. Pages (docs) ──────────────────────────────────────────────────────────
+  let pgCreated = 0;
+  let pgUpdated = 0;
+  const pageCreatorId =
+    userByEmail.get("aparna@gnanalytica.com") ?? userByEmail.get("sandeep@gnanalytica.com") ?? null;
+
+  async function upsertPage(
+    title: string,
+    icon: string,
+    content: Node,
+    parentId: string | null,
+    position: string,
+  ): Promise<string> {
+    const [existing] = await db
+      .select({ id: schema.pages.id })
+      .from(schema.pages)
+      .where(
+        and(
+          eq(schema.pages.workspaceId, ws.id),
+          eq(schema.pages.projectId, project.id),
+          eq(schema.pages.title, title),
+          isNull(schema.pages.deletedAt),
+        ),
+      )
+      .limit(1);
+    const values = {
+      workspaceId: ws.id,
+      projectId: project.id,
+      parentId,
+      title,
+      icon,
+      content,
+      contentText: plain(content).slice(0, 20000),
+      creatorId: pageCreatorId,
+      position,
+    };
+    if (existing) {
+      await db.update(schema.pages).set(values).where(eq(schema.pages.id, existing.id));
+      pgUpdated++;
+      return existing.id;
+    }
+    const [created] = await db.insert(schema.pages).values(values).returning({ id: schema.pages.id });
+    pgCreated++;
+    return created.id;
+  }
+
+  // ── Page 1: Valytica Product Strategy ────────────────────────────────────────
+  const strategyNodes: Node[] = [
+    h(1, "Valytica Product Strategy"),
+    h(2, "One-liner"),
+    p(
+      "An AI valuation copilot for India, run as an open-core hub-and-spoke: a self-serve product for individual valuers and small firms that doubles as a live demo and a data engine, funneling into hyper-customized BYOC deployments for banks and large firms.",
+    ),
+    h(2, "Positioning wedge — certified fast, not AVM"),
+    p(
+      "Automated valuation models (AVMs) already produce instant estimates but cannot be used for loan sanction — Indian lenders still legally require physical inspection by an empanelled valuer. The wedge is a certified, bank-accepted report produced fast:",
+    ),
+    bullets([
+      "The empanelled valuer keeps inspection + sign-off (fully compliant).",
+      "The AI collapses the desk work — extraction, verification, drafting, reformatting.",
+      "A certified report lands in 2–3 days instead of the 7–14 that is the rate-limiting stage in every mortgage.",
+    ]),
+    p(
+      "This deliberately sidesteps AVM competitors by competing on workflow speed for a lender, not on producing a faster estimate.",
+    ),
+    h(2, "The hub (self-serve core) — three simultaneous roles"),
+    p(
+      "Realistic TAM: ~3,000 IBBI-registered Land & Building valuers plus a larger uncounted pool of sub-₹2cr empanelled valuers (IBBI registration not mandatory below ₹2cr). Supply profile: 5,712 individuals vs only 118 registered entities (~48:1; non-metro-heavy, average age 49).",
+    ),
+    bullets([
+      "Adoption: independent valuers and small firms self-serve. They are both the users and the supply of certified sign-off.",
+      "Data engine: usage, behavior, and explicit feedback from every session drive the product roadmap.",
+      "Living demo: the same product is the demo video / live walkthrough / free trial shown to banks and HFCs.",
+    ]),
+    h(2, "The spokes (BYOC / enterprise)"),
+    p(
+      "BYOC + hyper-customization for banks and large firms, won off the back of the hub demo + free trial. First target: affordable-housing HFCs — acute loan-TAT pain, tech-forward, gaining disbursement share, high valuations-per-rupee (small tickets), and move far faster than PSU banks.",
+    ),
+    p("Named profiles: Home First, Aavas, Aadhar, India Shelter, IIFL Home Finance, Aptus, Vastu."),
+    h(2, "The flywheel and its one hard rule"),
+    p("Hub and spokes both feed the core flywheel:"),
+    bullets([
+      "Product telemetry + explicit feedback — always on: feature usage, where users get stuck, model-quality/accuracy signals, bug reports, feedback.",
+      "Anonymized market data — opt-in only, per BYOC contract: aggregated comparables / price signals (a potential data-network moat).",
+    ]),
+    p(
+      "Inviolable line: customer/valuation data (properties, borrowers, figures) never leaves a BYOC tenant. Only product-usage signals and opt-in anonymized aggregates flow back. Getting this line right preserves both bank trust and the flywheel; blurring it loses the bank.",
+    ),
+    ...buildPricingNodes(),
+    h(2, "Market grounding"),
+    p(
+      "Demand: 3.88M home loans originated FY24 (CRIF); ~22.6M active accounts; ~5M+ secured-property valuations/year. Valuation is the rate-limiting external step — 3–14 business days, routinely the longest single stage of a 7–30 day loan. HFCs gaining share (30% of disbursements H1FY26); affordable-housing HFCs fastest-growing (~20%+ CAGR).",
+    ),
+    p(
+      "Why hub-and-spoke: the supply data killed the 'small/mid firm' beachhead (118 entities vs 5,712 individuals — statistically negligible). The individual valuer is a weak standalone business (small TAM, low ATP, non-metro, price-sensitive) but an excellent on-ramp, demo surface, and supply. Budget and acute pain sit with affordable-housing HFCs.",
+    ),
+    h(3, "Key pain points (verified)"),
+    bullets([
+      "Fulfilment gap: 6,176 IBBI valuers vs ~5M valuations/year → ~810 reports/valuer/year load vs manual cap of 1–2/day. AI lifts throughput to 4–6/day (3–4×).",
+      "Valuation variance & compliance: avg absolute variance ~7.7% (global benchmark); >90% of appraisals biased upward; IBBI penalties ₹25k–₹5L + 3mo–2yr suspension.",
+      "TAT bottleneck: 5–7 days valuation on the critical path; ROV rework adds 7–10 more days. Valytica: same-day report generation (~80%+ faster).",
+      "Cost-to-serve: ~6 hrs desk work/report; 15–20% rework rate. Valytica: desk time −75% (1.5 hrs), cost ₹2,000 → ₹220.",
+      "Peak-load inconsistency: month/quarter-end surge overwhelms fixed capacity; quality degrades under behavioural influences/fatigue.",
+    ]),
+    p(
+      "Competition: SigmaValue (AI AVM + certified 3–5 day reports; IIT-B IBBI valuer founder; NASSCOM/NVIDIA-backed; empanelled with banks) is the primary competitor in the certified-report-fast lane. Valytica's wedge: workflow speed for the lender vs just faster estimation.",
+    ),
+  ];
+  const strategyContent: Node = { type: "doc", content: strategyNodes };
+  await upsertPage("Valytica Product Strategy", "🎯", strategyContent, null, "a0");
+
+  // ── Page 2: Roadmap & Requirements (parent) ───────────────────────────────────
+  const roadmapContent: Node = {
+    type: "doc",
+    content: [
+      h(1, "Roadmap & Requirements"),
+      p(
+        "Six milestones from the shipped self-serve hub through enterprise/BYOC readiness and flywheel scale. Each child page details that milestone's features and requirements, grounded in the real Valytica repo (grounding notes 2026-07-03).",
+      ),
+      h(2, "Overview"),
+      bullets([
+        "M1 — Self-serve Hub Foundation (SHIPPED 2026-06-04) — core multi-tenant SaaS, billing, PDF reports, mobile.",
+        "M2 — AI Hardening (SHIPPED 2026-06-15) — extraction, pgvector, autopilot, metering.",
+        "M3 — Platform Maturity (SHIPPED 2026-06-28) — bulk actions, billing RPC, TEV engine, analytics.",
+        "M4 — GTM & AI Confidence (UPCOMING) — model upgrades, subscriptions, autopilot orchestration, mobile enhancements.",
+        "M5 — Bank / BYOC / Enterprise (PLANNED) — DPDP-compliant AI, BYOC tenant tooling, enterprise features.",
+        "M6 — Scale & Insights / Flywheel (PLANNED) — telemetry flywheel, opt-in data pipeline, hub analytics.",
+      ]),
+    ],
+  };
+  const roadmapParentId = await upsertPage("Roadmap & Requirements", "🗺️", roadmapContent, null, "a1");
+
+  // ── Pages 3–8: One child per milestone ───────────────────────────────────────
+  const statusEmoji: Record<FeatureStatus, string> = {
+    shipped: "✅",
+    building: "🔨",
+    planned: "📋",
+    idea: "💡",
+    archived: "🗄️",
+  };
+  for (const ms of MILESTONES) {
+    const msFeatures = FEATURES.filter((f) => f.milestoneName === ms.name);
+    const msNodes: Node[] = [
+      h(1, ms.name),
+      p(ms.description),
+      h(2, "Features & Requirements"),
+      bullets(
+        msFeatures.map((f) => `${statusEmoji[f.status]} [${f.status}] ${f.title}: ${f.description}`),
+      ),
+    ];
+    const msContent: Node = { type: "doc", content: msNodes };
+    await upsertPage(ms.name, "📋", msContent, roadmapParentId, ms.sortKey);
+  }
+
+  // ── Page 9: Reference (parent) ────────────────────────────────────────────────
+  const referenceContent: Node = {
+    type: "doc",
+    content: [
+      h(1, "Reference"),
+      p(
+        "Technical reference for the Valytica product, mirroring real documentation from the product repo. Concise pointers; see the actual code for authoritative detail.",
+      ),
+      bullets([
+        "Architecture & Infrastructure — stack, hosting, data residency, route conventions, storage.",
+        "AI & Retrieval Design — pipeline A (long-context), B (pgvector), C (title-chain), model decisions, evals, metering.",
+        "Data Model — core Supabase tables, enums, key design decisions.",
+        "Mobile App (Android) — Expo SDK 56, role split, auth, EAS builds.",
+      ]),
+    ],
+  };
+  const referenceParentId = await upsertPage("Reference", "📚", referenceContent, null, "a2");
+
+  // ── Pages 10–13: Reference children ──────────────────────────────────────────
+  const refPages: { title: string; icon: string; position: string; content: Node }[] = [
+    {
+      title: "Architecture & Infrastructure",
+      icon: "🏗️",
+      position: "a0",
+      content: {
+        type: "doc",
+        content: [
+          h(1, "Architecture & Infrastructure"),
+          p(
+            "Source: docs/architecture/ARCHITECTURE.md, AGENTS.md stack section, vercel.json. Valytica is a Next.js 16 App Router app on Vercel + Supabase, fully hosted in India.",
+          ),
+          h(2, "Stack"),
+          bullets([
+            "Frontend + SSR: Next.js 16 (App Router, Turbopack, React 19, Tailwind v4)",
+            "Hosting: Vercel, Functions pinned bom1 (Mumbai)",
+            "DB / Auth / Storage: Supabase, ap-south-1 (Mumbai)",
+            "AI: Google Gemini 2.5 Flash-Lite via Vercel AI Gateway (BYOK); Embeddings: text-embedding-005 (768-dim)",
+            "Payments: Razorpay Standard Checkout (wallet); Subscriptions stubbed",
+            "SMS OTP: MSG91 via Supabase Send SMS Hook",
+            "Email: AWS SES Mumbai (custom SMTP in Supabase Auth)",
+            "Maps: Google Maps Advanced Markers (default) + Mappls (opt-in)",
+            "Mobile: Expo SDK 56 / React Native 0.85, EAS builds",
+            "Error tracking: Sentry EU (env-gated; no DSN set yet)",
+            "Product analytics: PostHog EU (env-gated; no key set yet)",
+            "DNS: Cloudflare gnanalytica.com (grey cloud, DNS-only → Vercel CNAME)",
+            "UI libs: Radix UI, shadcn-style, Recharts, React-PDF, react-hook-form + zod, Zustand, sonner, TanStack Query (mobile)",
+          ]),
+          h(2, "Data residency & DPDP"),
+          p(
+            "All customer data in India: Supabase ap-south-1 (Mumbai), Vercel bom1, AWS SES Mumbai. AI currently on global infra (Vercel AI Gateway / Gemini) — a gap for bank-vendor DPDP procurement. AGENTS.md: defer AI migration to first bank-panel customer.",
+          ),
+          h(2, "Route conventions"),
+          bullets([
+            "Route groups: (app) = authenticated; (public) = landing/auth",
+            "API routes: src/app/api/",
+            "Server actions: src/app/(app)/*/actions.ts",
+            "Edge proxy: src/proxy.ts (Supabase auth middleware)",
+            "Mobile deep link: valytica://auth-callback",
+          ]),
+          h(2, "Storage buckets (Supabase)"),
+          bullets([
+            "case-documents — title deeds, sale deeds, EC, approved plans, etc.",
+            "site-photos — geotagged site visit photos (geotag burned at upload)",
+            "portal-evidence — digital check proof screenshots",
+            "report-templates — firm DOCX templates for AI merge",
+            "signatures — valuer signatures for PDF reports",
+          ]),
+        ],
+      },
+    },
+    {
+      title: "AI & Retrieval Design",
+      icon: "🤖",
+      position: "a1",
+      content: {
+        type: "doc",
+        content: [
+          h(1, "AI & Retrieval Design"),
+          p(
+            "Source: docs/ai-retrieval-design.md, AGENTS.md AI section, src/lib/ai/. Three retrieval pipelines; one model stack; strict eval discipline.",
+          ),
+          h(2, "Pipeline A — Long-context per-case reasoning"),
+          p(
+            "All documents for a case fit in Gemini's 1M context window. No chunk retrieval for per-case tasks — the full corpus is assembled in a single prompt. Used by: extraction, autopilot (7-stage), ask-case Q&A, narrative grounding check.",
+          ),
+          h(2, "Pipeline B — Cross-case semantic search (pgvector)"),
+          p(
+            "comparable_index table: 768-dim embeddings (text-embedding-005), HNSW index, org-scoped RLS. Pre-filtered by org + state + asset_subclass. Used by find_similar_cases agent tool. Source: migration 20260610142536, src/lib/ai/comparables.ts.",
+          ),
+          h(2, "Pipeline C — Title-chain reasoning"),
+          p(
+            "Recursive SQL CTE over parent_document_id links in the documents table. No graph DB — pure SQL title-chain traversal.",
+          ),
+          h(2, "Model decisions"),
+          bullets([
+            "Extraction / vision / valuation / autopilot: Gemini 2.5 Flash-Lite (experimental). Upgrade path to Flash / Pro documented in src/lib/ai/client.ts.",
+            "Embeddings: text-embedding-005 (768-dim) via Vertex AI Gateway.",
+            "Stub mode: local dev without gateway key returns deterministic fixtures — no API calls in CI.",
+            "Planned: Vertex Mumbai / Bedrock Mumbai migration for DPDP bank-vendor procurement (deferred to first bank customer).",
+          ]),
+          h(2, "Eval & quality discipline"),
+          bullets([
+            "Extraction eval: evals/extraction/ — 98.4% accuracy, 0 hallucinations baseline (2026-06-11).",
+            "Narrative grounding check (src/lib/ai/narrative-check.ts): maker-checker before report generation.",
+            "Anomaly detection + objection responder in autopilot pipeline (src/lib/ai/objection.ts).",
+            "Report fill audit: per-field AI provenance rollup (AI-auto/AI-accepted/edited/pending/rejected) — src/lib/ai/report-fill-audit.ts.",
+          ]),
+          h(2, "Metering & quota"),
+          p(
+            "Per-org/month/feature rollup in ai_usage table; record_ai_usage RPC; per-plan INR ceilings enforced at 402 on overrun (QUOTA_MODE=enforce). Files: src/lib/ai/metered.ts, quota.ts, pricing.ts.",
+          ),
+        ],
+      },
+    },
+    {
+      title: "Data Model",
+      icon: "🗃️",
+      position: "a2",
+      content: {
+        type: "doc",
+        content: [
+          h(1, "Data Model"),
+          p(
+            "Source: supabase/migrations/ (74 migrations, 2026-05-23 → 2026-06-28). Supabase / PostgreSQL schema with RLS throughout. Multi-tenant root is organizations.",
+          ),
+          h(2, "Core tables"),
+          bullets([
+            "organizations — multi-tenant root; plan / wallet / free_reports_remaining",
+            "profiles — extends auth.users; role; IBBI / COP / RVO registration fields; signature URL",
+            "cases — engagement_type discriminator; asset_class + asset_subclass (IVS-aligned, nullable for non-valuation); status FSM; short NanoID opaque URL",
+            "documents — file store refs; parent_document_id (title chain); extracted_text + text_extracted_at; document_chunks for RAG retrieval",
+            "ai_extracted_fields — state machine (empty → ai_suggested → user_accepted / user_edited / user_rejected); applied_via provenance; source_snippet; conflict_note",
+            "ai_field_observations — per-(case, field, document) extraction history for cross-doc conflict detection",
+            "digital_checks — portal check state machine; proof_url",
+            "site_visits — one per case; GPS coords; is_geofence_compliant; voice note; layout JSONB",
+            "site_photos — geotag burned at upload; photo_category; AI vision analysis results (JSONB)",
+            "valuations — 3-method (cost / market / income); comparables JSONB; measurements JSONB; primary_method; final_recommended_value",
+            "comparable_index — pgvector 768-dim embeddings; HNSW index; pre-filter cols (state, asset_subclass, org)",
+            "reports — status (draft / final / revised); generated_by; template reference",
+            "billing_transactions — recharge / debit / credit_adjustment / refund; wallet history",
+            "ai_usage — per-(org, month, feature) token + cost rollup",
+            "audit_logs — entity-scoped audit trail; org-filtered",
+            "rate_limits — API rate limiter state",
+          ]),
+          h(2, "Key enums"),
+          bullets([
+            "user_role: owner / admin / valuer / case_manager / surveyor / viewer",
+            "india_state: all Indian states + UTs (TG, KA, AP have portal check adapters)",
+            "engagement_type: valuation / tev / lie (dpr is JSONB-only, not yet a DB enum)",
+            "asset_class: real_estate / plant_equipment / business_financial",
+            "case_status: draft → in_review → ready_for_report → report_generated → closed",
+            "ai_field_state: empty → ai_suggested → user_accepted / user_edited / user_rejected",
+            "plan_type: free / individual / team / business / enterprise",
+          ]),
+          h(2, "Design decisions"),
+          bullets([
+            "RLS throughout — every table has row-level security; multi-tenancy enforced at DB layer.",
+            "org-of-one model — a solo valuer creates an org with just themselves; team invite re-homes members.",
+            "parent_document_id — title chain modelled as self-referential FK on documents; recursive CTE for traversal.",
+            "comparable_index — per-org embeddings isolated by RLS; not shared across orgs.",
+            "AI state machine — AI never overwrites a human-entered value; auto-apply only at ≥0.8 confidence into empty fields.",
+          ]),
+        ],
+      },
+    },
+    {
+      title: "Mobile App (Android)",
+      icon: "📱",
+      position: "a3",
+      content: {
+        type: "doc",
+        content: [
+          h(1, "Mobile App (Android)"),
+          p(
+            "Source: mobile/, AGENTS.md mobile section, docs/superpowers/specs/2026-05-30-android-mobile-app-design.md. Expo SDK 56 / React Native 0.85; same Supabase project as web.",
+          ),
+          h(2, "Tech stack"),
+          bullets([
+            "Expo SDK 56 / React Native 0.85 / React 19 + TypeScript",
+            "Expo Router (file-system routing, mirrors Next.js App Router convention)",
+            "Supabase JS (same project; RLS-enforced) + TanStack Query",
+            "Design system: token-based StyleSheet in mobile/src/theme/ — mirrors globals.css; no NativeWind",
+            "EAS builds: package com.gnanalytica.valytica; preview (APK) + production (Play AAB)",
+          ]),
+          h(2, "Role split"),
+          bullets([
+            "(surveyor) route group — simplified field app: GPS geofencing (on-site enforcement), IBA checklist (subclass-conditional), camera + geotagged photos, voice notes (transcribed via /api/ai/transcribe), i18n (en/hi/te/kn).",
+            "(app) route group — full feature set: cases, valuation, reports, billing, analytics, map, account.",
+          ]),
+          h(2, "Auth"),
+          bullets([
+            "Email OTP + Google OAuth (PKCE, browser redirect, valytica://auth-callback deep link)",
+            "Shared OAuth client with web — same Supabase project; no separate auth setup",
+            "Native Google Sign-in (@react-native-google-signin) deferred — AGENTS.md open work (M4)",
+          ]),
+          h(2, "AI bridge"),
+          p(
+            "Transcription endpoint (/api/ai/transcribe) accepts Supabase Bearer token — the mobile app calls the web API for AI features; no separate AI integration in the mobile bundle.",
+          ),
+          h(2, "Types sync"),
+          p(
+            "mobile/src/types/database.ts is a copy of src/types/database.ts. Regenerate together on schema changes (supabase gen types typescript).",
+          ),
+          h(2, "Open work (AGENTS.md)"),
+          bullets([
+            "Native Google Sign-in: @react-native-google-signin + Android OAuth client + SHA-1 from every EAS profile — deferred to M4.",
+            "Types sync: mobile/src/types/database.ts must be kept in sync manually until automation is added.",
+          ]),
+        ],
+      },
+    },
+  ];
+
+  for (const refPage of refPages) {
+    await upsertPage(refPage.title, refPage.icon, refPage.content, referenceParentId, refPage.position);
+  }
+
+  const pgTotal = pgCreated + pgUpdated;
+  console.log(`Pages:      ${pgCreated} created, ${pgUpdated} updated (${pgTotal} total).`);
+  console.log(`\nDone. Valytica canonical seed complete: ${MILESTONES.length} milestones, ${FEATURES.length} features, ${pgTotal} pages.`);
 }
 
 main()
