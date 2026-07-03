@@ -61,8 +61,9 @@ type Cfg = {
 const inCr = (v: number) => `₹${v.toLocaleString("en-IN")} cr`;
 
 // ============================ derived pricing (single source of truth) ============================
-// All per-report prices and margins on the slide are computed from valytica-pricing.ts so that a
-// price change in one place propagates everywhere automatically.
+// Valytica per-report prices and margins are computed from valytica-pricing.ts so that a
+// price change in one place propagates everywhere automatically. _manualReportCost is an external
+// market benchmark (kept as a literal) for comparison.
 const _payg = VALYTICA_PRICING.tiers.find((t) => t.id === "payg")!;
 const _paygPrice = _payg.perReport!; // ₹175 — safe: payg.perReport is never null
 const _cm = contributionMargin(_paygPrice); // ₹155
@@ -103,7 +104,7 @@ const VALUATION: Cfg = {
     { label: "Government / legal (tax, IBC)", value: 200, color: "#0ea5e9" },
   ],
   stand: {
-    done: ["Built & live · 3 asset classes", "Grounded AI · 98.4% · 0 hallucinations", `~${_marginPct}% gross margin · ₹${_cm} / report CM`],
+    done: ["Built & live · 3 asset classes", "Grounded AI · 98.4% · 0 hallucinations", `~${_marginPct}% gross margin · ₹${_cm} / report`],
     now: ["Early users & pilots", "Instrumenting usage & retention"],
     next: ["Switch on subscriptions", "Land bank / enterprise deals"],
     prove: ["Recurring revenue", "Willingness to pay / report", "Retention at scale"],
