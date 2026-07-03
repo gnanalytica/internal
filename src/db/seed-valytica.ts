@@ -456,7 +456,7 @@ const FEATURES: FeatureDef[] = [
  * are high). Per-report/usage services — Gemini inference, Google Maps +
  * Geocoding, AWS SES, MSG91 OTP, captcha solvers — are deliberately NOT here:
  * they scale with report volume and live in the product's unit cost
- * (projects.economics.costPerUnit ≈ ₹20/report, ~90% margin on ₹200 billing),
+ * (projects.economics.costPerUnit ≈ ₹20/report; ~89% margin at the PAYG tier — see src/lib/valytica-pricing.ts),
  * so booking them as flat monthly lines would double-count. Razorpay (~2%/txn)
  * likewise scales with revenue and belongs in unit economics.
  *
