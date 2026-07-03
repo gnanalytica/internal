@@ -56,7 +56,7 @@ Phase names reconciled with the spec §2 hub-and-spoke model. Dates inferred fro
 **Evidence:** `AGENTS.md` ("bank customers are a possible future segment"; DPDP/AI migration note); product spec §2.4
 - Migrate AI from Gemini/Vercel AI Gateway → Vertex Mumbai or Bedrock Mumbai for bank-vendor procurement DPDP compliance (described in AGENTS.md as "defer to first bank-panel customer")
 - BYOC tenant deployment tooling (not evidenced in repo at all — pure gap)
-- Empanelment management UI (`src/components/billing/empanelment-card.tsx` exists as a stub)
+- Empanelment management UI (`src/components/account/empanelment-card.tsx` — read-only viewing works; no admin management yet)
 - Multi-bank portal coverage beyond current TG/AP/KA states (Kaveri/Eswathu/Bhoomi adapters — `src/lib/portal-checks/`)
 - No migrations, no API routes, no deploy configs for BYOC
 
@@ -105,7 +105,7 @@ Status inference: **shipped** = code + migration both present; **building** = co
 | Telemetry / feedback flywheel | planned | No code; PostHog wired but no product event instrumentation beyond pageviews; spec §2.5 only | spec §2.5 only |
 | Opt-in anonymized data pipeline | planned | No code; spec §2.5 only; the inviolable data-boundary rule is design-time only | spec §2.5 only |
 | Vertex Mumbai / Bedrock migration | planned | AGENTS.md: "defer to first bank-panel customer"; current: Gemini via Vercel AI Gateway (global infra) | AGENTS.md; src/lib/ai/client.ts |
-| Empanelment management | planned | `src/components/billing/empanelment-card.tsx` exists but is a stub component; no backend, no schema | `src/components/billing/empanelment-card.tsx` |
+| Empanelment management | building | building — read-only viewing works (queries workspace_members.asset_class); no admin management yet | `src/components/account/empanelment-card.tsx` |
 
 ---
 
@@ -133,7 +133,7 @@ Topics that a "Reference" docs tree should mirror, grounded in real repo docs.
 - Planned: Vertex Mumbai / Bedrock Mumbai migration for bank-DPDP compliance
 
 ### R3. Data Model (Supabase Schema)
-**Source:** `supabase/migrations/` (51 migrations, 2026-05-23 → 2026-06-28)
+**Source:** `supabase/migrations/` (74 migrations, 2026-05-23 → 2026-06-28)
 Core tables and their purpose:
 - `organizations` — multi-tenant root; plan/wallet/free_reports_remaining
 - `profiles` — extends `auth.users`; role; IBBI/COP/RVO registration fields; signature
@@ -221,4 +221,4 @@ From `package.json`, `README.md`, `AGENTS.md`:
 
 ---
 
-*Source files consulted: `README.md`, `AGENTS.md`, `docs/ai-retrieval-design.md`, `docs/architecture/ARCHITECTURE.md`, `package.json`, `supabase/migrations/` (all 51 migrations), `src/lib/` (engagement.ts, billing.ts, valuation-shared.ts, area.ts, tev/, lie/, pdf/, ai/, portal-checks/, site-visit/, chapters/), `src/app/(app)/` routes, `src/components/` (cases/, account/, billing/, map/), `evals/extraction/`, `mobile/` (src/, README.md, eas.json), `docs/superpowers/specs/` (all 11 spec files listed). No files were modified.*
+*Source files consulted: `README.md`, `AGENTS.md`, `docs/ai-retrieval-design.md`, `docs/architecture/ARCHITECTURE.md`, `package.json`, `supabase/migrations/` (all 74 migrations), `src/lib/` (engagement.ts, billing.ts, valuation-shared.ts, area.ts, tev/, lie/, pdf/, ai/, portal-checks/, site-visit/, chapters/), `src/app/(app)/` routes, `src/components/` (cases/, account/, billing/, map/), `evals/extraction/`, `mobile/` (src/, README.md, eas.json), `docs/superpowers/specs/` (all 11 spec files listed). No files were modified.*
