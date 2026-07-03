@@ -21,7 +21,12 @@ describe("valytica pricing", () => {
     expect(byoc.perReport).toBeNull();
   });
 
+  it("PAYG canonical price is ₹200", () => {
+    const payg = VALYTICA_PRICING.tiers.find((t) => t.id === "payg")!;
+    expect(payg.perReport).toBe(200);
+  });
+
   it("computes contribution margin per report against the ₹20 unit cost", () => {
-    expect(contributionMargin(175)).toBe(155);
+    expect(contributionMargin(200)).toBe(180);
   });
 });

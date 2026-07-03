@@ -65,12 +65,12 @@ const inCr = (v: number) => `₹${v.toLocaleString("en-IN")} cr`;
 // price change in one place propagates everywhere automatically. _manualReportCost is an external
 // market benchmark (kept as a literal) for comparison.
 const _payg = VALYTICA_PRICING.tiers.find((t) => t.id === "payg")!;
-const _paygPrice = _payg.perReport!; // ₹175 — safe: payg.perReport is never null
-const _cm = contributionMargin(_paygPrice); // ₹155
-const _marginPct = Math.round((_cm / _paygPrice) * 100); // ~89
+const _paygPrice = _payg.perReport!; // ₹200 — safe: payg.perReport is never null
+const _cm = contributionMargin(_paygPrice); // ₹180
+const _marginPct = Math.round((_cm / _paygPrice) * 100); // 90
 const _manualReportCost = 2000; // market fact: manual desk-work equivalent cost per report
-const _vsManualX = Math.round(_manualReportCost / _paygPrice); // ~11
-const _costSavingPct = Math.round(((_manualReportCost - _paygPrice) / _manualReportCost) * 100); // ~91
+const _vsManualX = Math.round(_manualReportCost / _paygPrice); // 10
+const _costSavingPct = Math.round(((_manualReportCost - _paygPrice) / _manualReportCost) * 100); // 90
 
 // ============================ VALYTICA · valuation ============================
 
@@ -113,7 +113,7 @@ const VALUATION: Cfg = {
   kpis: [
     { v: "3–4×", l: "throughput" },
     { v: "−75%", l: "desk time" },
-    { v: "hours, not days", l: "certified turnaround" },
+    { v: "hours, not days", l: "certified turnaround (post-inspection)" },
     { v: `−${_costSavingPct}%`, l: "cost / report" },
     { v: "98.4%", l: "accuracy · 0 hallucinations" },
     { v: "audit-ready", l: "IBBI deficiencies removed" },
@@ -127,7 +127,7 @@ const VALUATION: Cfg = {
     {
       key: "A", title: "Approach", subtitle: "Our unique solution", color: "#0ea5e9",
       points: ["AI does extraction · cross-check · drafting → bank-ready report", "Valuer keeps inspection & sign-off · human-in-loop", "India-resident · source-cited · res / com / industrial"],
-      stats: [{ v: "98.4%", l: "accuracy · vs ~7.7% manual" }, { v: "hours, not days", l: "certified report turnaround" }],
+      stats: [{ v: "98.4%", l: "accuracy · vs ~7.7% manual" }, { v: "hours, not days", l: "certified report turnaround (post-inspection)" }],
     },
     {
       key: "B", title: "Benefit", subtitle: "Value to the valuer", color: "#10b981",

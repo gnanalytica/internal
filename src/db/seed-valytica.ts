@@ -25,7 +25,7 @@ const PAYG_TIER = VALYTICA_PRICING.tiers.find((t) => t.id === "payg");
 if (!PAYG_TIER || PAYG_TIER.perReport == null) {
   throw new Error("PAYG tier or its perReport is missing from VALYTICA_PRICING");
 }
-const PRICE_PER_UNIT = PAYG_TIER.perReport; // 175 — narrowed to number by the guard above
+const PRICE_PER_UNIT = PAYG_TIER.perReport; // narrowed to number by the guard above
 const COST_PER_UNIT = VALYTICA_PRICING.costPerReport; // 20
 
 // ── TipTap document helpers ────────────────────────────────────────────────────
@@ -456,7 +456,7 @@ const FEATURES: FeatureDef[] = [
  * are high). Per-report/usage services — Gemini inference, Google Maps +
  * Geocoding, AWS SES, MSG91 OTP, captcha solvers — are deliberately NOT here:
  * they scale with report volume and live in the product's unit cost
- * (projects.economics.costPerUnit ≈ ₹20/report; ~89% margin at the PAYG tier — see src/lib/valytica-pricing.ts),
+ * (projects.economics.costPerUnit ≈ ₹20/report; 90% margin at the PAYG tier — see src/lib/valytica-pricing.ts),
  * so booking them as flat monthly lines would double-count. Razorpay (~2%/txn)
  * likewise scales with revenue and belongs in unit economics.
  *

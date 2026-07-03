@@ -20,7 +20,7 @@ export type PricingTier = {
 export const VALYTICA_PRICING = {
   currency: "INR",
   unitLabel: "report",
-  /** COGS per report — AI inference + fulfilment. ~90% margin at PAYG. */
+  /** COGS per report — AI inference + fulfilment. 90% margin at PAYG (₹200). */
   costPerReport: 20,
   tiers: [
     {
@@ -37,7 +37,7 @@ export const VALYTICA_PRICING = {
       name: "Pay-as-you-go",
       audience: "Independent valuers",
       monthly: 0,
-      perReport: 175,
+      perReport: 200,
       blurb: "No commitment; pay per certified report after the trial.",
     },
     {
