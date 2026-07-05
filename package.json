@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "drizzle-kit push",
+    "db:add-pricing-model": "tsx --env-file=.env.local src/db/add-pricing-model-column.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx --env-file=.env.local src/db/seed.ts",
     "db:seed-org": "tsx --env-file=.env.local src/db/seed-org.ts",
