@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { visibleDepartments } from "@/lib/departments";
+import { isDepartmentEnabled, visibleDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
@@ -29,7 +29,11 @@ export function ProjectTabs({
         ]
       : [
           { href: base, label: "Overview" },
-          { href: `${base}/vision`, label: "Strategy" },
+          // Legacy Strategy tab (the vision placeholder); hidden once the new
+          // strategy surface is enabled so it isn't duplicated.
+          ...(isDepartmentEnabled(project.enabledDepartments, "strategy")
+            ? []
+            : [{ href: `${base}/vision`, label: "Strategy" }]),
           ...visibleDepartments(
             project.enabledDepartments,
             isAdmin ? "admin" : "member",
