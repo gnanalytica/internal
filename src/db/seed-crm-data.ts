@@ -96,7 +96,6 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       .insert(schema.crmAccounts)
       .values([
         { workspaceId: ws.id, name: "Apollo Hospitals", website: "https://apollohospitals.com", industry: "Health", type: "prospect", entity: "India", ownerId: owner.id },
-        { workspaceId: ws.id, name: "Mumbai Valuers LLP", industry: "Real Estate", type: "customer", entity: "India", ownerId: owner.id },
         { workspaceId: ws.id, name: "Erasmus MC", website: "https://erasmusmc.nl", industry: "Health", type: "prospect", entity: "Netherlands", ownerId: owner.id },
       ])
       .returning();
@@ -105,7 +104,6 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
     // Contacts (shared CRM layer).
     await db.insert(schema.crmContacts).values([
       { workspaceId: ws.id, accountId: accId("Apollo Hospitals"), name: "Dr. Reddy", email: "reddy@apollo.example", title: "Chief of Cardiology", lifecycleStage: "qualified", entity: "India", ownerId: owner.id },
-      { workspaceId: ws.id, accountId: accId("Mumbai Valuers LLP"), name: "Anita Sharma", email: "anita@mumbaivaluers.example", title: "Managing Partner", lifecycleStage: "customer", entity: "India", ownerId: owner.id },
       { workspaceId: ws.id, accountId: accId("Erasmus MC"), name: "Jan de Vries", email: "jan@erasmusmc.example", title: "Research Lead", lifecycleStage: "lead", entity: "Netherlands", ownerId: owner.id },
     ]);
 
@@ -114,7 +112,6 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       .insert(schema.deals)
       .values([
         { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Apollo Hospitals"), name: "Apollo — Healthytica pilot", stage: "proposal", value: 12000, entity: "India", ownerId: owner.id, sortKey: "a0" },
-        { workspaceId: ws.id, projectId: projectId("Valytica"), accountId: accId("Mumbai Valuers LLP"), name: "Mumbai Valuers — Valytica annual", stage: "won", value: 8000, entity: "India", ownerId: owner.id, sortKey: "a0" },
         { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Erasmus MC"), name: "Erasmus MC — Healthytica eval", stage: "qualified", value: 20000, entity: "Netherlands", ownerId: owner.id, sortKey: "a0" },
         { workspaceId: ws.id, projectId: projectId("AI Workshop"), accountId: accId("Apollo Hospitals"), name: "Apollo — Workshop cohort", stage: "lead", value: 5000, entity: "India", ownerId: owner.id, sortKey: "a1" },
       ])
@@ -134,7 +131,6 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
       .insert(schema.campaigns)
       .values([
         { workspaceId: ws.id, projectId: projectId("Healthytica"), name: "FY26 LinkedIn — Healthytica", channel: "linkedin", status: "active", budget: 3000, entity: "Global", ownerId: owner.id },
-        { workspaceId: ws.id, projectId: projectId("Valytica"), name: "Valuer webinar series", channel: "events", status: "planned", budget: 1500, entity: "India", ownerId: owner.id },
       ])
       .returning();
     const linkedin = campaignRows.find((c) => c.name === "FY26 LinkedIn — Healthytica");
@@ -142,23 +138,19 @@ export async function seedCrm(ws: { id: string }, owner: { id: string }) {
     await db.insert(schema.contentItems).values([
       { workspaceId: ws.id, projectId: projectId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Biomarker explainer thread", channel: "linkedin", status: "published", ownerId: owner.id },
       { workspaceId: ws.id, projectId: projectId("Healthytica"), campaignId: linkedin?.id ?? null, title: "Customer story: cardiology pilot", channel: "content", status: "draft", ownerId: owner.id },
-      { workspaceId: ws.id, projectId: projectId("Valytica"), title: "Webinar landing page", channel: "content", status: "idea", ownerId: owner.id },
     ]);
 
     // Finance: invoices + expenses (project-level revenue tracking).
     await db.insert(schema.invoices).values([
-      { workspaceId: ws.id, projectId: projectId("Valytica"), accountId: accId("Mumbai Valuers LLP"), number: "INV-001", status: "paid", amount: 8000, entity: "India", ownerId: owner.id },
       { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Apollo Hospitals"), number: "INV-002", status: "sent", amount: 6000, entity: "India", ownerId: owner.id },
     ]);
     await db.insert(schema.expenses).values([
       { workspaceId: ws.id, projectId: projectId("Healthytica"), vendor: "Vercel", category: "infra", amount: 200, status: "paid", entity: "Global", ownerId: owner.id },
-      { workspaceId: ws.id, projectId: projectId("Valytica"), vendor: "Design contractor", category: "contractors", amount: 1500, status: "planned", entity: "India", ownerId: owner.id },
     ]);
 
     // Support: a couple of tickets.
     await db.insert(schema.tickets).values([
       { workspaceId: ws.id, projectId: projectId("Healthytica"), accountId: accId("Apollo Hospitals"), subject: "Report PDF export is blank", status: "open", priority: "high", requesterEmail: "reddy@apollo.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
-      { workspaceId: ws.id, projectId: projectId("Valytica"), accountId: accId("Mumbai Valuers LLP"), subject: "Add bulk valuation import", status: "pending", priority: "normal", requesterEmail: "anita@mumbaivaluers.example", entity: "India", assigneeId: owner.id, sortKey: "a0" },
     ]);
   }
 

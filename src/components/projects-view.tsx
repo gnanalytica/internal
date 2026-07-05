@@ -10,8 +10,11 @@ import {
   Folder,
   LifeBuoy,
   Loader2,
+  Map,
   Megaphone,
   Plus,
+  Rocket,
+  Target,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -40,6 +43,9 @@ const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   sales: <TrendingUp className="size-3.5" />,
   "customer-success": <LifeBuoy className="size-3.5" />,
   finance: <Wallet className="size-3.5" />,
+  strategy: <Target className="size-3.5" />,
+  roadmap: <Map className="size-3.5" />,
+  growth: <Rocket className="size-3.5" />,
 };
 
 export function ProjectsView({

@@ -4,8 +4,8 @@ import { VisionView } from "@/components/vision-view";
 import { getProject, getWorkspace } from "@/lib/data";
 
 /**
- * Per-product Vision tab. Valytica (VAL) shows the valuation strategy and Atlas
- * (ATL) the feasibility strategy; other products render the placeholder.
+ * Per-product Vision tab. Renders a placeholder until a product's vision
+ * (market sizing, positioning, GTM) is built.
  */
 export default async function ProjectVisionPage({
   params,

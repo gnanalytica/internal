@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import type { PricingModel } from "@/lib/pricing";
 import {
   boolean,
   index,
@@ -96,6 +97,9 @@ export const projects = pgTable(
       unitsPerMonth?: number; // expected/actual volume, for a monthly roll-up.
       notes?: string;
     } | null>(),
+    // Per-segment pricing model (supersedes `economics` for products on the new
+    // model). Shape is defined once in src/lib/pricing.ts. null = not set yet.
+    pricingModel: jsonb("pricing_model").$type<PricingModel | null>(),
     // Owner (a person). null if unassigned.
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",

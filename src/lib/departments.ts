@@ -16,7 +16,10 @@ export type DepartmentSlug =
   | "marketing"
   | "sales"
   | "customer-success"
-  | "finance";
+  | "finance"
+  | "strategy"
+  | "roadmap"
+  | "growth";
 
 // Canonical product-org functions, in lifecycle order. Finance appears at two
 // scopes, like the other functions: this per-product department is one product's
@@ -32,6 +35,7 @@ export const DEPARTMENTS = [
     color: "#8b5cf6",
     // The PM surface: roadmap, specs and (later) discovery/feedback.
     tool: "Roadmap & specs",
+    defaultOn: true,
   },
   {
     slug: "engineering",
@@ -40,6 +44,7 @@ export const DEPARTMENTS = [
     color: "#3b82f6",
     // Engineering reuses the existing Linear-style issues module.
     tool: "Linear",
+    defaultOn: true,
   },
   {
     slug: "analytics",
@@ -47,6 +52,7 @@ export const DEPARTMENTS = [
     icon: "📊",
     color: "#14b8a6",
     tool: "Product metrics & KPIs",
+    defaultOn: true,
   },
   {
     slug: "marketing",
@@ -54,6 +60,7 @@ export const DEPARTMENTS = [
     icon: "📣",
     color: "#f43f5e",
     tool: "HubSpot",
+    defaultOn: true,
   },
   {
     slug: "sales",
@@ -61,6 +68,7 @@ export const DEPARTMENTS = [
     icon: "📈",
     color: "#0ea5e9",
     tool: "Apollo / HubSpot",
+    defaultOn: true,
   },
   {
     slug: "customer-success",
@@ -68,6 +76,7 @@ export const DEPARTMENTS = [
     icon: "🎧",
     color: "#f97316",
     tool: "Zendesk / Intercom-style tickets",
+    defaultOn: true,
   },
   {
     slug: "finance",
@@ -76,6 +85,19 @@ export const DEPARTMENTS = [
     color: "#22c55e",
     // Product-level finance: unit economics + this product's scoped invoices/expenses.
     tool: "Unit economics & P&L",
+    defaultOn: true,
+  },
+  {
+    slug: "strategy", label: "Strategy", icon: "🎯", color: "#7c3aed",
+    tool: "Vision · FDV · economics", defaultOn: false,
+  },
+  {
+    slug: "roadmap", label: "Roadmap", icon: "🗺️", color: "#2563eb",
+    tool: "Milestones → issues", defaultOn: false,
+  },
+  {
+    slug: "growth", label: "Growth", icon: "🚀", color: "#db2777",
+    tool: "Segments · pipeline · campaigns", defaultOn: false,
   },
 ] as const;
 
@@ -136,14 +158,15 @@ export function visibleDepartments(
 }
 
 /**
- * The departments enabled for a project. `null`/`undefined` means all are on
- * (the auto-spawn default); an explicit array restricts to those slugs while
- * preserving the canonical order.
+ * The departments enabled for a project. `null`/`undefined` enables only the
+ * default-on departments (the legacy seven); opt-in surfaces (`defaultOn:
+ * false`) are excluded unless an explicit array is provided. An explicit array
+ * restricts to those slugs while preserving the canonical order.
  */
 export function enabledDepartments(
   enabled: string[] | null | undefined,
 ): (typeof DEPARTMENTS)[number][] {
-  if (enabled == null) return [...DEPARTMENTS];
+  if (enabled == null) return DEPARTMENTS.filter((d) => d.defaultOn !== false);
   return DEPARTMENTS.filter((d) => enabled.includes(d.slug));
 }
 
@@ -151,7 +174,7 @@ export function isDepartmentEnabled(
   enabled: string[] | null | undefined,
   slug: DepartmentSlug,
 ): boolean {
-  return enabled == null || enabled.includes(slug);
+  return enabledDepartments(enabled).some((d) => d.slug === slug);
 }
 
 // ---- Sales: pipeline stages (order = board columns) ----
