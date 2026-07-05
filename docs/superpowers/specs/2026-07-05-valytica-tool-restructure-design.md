@@ -75,24 +75,29 @@ a cross-surface capability and analytics as a data feed.
 ## 4. Functionality corrections
 
 ### 4.1 Department taxonomy (`src/lib/departments.ts`)
-Replace the 7-entry `DEPARTMENTS` array with the new surface set:
-`strategy`, `roadmap`, `growth`, `analytics`. Preserve the existing
-`enabledDepartments` / `visibleDepartments` machinery unchanged — only the slug
-set and their routes change. Old slugs (`product`, `engineering`, `marketing`,
-`sales`, `customer-success`, `finance`) are removed or aliased during migration
-(§6).
+**Additive (valytica-first).** *Add* the new surface slugs — `strategy`,
+`roadmap`, `growth` — to the `DEPARTMENTS` registry alongside the existing seven.
+Do **not** remove the old slugs. Valytica opts into the new set via
+`enabledDepartments = ["strategy","roadmap","growth","analytics"]`; every other
+product keeps its current departments unchanged. The existing
+`enabledDepartments` / `visibleDepartments` machinery is reused as-is. A later,
+separate effort can migrate other products and retire the old slugs — not this
+spec.
 
 ### 4.2 Roadmap
 - **Milestones → issues** directly via the existing `issues.milestoneId`. No
   new plumbing.
-- **Remove the `features` layer** (table + `features` UI + `issues.featureId`).
-  Issues attach straight to a milestone.
+- **Valytica does not use the `features` layer** — issues attach straight to a
+  milestone. The `features` table, its UI, and `issues.featureId` **stay** for
+  products that still use them (valytica-first: no hub-wide removal). Valytica
+  simply never populates features.
 - **Issue = cross-functional** via existing `issues.type` (the "functional
-  category" field). Align its allowed values to the functional taxonomy
+  category" field). Extend its allowed values to the functional taxonomy
   (e.g. `eng`, `design`, `gtm`, `ops`, `research`) so one milestone shows work
-  from several functions in a single view.
-- Collapse `product` + `engineering` + `tasks` routes into one Roadmap surface
-  with the existing List / Board / Timeline views.
+  from several functions in a single view. Additive to existing values.
+- The Roadmap surface reuses the existing issues module (List / Board /
+  Timeline) scoped to a milestone view; `product` / `engineering` / `tasks`
+  routes are simply not enabled for valytica.
 
 ### 4.3 Strategy
 Structural scaffolding only (no content):
@@ -112,9 +117,11 @@ Structural scaffolding only (no content):
   re-homed as tabs within Growth.
 
 ### 4.5 Per-segment pricing model (the core data change)
-Replace the flat `projects.economics` with a **per-segment pricing config** that
-is the single source of truth, consumed by both Strategy (margins) and Growth
-(plans). Proposed shape (jsonb on `projects`, superseding `economics`):
+**Add** a per-segment pricing config as a **new `pricingModel` jsonb field on
+`projects`** (flexible; schema-less so the per-segment shape can evolve). The
+existing `economics` field stays for products not yet on the new model. Valytica
+uses `pricingModel` as its single source of truth, consumed by both Strategy
+(margins) and Growth (plans). Shape:
 
 ```ts
 pricingModel: {
@@ -144,32 +151,33 @@ pricingModel: {
 
 ## 5. Schema changes (summary)
 
+All changes are **additive** — nothing existing is dropped (valytica-first).
+
 | Change | Table/field | Note |
 |---|---|---|
-| Remove features layer | drop `features` table; drop `issues.featureId` | migrate data first (§6) |
-| Function tag on issues | `issues.type` | already exists; constrain values to functional taxonomy |
-| Per-segment pricing | replace `projects.economics` with `projects.pricingModel` (jsonb) | migration converts existing single-segment economics into a one-segment array |
-| Department slugs | `DEPARTMENTS` in `departments.ts` | new set: strategy/roadmap/growth/analytics |
-| Enabled departments | `projects.enabledDepartments` | valytica set explicitly to new slugs; `null` (all) still valid |
+| Add function-tag values | `issues.type` | field already exists; *extend* allowed values (eng/design/gtm/ops/research) |
+| Add per-segment pricing | new `projects.pricingModel` (jsonb) | `economics` retained for other products |
+| Add surface slugs | `DEPARTMENTS` in `departments.ts` | *add* strategy/roadmap/growth; old seven stay |
+| Opt valytica in | `projects.enabledDepartments` | set valytica to the new slugs; others unchanged |
+| Features layer | `features` table, `issues.featureId` | **unchanged** — valytica just doesn't use it |
 
-## 6. Migration / blast radius
+## 6. Blast radius (valytica-first = minimal)
 
-The department taxonomy and the `features` table are **hub-wide**, so other
-products (e.g. Healthytica) are affected. Phased approach:
+Because everything is additive and only valytica opts in, **no other product is
+affected**:
 
-1. **Data migration first:** convert every `features` row to an issue
-   (`feature.title` → issue title, `feature.milestoneId` → `issue.milestoneId`,
-   `feature.spec` → issue description or a linked page, `feature.status` →
-   issue status). Re-point `feedback.featureId` to the issue or milestone. Then
-   drop the table + `issues.featureId`.
-2. **Department remap:** map old slugs to new for existing projects
-   (`product`+`engineering` → `roadmap`; `marketing`+`sales`+`customer-success`
-   → `growth`; `vision`+`finance`(economics) → `strategy`). Projects with
-   `enabledDepartments = null` need no change (all-on).
-3. **Economics → pricingModel:** wrap each existing `economics` blob as a
-   single-segment `pricingModel` so nothing is lost.
+- Other products keep `enabledDepartments = null` (all old departments on) and
+  their `features` layer. Untouched.
+- `db:push` adds the new `pricingModel` column and new `DEPARTMENTS` entries;
+  existing rows/fields are untouched.
+- Valytica's `enabledDepartments` is set to the new slugs so it renders only the
+  new surfaces.
 
-Migrations are Neon-HTTP-safe: idempotent, sequential, no `db.transaction`.
+A future, separate effort can migrate the other products and retire the old
+slugs / `features` table — deliberately out of scope here.
+
+Any DB scripts are Neon-HTTP-safe: idempotent, sequential, no `db.transaction`;
+`db:push --force` in non-TTY.
 
 ## 7. Out of scope
 
@@ -178,12 +186,12 @@ Migrations are Neon-HTTP-safe: idempotent, sequential, no `db.transaction`.
 - The usage-metering / telemetry mechanics of the product itself.
 - Any change to the company Operations project's consolidated books.
 
-## 8. Open questions
+## 8. Resolved decisions
 
-1. **Hub-wide vs valytica-first:** do we migrate all products to the new
-   taxonomy now (cleaner, bigger), or ship the new surfaces and adopt for
-   valytica first with old slugs aliased (safer, some temporary duplication)?
-2. **Growth internal shape:** one merged surface with Pipeline/Campaigns/Support
-   as sub-tabs, or keep Pipeline visually separate from Marketing even now?
-3. **pricingModel storage:** jsonb on `projects` (simple, matches today) vs a
-   normalized `pricing_segments` table (queryable, more work).
+1. **Valytica-first.** Additive rollout; valytica opts into the new surfaces,
+   other products untouched. Hub-wide migration is a later, separate effort.
+2. **Growth shape:** one merged surface with **Pipeline / Campaigns / Support as
+   sub-tabs** (kept flexible — sub-tabs can be reorganized without a schema
+   change).
+3. **`pricingModel` storage:** **jsonb on `projects`** (flexible / schema-less),
+   not a normalized table.
