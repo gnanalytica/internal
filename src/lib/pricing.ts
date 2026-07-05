@@ -28,7 +28,7 @@ export function segmentUnitMargin(
   seg: PricingSegment,
 ): { price: number; cost: number; contribution: number; marginPct: number } | null {
   const price = typeof seg.params.pricePerUnit === "number" ? seg.params.pricePerUnit : null;
-  if (price == null) return null;
+  if (price === null) return null;
   const cost = seg.costPerUnit ?? 0;
   const contribution = price - cost;
   const marginPct = price > 0 ? Math.round((contribution / price) * 100) : 0;

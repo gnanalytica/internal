@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import type { PricingModel } from "@/lib/pricing";
 import {
   boolean,
   index,
@@ -97,19 +98,8 @@ export const projects = pgTable(
       notes?: string;
     } | null>(),
     // Per-segment pricing model (supersedes `economics` for products on the new
-    // model). Each segment declares its own pricing shape. null = not set yet.
-    pricingModel: jsonb("pricing_model").$type<{
-      currency?: string;   // ISO code, e.g. "INR".
-      unitLabel?: string;  // what one unit is, e.g. "report".
-      segments: Array<{
-        id: string;        // "solo" | "firm" | "bank" | …
-        label: string;
-        model: "usage" | "subscription+usage" | "license";
-        costPerUnit?: number;                       // COGS for this segment's unit
-        params: Record<string, number | string>;    // pricePerUnit, monthly, seats, setupFee, license…
-        creditSources?: string[];                    // e.g. ["free","referral","payg","bundle"]
-      }>;
-    } | null>(),
+    // model). Shape is defined once in src/lib/pricing.ts. null = not set yet.
+    pricingModel: jsonb("pricing_model").$type<PricingModel | null>(),
     // Owner (a person). null if unassigned.
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",
