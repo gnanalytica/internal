@@ -158,9 +158,10 @@ export function visibleDepartments(
 }
 
 /**
- * The departments enabled for a project. `null`/`undefined` means all are on
- * (the auto-spawn default); an explicit array restricts to those slugs while
- * preserving the canonical order.
+ * The departments enabled for a project. `null`/`undefined` enables only the
+ * default-on departments (the legacy seven); opt-in surfaces (`defaultOn:
+ * false`) are excluded unless an explicit array is provided. An explicit array
+ * restricts to those slugs while preserving the canonical order.
  */
 export function enabledDepartments(
   enabled: string[] | null | undefined,
@@ -173,7 +174,7 @@ export function isDepartmentEnabled(
   enabled: string[] | null | undefined,
   slug: DepartmentSlug,
 ): boolean {
-  return enabled == null || enabled.includes(slug);
+  return enabledDepartments(enabled).some((d) => d.slug === slug);
 }
 
 // ---- Sales: pipeline stages (order = board columns) ----

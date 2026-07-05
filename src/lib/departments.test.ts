@@ -86,6 +86,16 @@ describe("per-project department config", () => {
     expect(isDepartmentEnabled(["engineering"], "sales")).toBe(false);
     expect(isDepartmentEnabled(["engineering", "sales"], "sales")).toBe(true);
   });
+
+  it("isDepartmentEnabled respects defaultOn for the null default", () => {
+    expect(isDepartmentEnabled(null, "product")).toBe(true);
+    expect(isDepartmentEnabled(null, "strategy")).toBe(false);
+  });
+
+  it("isDepartmentEnabled honors an explicit enabled array", () => {
+    expect(isDepartmentEnabled(["strategy"], "strategy")).toBe(true);
+    expect(isDepartmentEnabled(["strategy"], "product")).toBe(false);
+  });
 });
 
 describe("confidential department visibility", () => {
