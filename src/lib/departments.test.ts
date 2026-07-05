@@ -16,15 +16,18 @@ import {
 } from "@/lib/departments";
 
 describe("DEPARTMENTS", () => {
-  it("includes the canonical product-org departments", () => {
+  it("lists the seven legacy departments plus the three opt-in surfaces", () => {
     expect(DEPARTMENTS.map((d) => d.slug)).toEqual([
-      "product",
-      "engineering",
-      "analytics",
-      "marketing",
-      "sales",
-      "customer-success",
-      "finance",
+      "product", "engineering", "analytics", "marketing",
+      "sales", "customer-success", "finance",
+      "strategy", "roadmap", "growth",
+    ]);
+  });
+
+  it("defaults (null) to only the legacy seven — new surfaces are opt-in", () => {
+    expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
+      "product", "engineering", "analytics", "marketing",
+      "sales", "customer-success", "finance",
     ]);
   });
 });
