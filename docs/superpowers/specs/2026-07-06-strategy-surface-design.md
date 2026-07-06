@@ -33,6 +33,9 @@ Section headers: numbered gradient badge + uppercase title + subtitle on its
 own line, divided from content by a rule (as in v8).
 
 ### §1 Path to Scale
+- **Problem line** (top-left, one line): keyword pain chips + "why now"
+  keywords; hover popout carries the full diagnosis. (Detailed problem block
+  with signal links stays in §6 — this line is its visible summary.)
 - **Destination line** (top-right): 🏁 + editable vision text.
 - **Route SVG**: ascending line, one station per stage, flag at end, progress
   fill + "YOU ARE HERE" marker. Progress derives from the **active** stage's
