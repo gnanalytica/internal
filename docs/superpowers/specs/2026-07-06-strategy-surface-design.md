@@ -80,6 +80,9 @@ Three pillars in **D · F · V order**, each with three layers:
   Growth.
 
 ### §6 Market Landscape & Moat (collapsed `<details>`)
+- **Problem & why now**: 2–4 pain chips (each optionally linked to the
+  Desirability signal that evidences it) + one *why now* line (the diagnosis:
+  what changed in the world that makes this winnable today).
 - TAM/SAM/SOM funnel (three editable values + capture % slider → SOM).
 - Positioning map: 2 axes (editable labels) + competitor dots + self dot.
 - Strategic guardrails: editable list of short "not doing" lines.
@@ -146,6 +149,7 @@ export type StrategyModel = {
   initiatives: Initiative[];
   northStar?: { label: string; current?: number; target?: number; autoKey?: string };
   proofMetrics?: { label: string; current?: number; target?: number; autoKey?: string }[];
+  problem?: { pains: { label: string; signalId?: string }[]; whyNow?: string };
   market?: { tamLabel?: string; tam?: string; sam?: number; capturePct?: number };
   positioning?: { xLabel?: string; yLabel?: string;
     dots: { label: string; x: number; y: number; self?: boolean }[] };
