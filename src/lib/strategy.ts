@@ -168,6 +168,10 @@ function upsert<T extends { id: string }>(list: T[], item: T): T[] {
   return i === -1 ? [...list, item] : list.map((x, j) => (j === i ? item : x));
 }
 
+function stripAutoCurrent<T extends { autoKey?: string; current?: number | string | null }>(x: T): T {
+  return x.autoKey ? { ...x, current: undefined } : x;
+}
+
 export function applyStrategyOp(model: StrategyModel | null, op: StrategyOp): StrategyModel {
   const m = model ?? emptyStrategyModel();
   switch (op.kind) {
@@ -176,7 +180,7 @@ export function applyStrategyOp(model: StrategyModel | null, op: StrategyOp): St
     case "setProblem":
       return { ...m, problem: op.problem };
     case "upsertStage":
-      return { ...m, stages: upsert(m.stages, op.stage) };
+      return { ...m, stages: upsert(m.stages, { ...op.stage, kpis: op.stage.kpis.map(stripAutoCurrent) }) };
     case "removeStage":
       return { ...m, stages: m.stages.filter((s) => s.id !== op.id) };
     case "upsertSignal":
@@ -205,9 +209,9 @@ export function applyStrategyOp(model: StrategyModel | null, op: StrategyOp): St
     case "removeInitiative":
       return { ...m, initiatives: m.initiatives.filter((i) => i.id !== op.id) };
     case "setNorthStar":
-      return { ...m, northStar: op.northStar };
+      return { ...m, northStar: op.northStar ? stripAutoCurrent(op.northStar) : op.northStar };
     case "setProofMetrics":
-      return { ...m, proofMetrics: op.proofMetrics };
+      return { ...m, proofMetrics: op.proofMetrics.map(stripAutoCurrent) };
     case "setMarket":
       return { ...m, market: op.market };
     case "setPositioning":

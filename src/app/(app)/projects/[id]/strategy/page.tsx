@@ -35,6 +35,23 @@ export default async function ProjectStrategyPage({
 
   const model = (project.strategyModel ?? null) as StrategyModel | null;
 
+  const breadcrumb = [
+    { label: project.name, href: `/projects/${id}` },
+    { label: "Strategy" },
+  ];
+
+  if (!model) {
+    return (
+      <div className="flex h-full flex-col">
+        <Topbar breadcrumb={breadcrumb} />
+        <div className="flex-1 overflow-y-auto p-4">
+          <StrategyEmptyState projectId={id} />
+        </div>
+        <TipLayer />
+      </div>
+    );
+  }
+
   // Derivation context: milestone burn-up + won deals this quarter. Two plain
   // reads (Neon HTTP — no transactions), reduced in JS.
   const msRows = await db
@@ -58,23 +75,6 @@ export default async function ProjectStrategyPage({
     .select({ id: deals.id })
     .from(deals)
     .where(and(eq(deals.projectId, id), eq(deals.stage, "won"), gte(deals.updatedAt, quarterStart())));
-
-  const breadcrumb = [
-    { label: project.name, href: `/projects/${id}` },
-    { label: "Strategy" },
-  ];
-
-  if (!model) {
-    return (
-      <div className="flex h-full flex-col">
-        <Topbar breadcrumb={breadcrumb} />
-        <div className="flex-1 overflow-y-auto p-4">
-          <StrategyEmptyState projectId={id} />
-        </div>
-        <TipLayer />
-      </div>
-    );
-  }
 
   const ctx: DeriveCtx = {
     pricingModel: project.pricingModel ?? null,

@@ -172,3 +172,31 @@ describe("applyStrategyOp", () => {
     expect(t.initiatives).toEqual([]);
   });
 });
+
+describe("derived values never persist", () => {
+  it("upsertStage strips current from auto KPIs but keeps manual ones", () => {
+    const m = applyStrategyOp(null, {
+      kind: "upsertStage",
+      stage: stage({
+        kpis: [
+          { name: "auto", current: 90, autoKey: "pricing.margin.x" },
+          { name: "manual", current: 5, target: 10 },
+        ],
+      }),
+    });
+    expect(m.stages[0].kpis[0].current).toBeUndefined();
+    expect(m.stages[0].kpis[1].current).toBe(5);
+  });
+  it("setNorthStar and setProofMetrics strip auto currents", () => {
+    let m = applyStrategyOp(null, {
+      kind: "setNorthStar",
+      northStar: { label: "n", current: 42, target: 100, autoKey: "analytics.northStar" },
+    });
+    expect(m.northStar!.current).toBeUndefined();
+    m = applyStrategyOp(m, {
+      kind: "setProofMetrics",
+      proofMetrics: [{ label: "p", current: 2, autoKey: "deals.trialWon" }],
+    });
+    expect(m.proofMetrics![0].current).toBeUndefined();
+  });
+});

@@ -91,7 +91,7 @@ export function InitiativesTraction({
       : null;
   return (
     <div className="grid gap-3.5 lg:grid-cols-[2fr_1fr]">
-      <Section n={3} title="Strategic Initiatives" sub="top 3 · gap → initiative → milestone">
+      <Section n={3} title="Strategic Initiatives" sub="top 3 · gap → initiative → milestone · ≤1 item for a non-active stage">
         {model.initiatives.filter((i) => !i.done).length === 0 ? (
           <p className="text-xs text-muted-foreground">
             no initiatives yet — queue one from a red ✕ in the scorecard, or add below

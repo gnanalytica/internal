@@ -116,10 +116,19 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
                 </text>
               </g>
             ))}
-            <text x="161" y="160" textAnchor="middle" fontSize="9" opacity=".6" fill="currentColor">
-              {positioning.xLabel ?? "x axis"}
-            </text>
           </svg>
+          <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+            <Editable
+              value={positioning.xLabel}
+              placeholder="x axis"
+              onSave={(v) => applyStrategyOpAction(projectId, { kind: "setPositioning", positioning: { ...positioning, xLabel: v } })}
+            />
+            <Editable
+              value={positioning.yLabel}
+              placeholder="y axis"
+              onSave={(v) => applyStrategyOpAction(projectId, { kind: "setPositioning", positioning: { ...positioning, yLabel: v } })}
+            />
+          </div>
           <InlineAdd
             label="dot"
             fields={[

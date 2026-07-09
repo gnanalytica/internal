@@ -12,6 +12,8 @@ const BADGE: Record<Stage["status"], { label: string; cls: string }> = {
   done: { label: "DONE", cls: "bg-emerald-600 text-white" },
 };
 
+const ORDER: Stage["status"][] = ["active", "next", "goal", "done"];
+
 const STAGE_COLORS = ["#14b8a6", "#0ea5e9", "#f59e0b", "#8b5cf6", "#ec4899"];
 
 /** Route: ascending line, one station per stage, flag at the end. */
@@ -22,6 +24,12 @@ function Route({ stages }: { stages: Stage[] }) {
   const x = (i: number) => 40 + (i * 890) / Math.max(1, n - 1 + 0.45);
   const y = (i: number) => 78 - (i * 58) / Math.max(1, n - 1 + 0.45);
   const d = `M 20 82 ${stages.map((_, i) => `L ${x(i)} ${y(i)}`).join(" ")} L 968 16`;
+  const pts = [{ px: 20, py: 82 }, ...stages.map((_, i) => ({ px: x(i), py: y(i) })), { px: 968, py: 16 }];
+  const t = (pct / 100) * (pts.length - 1);
+  const seg = Math.min(pts.length - 2, Math.max(0, Math.floor(t)));
+  const f = t - seg;
+  const mx = pts[seg].px + (pts[seg + 1].px - pts[seg].px) * f;
+  const my = pts[seg].py + (pts[seg + 1].py - pts[seg].py) * f;
   return (
     <svg viewBox="0 0 1000 96" className="my-1 w-full" preserveAspectRatio="none">
       <path d={d} fill="none" stroke="hsl(var(--border))" strokeWidth="4" strokeLinecap="round" pathLength={100} />
@@ -46,6 +54,13 @@ function Route({ stages }: { stages: Stage[] }) {
           data-tip={`${s.label}${s.what ? ` — ${s.what}` : ""}`}
         />
       ))}
+      <circle cx={mx} cy={my} r="12" fill="#14b8a6" opacity=".3">
+        <animate attributeName="r" values="10;15;10" dur="2.4s" repeatCount="indefinite" />
+      </circle>
+      <circle cx={mx} cy={my} r="5.5" fill="#14b8a6" data-tip="you are here — derived from the active stage's KPIs vs their targets" />
+      <text x={mx} y={my - 14} textAnchor="middle" fontSize="9.5" fontWeight="800" fill="#14b8a6" letterSpacing="2">
+        YOU ARE HERE
+      </text>
       <text x="968" y="38" textAnchor="middle" fontSize="15" data-tip="Destination — the vision">
         🏁
       </text>
@@ -65,9 +80,14 @@ function StageCard({ stage, projectId }: { stage: Stage; projectId: string }) {
         <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">
           <Editable value={stage.label} placeholder="Stage name" onSave={(v) => save({ label: v })} />
         </span>
-        <span className={`ml-auto rounded px-1.5 py-0.5 text-[8.5px] font-extrabold tracking-widest ${badge.cls}`}>
+        <button
+          type="button"
+          data-tip="click to change stage status"
+          className={`ml-auto rounded px-1.5 py-0.5 text-[8.5px] font-extrabold tracking-widest ${badge.cls}`}
+          onClick={() => save({ status: ORDER[(ORDER.indexOf(stage.status) + 1) % ORDER.length] })}
+        >
           {badge.label}
-        </span>
+        </button>
       </div>
       <div className={`${row} border-t-0`}>
         <span className={lbl}>WHAT</span>
