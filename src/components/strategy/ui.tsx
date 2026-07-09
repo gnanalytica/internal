@@ -1,5 +1,7 @@
 "use client";
 
+import "./strategy.css";
+
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { kpiState, type KpiState, type StageKpi } from "@/lib/strategy";
@@ -42,7 +44,7 @@ export function TipLayer() {
     if (!tip) return;
     let on = false;
     const over = (e: MouseEvent) => {
-      const t = (e.target as HTMLElement).closest?.("[data-tip]") as HTMLElement | null;
+      const t = (e.target as HTMLElement).closest("[data-tip]") as HTMLElement | null;
       if (t?.dataset.tip) {
         tip.textContent = t.dataset.tip;
         on = true;
@@ -149,8 +151,16 @@ export function Editable({
   onSave: (next: string) => void;
   className?: string;
 }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el && document.activeElement !== el) {
+      el.textContent = value || placeholder;
+    }
+  }, [value, placeholder]);
   return (
     <span
+      ref={ref}
       contentEditable
       suppressContentEditableWarning
       data-tip="editable — click and type"

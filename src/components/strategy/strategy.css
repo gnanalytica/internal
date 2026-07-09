@@ -70,4 +70,7 @@ button.s-chip:hover {
   .s-ring-arc {
     transition: none;
   }
+  .s-chip {
+    transition: none;
+  }
 }
