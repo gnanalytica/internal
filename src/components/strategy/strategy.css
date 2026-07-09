@@ -1,0 +1,73 @@
+/* Strategy surface interaction grammar: keywords on page, sentences on hover. */
+.s-tip {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 250px;
+  transform: translate(-50%, calc(-100% - 12px)) scale(0.95);
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+.s-tip-on {
+  opacity: 1;
+  transform: translate(-50%, calc(-100% - 12px)) scale(1);
+}
+.s-rise {
+  animation: s-rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes s-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.s-set {
+  border-bottom: 1px dashed #4f9cff;
+  cursor: text;
+  outline: none;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.s-set:focus {
+  background: rgb(79 156 255 / 0.08);
+}
+.s-chip {
+  font-size: 11px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  transition: transform 0.15s;
+}
+button.s-chip:hover {
+  transform: translateY(-1px);
+}
+.s-grow {
+  transform-origin: left;
+  animation: s-grow 0.8s cubic-bezier(0.2, 0.7, 0.3, 1) both 0.3s;
+}
+@keyframes s-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.s-ring-arc {
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.2, 0.8, 0.2, 1), stroke 0.45s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-rise,
+  .s-grow {
+    animation: none;
+  }
+  .s-tip,
+  .s-ring-arc {
+    transition: none;
+  }
+}
