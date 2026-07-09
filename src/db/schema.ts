@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import type { PricingModel } from "@/lib/pricing";
+import type { StrategyModel } from "@/lib/strategy";
 import {
   boolean,
   index,
@@ -100,6 +101,9 @@ export const projects = pgTable(
     // Per-segment pricing model (supersedes `economics` for products on the new
     // model). Shape is defined once in src/lib/pricing.ts. null = not set yet.
     pricingModel: jsonb("pricing_model").$type<PricingModel | null>(),
+    // Strategy surface model (vision, stages, FDV signals, initiatives, …).
+    // Shape is defined once in src/lib/strategy.ts. null = guided empty state.
+    strategyModel: jsonb("strategy_model").$type<StrategyModel | null>(),
     // Owner (a person). null if unassigned.
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",

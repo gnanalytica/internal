@@ -10,6 +10,8 @@ export interface PricingSegment {
   label: string;
   model: PricingSegmentModel;
   costPerUnit?: number;
+  /** Worst-case COGS for a heavy-tail unit (stress band ceiling). Optional. */
+  costPerUnitHeavy?: number;
   params: Record<string, number | string>;
   creditSources?: string[];
 }
@@ -33,4 +35,16 @@ export function segmentUnitMargin(
   const contribution = price - cost;
   const marginPct = price > 0 ? Math.round((contribution / price) * 100) : 0;
   return { price, cost, contribution, marginPct };
+}
+
+/** Heavy-tail (worst-case) unit economics: costPerUnitHeavy ?? costPerUnit. */
+export function segmentUnitMarginHeavy(
+  seg: PricingSegment,
+): { price: number; cost: number; contribution: number; marginPct: number } | null {
+  const base = segmentUnitMargin(seg);
+  if (base === null) return null;
+  const cost = seg.costPerUnitHeavy ?? base.cost;
+  const contribution = base.price - cost;
+  const marginPct = base.price > 0 ? Math.round((contribution / base.price) * 100) : 0;
+  return { price: base.price, cost, contribution, marginPct };
 }

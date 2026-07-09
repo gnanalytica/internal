@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { segmentUnitMargin, type PricingSegment } from "@/lib/pricing";
+import { segmentUnitMargin, segmentUnitMarginHeavy, type PricingSegment } from "@/lib/pricing";
 
 const usage: PricingSegment = {
   id: "solo", label: "Independent", model: "usage",
@@ -27,5 +27,18 @@ describe("segmentUnitMargin", () => {
 
   it("returns null when there is no per-unit price (license)", () => {
     expect(segmentUnitMargin(license)).toBeNull();
+  });
+});
+
+describe("segmentUnitMarginHeavy", () => {
+  it("uses costPerUnitHeavy when present", () => {
+    const m = segmentUnitMarginHeavy({ ...usage, costPerUnitHeavy: 70 });
+    expect(m).toEqual({ price: 200, cost: 70, contribution: 130, marginPct: 65 });
+  });
+  it("falls back to costPerUnit when no heavy cost is set", () => {
+    expect(segmentUnitMarginHeavy(usage)).toEqual(segmentUnitMargin(usage));
+  });
+  it("returns null without a per-unit price", () => {
+    expect(segmentUnitMarginHeavy(license)).toBeNull();
   });
 });
