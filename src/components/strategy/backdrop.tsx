@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { applyStrategyOpAction } from "@/lib/strategy-actions";
 import type { StrategyModel } from "@/lib/strategy";
 
@@ -8,10 +10,11 @@ import { Editable, InlineAdd } from "./ui";
 export function Backdrop({ model, projectId }: { model: StrategyModel; projectId: string }) {
   const market = model.market ?? {};
   const positioning = model.positioning ?? { dots: [] };
-  const som =
-    typeof market.sam === "number" && typeof market.capturePct === "number"
-      ? Math.round(market.sam * (market.capturePct / 100))
-      : null;
+  const [capture, setCapture] = useState(market.capturePct ?? 10);
+  useEffect(() => {
+    if (market.capturePct != null) setCapture(market.capturePct);
+  }, [market.capturePct]);
+  const som = typeof market.sam === "number" ? Math.round(market.sam * (capture / 100)) : null;
   const pains = model.problem?.pains ?? [];
   return (
     <details className="s-rise rounded-xl border border-dashed px-4">
@@ -76,7 +79,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
             </p>
             <p>
               <span className="text-muted-foreground">SAM: </span>
-              <Editable value={market.sam != null ? String(market.sam) : undefined} placeholder="reachable (number)" onSave={(v) => applyStrategyOpAction(projectId, { kind: "setMarket", market: { ...market, sam: Number(v) || undefined } })} />
+              <Editable value={market.sam != null ? String(market.sam) : undefined} placeholder="reachable (number)" onSave={(v) => applyStrategyOpAction(projectId, { kind: "setMarket", market: { ...market, sam: Number.isFinite(Number(v)) && v !== "" ? Number(v) : undefined } })} />
             </p>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">capture</span>
@@ -84,16 +87,17 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
                 type="range"
                 min="1"
                 max="50"
-                defaultValue={market.capturePct ?? 10}
+                value={capture}
                 className="flex-1"
-                onMouseUp={(e) =>
+                onChange={(e) => setCapture(Number(e.target.value))}
+                onMouseUp={() =>
                   applyStrategyOpAction(projectId, {
                     kind: "setMarket",
-                    market: { ...market, capturePct: Number((e.target as HTMLInputElement).value) },
+                    market: { ...market, capturePct: capture },
                   })
                 }
               />
-              <b className="tabular-nums">{market.capturePct ?? 10}%</b>
+              <b className="tabular-nums">{capture}%</b>
             </div>
             <p className="font-semibold text-teal-600 dark:text-teal-400 tabular-nums">SOM: {som ?? "—"}</p>
           </div>
@@ -129,7 +133,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
                 kind: "setPositioning",
                 positioning: {
                   ...positioning,
-                  dots: [...positioning.dots, { label: v.label, x: Number(v.x) || 50, y: Number(v.y) || 50, self: positioning.dots.length === 0 }],
+                  dots: [...positioning.dots, { label: v.label, x: Number.isFinite(Number(v.x)) && v.x !== "" ? Number(v.x) : 50, y: Number.isFinite(Number(v.y)) && v.y !== "" ? Number(v.y) : 50, self: positioning.dots.length === 0 }],
                 },
               })
             }
