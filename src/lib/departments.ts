@@ -89,7 +89,7 @@ export const DEPARTMENTS = [
   },
   {
     slug: "strategy", label: "Strategy", icon: "🎯", color: "#7c3aed",
-    tool: "Vision · FDV · economics", defaultOn: false,
+    tool: "Vision · FDV · economics", defaultOn: true,
   },
   {
     slug: "roadmap", label: "Roadmap", icon: "🗺️", color: "#2563eb",
@@ -159,7 +159,7 @@ export function visibleDepartments(
 
 /**
  * The departments enabled for a project. `null`/`undefined` enables only the
- * default-on baseline (Product + Engineering); every other surface is opt-in
+ * default-on baseline (Product + Engineering + Strategy); every other surface is opt-in
  * (`defaultOn: false`) and earned when a product has real data for it. An
  * explicit array restricts to those slugs while preserving the canonical order.
  */

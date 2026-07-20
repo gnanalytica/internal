@@ -27,7 +27,7 @@ describe("DEPARTMENTS", () => {
 
   it("defaults (null) to the baseline — everything else is opt-in", () => {
     expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
-      "product", "engineering",
+      "product", "engineering", "strategy",
     ]);
   });
 });
@@ -65,10 +65,11 @@ describe("ticket statuses", () => {
 });
 
 describe("per-project department config", () => {
-  it("treats null as the baseline (Product + Engineering)", () => {
+  it("treats null as the baseline (Product + Engineering + Strategy)", () => {
     expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
       "product",
       "engineering",
+      "strategy",
     ]);
     expect(isDepartmentEnabled(null, "customer-success")).toBe(false);
   });
@@ -83,8 +84,8 @@ describe("per-project department config", () => {
   });
 
   it("isDepartmentEnabled respects defaultOn for the null default", () => {
-    expect(isDepartmentEnabled(null, "product")).toBe(true);
-    expect(isDepartmentEnabled(null, "strategy")).toBe(false);
+    expect(isDepartmentEnabled(null, "strategy")).toBe(true);
+    expect(isDepartmentEnabled(null, "growth")).toBe(false);
   });
 
   it("isDepartmentEnabled honors an explicit enabled array", () => {
