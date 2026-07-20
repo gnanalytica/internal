@@ -186,6 +186,7 @@ export function Sidebar({
         <RailLink href="/inbox" active={pathname.startsWith("/inbox")} label="Inbox"><Bell className="size-4" /></RailLink>
         <RailLink href="/issues" active={pathname === "/issues"} label="Tasks"><CircleDot className="size-4" /></RailLink>
         <RailLink href="/projects" active={pathname.startsWith("/projects")} label="Projects"><Folder className="size-4" /></RailLink>
+        <RailLink href="/org" active={pathname === "/org"} label="Org"><Users className="size-4" /></RailLink>
       </aside>
     );
   }
@@ -359,6 +360,12 @@ export function Sidebar({
           active={pathname === "/issues"}
           icon={<CircleDot className="size-4" />}
           label="Tasks"
+        />
+        <NavItem
+          href="/org"
+          active={pathname === "/org"}
+          icon={<Users className="size-4" />}
+          label="Org"
         />
 
         {/* Favorites */}
