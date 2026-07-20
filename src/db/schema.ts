@@ -88,19 +88,8 @@ export const projects = pgTable(
     // Confidential projects (e.g. Finance, People & HR) are visible to admins
     // (founders) only — enforced server-side and hidden from the nav.
     confidential: boolean("confidential").notNull().default(false),
-    // Per-product unit economics (the Finance department's pricing model).
-    // The company books stay in the Finance operation; this is one product's
-    // pricing assumptions, used to derive margin per unit. null = not set yet.
-    economics: jsonb("economics").$type<{
-      currency?: string; // ISO code, e.g. "INR" — defaults to INR in the UI.
-      unitLabel?: string; // what one sale is, e.g. "report".
-      pricePerUnit?: number; // what the customer pays per unit.
-      costPerUnit?: number; // COGS per unit (AI inference, fulfilment, …).
-      unitsPerMonth?: number; // expected/actual volume, for a monthly roll-up.
-      notes?: string;
-    } | null>(),
-    // Per-segment pricing model (supersedes `economics` for products on the new
-    // model). Shape is defined once in src/lib/pricing.ts. null = not set yet.
+    // Per-segment pricing model — the product's unit economics. Shape is
+    // defined once in src/lib/pricing.ts. null = not set yet.
     pricingModel: jsonb("pricing_model").$type<PricingModel | null>(),
     // Strategy surface model (vision, stages, FDV signals, initiatives, …).
     // Shape is defined once in src/lib/strategy.ts. null = guided empty state.

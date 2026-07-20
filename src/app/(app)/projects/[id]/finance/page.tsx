@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { EconomicsCard } from "@/components/economics-card";
 import { FinanceView } from "@/components/finance-view";
 import { Restricted } from "@/components/restricted";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
@@ -45,8 +44,7 @@ export default async function ProjectFinancePage({
       accounts={accounts}
       initialInvoices={invoices}
       initialExpenses={expenses}
-      defaultCurrency={project.economics?.currency ?? "INR"}
-      intro={<EconomicsCard projectId={id} economics={project.economics} />}
+      defaultCurrency={project.pricingModel?.currency ?? "INR"}
     />
   );
 }

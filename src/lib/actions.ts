@@ -1056,41 +1056,6 @@ export async function updateProject(
   revalidatePath("/", "layout");
 }
 
-/**
- * Update a product's unit-economics assumptions (the Finance department's
- * pricing model). Founder-only — the pricing model is confidential. Merges into
- * whatever is already stored so partial edits don't wipe the other fields.
- */
-export async function updateProjectEconomics(
-  id: string,
-  patch: Partial<{
-    currency: string;
-    unitLabel: string | null;
-    pricePerUnit: number | null;
-    costPerUnit: number | null;
-    unitsPerMonth: number | null;
-    notes: string | null;
-  }>,
-) {
-  const ws = await getWorkspace();
-  await requireAdmin(ws.id);
-  const current = await db.query.projects.findFirst({
-    where: and(eq(projects.workspaceId, ws.id), eq(projects.id, id)),
-    columns: { economics: true },
-  });
-  if (!current) throw new Error("Project not found.");
-  const next = { ...(current.economics ?? {}) };
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === null || v === "") delete (next as Record<string, unknown>)[k];
-    else (next as Record<string, unknown>)[k] = v;
-  }
-  await db
-    .update(projects)
-    .set({ economics: Object.keys(next).length ? next : null })
-    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
-  revalidatePath(`/projects/${id}/finance`);
-}
-
 const HEALTH = new Set(["on_track", "at_risk", "off_track"]);
 
 export async function addStatusUpdate(

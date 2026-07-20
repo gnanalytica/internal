@@ -26,7 +26,7 @@ export type DepartmentSlug =
 // pricing, unit costs, margin and its own scoped invoices/expenses ("is this
 // product a good business?"); it rolls up into the company-level Finance
 // Operations project (payroll, runway, consolidated books). Founder-only
-// (see CONFIDENTIAL). The per-product pricing model lives in `projects.economics`.
+// (see CONFIDENTIAL). The per-product pricing model lives in `projects.pricingModel`.
 export const DEPARTMENTS = [
   {
     slug: "product",
