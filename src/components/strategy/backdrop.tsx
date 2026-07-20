@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { applyStrategyOpAction } from "@/lib/strategy-actions";
 import type { StrategyModel } from "@/lib/strategy";
@@ -10,10 +10,14 @@ import { Editable, InlineAdd } from "./ui";
 export function Backdrop({ model, projectId }: { model: StrategyModel; projectId: string }) {
   const market = model.market ?? {};
   const positioning = model.positioning ?? { dots: [] };
-  const [capture, setCapture] = useState(market.capturePct ?? 10);
-  useEffect(() => {
-    if (market.capturePct != null) setCapture(market.capturePct);
-  }, [market.capturePct]);
+  // Local value only while the slider is being dragged; the saved model is the
+  // truth otherwise. Once the server round-trip catches up with the draft, drop
+  // it so external edits show through again.
+  const [draftCapture, setDraftCapture] = useState<number | null>(null);
+  if (draftCapture !== null && market.capturePct === draftCapture) {
+    setDraftCapture(null);
+  }
+  const capture = draftCapture ?? market.capturePct ?? 10;
   const som = typeof market.sam === "number" ? Math.round(market.sam * (capture / 100)) : null;
   const pains = model.problem?.pains ?? [];
   return (
@@ -89,7 +93,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
                 max="50"
                 value={capture}
                 className="flex-1"
-                onChange={(e) => setCapture(Number(e.target.value))}
+                onChange={(e) => setDraftCapture(Number(e.target.value))}
                 onMouseUp={() =>
                   applyStrategyOpAction(projectId, {
                     kind: "setMarket",
