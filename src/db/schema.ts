@@ -78,8 +78,9 @@ export const projects = pgTable(
     // Live product URL, e.g. https://valytica.gnanalytica.com.
     url: text("url"),
     color: text("color").notNull().default("#6366f1"),
-    // Which department modules are enabled for this project. null = all enabled
-    // (the auto-spawn default); an explicit array restricts to those slugs.
+    // Which department modules are enabled for this project. null = the
+    // default-on baseline (see src/lib/departments.ts); an explicit array
+    // restricts to those slugs.
     enabledDepartments: jsonb("enabled_departments").$type<string[] | null>(),
     // 'project' = an app we ship (gets departments + CRM);
     // 'operation' = internal / back-office (no departments, no CRM).

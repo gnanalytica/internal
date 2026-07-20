@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACCOUNT_TYPES,
+  ALL_DEPARTMENT_SLUGS,
   DEAL_STAGES,
   DEPARTMENTS,
   OPEN_DEAL_STAGES,
@@ -24,10 +25,9 @@ describe("DEPARTMENTS", () => {
     ]);
   });
 
-  it("defaults (null) to only the legacy seven — new surfaces are opt-in", () => {
+  it("defaults (null) to the baseline — everything else is opt-in", () => {
     expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
-      "product", "engineering", "analytics", "marketing",
-      "sales", "customer-success", "finance",
+      "product", "engineering",
     ]);
   });
 });
@@ -65,17 +65,12 @@ describe("ticket statuses", () => {
 });
 
 describe("per-project department config", () => {
-  it("treats null as all departments enabled (auto-spawn default)", () => {
+  it("treats null as the baseline (Product + Engineering)", () => {
     expect(enabledDepartments(null).map((d) => d.slug)).toEqual([
       "product",
       "engineering",
-      "analytics",
-      "marketing",
-      "sales",
-      "customer-success",
-      "finance",
     ]);
-    expect(isDepartmentEnabled(null, "customer-success")).toBe(true);
+    expect(isDepartmentEnabled(null, "customer-success")).toBe(false);
   });
 
   it("restricts to an explicit list, preserving canonical order", () => {
@@ -100,7 +95,7 @@ describe("per-project department config", () => {
 
 describe("confidential department visibility", () => {
   const slugs = (role: string, isOwner: boolean) =>
-    visibleDepartments(null, role, isOwner).map((d) => d.slug);
+    visibleDepartments(ALL_DEPARTMENT_SLUGS, role, isOwner).map((d) => d.slug);
 
   it("hides Sales and Finance from plain members", () => {
     const s = slugs("member", false);

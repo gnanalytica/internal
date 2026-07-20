@@ -52,7 +52,7 @@ export const DEPARTMENTS = [
     icon: "📊",
     color: "#14b8a6",
     tool: "Product metrics & KPIs",
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     slug: "marketing",
@@ -60,7 +60,7 @@ export const DEPARTMENTS = [
     icon: "📣",
     color: "#f43f5e",
     tool: "HubSpot",
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     slug: "sales",
@@ -68,7 +68,7 @@ export const DEPARTMENTS = [
     icon: "📈",
     color: "#0ea5e9",
     tool: "Apollo / HubSpot",
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     slug: "customer-success",
@@ -76,7 +76,7 @@ export const DEPARTMENTS = [
     icon: "🎧",
     color: "#f97316",
     tool: "Zendesk / Intercom-style tickets",
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     slug: "finance",
@@ -85,7 +85,7 @@ export const DEPARTMENTS = [
     color: "#22c55e",
     // Product-level finance: unit economics + this product's scoped invoices/expenses.
     tool: "Unit economics & P&L",
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     slug: "strategy", label: "Strategy", icon: "🎯", color: "#7c3aed",
@@ -159,9 +159,9 @@ export function visibleDepartments(
 
 /**
  * The departments enabled for a project. `null`/`undefined` enables only the
- * default-on departments (the legacy seven); opt-in surfaces (`defaultOn:
- * false`) are excluded unless an explicit array is provided. An explicit array
- * restricts to those slugs while preserving the canonical order.
+ * default-on baseline (Product + Engineering); every other surface is opt-in
+ * (`defaultOn: false`) and earned when a product has real data for it. An
+ * explicit array restricts to those slugs while preserving the canonical order.
  */
 export function enabledDepartments(
   enabled: string[] | null | undefined,
