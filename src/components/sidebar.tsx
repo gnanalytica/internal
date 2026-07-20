@@ -443,48 +443,44 @@ export function Sidebar({
           </Section>
         )}
 
-        {/* Wiki — company pages (handbook, SOPs, entity refs) */}
-        <Section
-          title="Wiki"
-          open={showPages}
-          onToggle={() => setShowPages((v) => !v)}
-          action={
-            <>
-            <Link
-              href="/trash"
-              className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              aria-label="Trash"
-            >
-              <Trash2 className="size-3.5" />
-            </Link>
-            <button
-              onClick={() => newPage(null)}
-              className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              aria-label="New page"
-            >
-              <Plus className="size-3.5" />
-            </button>
-            </>
-          }
-        >
-          {pageTree.length === 0 && (
-            <button
-              onClick={() => newPage(null)}
-              className="px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground"
-            >
-              + New page
-            </button>
-          )}
-          {pageTree.map((node) => (
-            <PageTreeItem
-              key={node.id}
-              node={node}
-              depth={0}
-              pathname={pathname}
-              onAddChild={(id) => newPage(id)}
-            />
-          ))}
-        </Section>
+        {/* Wiki — company pages (handbook, SOPs, entity refs). Hidden while
+            empty; reappears when a company-level page exists (e.g. restored
+            from trash). */}
+        {pageTree.length > 0 && (
+          <Section
+            title="Wiki"
+            open={showPages}
+            onToggle={() => setShowPages((v) => !v)}
+            action={
+              <>
+              <Link
+                href="/trash"
+                className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                aria-label="Trash"
+              >
+                <Trash2 className="size-3.5" />
+              </Link>
+              <button
+                onClick={() => newPage(null)}
+                className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                aria-label="New page"
+              >
+                <Plus className="size-3.5" />
+              </button>
+              </>
+            }
+          >
+            {pageTree.map((node) => (
+              <PageTreeItem
+                key={node.id}
+                node={node}
+                depth={0}
+                pathname={pathname}
+                onAddChild={(id) => newPage(id)}
+              />
+            ))}
+          </Section>
+        )}
       </nav>
     </aside>
   );

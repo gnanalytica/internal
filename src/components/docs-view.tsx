@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, Trash2 } from "lucide-react";
 
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
@@ -39,9 +39,18 @@ export function DocsView({
       <Topbar
         breadcrumb={[{ label: heading }]}
         actions={
-          <Button size="sm" className="h-7 gap-1.5" onClick={() => newDoc(null)} disabled={pending}>
-            <Plus className="size-4" /> New doc
-          </Button>
+          <>
+            <Link
+              href="/trash"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Trash"
+            >
+              <Trash2 className="size-4" />
+            </Link>
+            <Button size="sm" className="h-7 gap-1.5" onClick={() => newDoc(null)} disabled={pending}>
+              <Plus className="size-4" /> New doc
+            </Button>
+          </>
         }
       />
       <div className="scrollbar-thin flex-1 overflow-y-auto">
@@ -54,7 +63,7 @@ export function DocsView({
               <div>
                 <p className="text-sm font-medium">No docs yet</p>
                 <p className="text-xs text-muted-foreground">
-                  Specs, PRDs and notes for this project. Company-wide docs live in the Wiki.
+                  Specs, PRDs and notes for this project.
                 </p>
               </div>
               <Button size="sm" className="gap-1.5" onClick={() => newDoc(null)} disabled={pending}>
