@@ -87,7 +87,6 @@ async function main() {
   // kind=project → gets department modules + CRM.
   // kind=operation → internal / back-office, no departments.
   await db.insert(schema.projects).values([
-    { workspaceId: ws.id, name: "Healthytica", key: "HLTH", color: "#10b981", kind: "project", description: "AI blood-biomarker health intelligence." },
     { workspaceId: ws.id, name: "Valytica", key: "VAL", color: "#6366f1", kind: "project", description: "AI valuation management for Indian valuers." },
     { workspaceId: ws.id, name: "AI Workshop", key: "AIW", color: "#a855f7", kind: "project", description: "SaaS LMS for the 30-day AI workshop." },
     { workspaceId: ws.id, name: "Standup-AI", key: "STDA", color: "#3b82f6", kind: "project", description: "Autonomous standup bot." },
