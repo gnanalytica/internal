@@ -109,6 +109,7 @@ export function OrgView({
             </div>
             {products.map((p) => {
               const builder = p.ownerId ? byId.get(p.ownerId) : undefined;
+              const strategist = p.strategistId ? byId.get(p.strategistId) : undefined;
               return (
                 <div
                   key={p.id}
@@ -134,13 +135,18 @@ export function OrgView({
                       open seat
                     </span>
                   )}
-                  <span className="flex items-center gap-1.5">
-                    {founders.map((f) => (
-                      <span key={f.id} className="flex items-center gap-1" title={f.name}>
-                        <UserAvatar name={f.name} color={f.avatarColor} />
-                      </span>
-                    ))}
-                  </span>
+                  {strategist ? (
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <UserAvatar name={strategist.name} color={strategist.avatarColor} />
+                      <span className="truncate text-[13px]">{strategist.name}</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5" title="the founders">
+                      {founders.map((f) => (
+                        <UserAvatar key={f.id} name={f.name} color={f.avatarColor} />
+                      ))}
+                    </span>
+                  )}
                 </div>
               );
             })}
