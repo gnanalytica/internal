@@ -6,12 +6,14 @@ import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import {
   Bookmark,
+  CalendarDays,
   CheckCircle2,
   CheckSquare,
   ChevronRight,
   Code,
   Columns2,
   Columns3,
+  CopyPlus,
   Heading1,
   Heading2,
   Heading3,
@@ -23,6 +25,7 @@ import {
   ListOrdered,
   Minus,
   Quote,
+  Smile,
   SquarePlay,
   Table as TableIcon,
   Text,
@@ -120,6 +123,46 @@ const COMMANDS: Cmd[] = [
     keywords: "h3 heading subheading",
     group: "Basic",
     run: (e, r) => e.chain().focus().deleteRange(r).setNode("heading", { level: 3 }).run(),
+  },
+  {
+    title: "Date",
+    description: "Insert today's date",
+    icon: createElement(CalendarDays, { className: "size-4" }),
+    keywords: "date today calendar timestamp",
+    group: "Basic",
+    run: (e, r) =>
+      e
+        .chain()
+        .focus()
+        .deleteRange(r)
+        .insertContent(
+          `${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} `,
+        )
+        .run(),
+  },
+  {
+    title: "Emoji",
+    description: "Search and insert an emoji",
+    icon: createElement(Smile, { className: "size-4" }),
+    keywords: "emoji smiley reaction icon",
+    group: "Basic",
+    run: (e, r) => e.chain().focus().deleteRange(r).insertContent(":").run(),
+  },
+  {
+    title: "Duplicate block",
+    description: "Copy the current block below",
+    icon: createElement(CopyPlus, { className: "size-4" }),
+    keywords: "duplicate copy clone repeat block",
+    group: "Basic",
+    run: (e, r) => {
+      e.chain().focus().deleteRange(r).run();
+      const { $from } = e.state.selection;
+      if ($from.depth < 1) return;
+      const node = $from.node(1);
+      const json = node.toJSON() as { attrs?: Record<string, unknown> };
+      json.attrs = { ...json.attrs, blockId: null };
+      e.chain().insertContentAt($from.after(1), json).run();
+    },
   },
   {
     title: "Bullet list",

@@ -22,6 +22,7 @@ import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
 import { Column, ColumnBlock } from "./columns";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
+import { EmojiSuggestion } from "./emoji-suggestion";
 import { Embed } from "./embed";
 import { EntityRef } from "./mention";
 import { Indent } from "./indent";
@@ -115,6 +116,7 @@ export function RichEditor({
       ColumnBlock,
       Column,
       Toc,
+      EmojiSuggestion,
       Callout,
       IssueEmbed,
       Bookmark,
