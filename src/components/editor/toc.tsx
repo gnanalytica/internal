@@ -13,13 +13,16 @@ type HeadingRef = { level: number; text: string; blockId: string | null };
 
 function readHeadings(editor: NodeViewProps["editor"]): HeadingRef[] {
   const out: HeadingRef[] = [];
-  editor.state.doc.forEach((node) => {
-    if (node.type.name !== "heading") return;
+  // descendants (not forEach) so headings inside columns/toggles are included;
+  // nested ones may lack a blockId, in which case the entry isn't clickable.
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== "heading") return true;
     out.push({
       level: Number(node.attrs.level ?? 1),
       text: node.textContent,
       blockId: (node.attrs.blockId as string | null) ?? null,
     });
+    return true;
   });
   return out;
 }
@@ -58,7 +61,7 @@ function TocView({ editor }: NodeViewProps) {
           Add headings to build a table of contents.
         </p>
       ) : (
-        <ul className="space-y-0.5">
+        <ul className="space-y-0.5" style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
           {headings.map((h, i) => (
             <li key={i} style={{ paddingLeft: `${(h.level - 1) * 0.85}rem` }}>
               <button

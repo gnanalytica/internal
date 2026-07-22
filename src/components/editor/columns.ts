@@ -1,4 +1,14 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { Document } from "@tiptap/extension-document";
+
+/**
+ * Document override that admits `columnBlock` at the top level only.
+ * `columnBlock` deliberately has NO group, so no other container
+ * (toggles, callouts, columns, table cells) can accept it.
+ */
+export const DocWithColumns = Document.extend({
+  content: "(block | columnBlock)+",
+});
 
 /**
  * Side-by-side column layout. `columnBlock` holds 2–3 `column` children.
@@ -7,7 +17,6 @@ import { Node, mergeAttributes } from "@tiptap/core";
  */
 export const ColumnBlock = Node.create({
   name: "columnBlock",
-  group: "block",
   content: "column{2,3}",
   defining: true,
   isolating: true,

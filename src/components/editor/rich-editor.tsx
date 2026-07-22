@@ -21,7 +21,7 @@ import type { MentionItem } from "@/lib/types";
 import { BlockId } from "./block-id";
 import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
-import { Column, ColumnBlock } from "./columns";
+import { Column, ColumnBlock, DocWithColumns } from "./columns";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
 import { EditorContextMenu } from "./editor-context-menu";
 import { EmojiSuggestion } from "./emoji-suggestion";
@@ -86,6 +86,7 @@ export function RichEditor({
     editable,
     extensions: [
       StarterKit.configure({
+        document: false,
         heading: { levels: [1, 2, 3] },
         link: {
           openOnClick: false,
@@ -116,6 +117,7 @@ export function RichEditor({
       Details.configure({ persist: true, HTMLAttributes: { class: "details" } }),
       DetailsSummary,
       DetailsContent,
+      DocWithColumns,
       ColumnBlock,
       Column,
       Toc,

@@ -69,21 +69,22 @@ export const TURN_INTO_OPTIONS: TurnIntoOption[] = [
     label: "Bullet list",
     icon: <List className="size-4" />,
     isActive: (e) => e.isActive("bulletList"),
-    run: (e) => e.chain().focus().toggleBulletList().run(),
+    // setParagraph first so selected headings become ordinary items (Notion-style).
+    run: (e) => e.chain().focus().setParagraph().toggleBulletList().run(),
   },
   {
     key: "ordered",
     label: "Numbered list",
     icon: <ListOrdered className="size-4" />,
     isActive: (e) => e.isActive("orderedList"),
-    run: (e) => e.chain().focus().toggleOrderedList().run(),
+    run: (e) => e.chain().focus().setParagraph().toggleOrderedList().run(),
   },
   {
     key: "task",
     label: "To-do list",
     icon: <CheckSquare className="size-4" />,
     isActive: (e) => e.isActive("taskList"),
-    run: (e) => e.chain().focus().toggleTaskList().run(),
+    run: (e) => e.chain().focus().setParagraph().toggleTaskList().run(),
   },
   {
     key: "quote",
@@ -120,6 +121,7 @@ export const TURN_INTO_OPTIONS: TurnIntoOption[] = [
         .deleteRange({ from, to })
         .insertContentAt(from, {
           type: "details",
+          attrs: { open: true },
           content: [
             {
               type: "detailsSummary",

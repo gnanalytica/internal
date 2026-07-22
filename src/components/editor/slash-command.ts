@@ -1,7 +1,7 @@
 "use client";
 
 import { Extension, type Editor, type Range } from "@tiptap/core";
-import { PluginKey } from "@tiptap/pm/state";
+import { PluginKey, TextSelection } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import {
@@ -88,6 +88,16 @@ const columns = (count: 2 | 3) => (e: Editor, r: Range) =>
         type: "column",
         content: [{ type: "paragraph" }],
       })),
+    })
+    // Land the cursor in the first column, not after the block.
+    .command(({ tr }) => {
+      let target = -1;
+      tr.doc.descendants((node, pos) => {
+        if (node.type.name === "columnBlock" && pos <= tr.selection.from) target = pos;
+        return true;
+      });
+      if (target >= 0) tr.setSelection(TextSelection.create(tr.doc, target + 3));
+      return true;
     })
     .run();
 
@@ -269,6 +279,7 @@ const COMMANDS: Cmd[] = [
         .deleteRange(r)
         .insertContent({
           type: "details",
+          attrs: { open: true },
           content: [
             { type: "detailsSummary" },
             { type: "detailsContent", content: [{ type: "paragraph" }] },
