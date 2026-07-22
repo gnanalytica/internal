@@ -42,7 +42,7 @@ function block(node: Node, depth = 0): string {
         .map((c) => `> ${block(c, depth)}`)
         .join("\n");
     case "codeBlock":
-      return `\`\`\`\n${inline(node.content)}\n\`\`\``;
+      return `\`\`\`${node.attrs?.language ?? ""}\n${inline(node.content)}\n\`\`\``;
     case "horizontalRule":
       return "---";
     case "bulletList":

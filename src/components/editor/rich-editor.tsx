@@ -21,6 +21,7 @@ import type { MentionItem } from "@/lib/types";
 import { BlockId } from "./block-id";
 import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
+import { CodeBlock } from "./code-block";
 import { Column, ColumnBlock, DocWithColumns } from "./columns";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
 import { EditorContextMenu } from "./editor-context-menu";
@@ -87,6 +88,7 @@ export function RichEditor({
     extensions: [
       StarterKit.configure({
         document: false,
+        codeBlock: false,
         heading: { levels: [1, 2, 3] },
         link: {
           openOnClick: false,
@@ -122,6 +124,7 @@ export function RichEditor({
       Column,
       Toc,
       EmojiSuggestion,
+      CodeBlock,
       Callout,
       IssueEmbed,
       Bookmark,

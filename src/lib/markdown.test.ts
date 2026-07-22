@@ -123,6 +123,28 @@ describe("docToMarkdown", () => {
     expect(docToMarkdown(doc)).toBe("Body");
   });
 
+  it("renders code block language fences", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "codeBlock",
+          attrs: { language: "ts" },
+          content: [{ type: "text", text: "const a = 1;" }],
+        },
+      ],
+    };
+    expect(docToMarkdown(doc)).toBe("```ts\nconst a = 1;\n```");
+  });
+
+  it("renders code blocks without a language as plain fences", () => {
+    const doc = {
+      type: "doc",
+      content: [{ type: "codeBlock", content: [{ type: "text", text: "x" }] }],
+    };
+    expect(docToMarkdown(doc)).toBe("```\nx\n```");
+  });
+
   it("ignores indent and textAlign attributes on paragraphs", () => {
     const doc = {
       type: "doc",

@@ -561,6 +561,60 @@ a.entity-ref {
   padding: 0;
   color: inherit;
 }
+/* Code block node view: hover chrome anchors to the wrapper. */
+.code-block-wrap {
+  position: relative;
+}
+/* Syntax token colors (One Dark-ish). `pre` is dark in both themes, so a
+ * single palette suffices. */
+.tiptap pre .hljs-comment,
+.tiptap pre .hljs-quote {
+  color: oklch(0.62 0.02 264);
+  font-style: italic;
+}
+.tiptap pre .hljs-keyword,
+.tiptap pre .hljs-selector-tag,
+.tiptap pre .hljs-tag {
+  color: oklch(0.72 0.16 320);
+}
+.tiptap pre .hljs-string,
+.tiptap pre .hljs-regexp,
+.tiptap pre .hljs-addition {
+  color: oklch(0.78 0.13 140);
+}
+.tiptap pre .hljs-number,
+.tiptap pre .hljs-literal,
+.tiptap pre .hljs-symbol,
+.tiptap pre .hljs-bullet {
+  color: oklch(0.75 0.13 60);
+}
+.tiptap pre .hljs-title,
+.tiptap pre .hljs-section,
+.tiptap pre .hljs-name,
+.tiptap pre .hljs-function {
+  color: oklch(0.75 0.11 250);
+}
+.tiptap pre .hljs-attr,
+.tiptap pre .hljs-attribute,
+.tiptap pre .hljs-variable,
+.tiptap pre .hljs-template-variable,
+.tiptap pre .hljs-type {
+  color: oklch(0.76 0.11 20);
+}
+.tiptap pre .hljs-built_in,
+.tiptap pre .hljs-builtin-name,
+.tiptap pre .hljs-meta {
+  color: oklch(0.78 0.1 200);
+}
+.tiptap pre .hljs-deletion {
+  color: oklch(0.65 0.18 25);
+}
+.tiptap pre .hljs-emphasis {
+  font-style: italic;
+}
+.tiptap pre .hljs-strong {
+  font-weight: 700;
+}
 .tiptap hr {
   border: none;
   border-top: 1px solid var(--border);
