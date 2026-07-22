@@ -36,11 +36,17 @@ import { SlashCommand } from "./slash-command";
 import { Toc } from "./toc";
 import { cn } from "@/lib/utils";
 
+function countWords(text: string): number {
+  const t = text.trim();
+  return t ? t.split(/\s+/).length : 0;
+}
+
 export function RichEditor({
   content,
   editable = true,
   placeholder = "Type '/' for commands…",
   onChange,
+  onStats,
   className,
   mentionItems,
 }: {
@@ -48,10 +54,17 @@ export function RichEditor({
   editable?: boolean;
   placeholder?: string;
   onChange?: (json: JSONContent) => void;
+  /** Called (debounced) with document stats, e.g. for a word-count footer. */
+  onStats?: (stats: { words: number }) => void;
   className?: string;
   mentionItems?: MentionItem[];
 }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onStatsRef = useRef(onStats);
+  useEffect(() => {
+    onStatsRef.current = onStats;
+  }, [onStats]);
   // Post-paste "render as" chooser for a bare URL.
   const [linkChooser, setLinkChooser] = useState<
     { url: string; from: number; to: number; top: number; left: number } | null
@@ -181,7 +194,16 @@ export function RichEditor({
         return false;
       },
     },
+    onCreate: ({ editor }) => {
+      onStatsRef.current?.({ words: countWords(editor.state.doc.textContent) });
+    },
     onUpdate: ({ editor }) => {
+      if (onStatsRef.current) {
+        if (statsTimer.current) clearTimeout(statsTimer.current);
+        statsTimer.current = setTimeout(() => {
+          onStatsRef.current?.({ words: countWords(editor.state.doc.textContent) });
+        }, 300);
+      }
       if (!onChange) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => onChange(editor.getJSON()), 600);
@@ -200,6 +222,7 @@ export function RichEditor({
   useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (statsTimer.current) clearTimeout(statsTimer.current);
     };
   }, []);
 

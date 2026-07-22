@@ -76,6 +76,7 @@ export function PageView({
   const [icon, setIcon] = useState(page.icon);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [words, setWords] = useState<number | null>(null);
 
   const linkedIds = new Set(page.linkedIssues.map((i) => i.id));
   const linkable = allIssues.filter((i) => !linkedIds.has(i.id));
@@ -205,10 +206,16 @@ export function PageView({
             <RichEditor
               content={(page.content as JSONContent) ?? null}
               onChange={saveContent}
+              onStats={({ words: w }) => setWords(w)}
               placeholder="Write something… ('/' for blocks, '@' to link)"
               mentionItems={mentionItems}
             />
           </div>
+          {words !== null && (
+            <p className="mt-2 text-right text-[11px] text-muted-foreground/70">
+              {words} {words === 1 ? "word" : "words"}
+            </p>
+          )}
 
           {/* Linked tasks */}
           <div className="mt-10 border-t pt-5">
