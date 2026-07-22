@@ -56,6 +56,15 @@
   --hl-blue: #bfdbfe;
   --hl-pink: #fbcfe8;
   --hl-orange: #fed7aa;
+  --bg-block-gray: #f1f1ef;
+  --bg-block-brown: #f4eeee;
+  --bg-block-orange: #fbecdd;
+  --bg-block-yellow: #fbf3db;
+  --bg-block-green: #edf3ec;
+  --bg-block-blue: #e7f3f8;
+  --bg-block-purple: #f6f3f9;
+  --bg-block-pink: #faf1f5;
+  --bg-block-red: #fdebec;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -99,6 +108,15 @@
   --hl-blue: #1e3a8a;
   --hl-pink: #831843;
   --hl-orange: #7c2d12;
+  --bg-block-gray: #2f2f2f;
+  --bg-block-brown: #4a3228;
+  --bg-block-orange: #5c3b23;
+  --bg-block-yellow: #564328;
+  --bg-block-green: #243d30;
+  --bg-block-blue: #143a4e;
+  --bg-block-purple: #3c2d49;
+  --bg-block-pink: #4e2c3c;
+  --bg-block-red: #522e2a;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -561,6 +579,21 @@ a.entity-ref {
   padding: 0;
   color: inherit;
 }
+/* Notion-style block background tints (data-bg from BlockBackground). */
+.tiptap [data-bg] {
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.375rem;
+}
+.tiptap [data-bg="gray"] { background: var(--bg-block-gray); }
+.tiptap [data-bg="brown"] { background: var(--bg-block-brown); }
+.tiptap [data-bg="orange"] { background: var(--bg-block-orange); }
+.tiptap [data-bg="yellow"] { background: var(--bg-block-yellow); }
+.tiptap [data-bg="green"] { background: var(--bg-block-green); }
+.tiptap [data-bg="blue"] { background: var(--bg-block-blue); }
+.tiptap [data-bg="purple"] { background: var(--bg-block-purple); }
+.tiptap [data-bg="pink"] { background: var(--bg-block-pink); }
+.tiptap [data-bg="red"] { background: var(--bg-block-red); }
+
 /* Code block node view: hover chrome anchors to the wrapper. */
 .code-block-wrap {
   position: relative;

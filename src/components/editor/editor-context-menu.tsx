@@ -28,6 +28,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { BLOCK_BG_COLORS } from "./block-background";
 import { TURN_INTO_OPTIONS } from "./turn-into";
 
 /** Right-click menu for the editor: formatting, turn-into, block actions,
@@ -151,6 +152,31 @@ export function EditorContextMenu({
               <ContextMenuItem key={o.key} className="gap-2" onClick={() => o.run(editor)}>
                 {o.icon}
                 {o.label}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>Color</ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-44">
+            <ContextMenuItem
+              className="gap-2"
+              onClick={() => editor.chain().focus().setBlockBackground(null).run()}
+            >
+              <span className="size-4 rounded-sm border" /> Default
+            </ContextMenuItem>
+            {BLOCK_BG_COLORS.map((c) => (
+              <ContextMenuItem
+                key={c.name}
+                className="gap-2"
+                onClick={() => editor.chain().focus().setBlockBackground(c.name).run()}
+              >
+                <span
+                  className="size-4 rounded-sm ring-1 ring-inset ring-black/10"
+                  style={{ backgroundColor: `var(--bg-block-${c.name})` }}
+                />
+                {c.label} background
               </ContextMenuItem>
             ))}
           </ContextMenuSubContent>

@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { BLOCK_BG_COLORS } from "./block-background";
 import { currentBlockLabel, HIGHLIGHT_COLORS, TURN_INTO_OPTIONS } from "./turn-into";
 
 const TEXT_COLORS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#a855f7"];
@@ -59,7 +60,7 @@ function Btn({
 const Divider = () => <span className="mx-0.5 h-5 w-px bg-border" />;
 
 export function EditorBubbleMenu({ editor }: { editor: Editor }) {
-  const [palette, setPalette] = useState<"none" | "color" | "highlight">("none");
+  const [palette, setPalette] = useState<"none" | "color" | "highlight" | "bg">("none");
 
   const setLink = () => {
     const prev = editor.getAttributes("link").href as string | undefined;
@@ -187,6 +188,40 @@ export function EditorBubbleMenu({ editor }: { editor: Editor }) {
       >
         <Highlighter className="size-4" />
       </Btn>
+
+      {/* Block background palette toggle */}
+      <Btn
+        title="Block background"
+        active={palette === "bg"}
+        onClick={() => setPalette((p) => (p === "bg" ? "none" : "bg"))}
+      >
+        <span className="size-3.5 rounded-sm border" style={{ background: "var(--bg-block-yellow)" }} />
+      </Btn>
+
+      {palette === "bg" && (
+        <>
+          <Divider />
+          <Btn title="No background" onClick={() => editor.chain().focus().setBlockBackground(null).run()}>
+            <span className="text-xs">✕</span>
+          </Btn>
+          {BLOCK_BG_COLORS.map((c) => (
+            <button
+              key={c.name}
+              type="button"
+              title={`${c.label} background`}
+              aria-label={`${c.label} background`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().setBlockBackground(c.name).run()}
+              className="grid size-7 place-items-center rounded hover:bg-accent"
+            >
+              <span
+                className="size-3.5 rounded ring-1 ring-inset ring-black/10"
+                style={{ backgroundColor: `var(--bg-block-${c.name})` }}
+              />
+            </button>
+          ))}
+        </>
+      )}
 
       {palette === "color" && (
         <>

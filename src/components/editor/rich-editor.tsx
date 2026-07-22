@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 import { uploadEditorImage } from "@/lib/actions";
 import type { MentionItem } from "@/lib/types";
+import { BlockBackground } from "./block-background";
 import { BlockId } from "./block-id";
 import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
@@ -116,6 +117,7 @@ export function RichEditor({
       }),
       SlashCommand,
       Indent,
+      BlockBackground,
       Details.configure({ persist: true, HTMLAttributes: { class: "details" } }),
       DetailsSummary,
       DetailsContent,
