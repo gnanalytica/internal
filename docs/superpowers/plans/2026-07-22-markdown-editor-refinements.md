@@ -39,7 +39,7 @@
   - `{ type: "columnBlock", content: [{ type: "column", content: [blocks...] }, ...] }`
   - `{ type: "toc" }`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to the `describe("docToMarkdown", ...)` block in `src/lib/markdown.test.ts`:
 
@@ -114,12 +114,12 @@ Append to the `describe("docToMarkdown", ...)` block in `src/lib/markdown.test.t
   });
 ```
 
-- [ ] **Step 2: Run tests to verify the new ones fail**
+- [x] **Step 2: Run tests to verify the new ones fail**
 
 Run: `npm test`
 Expected: the details test FAILS (empty/incorrect output), the columns test FAILS, the toc test FAILS (toc renders as ""; joined output becomes "Body" — if this one already passes because unknown nodes render empty and get filtered, that is fine, keep it as a regression guard). The indent/textAlign test should already PASS (attrs are ignored by design) — also a regression guard.
 
-- [ ] **Step 3: Implement the conversions**
+- [x] **Step 3: Implement the conversions**
 
 In `src/lib/markdown.ts`, add three cases to the `switch` in `block()` before `default:`:
 
@@ -145,12 +145,12 @@ In `src/lib/markdown.ts`, add three cases to the `switch` in `block()` before `d
       return "";
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test`
 Expected: all tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/markdown.ts src/lib/markdown.test.ts
@@ -174,7 +174,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 There is no headless test rig for TipTap in this repo (vitest has no DOM environment configured); this task is verified by typecheck + manual pass in Task 10. Keep the extension logic pure and small.
 
-- [ ] **Step 1: Create `src/components/editor/indent.ts`**
+- [x] **Step 1: Create `src/components/editor/indent.ts`**
 
 ```ts
 "use client";
@@ -294,7 +294,7 @@ Notes for the implementer:
 - `priority: 1000` makes these Tab bindings win over StarterKit's list-item bindings; the handler re-implements the list behavior explicitly so Tab is ALWAYS swallowed (a failed `sinkListItem` on a first item must not move browser focus).
 - The `isActive("codeBlock")` check is false for a selection spanning a code block plus other blocks, which gives the spec's "entire selection inside one code block" guard for free.
 
-- [ ] **Step 2: Register the extension in `rich-editor.tsx`**
+- [x] **Step 2: Register the extension in `rich-editor.tsx`**
 
 Add the import and put `Indent` in the extensions array (after `SlashCommand`):
 
@@ -308,7 +308,7 @@ import { Indent } from "./indent";
       Callout,
 ```
 
-- [ ] **Step 3: Add indent CSS to `globals.css`**
+- [x] **Step 3: Add indent CSS to `globals.css`**
 
 Add after the `.tiptap li { ... }` rule:
 
@@ -321,12 +321,12 @@ Add after the `.tiptap li { ... }` rule:
 .tiptap [data-indent="6"] { padding-left: 9rem; }
 ```
 
-- [ ] **Step 4: Typecheck and lint**
+- [x] **Step 4: Typecheck and lint**
 
 Run: `npx tsc --noEmit && npm run lint`
 Expected: no errors (pre-existing warnings unrelated to editor files are acceptable).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/editor/indent.ts src/components/editor/rich-editor.tsx src/app/globals.css
@@ -344,7 +344,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 **Interfaces:** none — pure CSS.
 
-- [ ] **Step 1: Add nested marker rules**
+- [x] **Step 1: Add nested marker rules**
 
 In `globals.css`, directly after the existing `.tiptap ul { list-style: disc; }` and `.tiptap ol { list-style: decimal; }` rules, add:
 
@@ -363,12 +363,12 @@ In `globals.css`, directly after the existing `.tiptap ul { list-style: disc; }`
 
 (The `ul[data-type="taskList"]` rules already neutralize `list-style` for task lists, and nested task lists inherit that — no change needed.)
 
-- [ ] **Step 2: Manual spot check**
+- [x] **Step 2: Manual spot check**
 
 Run: `npm run dev`, open any page with the editor, type a bullet list, Tab twice on sub-items.
 Expected: markers cycle • → ○ → ▪; ordered lists cycle 1. → a. → i.; nested task lists stay checkbox-styled.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/app/globals.css
@@ -391,17 +391,17 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: markdown `details` conversion from Task 1 (node names must match: `details`, `detailsSummary`, `detailsContent` — these are the extension's built-in names, do not rename).
 - Produces: Details nodes available in the schema; slash command "Toggle". Task 8's turn-into module inserts the same `details` JSON shape.
 
-- [ ] **Step 1: Install the extension**
+- [x] **Step 1: Install the extension**
 
 Run: `npm install @tiptap/extension-details@^3`
 Expected: adds one line to package.json dependencies; version ^3.x.
 
-- [ ] **Step 2: Verify the rendered markup before styling**
+- [x] **Step 2: Verify the rendered markup before styling**
 
 Run: `grep -o "renderHTML[^}]*" node_modules/@tiptap/extension-details/dist/index.js | head -5` and skim the output (or open the file).
 Expected: `Details` renders a `div` with `data-type="details"` containing a toggle `<button>` (added by its node view), `DetailsSummary` renders a `summary`, `DetailsContent` a `div` with `data-type="detailsContent"`. If the markup differs, adjust the CSS selectors in Step 5 to match what you actually find — the selectors below assume this markup.
 
-- [ ] **Step 3: Register in `rich-editor.tsx`**
+- [x] **Step 3: Register in `rich-editor.tsx`**
 
 ```ts
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
@@ -428,7 +428,7 @@ Also extend the Placeholder config so an empty summary gets a hint. Replace the 
       }),
 ```
 
-- [ ] **Step 4: Add the slash command**
+- [x] **Step 4: Add the slash command**
 
 In `slash-command.ts`, add `ChevronRight` to the lucide imports and add to `COMMANDS` (in the `Blocks` group, after "Divider"):
 
@@ -455,7 +455,7 @@ In `slash-command.ts`, add `ChevronRight` to the lucide imports and add to `COMM
   },
 ```
 
-- [ ] **Step 5: Style the toggle in `globals.css`**
+- [x] **Step 5: Style the toggle in `globals.css`**
 
 Add after the callout rules:
 
@@ -506,13 +506,13 @@ Add after the callout rules:
 }
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `npx tsc --noEmit && npm test` (markdown tests from Task 1 must still pass).
 Then `npm run dev`: type `/toggle`, insert one, type a summary, press Enter into the body, collapse/expand with the chevron. Reload the page — the open/closed state persists (persist: true) and content survives. Also open the page's read-only view and confirm the chevron still toggles.
 Expected: all of the above work.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add package.json package-lock.json src/components/editor/rich-editor.tsx src/components/editor/slash-command.ts src/app/globals.css
@@ -535,7 +535,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: markdown `columnBlock`/`column` conversion from Task 1.
 - Produces: `ColumnBlock` and `Column` node exports (names `columnBlock`, `column`).
 
-- [ ] **Step 1: Create `src/components/editor/columns.ts`**
+- [x] **Step 1: Create `src/components/editor/columns.ts`**
 
 ```ts
 import { Node, mergeAttributes } from "@tiptap/core";
@@ -586,7 +586,7 @@ export const Column = Node.create({
 });
 ```
 
-- [ ] **Step 2: Register both nodes in `rich-editor.tsx`**
+- [x] **Step 2: Register both nodes in `rich-editor.tsx`**
 
 ```ts
 import { Column, ColumnBlock } from "./columns";
@@ -599,7 +599,7 @@ Extensions array (after the Details trio):
       Column,
 ```
 
-- [ ] **Step 3: Add slash commands**
+- [x] **Step 3: Add slash commands**
 
 In `slash-command.ts`, import `Columns2` and `Columns3` from lucide, add a helper next to the `callout` helper:
 
@@ -642,7 +642,7 @@ And two commands in the `Blocks` group:
 
 (`insertContent` places the block at the nearest valid position; since `column` content forbids `columnBlock`, ProseMirror hoists the insertion out of a column automatically — verify in Step 5.)
 
-- [ ] **Step 4: Style columns in `globals.css`**
+- [x] **Step 4: Style columns in `globals.css`**
 
 ```css
 .tiptap .column-block {
@@ -668,13 +668,13 @@ And two commands in the `Blocks` group:
 }
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `npx tsc --noEmit && npm test`.
 Then `npm run dev`: insert `/columns` (2 and 3), type in each column, put a bullet list and heading inside a column; try `/columns` while the cursor is inside a column and confirm the new block lands outside (not nested); confirm dashed borders show only while editing and the read-only view renders columns cleanly.
 Expected: all of the above.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/editor/columns.ts src/components/editor/rich-editor.tsx src/components/editor/slash-command.ts src/app/globals.css
@@ -698,7 +698,7 @@ Custom atom node + React node view that reads headings straight from the doc and
 - Consumes: `blockId` attribute on top-level headings (from the existing BlockId extension); markdown `toc` omission from Task 1.
 - Produces: `Toc` node export (name `toc`).
 
-- [ ] **Step 1: Create `src/components/editor/toc.tsx`**
+- [x] **Step 1: Create `src/components/editor/toc.tsx`**
 
 ```tsx
 "use client";
@@ -799,7 +799,7 @@ export const Toc = Node.create({
 });
 ```
 
-- [ ] **Step 2: Register in `rich-editor.tsx`**
+- [x] **Step 2: Register in `rich-editor.tsx`**
 
 ```ts
 import { Toc } from "./toc";
@@ -811,7 +811,7 @@ Extensions array (after `Column`):
       Toc,
 ```
 
-- [ ] **Step 3: Add slash command**
+- [x] **Step 3: Add slash command**
 
 Import `ListTree` in `slash-command.ts` and add to the `Blocks` group:
 
@@ -826,12 +826,12 @@ Import `ListTree` in `slash-command.ts` and add to the `Blocks` group:
   },
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npx tsc --noEmit && npm test`.
 Then `npm run dev`: insert `/table of contents` at the top of a page with several headings. Expected: it lists headings with level-based indentation, updates as you add/rename headings, empty-state text shows on a heading-less page, and clicking an entry scrolls to the heading with the flash effect. Works in read-only view too.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/editor/toc.tsx src/components/editor/rich-editor.tsx src/components/editor/slash-command.ts
@@ -856,12 +856,12 @@ Emoji uses the `gitHubEmojis` dataset from `@tiptap/extension-emoji` but inserts
 - Consumes: `CommandList`-style popup positioning pattern from `slash-command.ts` (duplicated here deliberately — the render plumbing is suggestion-specific).
 - Produces: `EmojiSuggestion` extension export; slash commands "Date", "Emoji", "Duplicate block".
 
-- [ ] **Step 1: Install and verify the dataset export**
+- [x] **Step 1: Install and verify the dataset export**
 
 Run: `npm install @tiptap/extension-emoji@^3 && grep -c "gitHubEmojis" node_modules/@tiptap/extension-emoji/dist/index.js`
 Expected: count ≥ 1. If the export is missing, check `node_modules/@tiptap/extension-emoji/dist/` for the data module and adjust the import in Step 2.
 
-- [ ] **Step 2: Create `src/components/editor/emoji-suggestion.tsx`**
+- [x] **Step 2: Create `src/components/editor/emoji-suggestion.tsx`**
 
 ```tsx
 "use client";
@@ -1029,7 +1029,7 @@ export const EmojiSuggestion = Extension.create({
 });
 ```
 
-- [ ] **Step 3: Register in `rich-editor.tsx`**
+- [x] **Step 3: Register in `rich-editor.tsx`**
 
 ```ts
 import { EmojiSuggestion } from "./emoji-suggestion";
@@ -1041,7 +1041,7 @@ Extensions array (after `Toc`):
       EmojiSuggestion,
 ```
 
-- [ ] **Step 4: Add Date, Emoji, and Duplicate slash commands**
+- [x] **Step 4: Add Date, Emoji, and Duplicate slash commands**
 
 In `slash-command.ts`, import `CalendarDays`, `CopyPlus`, `Smile` from lucide and add to `COMMANDS` in the `Basic` group:
 
@@ -1090,13 +1090,13 @@ In `slash-command.ts`, import `CalendarDays`, `CopyPlus`, `Smile` from lucide an
 
 (`blockId: null` on the copy lets the BlockId plugin assign a fresh id.)
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `npx tsc --noEmit && npm test`.
 Then `npm run dev`: type `:fir` → popup shows 🔥 etc., Enter inserts the unicode char; `/date` inserts e.g. "Jul 22, 2026"; `/emoji` inserts `:` and typing 2+ chars opens the popup; `/duplicate` on a list block copies the whole list below with content intact. Confirm typing "3:30pm" does NOT open the emoji popup (query stops at the space; "30" alone matches nothing meaningful — if it does open annoyingly, raise the min query length to 3).
 Expected: all of the above.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add package.json package-lock.json src/components/editor/emoji-suggestion.tsx src/components/editor/rich-editor.tsx src/components/editor/slash-command.ts
@@ -1124,11 +1124,11 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
   - `function currentBlockLabel(editor: Editor): string`
   - `const HIGHLIGHT_COLORS: { name: string; value: string }[]` (CSS var references)
 
-- [ ] **Step 1: Install TextAlign**
+- [x] **Step 1: Install TextAlign**
 
 Run: `npm install @tiptap/extension-text-align@^3`
 
-- [ ] **Step 2: Register TextAlign in `rich-editor.tsx`**
+- [x] **Step 2: Register TextAlign in `rich-editor.tsx`**
 
 ```ts
 import TextAlign from "@tiptap/extension-text-align";
@@ -1140,7 +1140,7 @@ Extensions array (after `Highlight.configure(...)`):
       TextAlign.configure({ types: ["heading", "paragraph"] }),
 ```
 
-- [ ] **Step 3: Create `src/components/editor/turn-into.tsx`**
+- [x] **Step 3: Create `src/components/editor/turn-into.tsx`**
 
 ```tsx
 "use client";
@@ -1278,7 +1278,7 @@ export function currentBlockLabel(editor: Editor): string {
 }
 ```
 
-- [ ] **Step 4: Add highlight color variables and mark styling to `globals.css`**
+- [x] **Step 4: Add highlight color variables and mark styling to `globals.css`**
 
 In the `:root { ... }` block (where other theme vars live), add:
 
@@ -1312,7 +1312,7 @@ And with the other `.tiptap` rules:
 
 (Swatch values are stored in the document as `var(--hl-*)` strings, so existing highlights re-theme when the palette or mode changes. Old documents with the raw `#fef08a` keep working — the style attribute still resolves.)
 
-- [ ] **Step 5: Rewrite `editor-bubble-menu.tsx`**
+- [x] **Step 5: Rewrite `editor-bubble-menu.tsx`**
 
 Replace the file's content with:
 
@@ -1582,13 +1582,13 @@ function TableBtn({ onClick, children }: { onClick: () => void; children: React.
 
 Key changes vs the old file: turn-into dropdown at the start; alignment buttons; text color and highlight moved behind two toggle buttons that expand an inline swatch row (keeps the bar compact); every button uses `onMouseDown preventDefault` so clicking never collapses the text selection.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `npx tsc --noEmit && npm test && npm run lint`.
 Then `npm run dev`: select text → bubble shows Turn-into label matching the block type; convert a 3-paragraph selection to a bullet list and back; center a heading; apply each highlight color in light AND dark mode (text stays readable); remove highlight; text colors still work.
 Expected: all of the above.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add package.json package-lock.json src/components/editor/turn-into.tsx src/components/editor/editor-bubble-menu.tsx src/components/editor/rich-editor.tsx src/app/globals.css
@@ -1609,7 +1609,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: `TURN_INTO_OPTIONS` from `./turn-into` (Task 8); shadcn `context-menu` primitives (already in `src/components/ui/context-menu.tsx`); `toast` from sonner.
 - Produces: `EditorContextMenu` component: `{ editor: Editor; editable: boolean; children: React.ReactNode }`.
 
-- [ ] **Step 1: Create `src/components/editor/editor-context-menu.tsx`**
+- [x] **Step 1: Create `src/components/editor/editor-context-menu.tsx`**
 
 ```tsx
 "use client";
@@ -1795,7 +1795,7 @@ export function EditorContextMenu({
 }
 ```
 
-- [ ] **Step 2: Wire into `rich-editor.tsx`**
+- [x] **Step 2: Wire into `rich-editor.tsx`**
 
 ```ts
 import { EditorContextMenu } from "./editor-context-menu";
@@ -1815,11 +1815,11 @@ Replace the bare `<EditorContent editor={editor} />` line with:
 
 (`disabled` on the trigger keeps the native browser menu in read-only mode.)
 
-- [ ] **Step 3: Verify `ContextMenuTrigger` supports `disabled`**
+- [x] **Step 3: Verify `ContextMenuTrigger` supports `disabled`**
 
 Check `src/components/ui/context-menu.tsx` — the shadcn trigger forwards props to `ContextMenuPrimitive.Trigger`, which supports `disabled`. If this file is an older variant that doesn't forward it, add `disabled?: boolean` passthrough there.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npx tsc --noEmit && npm run lint && npm test`.
 Then `npm run dev`:
@@ -1830,7 +1830,7 @@ Then `npm run dev`:
 - Read-only page view → right-click shows the native browser menu.
 Expected: all of the above.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/editor/editor-context-menu.tsx src/components/editor/rich-editor.tsx
@@ -1845,12 +1845,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 **Files:** none created; fixes go wherever the pass finds problems.
 
-- [ ] **Step 1: Automated checks**
+- [x] **Step 1: Automated checks**
 
 Run: `npm test && npm run lint && npx tsc --noEmit && npm run build`
 Expected: all pass. Fix anything that fails before proceeding.
 
-- [ ] **Step 2: Manual checklist (`npm run dev`)**
+- [x] **Step 2: Manual checklist (`npm run dev`)**
 
 Keyboard:
 - Tab/Shift+Tab in a paragraph indents/outdents (up to 6 levels, floor 0); focus never leaves the editor even at the limits.
@@ -1875,11 +1875,11 @@ Regression:
 - Mentions (@), issue embeds, bookmarks, image paste/drop, block-link gutter all still work.
 - A page's markdown export (`docToMarkdown` consumers) produces sane output for a page using every new feature.
 
-- [ ] **Step 3: Fix and commit anything found**
+- [x] **Step 3: Fix and commit anything found**
 
 Each fix is its own commit: `fix(editor): <what>` + co-author trailer.
 
-- [ ] **Step 4: Mark the plan complete**
+- [x] **Step 4: Mark the plan complete**
 
 Check every box in this plan document, commit the plan file update:
 
