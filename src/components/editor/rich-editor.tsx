@@ -23,6 +23,7 @@ import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
 import { Column, ColumnBlock } from "./columns";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
+import { EditorContextMenu } from "./editor-context-menu";
 import { EmojiSuggestion } from "./emoji-suggestion";
 import { Embed } from "./embed";
 import { EntityRef } from "./mention";
@@ -256,7 +257,13 @@ export function RichEditor({
           <Link2 className="size-3.5" />
         </button>
       )}
-      <EditorContent editor={editor} />
+      {editor ? (
+        <EditorContextMenu editor={editor} editable={editable}>
+          <EditorContent editor={editor} />
+        </EditorContextMenu>
+      ) : (
+        <EditorContent editor={editor} />
+      )}
       {linkChooser && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setLinkChooser(null)} />
