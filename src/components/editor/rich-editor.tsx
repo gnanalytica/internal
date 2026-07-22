@@ -1,6 +1,7 @@
 "use client";
 
 import type { Editor } from "@tiptap/core";
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -97,12 +98,18 @@ export function RichEditor({
       TableHeader,
       TableCell,
       Placeholder.configure({
-        placeholder: ({ node }) =>
-          node.type.name === "heading" ? "Heading" : placeholder,
+        placeholder: ({ node }) => {
+          if (node.type.name === "heading") return "Heading";
+          if (node.type.name === "detailsSummary") return "Toggle title";
+          return placeholder;
+        },
         includeChildren: true,
       }),
       SlashCommand,
       Indent,
+      Details.configure({ persist: true, HTMLAttributes: { class: "details" } }),
+      DetailsSummary,
+      DetailsContent,
       Callout,
       IssueEmbed,
       Bookmark,

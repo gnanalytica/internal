@@ -8,6 +8,7 @@ import {
   Bookmark,
   CheckCircle2,
   CheckSquare,
+  ChevronRight,
   Code,
   Heading1,
   Heading2,
@@ -170,6 +171,26 @@ const COMMANDS: Cmd[] = [
     keywords: "divider hr rule separator",
     group: "Blocks",
     run: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run(),
+  },
+  {
+    title: "Toggle",
+    description: "Collapsible block with a summary",
+    icon: createElement(ChevronRight, { className: "size-4" }),
+    keywords: "toggle collapse details expand accordion",
+    group: "Blocks",
+    run: (e, r) =>
+      e
+        .chain()
+        .focus()
+        .deleteRange(r)
+        .insertContent({
+          type: "details",
+          content: [
+            { type: "detailsSummary" },
+            { type: "detailsContent", content: [{ type: "paragraph" }] },
+          ],
+        })
+        .run(),
   },
   {
     title: "Callout",

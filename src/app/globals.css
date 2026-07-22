@@ -385,6 +385,50 @@ a.entity-ref {
   border-left-color: #10b981;
   background-color: color-mix(in oklch, #10b981 9%, transparent);
 }
+.tiptap .details {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  margin: 0.35rem 0;
+  border-radius: 0.5rem;
+  padding: 0.15rem 0.25rem;
+}
+.tiptap .details > button {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-top: 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.tiptap .details > button:hover {
+  background: var(--accent);
+}
+.tiptap .details > button::before {
+  content: "\25B6";
+  transition: transform 0.15s ease;
+}
+.tiptap .details.is-open > button::before,
+.tiptap .details[open] > button::before {
+  transform: rotate(90deg);
+}
+.tiptap .details > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tiptap .details summary {
+  list-style: none;
+  font-weight: 600;
+}
+.tiptap .details summary::-webkit-details-marker {
+  display: none;
+}
+.tiptap .details [data-type="detailsContent"] > :first-child {
+  margin-top: 0.15rem;
+}
 .tiptap p {
   margin: 0.18rem 0;
   line-height: 1.7;
