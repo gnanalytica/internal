@@ -20,6 +20,7 @@ import type { MentionItem } from "@/lib/types";
 import { BlockId } from "./block-id";
 import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
+import { Column, ColumnBlock } from "./columns";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
 import { Embed } from "./embed";
 import { EntityRef } from "./mention";
@@ -110,6 +111,8 @@ export function RichEditor({
       Details.configure({ persist: true, HTMLAttributes: { class: "details" } }),
       DetailsSummary,
       DetailsContent,
+      ColumnBlock,
+      Column,
       Callout,
       IssueEmbed,
       Bookmark,

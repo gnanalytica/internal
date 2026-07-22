@@ -429,6 +429,27 @@ a.entity-ref {
 .tiptap .details [data-type="detailsContent"] > :first-child {
   margin-top: 0.15rem;
 }
+.tiptap .column-block {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 1rem;
+  margin: 0.5rem 0;
+}
+.tiptap .column {
+  min-width: 0;
+  border-radius: 0.5rem;
+  border: 1px dashed transparent;
+  padding: 0.25rem 0.5rem;
+}
+.tiptap.ProseMirror-focused .column {
+  border-color: color-mix(in oklch, var(--border) 70%, transparent);
+}
+@media (max-width: 640px) {
+  .tiptap .column-block {
+    grid-auto-flow: row;
+  }
+}
 .tiptap p {
   margin: 0.18rem 0;
   line-height: 1.7;

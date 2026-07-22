@@ -10,6 +10,8 @@ import {
   CheckSquare,
   ChevronRight,
   Code,
+  Columns2,
+  Columns3,
   Heading1,
   Heading2,
   Heading3,
@@ -69,6 +71,20 @@ const callout = (variant: "info" | "warn" | "success") => (e: Editor, r: Range) 
     .focus()
     .deleteRange(r)
     .insertContent({ type: "callout", attrs: { variant }, content: [{ type: "paragraph" }] })
+    .run();
+
+const columns = (count: 2 | 3) => (e: Editor, r: Range) =>
+  e
+    .chain()
+    .focus()
+    .deleteRange(r)
+    .insertContent({
+      type: "columnBlock",
+      content: Array.from({ length: count }, () => ({
+        type: "column",
+        content: [{ type: "paragraph" }],
+      })),
+    })
     .run();
 
 const COMMANDS: Cmd[] = [
@@ -171,6 +187,22 @@ const COMMANDS: Cmd[] = [
     keywords: "divider hr rule separator",
     group: "Blocks",
     run: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run(),
+  },
+  {
+    title: "Columns (2)",
+    description: "Two columns side by side",
+    icon: createElement(Columns2, { className: "size-4" }),
+    keywords: "columns two layout side",
+    group: "Blocks",
+    run: columns(2),
+  },
+  {
+    title: "Columns (3)",
+    description: "Three columns side by side",
+    icon: createElement(Columns3, { className: "size-4" }),
+    keywords: "columns three layout side",
+    group: "Blocks",
+    run: columns(3),
   },
   {
     title: "Toggle",
