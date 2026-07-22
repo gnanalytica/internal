@@ -422,6 +422,12 @@ a.entity-ref {
 .tiptap li {
   margin: 0.12rem 0;
 }
+.tiptap [data-indent="1"] { padding-left: 1.5rem; }
+.tiptap [data-indent="2"] { padding-left: 3rem; }
+.tiptap [data-indent="3"] { padding-left: 4.5rem; }
+.tiptap [data-indent="4"] { padding-left: 6rem; }
+.tiptap [data-indent="5"] { padding-left: 7.5rem; }
+.tiptap [data-indent="6"] { padding-left: 9rem; }
 .tiptap ul[data-type="taskList"] {
   list-style: none;
   padding-left: 0.2rem;

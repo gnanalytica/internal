@@ -22,6 +22,7 @@ import { Callout } from "./callout";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
 import { Embed } from "./embed";
 import { EntityRef } from "./mention";
+import { Indent } from "./indent";
 import { IssueEmbed } from "./issue-embed";
 import { SlashCommand } from "./slash-command";
 import { cn } from "@/lib/utils";
@@ -101,6 +102,7 @@ export function RichEditor({
         includeChildren: true,
       }),
       SlashCommand,
+      Indent,
       Callout,
       IssueEmbed,
       Bookmark,
