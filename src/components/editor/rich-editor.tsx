@@ -29,6 +29,7 @@ import { EditorContextMenu } from "./editor-context-menu";
 import { EmojiSuggestion } from "./emoji-suggestion";
 import { Embed } from "./embed";
 import { EntityRef } from "./mention";
+import { HeadingFold } from "./heading-fold";
 import { ResizableImage } from "./image-view";
 import { Indent } from "./indent";
 import { IssueEmbed } from "./issue-embed";
@@ -133,6 +134,7 @@ export function RichEditor({
       Indent,
       BlockBackground,
       BlockShortcuts,
+      HeadingFold,
       Details.configure({ persist: true, HTMLAttributes: { class: "details" } }),
       DetailsSummary,
       DetailsContent,
