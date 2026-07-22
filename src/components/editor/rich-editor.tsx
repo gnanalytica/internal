@@ -24,6 +24,7 @@ import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
 import { CodeBlock } from "./code-block";
 import { Column, ColumnBlock, DocWithColumns } from "./columns";
+import { EditorDragHandle } from "./drag-handle";
 import { EditorBubbleMenu } from "./editor-bubble-menu";
 import { EditorContextMenu } from "./editor-context-menu";
 import { EmojiSuggestion } from "./emoji-suggestion";
@@ -274,6 +275,7 @@ export function RichEditor({
       onMouseLeave={() => setBlockHover(null)}
     >
       {editor && editable && <EditorBubbleMenu editor={editor} />}
+      {editor && editable && <EditorDragHandle editor={editor} />}
       {blockHover && (
         <button
           type="button"

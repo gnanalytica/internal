@@ -595,6 +595,11 @@ a.entity-ref {
   padding: 0;
   color: inherit;
 }
+/* Drag handle grip (extension positions the wrapper; keep it above content). */
+.editor-drag-handle {
+  z-index: 20;
+}
+
 /* Collapsible headings: chevron gutter + hidden-section decorations. */
 .tiptap .fold-hidden {
   display: none;
