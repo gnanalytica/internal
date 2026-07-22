@@ -19,6 +19,7 @@ import {
   Info,
   List,
   ListFilter,
+  ListTree,
   ListOrdered,
   Minus,
   Quote,
@@ -187,6 +188,14 @@ const COMMANDS: Cmd[] = [
     keywords: "divider hr rule separator",
     group: "Blocks",
     run: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run(),
+  },
+  {
+    title: "Table of contents",
+    description: "Live index of this page's headings",
+    icon: createElement(ListTree, { className: "size-4" }),
+    keywords: "toc table of contents outline index headings",
+    group: "Blocks",
+    run: (e, r) => e.chain().focus().deleteRange(r).insertContent({ type: "toc" }).run(),
   },
   {
     title: "Columns (2)",

@@ -27,6 +27,7 @@ import { EntityRef } from "./mention";
 import { Indent } from "./indent";
 import { IssueEmbed } from "./issue-embed";
 import { SlashCommand } from "./slash-command";
+import { Toc } from "./toc";
 import { cn } from "@/lib/utils";
 
 export function RichEditor({
@@ -113,6 +114,7 @@ export function RichEditor({
       DetailsContent,
       ColumnBlock,
       Column,
+      Toc,
       Callout,
       IssueEmbed,
       Bookmark,
