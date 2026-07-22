@@ -62,6 +62,25 @@ function block(node: Node, depth = 0): string {
         .join("\n");
     case "issueEmbed":
       return "_[embedded issue view]_";
+    case "details": {
+      const summary = (node.content ?? []).find((c) => c.type === "detailsSummary");
+      const body = (node.content ?? []).find((c) => c.type === "detailsContent");
+      const parts = [`**${inline(summary?.content)}**`];
+      for (const c of body?.content ?? []) parts.push(block(c, depth));
+      return parts.filter((s) => s.length > 0).join("\n\n");
+    }
+    case "columnBlock":
+      return (node.content ?? [])
+        .map((col) =>
+          (col.content ?? [])
+            .map((c) => block(c, depth))
+            .filter((s) => s.length > 0)
+            .join("\n\n"),
+        )
+        .filter((s) => s.length > 0)
+        .join("\n\n");
+    case "toc":
+      return "";
     default:
       return inline(node.content);
   }
