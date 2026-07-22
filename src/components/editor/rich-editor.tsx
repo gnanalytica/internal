@@ -3,7 +3,6 @@
 import type { Editor } from "@tiptap/core";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import Highlight from "@tiptap/extension-highlight";
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import TaskItem from "@tiptap/extension-task-item";
@@ -30,6 +29,7 @@ import { EditorContextMenu } from "./editor-context-menu";
 import { EmojiSuggestion } from "./emoji-suggestion";
 import { Embed } from "./embed";
 import { EntityRef } from "./mention";
+import { ResizableImage } from "./image-view";
 import { Indent } from "./indent";
 import { IssueEmbed } from "./issue-embed";
 import { SlashCommand } from "./slash-command";
@@ -103,7 +103,7 @@ export function RichEditor({
       Color,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Image.configure({ inline: false }),
+      ResizableImage.configure({ inline: false }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,

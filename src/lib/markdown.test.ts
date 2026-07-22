@@ -144,6 +144,17 @@ describe("docToMarkdown", () => {
     expect(docToMarkdown(doc)).toBe("Body");
   });
 
+  it("renders images with captions as alt text", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        { type: "image", attrs: { src: "/x.png", caption: "Diagram" } },
+        { type: "image", attrs: { src: "/y.png" } },
+      ],
+    };
+    expect(docToMarkdown(doc)).toBe("![Diagram](/x.png)\n\n![](/y.png)");
+  });
+
   it("renders code block language fences", () => {
     const doc = {
       type: "doc",

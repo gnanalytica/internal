@@ -595,6 +595,29 @@ a.entity-ref {
   padding: 0;
   color: inherit;
 }
+/* Image node view: alignment + resize handles. */
+.tiptap .image-view {
+  margin: 0.6rem 0;
+}
+.tiptap .image-view[data-align="left"] {
+  text-align: left;
+}
+.tiptap .image-view[data-align="center"] {
+  text-align: center;
+}
+.tiptap .image-view[data-align="right"] {
+  text-align: right;
+}
+.image-resize-handle {
+  width: 6px;
+  height: 42px;
+  max-height: 60%;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--foreground) 60%, transparent);
+  border: 1px solid var(--background);
+  touch-action: none;
+}
+
 /* Notion-style block background tints (data-bg from BlockBackground). */
 .tiptap [data-bg] {
   border-radius: 0.25rem;

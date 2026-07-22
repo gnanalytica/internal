@@ -62,6 +62,8 @@ function block(node: Node, depth = 0): string {
           return `${"  ".repeat(depth)}- [${checked}] ${listItem(li, depth)}`;
         })
         .join("\n");
+    case "image":
+      return `![${node.attrs?.caption ?? ""}](${node.attrs?.src ?? ""})`;
     case "issueEmbed":
       return "_[embedded issue view]_";
     case "details": {
