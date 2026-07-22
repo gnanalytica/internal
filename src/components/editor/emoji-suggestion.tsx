@@ -13,10 +13,10 @@ import {
   useState,
 } from "react";
 
-type EmojiEntry = { name: string; emoji: string; shortcodes: string[]; tags: string[] };
+export type EmojiEntry = { name: string; emoji: string; shortcodes: string[]; tags: string[] };
 
 // Only entries with a real unicode char (skips custom-image emojis).
-const EMOJIS: EmojiEntry[] = (
+export const EMOJIS: EmojiEntry[] = (
   gitHubEmojis as { name: string; emoji?: string; shortcodes: string[]; tags: string[] }[]
 )
   .filter((e): e is EmojiEntry => Boolean(e.emoji))

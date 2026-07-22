@@ -60,7 +60,28 @@ describe("docToMarkdown", () => {
         { type: "callout", content: [{ type: "paragraph", content: [{ type: "text", text: "Note" }] }] },
       ],
     };
-    expect(docToMarkdown(doc)).toBe("@ENG-1\n\n> Note");
+    expect(docToMarkdown(doc)).toBe("@ENG-1\n\n> 💡 Note");
+  });
+
+  it("prefixes callouts with their emoji, blockquotes untouched", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "callout",
+          attrs: { emoji: "🔥" },
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Hot" }] },
+            { type: "paragraph", content: [{ type: "text", text: "Second" }] },
+          ],
+        },
+        {
+          type: "blockquote",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "Quote" }] }],
+        },
+      ],
+    };
+    expect(docToMarkdown(doc)).toBe("> 🔥 Hot\n> Second\n\n> Quote");
   });
 
   it("returns empty string for empty docs", () => {

@@ -37,10 +37,12 @@ function block(node: Node, depth = 0): string {
     case "paragraph":
       return inline(node.content);
     case "blockquote":
-    case "callout":
+    case "callout": {
+      const emoji = node.type === "callout" ? `${node.attrs?.emoji ?? "💡"} ` : "";
       return (node.content ?? [])
-        .map((c) => `> ${block(c, depth)}`)
+        .map((c, i) => `> ${i === 0 ? emoji : ""}${block(c, depth)}`)
         .join("\n");
+    }
     case "codeBlock":
       return `\`\`\`${node.attrs?.language ?? ""}\n${inline(node.content)}\n\`\`\``;
     case "horizontalRule":
