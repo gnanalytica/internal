@@ -20,6 +20,7 @@ import { uploadEditorImage } from "@/lib/actions";
 import type { MentionItem } from "@/lib/types";
 import { BlockBackground } from "./block-background";
 import { BlockId } from "./block-id";
+import { BlockShortcuts } from "./block-shortcuts";
 import { Bookmark } from "./bookmark";
 import { Callout } from "./callout";
 import { CodeBlock } from "./code-block";
@@ -118,6 +119,7 @@ export function RichEditor({
       SlashCommand,
       Indent,
       BlockBackground,
+      BlockShortcuts,
       Details.configure({ persist: true, HTMLAttributes: { class: "details" } }),
       DetailsSummary,
       DetailsContent,
