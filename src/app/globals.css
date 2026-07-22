@@ -416,8 +416,18 @@ a.entity-ref {
 .tiptap ul {
   list-style: disc;
 }
+.tiptap ul ul { list-style: circle; }
+.tiptap ul ul ul { list-style: square; }
+.tiptap ul ul ul ul { list-style: disc; }
 .tiptap ol {
   list-style: decimal;
+}
+.tiptap ol ol { list-style: lower-alpha; }
+.tiptap ol ol ol { list-style: lower-roman; }
+.tiptap ol ol ol ol { list-style: decimal; }
+.tiptap li > ul,
+.tiptap li > ol {
+  margin: 0.1rem 0;
 }
 .tiptap li {
   margin: 0.12rem 0;
