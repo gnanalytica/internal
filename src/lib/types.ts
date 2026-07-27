@@ -377,6 +377,37 @@ export type ActivityItem = {
 
 export type TimelineItem = CommentItem | ActivityItem;
 
+/** A page comment (root or reply), with author, reactions and its replies. */
+export type PageCommentItem = {
+  id: string;
+  parentId: string | null;
+  blockId: string | null;
+  body: string;
+  createdAt: Date;
+  resolvedAt: Date | null;
+  author: Member | null;
+  reactions: ReactionSummary[];
+  replies: PageCommentItem[];
+};
+
+/** A page version history entry (content omitted in the list view). */
+export type PageVersionItem = {
+  id: string;
+  title: string;
+  cause: string; // auto | restore
+  createdAt: Date;
+  author: Member | null;
+};
+
+/** A remote user currently present on a page. */
+export type PresenceUser = {
+  userId: string;
+  name: string;
+  avatarColor: string;
+  color: string;
+  blockId: string | null;
+};
+
 export type PageNode = Page & { children: PageNode[] };
 
 export type FlatIssue = {

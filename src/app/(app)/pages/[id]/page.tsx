@@ -5,8 +5,11 @@ import { isAiConfigured } from "@/lib/ai";
 import {
   getBacklinks,
   getIssuesFlat,
+  getMembers,
   getMentionItems,
   getPage,
+  getPageComments,
+  getPageVersions,
   getWorkspace,
   isFavorite,
 } from "@/lib/data";
@@ -20,12 +23,16 @@ export default async function PageRoute({
   const ws = await getWorkspace();
   const page = await getPage(ws.id, id);
   if (!page) notFound();
-  const [allIssues, favorited, mentionItems, backlinks] = await Promise.all([
-    getIssuesFlat(ws.id),
-    isFavorite(ws.id, "page", id),
-    getMentionItems(ws.id),
-    getBacklinks(ws.id, "page", id),
-  ]);
+  const [allIssues, favorited, mentionItems, backlinks, comments, versions, members] =
+    await Promise.all([
+      getIssuesFlat(ws.id),
+      isFavorite(ws.id, "page", id),
+      getMentionItems(ws.id),
+      getBacklinks(ws.id, "page", id),
+      getPageComments(ws.id, id),
+      getPageVersions(ws.id, id),
+      getMembers(ws.id),
+    ]);
 
   return (
     <PageView
@@ -34,6 +41,9 @@ export default async function PageRoute({
       favorited={favorited}
       mentionItems={mentionItems}
       backlinks={backlinks}
+      comments={comments}
+      versions={versions}
+      members={members}
       aiEnabled={isAiConfigured()}
     />
   );

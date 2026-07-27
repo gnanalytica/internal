@@ -3,12 +3,20 @@
 import type { JSONContent } from "@tiptap/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Download, Link2, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AiGenerateIssues } from "@/components/ai-generate-issues";
 import { Backlinks } from "@/components/backlinks";
+import { PageComments } from "@/components/page-comments";
+import { PageCommentBadges } from "@/components/page-comment-badges";
+import { PageHistory } from "@/components/page-history";
+import {
+  PagePresenceAvatars,
+  PagePresenceOverlay,
+  usePagePresence,
+} from "@/components/page-presence";
 import { PageToc } from "@/components/page-toc";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { StatusIcon } from "@/components/glyphs";
@@ -45,7 +53,10 @@ import type {
   FlatIssue,
   IssueWithRelations,
   MentionItem,
+  Member,
   Page,
+  PageCommentItem,
+  PageVersionItem,
 } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import { docToMarkdown } from "@/lib/markdown";
@@ -61,6 +72,9 @@ export function PageView({
   favorited,
   mentionItems,
   backlinks,
+  comments,
+  versions,
+  members,
   aiEnabled,
 }: {
   page: Page & { linkedIssues: IssueWithRelations[] };
@@ -68,6 +82,9 @@ export function PageView({
   favorited: boolean;
   mentionItems: MentionItem[];
   backlinks: BacklinkItem[];
+  comments: PageCommentItem[];
+  versions: PageVersionItem[];
+  members: Member[];
   aiEnabled: boolean;
 }) {
   const router = useRouter();
@@ -77,6 +94,11 @@ export function PageView({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [words, setWords] = useState<number | null>(null);
+  const columnRef = useRef<HTMLDivElement | null>(null);
+  // The updatedAt the client loaded — sent with saves so updatePage can flag
+  // a concurrent edit by someone else (last-write-wins + a warning toast).
+  const loadedUpdatedAt = useRef(new Date(page.updatedAt).toISOString());
+  const others = usePagePresence(page.id);
 
   const linkedIds = new Set(page.linkedIssues.map((i) => i.id));
   const linkable = allIssues.filter((i) => !linkedIds.has(i.id));
@@ -101,7 +123,15 @@ export function PageView({
   }
 
   function saveContent(json: JSONContent) {
-    void updatePage(page.id, { content: json });
+    void updatePage(page.id, { content: json }, {
+      knownUpdatedAt: loadedUpdatedAt.current,
+    }).then((res) => {
+      // Our own write becomes the new baseline for the next conflict check.
+      loadedUpdatedAt.current = new Date().toISOString();
+      if (res?.conflict) {
+        toast.warning("Someone else edited this page — check version history for their changes.");
+      }
+    });
   }
 
   function onDelete() {
@@ -119,7 +149,9 @@ export function PageView({
         breadcrumb={[{ label: "Pages" }, { label: title || "Untitled" }]}
         actions={
           <>
+            <PagePresenceAvatars others={others} />
             <AiGenerateIssues pageId={page.id} enabled={aiEnabled} />
+            <PageHistory currentTitle={title || "Untitled"} versions={versions} />
             <FavoriteButton kind="page" targetId={page.id} initial={favorited} />
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -162,7 +194,14 @@ export function PageView({
 
       <div className="scrollbar-thin relative flex-1 overflow-y-auto">
         <PageToc headings={extractHeadings(page.content)} />
-        <div className="mx-auto w-full max-w-3xl px-12 py-12">
+        <div ref={columnRef} className="relative mx-auto w-full max-w-3xl px-12 py-12">
+          <PagePresenceOverlay others={others} columnRef={columnRef} />
+          <PageCommentBadges
+            pageId={page.id}
+            comments={comments}
+            members={members}
+            columnRef={columnRef}
+          />
           {/* Icon */}
           <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
             <PopoverTrigger
@@ -295,6 +334,11 @@ export function PageView({
               <Backlinks items={backlinks} />
             </div>
           )}
+
+          {/* Comments */}
+          <div className="mt-10 border-t pt-5">
+            <PageComments pageId={page.id} comments={comments} members={members} />
+          </div>
         </div>
       </div>
     </div>

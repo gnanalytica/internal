@@ -577,6 +577,107 @@ export const commentReactions = pgTable(
   ],
 );
 
+/**
+ * ---- Page collaboration (Notion parity, sub-projects B/C/D) ----
+ *
+ * Comments, version history and live presence on wiki/doc pages. Kept in
+ * page-specific tables (issue `comments` stays untouched) so FKs stay honest;
+ * generalizing across issues + pages is a "revisit when it hurts" seam.
+ */
+
+/** Threaded comments on a page, optionally anchored to an editor block. */
+export const pageComments = pgTable(
+  "page_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    // Self-reference for one level of threading (replies can't have replies).
+    parentId: uuid("parent_id"),
+    // The editor block's data-block-id this comment anchors to; null = page-level.
+    blockId: text("block_id"),
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("page_comments_page_idx").on(t.pageId),
+    index("page_comments_page_block_idx").on(t.pageId, t.blockId),
+  ],
+);
+
+/** Emoji reactions on a page comment (mirrors comment_reactions). */
+export const pageCommentReactions = pgTable(
+  "page_comment_reactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pageCommentId: uuid("page_comment_id")
+      .notNull()
+      .references(() => pageComments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("page_comment_reactions_unique_idx").on(
+      t.pageCommentId,
+      t.userId,
+      t.emoji,
+    ),
+    index("page_comment_reactions_comment_idx").on(t.pageCommentId),
+  ],
+);
+
+/** Point-in-time snapshots of a page's title + body for version history. */
+export const pageVersions = pgTable(
+  "page_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    content: jsonb("content"),
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    cause: text("cause").notNull().default("auto"), // auto | restore
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("page_versions_page_idx").on(t.pageId, t.createdAt)],
+);
+
+/** Live presence: who's viewing a page and which block they're on. */
+export const pagePresence = pgTable(
+  "page_presence",
+  {
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockId: text("block_id"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.pageId, t.userId] }),
+    index("page_presence_page_idx").on(t.pageId, t.lastSeenAt),
+  ],
+);
+
 // ---- Relations (for drizzle query API) ----
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -696,6 +797,42 @@ export const commentReactionsRelations = relations(commentReactions, ({ one }) =
     references: [comments.id],
   }),
   user: one(users, { fields: [commentReactions.userId], references: [users.id] }),
+}));
+
+export const pageCommentsRelations = relations(pageComments, ({ one, many }) => ({
+  page: one(pages, { fields: [pageComments.pageId], references: [pages.id] }),
+  author: one(users, { fields: [pageComments.authorId], references: [users.id] }),
+  parent: one(pageComments, {
+    fields: [pageComments.parentId],
+    references: [pageComments.id],
+    relationName: "page_comment_replies",
+  }),
+  replies: many(pageComments, { relationName: "page_comment_replies" }),
+  reactions: many(pageCommentReactions),
+}));
+
+export const pageCommentReactionsRelations = relations(
+  pageCommentReactions,
+  ({ one }) => ({
+    comment: one(pageComments, {
+      fields: [pageCommentReactions.pageCommentId],
+      references: [pageComments.id],
+    }),
+    user: one(users, {
+      fields: [pageCommentReactions.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const pageVersionsRelations = relations(pageVersions, ({ one }) => ({
+  page: one(pages, { fields: [pageVersions.pageId], references: [pages.id] }),
+  author: one(users, { fields: [pageVersions.authorId], references: [users.id] }),
+}));
+
+export const pagePresenceRelations = relations(pagePresence, ({ one }) => ({
+  page: one(pages, { fields: [pagePresence.pageId], references: [pages.id] }),
+  user: one(users, { fields: [pagePresence.userId], references: [users.id] }),
 }));
 
 export const issueRelationsRelations = relations(issueRelations, ({ one }) => ({

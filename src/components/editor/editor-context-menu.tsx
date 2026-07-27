@@ -11,6 +11,7 @@ import {
   Italic,
   Link as LinkIcon,
   Link2,
+  MessageSquarePlus,
   Scissors,
   Strikethrough,
   Trash2,
@@ -85,6 +86,21 @@ export function EditorContextMenu({
       `${window.location.origin}${window.location.pathname}#b-${blockId}`,
     );
     toast.success("Block link copied");
+  };
+
+  // Ask the surrounding page to open a comment thread anchored to this block.
+  // Decoupled via a DOM event so the editor stays agnostic of comments
+  // (the event has no listener inside issue views, where it's a no-op).
+  const commentOnBlock = () => {
+    const b = topBlock();
+    const blockId = (b?.node.attrs.blockId as string | null | undefined) ?? null;
+    if (!blockId) {
+      toast.error("Type something in this block first, then comment");
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("page:comment", { detail: { blockId } }),
+    );
   };
 
   const setLink = () => {
@@ -189,6 +205,9 @@ export function EditorContextMenu({
         </ContextMenuItem>
         <ContextMenuItem className="gap-2" onClick={copyBlockLink}>
           <Link2 className="size-4" /> Copy link to block
+        </ContextMenuItem>
+        <ContextMenuItem className="gap-2" onClick={commentOnBlock}>
+          <MessageSquarePlus className="size-4" /> Comment
         </ContextMenuItem>
         <ContextMenuItem className="gap-2 text-destructive" onClick={deleteBlock}>
           <Trash2 className="size-4" /> Delete block

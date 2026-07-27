@@ -37,6 +37,8 @@ import {
   orgRoles,
   metrics,
   notifications,
+  pageComments,
+  pageVersions,
   pages,
   projectStatusUpdates,
   references,
@@ -75,7 +77,9 @@ import type {
   MilestoneWithProgress,
   OrgRoleNode,
   Page,
+  PageCommentItem,
   PageNode,
+  PageVersionItem,
   PortfolioRow,
   Project,
   ProjectSummary,
@@ -765,6 +769,103 @@ export async function getPage(
       assignees: l.issue.assignees.map((a) => a.user),
     })),
   };
+}
+
+/** All comments on a page as a two-level tree (roots + one level of replies). */
+export async function getPageComments(
+  workspaceId: string,
+  pageId: string,
+): Promise<PageCommentItem[]> {
+  const me = await getCurrentUser(workspaceId);
+  const rows = await db.query.pageComments.findMany({
+    where: and(
+      eq(pageComments.workspaceId, workspaceId),
+      eq(pageComments.pageId, pageId),
+    ),
+    orderBy: [asc(pageComments.createdAt)],
+    with: { author: true, reactions: true },
+  });
+
+  const toItem = (c: (typeof rows)[number]): PageCommentItem => {
+    const byEmoji = new Map<string, { count: number; reactedByMe: boolean }>();
+    for (const r of c.reactions) {
+      const cur = byEmoji.get(r.emoji) ?? { count: 0, reactedByMe: false };
+      cur.count += 1;
+      if (r.userId === me.id) cur.reactedByMe = true;
+      byEmoji.set(r.emoji, cur);
+    }
+    return {
+      id: c.id,
+      parentId: c.parentId,
+      blockId: c.blockId,
+      body: c.body,
+      createdAt: c.createdAt,
+      resolvedAt: c.resolvedAt,
+      author: c.author,
+      reactions: [...byEmoji.entries()].map(([emoji, v]) => ({
+        emoji,
+        count: v.count,
+        reactedByMe: v.reactedByMe,
+      })),
+      replies: [],
+    };
+  };
+
+  const items = new Map(rows.map((c) => [c.id, toItem(c)]));
+  const roots: PageCommentItem[] = [];
+  for (const c of rows) {
+    const item = items.get(c.id)!;
+    if (c.parentId && items.has(c.parentId)) {
+      items.get(c.parentId)!.replies.push(item);
+    } else {
+      roots.push(item);
+    }
+  }
+  // Roots newest-first; replies stay oldest-first (thread reading order).
+  roots.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  return roots;
+}
+
+/** Version history entries for a page, newest-first (content omitted). */
+export async function getPageVersions(
+  workspaceId: string,
+  pageId: string,
+): Promise<PageVersionItem[]> {
+  const rows = await db.query.pageVersions.findMany({
+    where: and(
+      eq(pageVersions.workspaceId, workspaceId),
+      eq(pageVersions.pageId, pageId),
+    ),
+    orderBy: [desc(pageVersions.createdAt)],
+    columns: { id: true, title: true, cause: true, createdAt: true },
+    with: { author: true },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    cause: r.cause,
+    createdAt: r.createdAt,
+    author: r.author,
+  }));
+}
+
+/** Full content of a single version (for the read-only preview). */
+export async function getPageVersion(
+  workspaceId: string,
+  versionId: string,
+): Promise<{ id: string; title: string; content: unknown } | null> {
+  const [row] = await db
+    .select({
+      id: pageVersions.id,
+      title: pageVersions.title,
+      content: pageVersions.content,
+    })
+    .from(pageVersions)
+    .where(
+      and(eq(pageVersions.workspaceId, workspaceId), eq(pageVersions.id, versionId)),
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 // ---- Cycles ----

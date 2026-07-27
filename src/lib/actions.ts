@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ilike, inArray, isNull, max, or } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, lt, max, or } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -37,6 +37,10 @@ import {
   milestones,
   orgRoles,
   notifications,
+  pageComments,
+  pageCommentReactions,
+  pagePresence,
+  pageVersions,
   projectStatusUpdates,
   references,
   savedViews,
@@ -66,6 +70,13 @@ import {
   newWebhookSecret,
 } from "@/lib/api/webhooks";
 import { findMentionedMemberIds } from "@/lib/mentions";
+import {
+  PRESENCE_STALE_MS,
+  VERSION_RETENTION,
+  presenceColor,
+  shouldSnapshot,
+} from "@/lib/page-collab";
+import type { PresenceUser } from "@/lib/types";
 import { isRelationType } from "@/lib/issue-relations";
 import { extractReferences } from "@/lib/references";
 import { snippetAround } from "@/lib/snippet";
@@ -781,14 +792,62 @@ export async function createPage(
 export async function updatePage(
   id: string,
   patch: Partial<{ title: string; icon: string; content: unknown }>,
-) {
+  opts?: { knownUpdatedAt?: string | null },
+): Promise<{ conflict: boolean }> {
   const ws = await getWorkspace();
-  const values: Record<string, unknown> = { updatedAt: new Date() };
+  const now = new Date();
+  const values: Record<string, unknown> = { updatedAt: now };
   if (patch.title !== undefined) values.title = patch.title;
   if (patch.icon !== undefined) values.icon = patch.icon;
+
+  let conflict = false;
+
+  // A content save is the interesting case: it drives versioning + the
+  // last-write-wins conflict check. Read the current row once for both.
   if (patch.content !== undefined) {
     values.content = patch.content;
     values.contentText = docToText(patch.content).slice(0, 20000);
+
+    const [current] = await db
+      .select({
+        title: pages.title,
+        content: pages.content,
+        updatedAt: pages.updatedAt,
+      })
+      .from(pages)
+      .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)))
+      .limit(1);
+
+    // Conflict guard: if the DB was written after the copy the client loaded,
+    // someone else edited it. We still apply (LWW) but flag it so the client
+    // can warn and point the user at version history.
+    if (current && opts?.knownUpdatedAt) {
+      const known = new Date(opts.knownUpdatedAt).getTime();
+      if (current.updatedAt.getTime() - known > 1000) conflict = true;
+    }
+
+    // Snapshot the PRE-update state at most once per window (see spec).
+    if (current) {
+      const me = await getCurrentUser(ws.id);
+      const [last] = await db
+        .select({ createdAt: pageVersions.createdAt })
+        .from(pageVersions)
+        .where(eq(pageVersions.pageId, id))
+        .orderBy(desc(pageVersions.createdAt))
+        .limit(1);
+      if (shouldSnapshot(last?.createdAt ?? null, now)) {
+        await db.insert(pageVersions).values({
+          workspaceId: ws.id,
+          pageId: id,
+          title: current.title,
+          content: current.content,
+          authorId: me.id,
+          cause: "auto",
+        });
+        await prunePageVersions(id);
+      }
+    }
+
     await syncReferences(ws.id, "page", id, patch.content);
   }
 
@@ -799,6 +858,105 @@ export async function updatePage(
 
   revalidatePath("/", "layout");
   revalidatePath(`/pages/${id}`);
+  return { conflict };
+}
+
+/** Keep only the newest VERSION_RETENTION versions for a page. */
+async function prunePageVersions(pageId: string) {
+  const keep = await db
+    .select({ id: pageVersions.id })
+    .from(pageVersions)
+    .where(eq(pageVersions.pageId, pageId))
+    .orderBy(desc(pageVersions.createdAt))
+    .limit(VERSION_RETENTION);
+  if (keep.length < VERSION_RETENTION) return;
+  const cutoff = keep[keep.length - 1];
+  const [cutoffRow] = await db
+    .select({ createdAt: pageVersions.createdAt })
+    .from(pageVersions)
+    .where(eq(pageVersions.id, cutoff.id))
+    .limit(1);
+  if (!cutoffRow) return;
+  await db
+    .delete(pageVersions)
+    .where(
+      and(
+        eq(pageVersions.pageId, pageId),
+        lt(pageVersions.createdAt, cutoffRow.createdAt),
+      ),
+    );
+}
+
+/** Load a single version's full content (for the read-only history preview). */
+export async function loadPageVersionContent(
+  versionId: string,
+): Promise<{ id: string; title: string; content: unknown } | null> {
+  const ws = await getWorkspace();
+  const [row] = await db
+    .select({
+      id: pageVersions.id,
+      title: pageVersions.title,
+      content: pageVersions.content,
+    })
+    .from(pageVersions)
+    .where(
+      and(eq(pageVersions.workspaceId, ws.id), eq(pageVersions.id, versionId)),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Restore a page to an earlier version. Snapshots the current state first
+ * (cause 'restore') so the restore is itself undoable.
+ */
+export async function restorePageVersion(versionId: string) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [version] = await db
+    .select({
+      pageId: pageVersions.pageId,
+      title: pageVersions.title,
+      content: pageVersions.content,
+    })
+    .from(pageVersions)
+    .where(
+      and(eq(pageVersions.workspaceId, ws.id), eq(pageVersions.id, versionId)),
+    )
+    .limit(1);
+  if (!version) throw new Error("Version not found.");
+
+  const [current] = await db
+    .select({ title: pages.title, content: pages.content })
+    .from(pages)
+    .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, version.pageId)))
+    .limit(1);
+  if (!current) throw new Error("Page not found.");
+
+  // Safety snapshot of the state we're overwriting.
+  await db.insert(pageVersions).values({
+    workspaceId: ws.id,
+    pageId: version.pageId,
+    title: current.title,
+    content: current.content,
+    authorId: me.id,
+    cause: "restore",
+  });
+  await prunePageVersions(version.pageId);
+
+  await db
+    .update(pages)
+    .set({
+      title: version.title,
+      content: version.content,
+      contentText: docToText(version.content).slice(0, 20000),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, version.pageId)));
+  await syncReferences(ws.id, "page", version.pageId, version.content);
+
+  revalidatePath("/", "layout");
+  revalidatePath(`/pages/${version.pageId}`);
 }
 
 /** Soft-delete: move a page (and its descendants) to the trash. */
@@ -849,6 +1007,214 @@ export async function deletePageForever(id: string) {
   await db.delete(pages).where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
   revalidatePath("/trash");
   revalidatePath("/", "layout");
+}
+
+// ---- Page comments ----
+
+async function loadPageForComment(workspaceId: string, pageId: string) {
+  const [page] = await db
+    .select({ title: pages.title, creatorId: pages.creatorId })
+    .from(pages)
+    .where(and(eq(pages.workspaceId, workspaceId), eq(pages.id, pageId)))
+    .limit(1);
+  return page ?? null;
+}
+
+export async function createPageComment(
+  pageId: string,
+  body: string,
+  opts?: { blockId?: string | null; parentId?: string | null },
+) {
+  const text = body.trim();
+  if (!text) return;
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+
+  await db.insert(pageComments).values({
+    workspaceId: ws.id,
+    pageId,
+    parentId: opts?.parentId ?? null,
+    blockId: opts?.blockId ?? null,
+    authorId: me.id,
+    body: text,
+  });
+
+  // Notify the page creator + @-mentioned members (a mention wins over the
+  // generic notice so nobody is pinged twice). Page comments aren't tied to an
+  // issue, so notifications carry no issueId.
+  const page = await loadPageForComment(ws.id, pageId);
+  if (page) {
+    const members = await getMembers(ws.id);
+    const mentioned = new Set(
+      findMentionedMemberIds(text, members).filter((uid) => uid !== me.id),
+    );
+    const commented = new Set(
+      [page.creatorId].filter(
+        (uid): uid is string => uid != null && uid !== me.id && !mentioned.has(uid),
+      ),
+    );
+    const rows = [
+      ...[...mentioned].map((userId) => ({
+        workspaceId: ws.id,
+        userId,
+        actorId: me.id,
+        type: "mentioned",
+        title: `${me.name} mentioned you on ${page.title}`,
+        body: text.slice(0, 140),
+      })),
+      ...[...commented].map((userId) => ({
+        workspaceId: ws.id,
+        userId,
+        actorId: me.id,
+        type: "commented",
+        title: `${me.name} commented on ${page.title}`,
+        body: text.slice(0, 140),
+      })),
+    ];
+    if (rows.length) await db.insert(notifications).values(rows);
+  }
+
+  revalidatePath(`/pages/${pageId}`);
+}
+
+export async function deletePageComment(id: string, pageId: string) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  // Author-only. Delete the comment and any replies to it.
+  await db
+    .delete(pageComments)
+    .where(
+      and(
+        eq(pageComments.workspaceId, ws.id),
+        eq(pageComments.id, id),
+        eq(pageComments.authorId, me.id),
+      ),
+    );
+  await db
+    .delete(pageComments)
+    .where(and(eq(pageComments.workspaceId, ws.id), eq(pageComments.parentId, id)));
+  revalidatePath(`/pages/${pageId}`);
+}
+
+export async function resolvePageComment(id: string, pageId: string) {
+  const ws = await getWorkspace();
+  await db
+    .update(pageComments)
+    .set({ resolvedAt: new Date() })
+    .where(and(eq(pageComments.workspaceId, ws.id), eq(pageComments.id, id)));
+  revalidatePath(`/pages/${pageId}`);
+}
+
+export async function reopenPageComment(id: string, pageId: string) {
+  const ws = await getWorkspace();
+  await db
+    .update(pageComments)
+    .set({ resolvedAt: null })
+    .where(and(eq(pageComments.workspaceId, ws.id), eq(pageComments.id, id)));
+  revalidatePath(`/pages/${pageId}`);
+}
+
+export async function togglePageCommentReaction(commentId: string, emoji: string) {
+  if (!REACTION_EMOJI.has(emoji)) throw new Error("Unsupported reaction.");
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+
+  const [c] = await db
+    .select({ pageId: pageComments.pageId })
+    .from(pageComments)
+    .where(and(eq(pageComments.workspaceId, ws.id), eq(pageComments.id, commentId)))
+    .limit(1);
+  if (!c) throw new Error("Comment not found.");
+
+  const [existing] = await db
+    .select({ id: pageCommentReactions.id })
+    .from(pageCommentReactions)
+    .where(
+      and(
+        eq(pageCommentReactions.pageCommentId, commentId),
+        eq(pageCommentReactions.userId, me.id),
+        eq(pageCommentReactions.emoji, emoji),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    await db
+      .delete(pageCommentReactions)
+      .where(eq(pageCommentReactions.id, existing.id));
+  } else {
+    await db
+      .insert(pageCommentReactions)
+      .values({ pageCommentId: commentId, userId: me.id, emoji })
+      .onConflictDoNothing();
+  }
+  revalidatePath(`/pages/${c.pageId}`);
+}
+
+// ---- Page presence ----
+
+/**
+ * Heartbeat own presence on a page and return the other users currently
+ * active (fresh within PRESENCE_STALE_MS). One round-trip for both directions.
+ * Stale rows are lazily deleted on read.
+ */
+export async function heartbeatPagePresence(
+  pageId: string,
+  blockId: string | null,
+): Promise<PresenceUser[]> {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const now = new Date();
+
+  await db
+    .insert(pagePresence)
+    .values({ pageId, userId: me.id, blockId, lastSeenAt: now })
+    .onConflictDoUpdate({
+      target: [pagePresence.pageId, pagePresence.userId],
+      set: { blockId, lastSeenAt: now },
+    });
+
+  const staleBefore = new Date(now.getTime() - PRESENCE_STALE_MS);
+  // Best-effort GC of stale rows for this page.
+  await db
+    .delete(pagePresence)
+    .where(
+      and(eq(pagePresence.pageId, pageId), lt(pagePresence.lastSeenAt, staleBefore)),
+    );
+
+  const rows = await db
+    .select({
+      userId: pagePresence.userId,
+      blockId: pagePresence.blockId,
+      name: users.name,
+      avatarColor: users.avatarColor,
+    })
+    .from(pagePresence)
+    .innerJoin(users, eq(users.id, pagePresence.userId))
+    .where(
+      and(
+        eq(pagePresence.pageId, pageId),
+        gte(pagePresence.lastSeenAt, staleBefore),
+      ),
+    );
+
+  return rows
+    .filter((r) => r.userId !== me.id)
+    .map((r) => ({
+      userId: r.userId,
+      name: r.name,
+      avatarColor: r.avatarColor,
+      color: presenceColor(r.userId),
+      blockId: r.blockId,
+    }));
+}
+
+export async function leavePagePresence(pageId: string) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  await db
+    .delete(pagePresence)
+    .where(and(eq(pagePresence.pageId, pageId), eq(pagePresence.userId, me.id)));
 }
 
 // ---- Issue relations ----
