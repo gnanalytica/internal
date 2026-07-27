@@ -14,6 +14,7 @@ import {
   Folder,
   House,
   KeyRound,
+  Tag,
   LifeBuoy,
   LogOut,
   Map,
@@ -274,6 +275,13 @@ export function Sidebar({
             >
               <KeyRound className="size-4" />
               API &amp; MCP
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => router.push("/settings/labels")}
+              className="gap-2 text-sm"
+            >
+              <Tag className="size-4" />
+              Labels
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => router.push("/settings")}
