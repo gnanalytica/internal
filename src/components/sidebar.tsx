@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDot,
+  CircleUser,
   Compass,
   Folder,
   House,
@@ -184,6 +185,7 @@ export function Sidebar({
         <RailLink href="/" active={pathname === "/"} label="Overview"><House className="size-4" /></RailLink>
         <RailLink href="/ask" active={pathname.startsWith("/ask")} label="Ask AI"><Sparkles className="size-4" /></RailLink>
         <RailLink href="/inbox" active={pathname.startsWith("/inbox")} label="Inbox"><Bell className="size-4" /></RailLink>
+        <RailLink href="/my-issues" active={pathname === "/my-issues"} label="My Issues"><CircleUser className="size-4" /></RailLink>
         <RailLink href="/issues" active={pathname === "/issues"} label="Tasks"><CircleDot className="size-4" /></RailLink>
         <RailLink href="/projects" active={pathname.startsWith("/projects")} label="Projects"><Folder className="size-4" /></RailLink>
         <RailLink href="/org" active={pathname === "/org"} label="Org"><Users className="size-4" /></RailLink>
@@ -354,6 +356,12 @@ export function Sidebar({
               </span>
             ) : undefined
           }
+        />
+        <NavItem
+          href="/my-issues"
+          active={pathname === "/my-issues"}
+          icon={<CircleUser className="size-4" />}
+          label="My Issues"
         />
         <NavItem
           href="/issues"
