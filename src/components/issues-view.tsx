@@ -7,6 +7,8 @@ import {
   Bookmark,
   Check,
   Columns3,
+  ChevronDown,
+  ChevronRight,
   Download,
   GanttChartSquare,
   Layers,
@@ -59,6 +61,7 @@ import {
   type GroupBy,
   type SortId,
 } from "@/lib/issue-filters";
+import { nestGroup, subIssueProgress } from "@/lib/issue-tree";
 import type {
   IssueWithRelations,
   Label,
@@ -106,6 +109,14 @@ export function IssuesView({
   const [sort, setSort] = useState<SortId>("manual");
   const [groupBy, setGroupBy] = useState<GroupBy>("status");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapse = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -496,15 +507,47 @@ export function IssuesView({
                 <span className="text-xs font-semibold">{g.label}</span>
                 <span className="text-xs text-muted-foreground">{g.items.length}</span>
               </div>
-              {g.items.map((issue) => (
-                <IssueRow
-                  key={issue.id}
-                  issue={issue}
-                  members={members}
-                  selected={selected.has(issue.id)}
-                  onToggleSelect={() => toggleSelect(issue.id)}
-                />
-              ))}
+              {nestGroup(g.items).rows.map(({ issue, children }) => {
+                const isCollapsed = collapsed.has(issue.id);
+                return (
+                  <div key={issue.id}>
+                    <IssueRow
+                      issue={issue}
+                      members={members}
+                      selected={selected.has(issue.id)}
+                      onToggleSelect={() => toggleSelect(issue.id)}
+                      subProgress={subIssueProgress(issue.id, issues)}
+                      expandToggle={
+                        children.length > 0 ? (
+                          <button
+                            onClick={() => toggleCollapse(issue.id)}
+                            className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+                            aria-label={isCollapsed ? "Expand sub-tasks" : "Collapse sub-tasks"}
+                          >
+                            {isCollapsed ? (
+                              <ChevronRight className="size-3.5" />
+                            ) : (
+                              <ChevronDown className="size-3.5" />
+                            )}
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                    {!isCollapsed &&
+                      children.map((child) => (
+                        <IssueRow
+                          key={child.id}
+                          issue={child}
+                          members={members}
+                          selected={selected.has(child.id)}
+                          onToggleSelect={() => toggleSelect(child.id)}
+                          depth={1}
+                          subProgress={subIssueProgress(child.id, issues)}
+                        />
+                      ))}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

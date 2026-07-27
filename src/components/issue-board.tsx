@@ -19,7 +19,8 @@ import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ListTree } from "lucide-react";
+import { nestGroup, subIssueProgress } from "@/lib/issue-tree";
 
 import { PriorityIcon, StatusIcon } from "@/components/glyphs";
 import { IssueContextMenu } from "@/components/issue-context-menu";
@@ -122,6 +123,7 @@ export function IssueBoard({
             label={s.label}
             items={columns[s.id]}
             members={members}
+            allIssues={issues}
           />
         ))}
       </div>
@@ -139,13 +141,18 @@ function BoardColumn({
   label,
   items,
   members,
+  allIssues,
 }: {
   status: StatusId;
   label: string;
   items: IssueWithRelations[];
   members: Member[];
+  allIssues: IssueWithRelations[];
 }) {
   const { setNodeRef } = useSortable({ id: status, data: { type: "column" } });
+  // A child whose parent is in this same column nests under it; others stay
+  // top-level cards. Only top-level cards are drag-sortable.
+  const { rows } = nestGroup(items);
   return (
     <div className="flex w-72 shrink-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
@@ -154,15 +161,29 @@ function BoardColumn({
         <span className="text-xs text-muted-foreground">{items.length}</span>
       </div>
       <SortableContext
-        items={items.map((i) => i.id)}
+        items={rows.map((r) => r.issue.id)}
         strategy={verticalListSortingStrategy}
       >
         <div
           ref={setNodeRef}
           className="scrollbar-thin flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg bg-muted/40 p-2"
         >
-          {items.map((issue) => (
-            <SortableCard key={issue.id} issue={issue} members={members} />
+          {rows.map(({ issue, children }) => (
+            <div key={issue.id}>
+              <SortableCard issue={issue} members={members} allIssues={allIssues} />
+              {children.length > 0 && (
+                <div className="mt-1.5 space-y-1.5 border-l-2 border-border/60 pl-2">
+                  {children.map((child) => (
+                    <BoardCard
+                      key={child.id}
+                      issue={child}
+                      members={members}
+                      allIssues={allIssues}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </SortableContext>
@@ -173,9 +194,11 @@ function BoardColumn({
 function SortableCard({
   issue,
   members,
+  allIssues,
 }: {
   issue: IssueWithRelations;
   members: Member[];
+  allIssues?: IssueWithRelations[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: issue.id });
@@ -187,7 +210,7 @@ function SortableCard({
       {...attributes}
       {...listeners}
     >
-      <BoardCard issue={issue} members={members} />
+      <BoardCard issue={issue} members={members} allIssues={allIssues} />
     </div>
   );
 }
@@ -196,11 +219,14 @@ function BoardCard({
   issue,
   members,
   overlay,
+  allIssues,
 }: {
   issue: IssueWithRelations;
   members: Member[];
   overlay?: boolean;
+  allIssues?: IssueWithRelations[];
 }) {
+  const progress = allIssues ? subIssueProgress(issue.id, allIssues) : { done: 0, total: 0 };
   const card = (
     <div
       className={cn(
@@ -212,6 +238,15 @@ function BoardCard({
         <span className="font-mono text-[11px] text-muted-foreground">
           {issueIdentifier(issue)}
         </span>
+        {progress.total > 0 && (
+          <span
+            className="flex items-center gap-0.5 rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground"
+            title={`${progress.done} of ${progress.total} sub-tasks done`}
+          >
+            <ListTree className="size-3" />
+            {progress.done}/{progress.total}
+          </span>
+        )}
         <PriorityIcon priority={issue.priority as PriorityId} className="ml-auto" />
         {issue.assignees.length > 0 && <AvatarStack members={issue.assignees} max={3} />}
       </div>

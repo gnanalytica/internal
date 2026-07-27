@@ -18,7 +18,7 @@ import type { IssueWithRelations, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ListTree } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 
 export function IssueRow({
@@ -26,11 +26,20 @@ export function IssueRow({
   members,
   selected,
   onToggleSelect,
+  depth = 0,
+  subProgress,
+  expandToggle,
 }: {
   issue: IssueWithRelations;
   members: Member[];
   selected?: boolean;
   onToggleSelect?: () => void;
+  /** Indent level for nested sub-issues. */
+  depth?: number;
+  /** Sub-issue roll-up badge shown when the issue has children. */
+  subProgress?: { done: number; total: number };
+  /** Optional expand/collapse control rendered at the row start. */
+  expandToggle?: React.ReactNode;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -48,7 +57,9 @@ export function IssueRow({
         "group flex items-center gap-2 border-b border-border/60 px-4 py-2 hover:bg-accent/40",
         selected && "bg-brand/5",
       )}
+      style={depth ? { paddingLeft: 16 + depth * 20 } : undefined}
     >
+      {expandToggle ?? (depth > 0 && <span className="w-4 shrink-0" />)}
       {onToggleSelect && (
         <input
           type="checkbox"
@@ -77,6 +88,16 @@ export function IssueRow({
       >
         {issue.title}
       </Link>
+
+      {subProgress && subProgress.total > 0 && (
+        <span
+          className="flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+          title={`${subProgress.done} of ${subProgress.total} sub-tasks done`}
+        >
+          <ListTree className="size-3" />
+          {subProgress.done}/{subProgress.total}
+        </span>
+      )}
 
       {issue.labels.length > 0 && (
         <span className="hidden shrink-0 md:flex">
