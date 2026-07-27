@@ -25,6 +25,7 @@ import { IssueTimeline } from "@/components/issue-timeline";
 import {
   CyclePicker,
   FeaturePicker,
+  LabelPicker,
   MilestonePicker,
   MultiAssigneePicker,
   PriorityPicker,
@@ -32,6 +33,7 @@ import {
   StatusPicker,
   TypePicker,
 } from "@/components/pickers";
+import { LabelChips } from "@/components/label-chips";
 import { Topbar } from "@/components/topbar";
 import {
   Command,
@@ -52,8 +54,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   addIssueRelation,
   createIssue,
+  createLabel,
   deleteIssue,
   linkIssueToFeature,
+  setIssueLabels,
   linkIssueToPage,
   pushIssueToGithub,
   removeIssueRelation,
@@ -92,6 +96,7 @@ export function IssueDetail({
   issue,
   projects,
   members,
+  labels,
   allPages,
   cycles,
   features,
@@ -344,6 +349,17 @@ export function IssueDetail({
                 value={issue.assignees.map((a) => a.id)}
                 onChange={(ids) => persist(() => setIssueAssignees(issue.id, ids))}
               />
+            </PropRow>
+            <PropRow label="Labels">
+              <div className="flex flex-col items-start gap-1">
+                {issue.labels.length > 0 && <LabelChips labels={issue.labels} max={6} />}
+                <LabelPicker
+                  labels={labels}
+                  value={issue.labels.map((l) => l.id)}
+                  onChange={(ids) => persist(() => setIssueLabels(issue.id, ids))}
+                  onCreate={createLabel}
+                />
+              </div>
             </PropRow>
             <PropRow label="Project">
               <ProjectPicker

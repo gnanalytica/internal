@@ -412,6 +412,7 @@ export async function createIssue(input: {
   parentId?: string | null;
   featureId?: string | null;
   milestoneId?: string | null;
+  labelIds?: string[];
   startDate?: string | null;
   dueDate?: string | null;
 }) {
@@ -453,6 +454,13 @@ export async function createIssue(input: {
     await db
       .insert(issueAssignees)
       .values({ issueId: created.id, userId: input.assigneeId })
+      .onConflictDoNothing();
+  }
+
+  if (input.labelIds?.length) {
+    await db
+      .insert(issueLabels)
+      .values(input.labelIds.map((labelId) => ({ issueId: created.id, labelId })))
       .onConflictDoNothing();
   }
 

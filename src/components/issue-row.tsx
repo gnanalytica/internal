@@ -11,6 +11,7 @@ import {
   TypeChip,
 } from "@/components/pickers";
 import { IssueContextMenu } from "@/components/issue-context-menu";
+import { LabelChips } from "@/components/label-chips";
 import { setIssueAssignees, updateIssue } from "@/lib/actions";
 import { formatDue, isOverdue } from "@/lib/issue-dates";
 import type { IssueWithRelations, Member } from "@/lib/types";
@@ -76,6 +77,12 @@ export function IssueRow({
       >
         {issue.title}
       </Link>
+
+      {issue.labels.length > 0 && (
+        <span className="hidden shrink-0 md:flex">
+          <LabelChips labels={issue.labels} />
+        </span>
+      )}
 
       {/* Surface non-engineering tasks; keep default eng rows uncluttered. */}
       {issue.type && issue.type !== "engineering" && (

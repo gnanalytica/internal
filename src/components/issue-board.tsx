@@ -23,6 +23,7 @@ import { CalendarClock } from "lucide-react";
 
 import { PriorityIcon, StatusIcon } from "@/components/glyphs";
 import { IssueContextMenu } from "@/components/issue-context-menu";
+import { LabelChips } from "@/components/label-chips";
 import { AvatarStack } from "@/components/pickers";
 import { STATUSES, type StatusId, type PriorityId } from "@/lib/constants";
 import { formatDue, isOverdue } from "@/lib/issue-dates";
@@ -221,6 +222,11 @@ function BoardCard({
       >
         {issue.title}
       </Link>
+      {issue.labels.length > 0 && (
+        <div className="mt-1.5">
+          <LabelChips labels={issue.labels} />
+        </div>
+      )}
       {issue.dueDate && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {issue.dueDate && (
