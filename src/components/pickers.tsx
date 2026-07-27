@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Target, Timer, User } from "lucide-react";
+import { Check, Plus, Target, Timer, User } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -455,11 +455,19 @@ export function LabelPicker({
   labels,
   value,
   onChange,
+  onCreate,
 }: {
   labels: Label[];
   value: string[];
   onChange: (v: string[]) => void;
+  /** When set, an unmatched query offers "+ Create '<q>'" that resolves to a label. */
+  onCreate?: (name: string) => Promise<Label>;
 }) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const filtered = q ? labels.filter((l) => l.name.toLowerCase().includes(q)) : labels;
+  const exact = labels.some((l) => l.name.toLowerCase() === q);
+
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
 
@@ -470,11 +478,19 @@ export function LabelPicker({
           {value.length ? `${value.length} label${value.length > 1 ? "s" : ""}` : "Labels"}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
-        {labels.length === 0 && (
+      <DropdownMenuContent align="start" className="w-52">
+        <div className="px-1.5 pb-1">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={onCreate ? "Search or create…" : "Search…"}
+            className="w-full rounded border bg-transparent px-1.5 py-1 text-xs outline-none focus:border-brand"
+          />
+        </div>
+        {filtered.length === 0 && !q && (
           <div className="px-2 py-1.5 text-xs text-muted-foreground">No labels</div>
         )}
-        {labels.map((lb) => (
+        {filtered.map((lb) => (
           <DropdownMenuItem
             key={lb.id}
             closeOnClick={false}
@@ -486,6 +502,20 @@ export function LabelPicker({
             {value.includes(lb.id) && <Check className="size-3.5 opacity-70" />}
           </DropdownMenuItem>
         ))}
+        {onCreate && q && !exact && (
+          <DropdownMenuItem
+            closeOnClick={false}
+            onClick={async () => {
+              const created = await onCreate(query.trim());
+              onChange([...value, created.id]);
+              setQuery("");
+            }}
+            className="gap-2 text-xs"
+          >
+            <Plus className="size-3.5" />
+            Create “{query.trim()}”
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

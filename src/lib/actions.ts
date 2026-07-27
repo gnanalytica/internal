@@ -29,6 +29,7 @@ import {
   invoices,
   issueAssignees,
   issueLabels,
+  labels,
   issuePageLinks,
   issueRelations,
   issues,
@@ -77,6 +78,7 @@ import {
   shouldSnapshot,
 } from "@/lib/page-collab";
 import type { PresenceUser } from "@/lib/types";
+import { SELECT_COLORS } from "@/lib/types";
 import { isRelationType } from "@/lib/issue-relations";
 import { extractReferences } from "@/lib/references";
 import { snippetAround } from "@/lib/snippet";
@@ -751,6 +753,53 @@ export async function setIssueLabels(issueId: string, labelIds: string[]) {
   }
   revalidatePath("/issues");
   revalidatePath(`/issues/${issueId}`);
+}
+
+/** Create a workspace label; color auto-picked from the palette when omitted. */
+export async function createLabel(name: string, color?: string) {
+  const text = name.trim();
+  if (!text) throw new Error("Label name required.");
+  const ws = await getWorkspace();
+  const existing = await db
+    .select({ id: labels.id })
+    .from(labels)
+    .where(eq(labels.workspaceId, ws.id));
+  const picked = color ?? SELECT_COLORS[existing.length % SELECT_COLORS.length];
+  const [row] = await db
+    .insert(labels)
+    .values({ workspaceId: ws.id, name: text, color: picked })
+    .returning();
+  revalidatePath("/issues");
+  revalidatePath("/my-issues");
+  revalidatePath("/settings/labels");
+  return row;
+}
+
+export async function updateLabel(
+  id: string,
+  patch: { name?: string; color?: string },
+) {
+  const ws = await getWorkspace();
+  const values: Record<string, unknown> = {};
+  if (patch.name !== undefined) values.name = patch.name.trim();
+  if (patch.color !== undefined) values.color = patch.color;
+  if (Object.keys(values).length === 0) return;
+  await db
+    .update(labels)
+    .set(values)
+    .where(and(eq(labels.workspaceId, ws.id), eq(labels.id, id)));
+  revalidatePath("/issues");
+  revalidatePath("/my-issues");
+  revalidatePath("/settings/labels");
+}
+
+export async function deleteLabel(id: string) {
+  // issueLabels.labelId FK is ON DELETE CASCADE, so this also detaches issues.
+  const ws = await getWorkspace();
+  await db.delete(labels).where(and(eq(labels.workspaceId, ws.id), eq(labels.id, id)));
+  revalidatePath("/issues");
+  revalidatePath("/my-issues");
+  revalidatePath("/settings/labels");
 }
 
 // ---- Pages ----
