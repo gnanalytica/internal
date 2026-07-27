@@ -144,22 +144,35 @@ export function ColumnChart({
 /** Area + line trend chart for a time series. Stretches to fill width. */
 export function AreaChart({
   data,
+  overlay,
   color = "#6366f1",
   height = 120,
   format,
 }: {
   data: { label: string; value: number }[];
+  /** Optional second series drawn as a dashed reference line (e.g. ideal). */
+  overlay?: { label: string; value: number }[];
   color?: string;
   height?: number;
   format?: (n: number) => string;
 }) {
   const W = 100;
   const n = data.length;
-  const max = Math.max(1, ...data.map((d) => d.value));
+  const max = Math.max(
+    1,
+    ...data.map((d) => d.value),
+    ...(overlay?.map((d) => d.value) ?? []),
+  );
   const x = (i: number) => (n <= 1 ? W / 2 : (i / (n - 1)) * W);
   const y = (v: number) => height - (v / max) * (height - 8) - 4;
   const pts = data.map((d, i) => [x(i), y(d.value)] as const);
   const line = pts.map(([px, py], i) => `${i ? "L" : "M"}${px.toFixed(2)},${py.toFixed(2)}`).join(" ");
+  const overlayLine =
+    overlay && overlay.length === n
+      ? overlay
+          .map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(2)},${y(d.value).toFixed(2)}`)
+          .join(" ")
+      : "";
   const area =
     n > 0
       ? `${line} L${pts[n - 1][0].toFixed(2)},${height} L${pts[0][0].toFixed(2)},${height} Z`
@@ -182,6 +195,17 @@ export function AreaChart({
           </linearGradient>
         </defs>
         {area && <path d={area} fill={`url(#${gid})`} />}
+        {overlayLine && (
+          <path
+            d={overlayLine}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeDasharray="3 3"
+            vectorEffect="non-scaling-stroke"
+            className="text-muted-foreground/50"
+          />
+        )}
         {n > 1 && (
           <path
             d={line}

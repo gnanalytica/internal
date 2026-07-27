@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AreaChart } from "@/components/charts";
 import { StatusIcon } from "@/components/glyphs";
 import { IssueRow } from "@/components/issue-row";
 import { Topbar } from "@/components/topbar";
@@ -24,9 +25,13 @@ import { cycleStatus } from "@/lib/types";
 export function CycleDetail({
   cycle,
   members,
+  burndownPoints,
+  totalPoints,
 }: {
   cycle: Cycle & { issues: IssueWithRelations[] };
   members: Member[];
+  burndownPoints: { date: string; remaining: number; ideal: number }[];
+  totalPoints: number;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -128,6 +133,36 @@ export function CycleDetail({
           <span className="text-xs text-muted-foreground">
             {done}/{cycle.issues.length} done
           </span>
+        </div>
+
+        {/* Burndown */}
+        <div className="mt-4 max-w-md">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Burndown (points)
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              {totalPoints} pts total
+            </span>
+          </div>
+          {burndownPoints.length > 0 && totalPoints > 0 ? (
+            <AreaChart
+              data={burndownPoints.map((p) => ({
+                label: p.date.slice(5),
+                value: p.remaining,
+              }))}
+              overlay={burndownPoints.map((p) => ({
+                label: p.date.slice(5),
+                value: p.ideal,
+              }))}
+              height={100}
+              format={(n) => `${n} pts`}
+            />
+          ) : (
+            <p className="rounded-lg border border-dashed py-6 text-center text-xs text-muted-foreground">
+              No burndown yet — add estimated tasks to this cycle.
+            </p>
+          )}
         </div>
       </div>
 

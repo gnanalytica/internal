@@ -897,7 +897,13 @@ export async function getCycles(
 export async function getCycle(
   workspaceId: string,
   id: string,
-): Promise<(Cycle & { issues: IssueWithRelations[] }) | null> {
+): Promise<
+  | (Cycle & {
+      issues: IssueWithRelations[];
+      doneEvents: { issueId: string; at: Date }[];
+    })
+  | null
+> {
   const row = await db.query.cycles.findFirst({
     where: and(eq(cycles.workspaceId, workspaceId), eq(cycles.id, id)),
     with: {
@@ -915,9 +921,29 @@ export async function getCycle(
     },
   });
   if (!row) return null;
+
+  // Reconstruct completion timestamps from the activity log (status → done)
+  // for the burndown chart.
+  const issueIds = row.issues.map((i) => i.id);
+  const acts = issueIds.length
+    ? await db.query.activity.findMany({
+        where: and(
+          eq(activity.workspaceId, workspaceId),
+          inArray(activity.issueId, issueIds),
+        ),
+        columns: { issueId: true, data: true, type: true, createdAt: true },
+      })
+    : [];
+  const doneEvents = acts
+    .filter(
+      (a) => a.type === "status" && (a.data as { to?: string } | null)?.to === "done",
+    )
+    .map((a) => ({ issueId: a.issueId, at: a.createdAt }));
+
   return {
     ...row,
     issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label), assignees: i.assignees.map((a) => a.user) })),
+    doneEvents,
   };
 }
 
