@@ -20,6 +20,7 @@ import { RichEditor } from "@/components/editor/rich-editor";
 import { GitHubIcon } from "@/components/auth/provider-icons";
 import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
+import { IssueAttachments } from "@/components/issue-attachments";
 import { IssueTimeline } from "@/components/issue-timeline";
 import {
   CyclePicker,
@@ -288,6 +289,11 @@ export function IssueDetail({
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Attachments */}
+            <div className="mt-10 border-t pt-5">
+              <IssueAttachments issueId={issue.id} attachments={issue.attachments} />
             </div>
 
             {/* Backlinks */}

@@ -529,6 +529,7 @@ export async function getIssue(
       },
       pageLinks: { with: { page: true } },
       parent: { with: { project: true } },
+      attachments: { with: { uploader: true }, orderBy: [desc(attachments.createdAt)] },
       subIssues: {
         orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
         with: {
