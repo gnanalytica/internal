@@ -13,7 +13,7 @@ fi
 cd "${CLAUDE_PROJECT_DIR:-.}"
 
 echo "[session-start] installing dependencies…"
-npm install
+pnpm install
 
 # Optional live-rollout: sync the DB schema and seed the Gnanalytica hub.
 # Opt-in and guarded so a normal session only installs deps. Enable by setting
