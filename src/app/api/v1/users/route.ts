@@ -1,4 +1,5 @@
-import { ok, withApiAuth } from "@/lib/api/http";
+import { ok, readJson, withApiAuth } from "@/lib/api/http";
+import { apiAddMember } from "@/lib/api/dept-ops";
 import { getMembersWithRole } from "@/lib/data";
 
 /** Workspace members — how an agent resolves a name to an `assigneeId`. */
@@ -15,4 +16,11 @@ export const GET = withApiAuth(async (_req, auth) => {
     })),
     count: members.length,
   });
+});
+
+/** Add someone to the workspace, creating the user when the email is new. */
+export const POST = withApiAuth(async (req, auth) => {
+  const body = await readJson<Parameters<typeof apiAddMember>[1]>(req);
+  const id = await apiAddMember(auth.workspaceId, body);
+  return ok({ data: { id } }, 201);
 });
