@@ -41,10 +41,19 @@ A `null` cursor means there are no more results. Other list endpoints
 | `GET`    | `/users`                      | List workspace members (resolve names to ids) |
 | `GET`    | `/issues`                     | List tasks (`?status=&project=&assignee=&type=&cycle=&milestone=&limit=`) |
 | `POST`   | `/issues`                     | Create a task (any department)                |
-| `GET`    | `/issues/{id}`                | Get an issue                                  |
+| `GET`    | `/issues/{id}`                | Get a task in full (assignees, sub-tasks, comments, relations, linked docs, attachments) |
 | `PATCH`  | `/issues/{id}`                | Update an issue                               |
 | `DELETE` | `/issues/{id}`                | Delete an issue                               |
-| `POST`   | `/issues/{id}/comments`       | Comment on an issue (`{ "body": "..." }`)     |
+| `GET`    | `/issues/{id}/comments`       | Read a task's comment thread                  |
+| `POST`   | `/issues/{id}/comments`       | Comment on a task (`{ "body": "..." }`)       |
+| `DELETE` | `/comments/{id}`              | Delete a task comment                         |
+| `GET`    | `/issues/{id}/relations`      | List blocks / blocked-by / related edges      |
+| `POST`   | `/issues/{id}/relations`      | Relate two tasks                              |
+| `DELETE` | `/relations/{id}`             | Remove a relationship                         |
+| `POST`   | `/issues/{id}/pages`          | Link a task to a doc                          |
+| `DELETE` | `/issues/{id}/pages?pageId=`  | Unlink a task from a doc                      |
+| `GET`    | `/issues/{id}/attachments`    | List a task's files                           |
+| `POST`   | `/issues/{id}/attachments`    | Attach a hosted file by URL                   |
 | `GET`    | `/projects`                   | List projects                                 |
 | `POST`   | `/projects`                   | Create a project                              |
 | `PATCH`  | `/projects/{id}`              | Update a project                              |
@@ -62,7 +71,44 @@ A `null` cursor means there are no more results. Other list endpoints
 | `GET`    | `/pages/{id}`                 | Get a page (with markdown)                    |
 | `PATCH`  | `/pages/{id}`                 | Update a page's title, icon or body           |
 | `DELETE` | `/pages/{id}`                 | Move a page + sub-pages to the trash          |
-| `GET`    | `/search?q=`                  | Search issues, pages, projects                |
+| `GET`    | `/pages/{id}/comments`        | Read a doc's comment threads                  |
+| `POST`   | `/pages/{id}/comments`        | Comment on a doc                              |
+| `PATCH`  | `/page-comments/{id}`         | Edit, resolve or reopen (`{ "resolved": true }`) |
+| `DELETE` | `/page-comments/{id}`         | Delete a doc comment                          |
+| `GET`    | `/pages/{id}/versions`        | List a doc's version history                  |
+| `POST`   | `/pages/{id}/versions`        | Restore a version (`{ "versionId": "..." }`)  |
+| `GET`    | `/trash`                      | List trashed pages                            |
+| `POST`   | `/trash/{id}`                 | Restore a trashed page                        |
+| `DELETE` | `/trash/{id}`                 | Permanently delete a trashed page             |
+| `GET`    | `/metrics`                    | List KPIs with latest/previous (`?project=`)  |
+| `POST`   | `/metrics`                    | Define a KPI                                  |
+| `GET`    | `/metrics/{id}/points`        | Read a KPI's time series                      |
+| `POST`   | `/metrics/{id}/points`        | Record a KPI value                            |
+| `DELETE` | `/metrics/{id}/points/{pointId}` | Delete a KPI value                         |
+| `GET`    | `/feedback`                   | List product feedback (`?project=`)           |
+| `POST`   | `/feedback`                   | Capture feedback                              |
+| `GET`    | `/content`                    | List content-calendar items (`?project=`)     |
+| `POST`   | `/content`                    | Add a content item                            |
+| `GET`    | `/status-updates?project=`    | List weekly project status updates            |
+| `POST`   | `/status-updates`             | Post a status update                          |
+| `GET`    | `/activities`                 | List CRM activities (`?deal=&account=`)       |
+| `POST`   | `/activities`                 | Log a call, meeting or follow-up              |
+| `GET`    | `/org-roles`                  | Read the org chart as a tree                  |
+| `POST`   | `/org-roles`                  | Add an org-chart position                     |
+| `POST`   | `/users`                      | Add a member (creates the user if new)        |
+| `PATCH`  | `/users/{id}`                 | Update role or HR profile                     |
+| `DELETE` | `/users/{id}`                 | Remove someone from the workspace             |
+| `GET`    | `/databases`                  | List databases                                |
+| `POST`   | `/databases`                  | Create a database                             |
+| `GET`    | `/databases/{id}`             | Get a database with fields and rows           |
+| `POST`   | `/databases/{id}/fields`      | Add a column                                  |
+| `DELETE` | `/databases/{id}/fields/{fieldId}` | Delete a column                          |
+| `POST`   | `/databases/{id}/rows`        | Add a row (body = cell values by field id)    |
+| `PATCH`  | `/databases/{id}/rows/{rowId}`| Update cells (merges)                         |
+| `DELETE` | `/databases/{id}/rows/{rowId}`| Delete a row                                  |
+| `GET`    | `/notifications`              | Your notifications (`?unread=true`)           |
+| `POST`   | `/notifications`              | Mark one read, or all when `id` is omitted    |
+| `GET`    | `/search?q=`                  | Search issues, pages, projects, tickets, deals, accounts, contacts, milestones, features |
 | `GET`    | `/deals`                      | List sales deals (`?product=`)                |
 | `POST`   | `/deals`                      | Create a deal                                 |
 | `GET`    | `/accounts`                   | List CRM accounts                             |
@@ -83,7 +129,8 @@ A `null` cursor means there are no more results. Other list endpoints
 Every record type below also supports `PATCH /{resource}/{id}` and
 `DELETE /{resource}/{id}`: `projects`, `milestones`, `features`, `cycles`,
 `labels`, `deals`, `accounts`, `contacts`, `campaigns`, `invoices`,
-`expenses`, `tickets`.
+`expenses`, `tickets`, `metrics`, `feedback`, `content`, `org-roles`,
+`activities`, `status-updates`, `attachments`, `page-comments`, `databases`.
 
 The CRM / Sales / Marketing / Finance / Support endpoints belong to the
 **Product × Department matrix**: every record carries a product, so `?product=<id>`
@@ -165,6 +212,16 @@ ignored and `workspaceId` / `id` can never be written.
 | `features`  | `title`, `status`, `startDate`, `targetDate`, `milestoneId`, `projectId`, `ownerId`, `pageId`         |
 | `cycles`    | `name`, `startDate`, `endDate`                                                                        |
 | `labels`    | `name`, `color`                                                                                       |
+| `metrics`   | `name`, `unit`, `cadence`, `isNorthStar`, `projectId`                                                 |
+| `feedback`  | `title`, `body`, `source`, `status`, `votes`, `contact`, `featureId`, `projectId`                     |
+| `content`   | `title`, `channel`, `status`, `url`, `notes`, `publishDate`, `campaignId`, `projectId`, `ownerId`     |
+| `org-roles` | `title`, `userId`, `parentId`                                                                         |
+| `activities`| `type`, `body`, `dueDate`, `done`, `accountId`, `contactId`, `dealId`, `projectId`                    |
+| `status-updates` | `health`, `body`                                                                                 |
+| `databases` | `name`, `icon`                                                                                        |
+| `page-comments` | `body` (and `resolved` via `PATCH /page-comments/{id}`)                                           |
+| `attachments` | `name`                                                                                              |
+| members (`/users/{id}`) | `role`, `title`, `entity`, `employment`, `startDate`, `managerId`                         |
 | `deals`     | `name`, `stage`, `value`, `entity`, `expectedClose`, `projectId`, `accountId`, `contactId`, `ownerId` |
 | `accounts`  | `name`, `website`, `industry`, `type`, `entity`, `ownerId`                                            |
 | `contacts`  | `name`, `email`, `title`, `phone`, `lifecycleStage`, `source`, `accountId`, `entity`, `ownerId`       |
@@ -190,7 +247,9 @@ task lists, blockquotes, fenced code blocks, tables, rules) and `GET /pages/{id}
 returns both `markdown` and the raw editor JSON.
 
 `PATCH` replaces the whole body — read the page first, edit the Markdown, and
-send the complete document back.
+send the complete document back. Each content edit snapshots the previous
+version (throttled to one per 10 minutes, newest 50 kept), so an agent rewrite
+is recoverable via `GET/POST /pages/{id}/versions`.
 
 ```bash
 curl -X PATCH https://your-app/api/v1/pages/<id> \
