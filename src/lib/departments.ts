@@ -378,3 +378,36 @@ export function issueBelongsToDepartment(
   if (!wanted) return false;
   return labels.some((l) => wanted.includes(l.name));
 }
+
+/** One row per (issue, label) pair — the shape the summary query returns. */
+export type LabelledIssueRow = {
+  id: string;
+  projectId: string | null;
+  status: string;
+  parentId: string | null;
+  label: string;
+};
+
+/**
+ * Open tasks per department for one project, routed by the same labels the
+ * department surfaces use. Without this the Engineering card reports every
+ * task in the project as its own.
+ *
+ * Counts top-level tasks only, matching what a surface lists, and counts a
+ * task once even when it carries two of that department's labels.
+ */
+export function countOpenByDepartment(
+  rows: LabelledIssueRow[],
+  projectId: string,
+): Record<string, number> {
+  const perDept = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (r.projectId !== projectId || r.parentId) continue;
+    if (r.status === "done" || r.status === "canceled") continue;
+    for (const [slug, tracks] of Object.entries(DEPARTMENT_LABELS)) {
+      if (!(tracks ?? []).includes(r.label)) continue;
+      (perDept.get(slug) ?? perDept.set(slug, new Set()).get(slug)!).add(r.id);
+    }
+  }
+  return Object.fromEntries([...perDept].map(([slug, ids]) => [slug, ids.size]));
+}

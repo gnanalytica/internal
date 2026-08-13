@@ -148,6 +148,8 @@ export type ProjectSummary = Project & {
   openDeals: number;
   pipelineValue: number;
   openIssues: number;
+  /** Open top-level tasks per department slug, routed by label. */
+  openIssuesByDepartment: Record<string, number>;
   activeCampaigns: number;
   revenue: number; // sum of paid invoices
   openTickets: number;

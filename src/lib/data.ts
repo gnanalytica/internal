@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth/server";
+import { countOpenByDepartment } from "@/lib/departments";
 import { featureProgress } from "@/lib/feature-progress";
 import { db } from "@/db";
 import {
@@ -1523,7 +1524,7 @@ export async function getContentItems(
 export async function getProjectSummaries(
   workspaceId: string,
 ): Promise<ProjectSummary[]> {
-  const [projects, allDeals, allIssues, allCampaigns, allInvoices, allTickets, allMilestones, allMetrics] =
+  const [projects, allDeals, allIssues, labelledIssues, allCampaigns, allInvoices, allTickets, allMilestones, allMetrics] =
     await Promise.all([
     getProjects(workspaceId),
     db
@@ -1537,6 +1538,21 @@ export async function getProjectSummaries(
     db
       .select({ projectId: issues.projectId, status: issues.status })
       .from(issues)
+      .where(eq(issues.workspaceId, workspaceId)),
+    // Labels drive the department split, so the per-department task counts
+    // need them — the plain issue query above cannot answer "how many are
+    // engineering's".
+    db
+      .select({
+        id: issues.id,
+        projectId: issues.projectId,
+        status: issues.status,
+        parentId: issues.parentId,
+        label: labels.name,
+      })
+      .from(issues)
+      .innerJoin(issueLabels, eq(issueLabels.issueId, issues.id))
+      .innerJoin(labels, eq(labels.id, issueLabels.labelId))
       .where(eq(issues.workspaceId, workspaceId)),
     db
       .select({ projectId: campaigns.projectId, status: campaigns.status })
@@ -1576,6 +1592,7 @@ export async function getProjectSummaries(
       openIssues: allIssues.filter(
         (i) => i.projectId === p.id && i.status !== "done" && i.status !== "canceled",
       ).length,
+      openIssuesByDepartment: countOpenByDepartment(labelledIssues, p.id),
       activeCampaigns: allCampaigns.filter(
         (c) => c.projectId === p.id && c.status === "active",
       ).length,

@@ -123,13 +123,20 @@ export default async function ProjectRoute({
   if (!summary) notFound();
   const owner = members.find((m) => m.id === summary.ownerId) ?? null;
 
+  // Each department's own open task count, routed by the same labels its
+  // surface uses. A department is more than its tasks, so the count sits
+  // alongside whatever else that department runs on.
+  const tasks = (slug: string) => summary.openIssuesByDepartment[slug] ?? 0;
+  const withTasks = (slug: string, stat: string) =>
+    tasks(slug) > 0 ? `${tasks(slug)} tasks · ${stat}` : stat;
+
   const cards = [
     {
       slug: "product" as const,
       href: `/projects/${id}/product`,
       icon: <Compass className="size-4" />,
       label: "Product",
-      stat: `${summary.openMilestones} open gates`,
+      stat: withTasks("product", `${summary.openMilestones} open gates`),
       tool: "Milestones & tasks",
     },
     {
@@ -137,7 +144,7 @@ export default async function ProjectRoute({
       href: `/projects/${id}/engineering`,
       icon: <CircleDot className="size-4" />,
       label: "Engineering",
-      stat: `${summary.openIssues} open tasks`,
+      stat: `${tasks("engineering")} open tasks`,
       tool: "Linear-style tasks",
     },
     {
@@ -153,7 +160,7 @@ export default async function ProjectRoute({
       href: `/projects/${id}/marketing`,
       icon: <Megaphone className="size-4" />,
       label: "Marketing",
-      stat: `${summary.activeCampaigns} active campaigns`,
+      stat: withTasks("marketing", `${summary.activeCampaigns} active campaigns`),
       tool: "Campaigns & content calendar",
     },
     {
@@ -161,7 +168,10 @@ export default async function ProjectRoute({
       href: `/projects/${id}/sales`,
       icon: <TrendingUp className="size-4" />,
       label: "Sales",
-      stat: `${formatMoney(summary.pipelineValue)} · ${summary.openDeals} open deals`,
+      stat: withTasks(
+        "sales",
+        `${formatMoney(summary.pipelineValue)} · ${summary.openDeals} open deals`,
+      ),
       tool: "Apollo / HubSpot-style pipeline",
     },
     {
@@ -169,7 +179,7 @@ export default async function ProjectRoute({
       href: `/projects/${id}/customer-success`,
       icon: <LifeBuoy className="size-4" />,
       label: "Customer Success",
-      stat: `${summary.openTickets} open tickets`,
+      stat: withTasks("customer-success", `${summary.openTickets} open tickets`),
       tool: "Zendesk-style ticket queue",
     },
   ]

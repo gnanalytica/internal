@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { isDepartmentEnabled, visibleDepartments } from "@/lib/departments";
+import { visibleDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
@@ -29,11 +29,13 @@ export function ProjectTabs({
         ]
       : [
           { href: base, label: "Overview" },
-          // Legacy Strategy tab (the vision placeholder); hidden once the new
-          // strategy surface is enabled so it isn't duplicated.
-          ...(isDepartmentEnabled(project.enabledDepartments, "strategy")
-            ? []
-            : [{ href: `${base}/vision`, label: "Strategy" }]),
+          // Legacy Strategy tab (the vision placeholder). Only for projects
+          // still on the default department set — once a project names its
+          // departments it has opted into the current model, and leaving
+          // Strategy out of that list means it should not appear at all.
+          ...(project.enabledDepartments == null
+            ? [{ href: `${base}/vision`, label: "Strategy" }]
+            : []),
           ...visibleDepartments(
             project.enabledDepartments,
             isAdmin ? "admin" : "member",
