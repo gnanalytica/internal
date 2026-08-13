@@ -45,6 +45,51 @@ export function issueDto(i: IssueWithRelations) {
   };
 }
 
+/**
+ * The full issue view: everything `getIssue` already loads but the list DTO
+ * omits — assignee set, sub-tasks, linked docs and attachments.
+ */
+export function issueDetailDto(i: IssueWithRelations) {
+  const withRelations = i as IssueWithRelations & {
+    assignees?: { id: string; name: string }[];
+    subIssues?: IssueWithRelations[];
+    pageLinks?: { page: { id: string; title: string; icon: string } }[];
+    attachments?: {
+      id: string;
+      name: string;
+      url: string;
+      contentType: string | null;
+      size: number;
+    }[];
+  };
+  return {
+    ...issueDto(i),
+    assignees: (withRelations.assignees ?? []).map((a) => ({
+      id: a.id,
+      name: a.name,
+    })),
+    subIssues: (withRelations.subIssues ?? []).map((s) => ({
+      id: s.id,
+      identifier: issueIdentifier(s),
+      title: s.title,
+      status: s.status,
+      type: s.type,
+    })),
+    pages: (withRelations.pageLinks ?? []).map((l) => ({
+      id: l.page.id,
+      title: l.page.title,
+      icon: l.page.icon,
+    })),
+    attachments: (withRelations.attachments ?? []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      url: a.url,
+      contentType: a.contentType,
+      size: a.size,
+    })),
+  };
+}
+
 export function projectDto(p: Project) {
   return {
     id: p.id,

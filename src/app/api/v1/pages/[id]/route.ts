@@ -21,7 +21,7 @@ export const GET = withApiAuth<Params>(async (_req, auth, { id }) => {
 
 export const PATCH = withApiAuth<Params>(async (req, auth, { id }) => {
   const patch = await readJson<{ title?: string; icon?: string; content?: string }>(req);
-  const updated = await apiUpdatePage(auth.workspaceId, id, patch);
+  const updated = await apiUpdatePage(auth.workspaceId, id, patch, auth.userId);
   if (!updated) return notFound("Page");
   const page = await getPage(auth.workspaceId, id);
   return ok({

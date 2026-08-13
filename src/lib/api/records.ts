@@ -5,16 +5,25 @@ import type { PgTable } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
+  attachments,
   campaigns,
+  contentItems,
   crmAccounts,
+  crmActivities,
   crmContacts,
   cycles,
+  databases,
   deals,
   expenses,
+  feedback,
   features,
   invoices,
   labels,
+  metrics,
   milestones,
+  orgRoles,
+  pageComments,
+  projectStatusUpdates,
   projects,
   tickets,
 } from "@/db/schema";
@@ -55,6 +64,13 @@ const date: Coerce = (v) => {
 const ref: Coerce = (v) => {
   if (v == null || v === "") return null;
   return String(v);
+};
+
+const bool: Coerce = (v) => {
+  if (typeof v === "boolean") return v;
+  if (v === "true") return true;
+  if (v === "false") return false;
+  throw new Error("Expected true or false.");
 };
 
 const oneOf =
@@ -226,6 +242,98 @@ export const RESOURCES = {
     fields: {
       name: required("name"),
       color: text,
+    },
+  },
+  metrics: {
+    table: metrics,
+    fields: {
+      name: required("name"),
+      unit: text,
+      cadence: oneOf(["weekly", "monthly", "quarterly"]),
+      isNorthStar: bool,
+      projectId: ref,
+    },
+  },
+  feedback: {
+    table: feedback,
+    touch: true,
+    fields: {
+      title: required("title"),
+      body: text,
+      source: oneOf([
+        "customer",
+        "sales",
+        "support",
+        "interview",
+        "internal",
+        "other",
+      ]),
+      status: oneOf(["new", "reviewing", "planned", "declined", "shipped"]),
+      votes: int,
+      contact: text,
+      featureId: ref,
+      projectId: ref,
+    },
+  },
+  content: {
+    table: contentItems,
+    fields: {
+      title: required("title"),
+      channel: text,
+      status: oneOf(["idea", "draft", "scheduled", "published"]),
+      url: text,
+      notes: text,
+      publishDate: date,
+      campaignId: ref,
+      projectId: ref,
+      ownerId: ref,
+    },
+  },
+  "org-roles": {
+    table: orgRoles,
+    fields: {
+      title: required("title"),
+      userId: ref,
+      parentId: ref,
+    },
+  },
+  activities: {
+    table: crmActivities,
+    fields: {
+      type: oneOf(["note", "call", "email", "task", "meeting"]),
+      body: text,
+      dueDate: date,
+      done: bool,
+      accountId: ref,
+      contactId: ref,
+      dealId: ref,
+      projectId: ref,
+    },
+  },
+  databases: {
+    table: databases,
+    fields: {
+      name: required("name"),
+      icon: text,
+    },
+  },
+  "status-updates": {
+    table: projectStatusUpdates,
+    fields: {
+      health: oneOf(["on_track", "at_risk", "off_track"]),
+      body: text,
+    },
+  },
+  attachments: {
+    table: attachments,
+    fields: {
+      name: required("name"),
+    },
+  },
+  "page-comments": {
+    table: pageComments,
+    fields: {
+      body: required("body"),
     },
   },
   tickets: {
