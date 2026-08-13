@@ -1,6 +1,7 @@
 {
   "name": "gnanalytica-internal-mcp",
   "version": "3.0.0",
+  "private": true,
   "description": "MCP server for the Internal (Notion + Linear) workspace API.",
   "type": "module",
   "bin": {

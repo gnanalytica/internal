@@ -7,9 +7,17 @@ same auth and behaviour.
 
 ## Setup
 
-1. Get an API key from the app: **Settings → API & MCP → Create key** (admins).
-2. Add the server to your client (below). Nothing to clone or build if you use
-   the published package.
+Not published to npm — this is internal tooling, and `package.json` is marked
+`private` so it cannot be published by accident. Install it from a clone of
+this repo.
+
+```bash
+git clone https://github.com/gnanalytica/internal.git
+cd internal/mcp && pnpm install
+```
+
+Then get an API key from the app: **Settings → API & MCP → Create key**
+(admins), and point your client at the absolute path.
 
 ### Claude Code
 
@@ -17,7 +25,7 @@ same auth and behaviour.
 claude mcp add internal \
   --env INTERNAL_API_KEY=int_your_key_here \
   --env INTERNAL_API_URL=https://internal.gnanalytica.com/api/v1 \
-  -- npx -y gnanalytica-internal-mcp
+  -- node /absolute/path/to/internal/mcp/server.mjs
 ```
 
 ### Claude Desktop / Cursor
@@ -28,8 +36,8 @@ Claude Desktop config, or Cursor's `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "internal": {
-      "command": "npx",
-      "args": ["-y", "gnanalytica-internal-mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/internal/mcp/server.mjs"],
       "env": {
         "INTERNAL_API_URL": "https://internal.gnanalytica.com/api/v1",
         "INTERNAL_API_KEY": "int_your_key_here"
@@ -39,14 +47,9 @@ Claude Desktop config, or Cursor's `~/.cursor/mcp.json`:
 }
 ```
 
-### From this repo (development)
-
-```bash
-cd mcp && pnpm install
-INTERNAL_API_KEY=int_xxx node server.mjs
-```
-
-…and point the client's `command`/`args` at `node /absolute/path/to/mcp/server.mjs`.
+Each person should use their own key: every write is attributed to the member
+who created the key, so a shared key makes every agent edit look like it came
+from one person.
 
 ## Tools
 
