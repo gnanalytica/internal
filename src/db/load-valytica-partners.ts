@@ -41,13 +41,20 @@ async function main() {
   // 2. Clear a prior partner run (the valuer leads use different markers).
   await db.delete(crmContacts).where(like(crmContacts.source, `${SOURCE_PREFIX}lender%`));
   await db.delete(crmContacts).where(like(crmContacts.source, `${SOURCE_PREFIX}association%`));
-  await db.delete(crmAccounts).where(eq(crmAccounts.type, "partner"));
 
-  // 3. Partner accounts.
-  const madeAccounts = await db
+  // 3. Partner accounts — created only if absent, so their research notes and
+  //    any write-off survive a reload.
+  const present = await db
+    .select({ id: crmAccounts.id, name: crmAccounts.name })
+    .from(crmAccounts)
+    .where(eq(crmAccounts.workspaceId, ws.id));
+  const accountId = new Map(present.map((a) => [a.name.toLowerCase(), a.id]));
+  const fresh = accounts.filter((a) => !accountId.has(a.name.toLowerCase()));
+  const madeAccounts = fresh.length
+    ? await db
     .insert(crmAccounts)
     .values(
-      accounts.map((a) => ({
+      fresh.map((a) => ({
         workspaceId: ws.id,
         name: a.name,
         website: a.website,
@@ -58,14 +65,15 @@ async function main() {
         ownerId: owner?.id ?? null,
       })),
     )
-    .returning({ id: crmAccounts.id, name: crmAccounts.name });
-  const accountId = new Map(madeAccounts.map((a) => [a.name, a.id]));
-  console.log(`accounts   ${madeAccounts.length} partners`);
+    .returning({ id: crmAccounts.id, name: crmAccounts.name })
+    : [];
+  for (const a of madeAccounts) accountId.set(a.name.toLowerCase(), a.id);
+  console.log(`accounts   ${madeAccounts.length} partners created (${accounts.length - fresh.length} already present)`);
 
   // 4. Their people.
   const rows = contacts.map((c) => ({
     workspaceId: ws.id,
-    accountId: accountId.get(c.account) ?? null,
+    accountId: accountId.get(c.account.toLowerCase()) ?? null,
     name: c.name,
     email: c.email,
     phone: c.phone,
@@ -82,10 +90,10 @@ async function main() {
 
   // 5. Approach notes from the source sheets become account activities.
   const notes = accounts
-    .filter((a) => a.note.trim() && accountId.has(a.name))
+    .filter((a) => a.note.trim() && accountId.has(a.name.toLowerCase()))
     .map((a) => ({
       workspaceId: ws.id,
-      accountId: accountId.get(a.name)!,
+      accountId: accountId.get(a.name.toLowerCase())!,
       type: "note",
       body: a.note.trim(),
       actorId: owner?.id ?? null,

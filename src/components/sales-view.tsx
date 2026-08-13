@@ -446,18 +446,19 @@ function ContactRow({
         defaultValue={contact.email ?? ""}
         placeholder="email"
         onBlur={(e) => e.target.value !== (contact.email ?? "") && upd({ email: e.target.value || null })}
-        className={fieldCls + " w-44"}
+        className={fieldCls + " w-40 min-w-0"}
       />
       <input
         defaultValue={contact.title ?? ""}
         placeholder="Title"
         onBlur={(e) => e.target.value !== (contact.title ?? "") && upd({ title: e.target.value || null })}
-        className={fieldCls + " w-32"}
+        className={fieldCls + " w-40 min-w-0"}
       />
       <select
         defaultValue={contact.accountId ?? ""}
         onChange={(e) => upd({ accountId: e.target.value || null })}
-        className={fieldCls}
+        className={fieldCls + " w-40 min-w-0"}
+        aria-label="Account"
       >
         <option value="">No account</option>
         {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -473,7 +474,7 @@ function ContactRow({
       <select
         defaultValue={contact.referredById ?? ""}
         onChange={(e) => upd({ referredById: e.target.value || null })}
-        className={fieldCls + " max-w-44"}
+        className={fieldCls + " w-36 min-w-0"}
         aria-label="Referred by"
         title="Referred by"
       >

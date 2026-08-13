@@ -208,7 +208,7 @@ function MetricCard({ metric, onChanged }: { metric: MetricWithRelations; onChan
         </div>
       )}
 
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <select
           defaultValue={metric.cadence}
           onChange={(e) => upd({ cadence: e.target.value })}
@@ -243,12 +243,16 @@ function MetricCard({ metric, onChanged }: { metric: MetricWithRelations; onChan
           className="h-7 w-20 rounded border bg-background px-1.5 text-xs"
           aria-label="Target"
         />
-        {!adding && (
-          <button onClick={() => setAdding(true)} className="ml-auto text-xs text-brand hover:underline">
-            + data point
-          </button>
-        )}
       </div>
+
+      {!adding && (
+        <button
+          onClick={() => setAdding(true)}
+          className="mt-2 self-start whitespace-nowrap text-xs text-brand hover:underline"
+        >
+          + data point
+        </button>
+      )}
 
       {adding && (
         <div className="mt-2 flex items-center gap-1.5">

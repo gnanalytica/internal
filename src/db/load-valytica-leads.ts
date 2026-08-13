@@ -17,7 +17,7 @@ const DATA = process.argv[2];
 if (!DATA) throw new Error("usage: tsx load-valytica-leads.ts <leads.json>");
 
 const INDUSTRY = "Property valuation";
-const SOURCE_PREFIX = "Lead DB · ";
+const SOURCE_PREFIX = "Lead DB · score";
 
 async function main() {
   const { leads, firms } = JSON.parse(readFileSync(DATA, "utf8")) as {
@@ -50,9 +50,9 @@ async function main() {
     return churnedNames.some((c) => c.length > 8 && (f.includes(c) || c.includes(f)));
   };
 
-  // Clear only this loader's contacts. Accounts are NOT cleared: other loaders
-  // create firms under the same industry, and a blanket delete here would take
-  // them (and their research notes) with it.
+  // Clear only this loader's own contacts — the scored valuers. The partner
+  // loader writes contacts under the same 'Lead DB' banner, and a broader
+  // match here would take those with it. Accounts are never cleared.
   await db.delete(crmContacts).where(like(crmContacts.source, `${SOURCE_PREFIX}%`));
 
   // Firms first, so contacts can point at them — created only if absent.

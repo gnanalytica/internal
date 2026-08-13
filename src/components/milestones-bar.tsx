@@ -98,7 +98,7 @@ export function MilestonesBar({
             </div>
             <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
               <span>
-                {m.featureCount} feature{m.featureCount === 1 ? "" : "s"}
+                {m.progress.total} task{m.progress.total === 1 ? "" : "s"}
               </span>
               <span className="tabular-nums">
                 {m.progress.total > 0
