@@ -43,7 +43,7 @@ function result(data) {
   };
 }
 
-const server = new McpServer({ name: "internal", version: "2.0.0" });
+const server = new McpServer({ name: "internal", version: "3.0.0" });
 
 const tool = (name, description, shape, handler) =>
   server.tool(name, description, shape, async (args) => {
@@ -127,6 +127,7 @@ tool(
     status: z.string().optional(),
     priority: z.string().optional(),
     assigneeId: z.string().optional(),
+    assigneeIds: z.array(z.string()).optional(),
     cycleId: z.string().optional(),
     milestoneId: z.string().optional(),
     featureId: z.string().optional(),
@@ -150,6 +151,7 @@ tool(
     status: z.string().optional(),
     priority: z.string().optional(),
     assigneeId: z.string().nullable().optional(),
+    assigneeIds: z.array(z.string()).optional(),
     projectId: z.string().nullable().optional(),
     cycleId: z.string().nullable().optional(),
     milestoneId: z.string().nullable().optional(),
@@ -453,6 +455,396 @@ tool(
   (a) => api("/expenses", { method: "POST", body: a }),
 );
 
+// ---- Task collaboration: comments, relations, links, attachments ----
+tool(
+  "list_issue_comments",
+  "Read a task's comment thread.",
+  { id: z.string() },
+  (a) => api(`/issues/${a.id}/comments`),
+);
+
+tool(
+  "delete_comment",
+  "Delete a task comment by its comment id.",
+  { id: z.string() },
+  (a) => api(`/comments/${a.id}`, { method: "DELETE" }),
+);
+
+tool(
+  "link_issues",
+  "Relate two tasks. type: blocks | blocked_by | related | duplicate.",
+  {
+    id: z.string(),
+    relatedIssueId: z.string(),
+    type: z.enum(["blocks", "blocked_by", "related", "duplicate"]).optional(),
+  },
+  ({ id, ...body }) => api(`/issues/${id}/relations`, { method: "POST", body }),
+);
+
+tool(
+  "unlink_issues",
+  "Remove a task relationship by its relation id (from get_issue or list_issue_relations).",
+  { relationId: z.string() },
+  (a) => api(`/relations/${a.relationId}`, { method: "DELETE" }),
+);
+
+tool(
+  "list_issue_relations",
+  "List a task's blocks / blocked-by / related / duplicate edges.",
+  { id: z.string() },
+  (a) => api(`/issues/${a.id}/relations`),
+);
+
+tool(
+  "link_issue_to_page",
+  "Link a task to a doc page (bidirectional).",
+  { id: z.string(), pageId: z.string() },
+  (a) => api(`/issues/${a.id}/pages`, { method: "POST", body: { pageId: a.pageId } }),
+);
+
+tool(
+  "unlink_issue_from_page",
+  "Remove a task <-> page link.",
+  { id: z.string(), pageId: z.string() },
+  (a) =>
+    api(`/issues/${a.id}/pages?pageId=${encodeURIComponent(a.pageId)}`, {
+      method: "DELETE",
+    }),
+);
+
+tool(
+  "list_attachments",
+  "List files attached to a task.",
+  { id: z.string() },
+  (a) => api(`/issues/${a.id}/attachments`),
+);
+
+tool(
+  "attach_file",
+  "Attach an already-hosted file to a task by URL. Binary upload stays in the app.",
+  {
+    id: z.string(),
+    name: z.string(),
+    url: z.string(),
+    contentType: z.string().optional(),
+    size: z.number().optional(),
+  },
+  ({ id, ...body }) => api(`/issues/${id}/attachments`, { method: "POST", body }),
+);
+
+// ---- Doc collaboration: comments, history, trash ----
+tool(
+  "list_page_comments",
+  "Read a doc page's comment threads.",
+  { id: z.string() },
+  (a) => api(`/pages/${a.id}/comments`),
+);
+
+tool(
+  "comment_on_page",
+  "Comment on a doc page. `parentId` makes it a reply.",
+  {
+    id: z.string(),
+    body: z.string(),
+    parentId: z.string().optional(),
+    blockId: z.string().optional(),
+  },
+  ({ id, ...body }) => api(`/pages/${id}/comments`, { method: "POST", body }),
+);
+
+tool(
+  "resolve_page_comment",
+  "Resolve or reopen a page comment thread.",
+  { commentId: z.string(), resolved: z.boolean() },
+  (a) =>
+    api(`/page-comments/${a.commentId}`, {
+      method: "PATCH",
+      body: { resolved: a.resolved },
+    }),
+);
+
+tool(
+  "list_page_versions",
+  "List a page's version history (newest first).",
+  { id: z.string() },
+  (a) => api(`/pages/${a.id}/versions`),
+);
+
+tool(
+  "restore_page_version",
+  "Roll a page back to a previous version. The current state is snapshotted first, so this is undoable.",
+  { id: z.string(), versionId: z.string() },
+  (a) =>
+    api(`/pages/${a.id}/versions`, {
+      method: "POST",
+      body: { versionId: a.versionId },
+    }),
+);
+
+tool("list_trash", "List trashed pages.", {}, () => api("/trash"));
+
+tool(
+  "restore_page",
+  "Restore a trashed page and anything trashed with it.",
+  { id: z.string() },
+  (a) => api(`/trash/${a.id}`, { method: "POST" }),
+);
+
+tool(
+  "purge_page",
+  "Permanently delete a page that is already in the trash. Cannot be undone.",
+  { id: z.string() },
+  (a) => api(`/trash/${a.id}`, { method: "DELETE" }),
+);
+
+// ---- Analytics: metrics ----
+tool(
+  "list_metrics",
+  "List KPIs with their latest and previous values, optionally by project id.",
+  { project: z.string().optional() },
+  (a) => api(`/metrics${query(a, ["project"])}`),
+);
+
+tool(
+  "create_metric",
+  "Define a KPI. cadence: weekly|monthly|quarterly.",
+  {
+    name: z.string(),
+    projectId: z.string().optional(),
+    unit: z.string().optional(),
+    cadence: z.string().optional(),
+    isNorthStar: z.boolean().optional(),
+  },
+  (a) => api("/metrics", { method: "POST", body: a }),
+);
+
+tool(
+  "list_metric_points",
+  "Read a KPI's time series.",
+  { id: z.string() },
+  (a) => api(`/metrics/${a.id}/points`),
+);
+
+tool(
+  "record_metric_point",
+  "Record a KPI value for a period. `periodDate` is ISO (YYYY-MM-DD).",
+  { id: z.string(), periodDate: z.string(), value: z.number() },
+  ({ id, ...body }) => api(`/metrics/${id}/points`, { method: "POST", body }),
+);
+
+// ---- Product: feedback ----
+tool(
+  "list_feedback",
+  "List product feedback, optionally by project id.",
+  { project: z.string().optional() },
+  (a) => api(`/feedback${query(a, ["project"])}`),
+);
+
+tool(
+  "create_feedback",
+  "Capture product feedback. source: customer|sales|support|interview|internal|other. status: new|reviewing|planned|declined|shipped.",
+  {
+    title: z.string(),
+    body: z.string().optional(),
+    projectId: z.string().optional(),
+    source: z.string().optional(),
+    status: z.string().optional(),
+    votes: z.number().optional(),
+    contact: z.string().optional(),
+    featureId: z.string().optional(),
+  },
+  (a) => api("/feedback", { method: "POST", body: a }),
+);
+
+// ---- Marketing: content calendar ----
+tool(
+  "list_content",
+  "List content-calendar items, optionally by project id.",
+  { project: z.string().optional() },
+  (a) => api(`/content${query(a, ["project"])}`),
+);
+
+tool(
+  "create_content",
+  "Add a content item. status: idea|draft|scheduled|published.",
+  {
+    title: z.string(),
+    projectId: z.string().optional(),
+    campaignId: z.string().optional(),
+    channel: z.string().optional(),
+    status: z.string().optional(),
+    url: z.string().optional(),
+    notes: z.string().optional(),
+    publishDate: z.string().optional(),
+    ownerId: z.string().optional(),
+  },
+  (a) => api("/content", { method: "POST", body: a }),
+);
+
+// ---- Weekly review ----
+tool(
+  "list_status_updates",
+  "List a project's weekly status updates.",
+  { project: z.string() },
+  (a) => api(`/status-updates${query(a, ["project"])}`),
+);
+
+tool(
+  "post_status_update",
+  "Post a weekly project status update. health: on_track|at_risk|off_track.",
+  { projectId: z.string(), health: z.string(), body: z.string().optional() },
+  (a) => api("/status-updates", { method: "POST", body: a }),
+);
+
+// ---- CRM activity log ----
+tool(
+  "list_activities",
+  "List CRM activities (calls, meetings, follow-ups), optionally by deal or account id.",
+  { deal: z.string().optional(), account: z.string().optional() },
+  (a) => api(`/activities${query(a, ["deal", "account"])}`),
+);
+
+tool(
+  "log_activity",
+  "Log a CRM activity against a deal, account or contact. type: note|call|email|task|meeting.",
+  {
+    type: z.string().optional(),
+    body: z.string().optional(),
+    dueDate: z.string().optional(),
+    done: z.boolean().optional(),
+    dealId: z.string().optional(),
+    accountId: z.string().optional(),
+    contactId: z.string().optional(),
+    projectId: z.string().optional(),
+  },
+  (a) => api("/activities", { method: "POST", body: a }),
+);
+
+// ---- People: members and the org chart ----
+tool(
+  "add_member",
+  "Add someone to the workspace, creating the user when the email is new. role: admin|member.",
+  {
+    email: z.string(),
+    name: z.string().optional(),
+    role: z.string().optional(),
+    title: z.string().optional(),
+  },
+  (a) => api("/users", { method: "POST", body: a }),
+);
+
+tool(
+  "update_member",
+  "Update a member's role or HR profile. entity: India|Netherlands|Global. employment: employee|contractor.",
+  {
+    id: z.string(),
+    role: z.string().optional(),
+    title: z.string().optional(),
+    entity: z.string().optional(),
+    employment: z.string().optional(),
+    startDate: z.string().nullable().optional(),
+    managerId: z.string().nullable().optional(),
+  },
+  ({ id, ...patch }) => api(`/users/${id}`, { method: "PATCH", body: patch }),
+);
+
+tool(
+  "remove_member",
+  "Remove someone from the workspace. Their authored history is kept.",
+  { id: z.string() },
+  (a) => api(`/users/${a.id}`, { method: "DELETE" }),
+);
+
+tool("list_org_roles", "Read the org chart as a tree of positions.", {}, () =>
+  api("/org-roles"),
+);
+
+tool(
+  "create_org_role",
+  "Add an org-chart position. `parentId` nests it under another role.",
+  {
+    title: z.string(),
+    userId: z.string().optional(),
+    parentId: z.string().optional(),
+  },
+  (a) => api("/org-roles", { method: "POST", body: a }),
+);
+
+// ---- Notion-style databases ----
+tool("list_databases", "List the workspace's databases.", {}, () =>
+  api("/databases"),
+);
+
+tool(
+  "get_database",
+  "Get a database with its field schema and all rows.",
+  { id: z.string() },
+  (a) => api(`/databases/${a.id}`),
+);
+
+tool(
+  "create_database",
+  "Create a database (table).",
+  { name: z.string().optional(), icon: z.string().optional() },
+  (a) => api("/databases", { method: "POST", body: a }),
+);
+
+tool(
+  "add_database_field",
+  "Add a column. type: text|number|select|checkbox|date|relation|rollup. For select, pass `options` as [{label,color}].",
+  {
+    id: z.string(),
+    name: z.string(),
+    type: z.string().optional(),
+    options: z.any().optional(),
+  },
+  ({ id, ...body }) => api(`/databases/${id}/fields`, { method: "POST", body }),
+);
+
+tool(
+  "delete_database_field",
+  "Delete a column from a database.",
+  { id: z.string(), fieldId: z.string() },
+  (a) => api(`/databases/${a.id}/fields/${a.fieldId}`, { method: "DELETE" }),
+);
+
+tool(
+  "add_database_row",
+  "Add a row. `values` is keyed by field id — call get_database first for the schema.",
+  { id: z.string(), values: z.record(z.string(), z.any()) },
+  (a) => api(`/databases/${a.id}/rows`, { method: "POST", body: a.values }),
+);
+
+tool(
+  "update_database_row",
+  "Update cells on a row. Merges — omitted fields keep their current value.",
+  { id: z.string(), rowId: z.string(), values: z.record(z.string(), z.any()) },
+  (a) =>
+    api(`/databases/${a.id}/rows/${a.rowId}`, { method: "PATCH", body: a.values }),
+);
+
+tool(
+  "delete_database_row",
+  "Delete a row from a database.",
+  { id: z.string(), rowId: z.string() },
+  (a) => api(`/databases/${a.id}/rows/${a.rowId}`, { method: "DELETE" }),
+);
+
+// ---- Notifications ----
+tool(
+  "list_notifications",
+  "List notifications for the member this key acts as. Pass unread=true for only unread ones.",
+  { unread: z.boolean().optional() },
+  (a) => api(`/notifications${a.unread ? "?unread=true" : ""}`),
+);
+
+tool(
+  "mark_notifications_read",
+  "Mark one notification read, or all of them when `id` is omitted.",
+  { id: z.string().optional() },
+  (a) => api("/notifications", { method: "POST", body: { id: a.id } }),
+);
+
 // ---- Generic edit / delete ----
 // Records that are a flat row (everything except issues and pages, which have
 // their own tools) share one pair of tools so the schema stays small.
@@ -462,6 +854,15 @@ const RESOURCES = [
   "features",
   "cycles",
   "labels",
+  "metrics",
+  "feedback",
+  "content",
+  "org-roles",
+  "activities",
+  "status-updates",
+  "attachments",
+  "page-comments",
+  "databases",
   "deals",
   "accounts",
   "contacts",
@@ -477,6 +878,15 @@ const WRITABLE = [
   "features: title, status, startDate, targetDate, milestoneId, projectId, ownerId, pageId",
   "cycles: name, startDate, endDate",
   "labels: name, color",
+  "metrics: name, unit, cadence, isNorthStar, projectId",
+  "feedback: title, body, source, status, votes, contact, featureId, projectId",
+  "content: title, channel, status, url, notes, publishDate, campaignId, projectId, ownerId",
+  "org-roles: title, userId, parentId",
+  "activities: type, body, dueDate, done, accountId, contactId, dealId, projectId",
+  "status-updates: health, body",
+  "attachments: name",
+  "page-comments: body",
+  "databases: name, icon",
   "deals: name, stage, value, entity, expectedClose, projectId, accountId, contactId, ownerId",
   "accounts: name, website, industry, type, entity, ownerId",
   "contacts: name, email, title, phone, lifecycleStage, source, accountId, entity, ownerId",
