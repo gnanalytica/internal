@@ -17,7 +17,7 @@ same auth and behaviour.
 claude mcp add internal \
   --env INTERNAL_API_KEY=int_your_key_here \
   --env INTERNAL_API_URL=https://internal.gnanalytica.com/api/v1 \
-  -- npx -y @gnanalytica/internal-mcp
+  -- npx -y gnanalytica-internal-mcp
 ```
 
 ### Claude Desktop / Cursor
@@ -29,7 +29,7 @@ Claude Desktop config, or Cursor's `~/.cursor/mcp.json`:
   "mcpServers": {
     "internal": {
       "command": "npx",
-      "args": ["-y", "@gnanalytica/internal-mcp"],
+      "args": ["-y", "gnanalytica-internal-mcp"],
       "env": {
         "INTERNAL_API_URL": "https://internal.gnanalytica.com/api/v1",
         "INTERNAL_API_KEY": "int_your_key_here"

@@ -1,10 +1,10 @@
 {
-  "name": "@gnanalytica/internal-mcp",
-  "version": "2.0.0",
+  "name": "gnanalytica-internal-mcp",
+  "version": "3.0.0",
   "description": "MCP server for the Internal (Notion + Linear) workspace API.",
   "type": "module",
   "bin": {
-    "internal-mcp": "./server.mjs"
+    "gnanalytica-internal-mcp": "./server.mjs"
   },
   "scripts": {
     "start": "node server.mjs"
@@ -17,7 +17,19 @@
     "server.mjs",
     "README.md"
   ],
-  "publishConfig": {
-    "access": "public"
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "cursor",
+    "issue-tracker",
+    "notion",
+    "linear"
+  ],
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gnanalytica/internal.git",
+    "directory": "mcp"
   }
 }
