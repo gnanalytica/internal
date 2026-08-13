@@ -1,6 +1,9 @@
 import { issueIdentifier } from "@/lib/types";
 import type {
   CampaignWithRelations,
+  FeatureWithRelations,
+  Label,
+  MilestoneWithProgress,
   ContactWithAccount,
   CrmAccount,
   Cycle,
@@ -20,6 +23,8 @@ export function issueDto(i: IssueWithRelations) {
     id: i.id,
     identifier: issueIdentifier(i),
     title: i.title,
+    // The department lens on a task — see ISSUE_TYPES.
+    type: i.type,
     status: i.status,
     priority: i.priority,
     estimate: i.estimate,
@@ -30,6 +35,8 @@ export function issueDto(i: IssueWithRelations) {
       ? { id: i.project.id, key: i.project.key, name: i.project.name }
       : null,
     cycleId: i.cycleId,
+    milestoneId: i.milestoneId,
+    featureId: i.featureId,
     parentId: i.parentId,
     labels: i.labels.map((l) => ({ id: l.id, name: l.name, color: l.color })),
     createdAt: i.createdAt,
@@ -62,6 +69,38 @@ export function cycleDto(c: Cycle) {
 
 export function pageDto(p: Pick<Page, "id" | "title" | "icon">) {
   return { id: p.id, title: p.title, icon: p.icon };
+}
+
+export function milestoneDto(m: MilestoneWithProgress) {
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    status: m.status,
+    targetDate: m.targetDate,
+    projectId: m.projectId,
+    featureCount: m.featureCount,
+    progress: m.progress,
+  };
+}
+
+export function featureDto(f: FeatureWithRelations) {
+  return {
+    id: f.id,
+    title: f.title,
+    status: f.status,
+    startDate: f.startDate,
+    targetDate: f.targetDate,
+    projectId: f.projectId,
+    milestone: f.milestone ? { id: f.milestone.id, name: f.milestone.name } : null,
+    owner: f.owner ? { id: f.owner.id, name: f.owner.name } : null,
+    pageId: f.pageId,
+    progress: f.progress,
+  };
+}
+
+export function labelDto(l: Label) {
+  return { id: l.id, name: l.name, color: l.color };
 }
 
 // ---- CRM / Sales / Marketing / Finance / Support ----

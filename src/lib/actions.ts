@@ -70,6 +70,7 @@ import {
   dispatchWebhook,
   newWebhookSecret,
 } from "@/lib/api/webhooks";
+import { docToText } from "@/lib/markdown";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import {
   PRESENCE_STALE_MS,
@@ -1671,17 +1672,6 @@ export async function duplicateRow(id: string, databaseId: string) {
 }
 
 // ---- GitHub issue sync ----
-
-function docToText(doc: unknown): string {
-  if (!doc || typeof doc !== "object") return "";
-  const node = doc as { type?: string; text?: string; content?: unknown[] };
-  if (typeof node.text === "string") return node.text;
-  if (Array.isArray(node.content)) {
-    const sep = node.type === "doc" || node.type === "bulletList" || node.type === "orderedList" ? "\n" : "";
-    return node.content.map(docToText).join(sep);
-  }
-  return "";
-}
 
 export async function setGithubConfig(input: { repo: string; token: string }) {
   const ws = await getWorkspace();

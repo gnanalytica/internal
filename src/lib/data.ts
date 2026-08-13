@@ -466,12 +466,18 @@ export async function getIssuesPage(
     status?: string | null;
     projectId?: string | null;
     assigneeId?: string | null;
+    type?: string | null;
+    cycleId?: string | null;
+    milestoneId?: string | null;
   },
 ): Promise<{ items: IssueWithRelations[]; nextCursor: import("@/lib/api/pagination").Cursor | null }> {
   const conds = [eq(issues.workspaceId, workspaceId)];
   if (opts.status) conds.push(eq(issues.status, opts.status));
   if (opts.projectId) conds.push(eq(issues.projectId, opts.projectId));
   if (opts.assigneeId) conds.push(eq(issues.assigneeId, opts.assigneeId));
+  if (opts.type) conds.push(eq(issues.type, opts.type));
+  if (opts.cycleId) conds.push(eq(issues.cycleId, opts.cycleId));
+  if (opts.milestoneId) conds.push(eq(issues.milestoneId, opts.milestoneId));
   if (opts.cursor) {
     const at = new Date(opts.cursor.createdAt);
     conds.push(
@@ -1625,6 +1631,29 @@ export async function getTickets(
       : eq(tickets.workspaceId, workspaceId),
     orderBy: [asc(tickets.sortKey), desc(tickets.createdAt)],
     with: { account: true, contact: true, assignee: true, project: true },
+  });
+}
+
+/** A single ticket with relations, scoped to the workspace. */
+export async function getTicket(
+  workspaceId: string,
+  id: string,
+): Promise<TicketWithRelations | null> {
+  const row = await db.query.tickets.findFirst({
+    where: and(eq(tickets.workspaceId, workspaceId), eq(tickets.id, id)),
+    with: { account: true, contact: true, assignee: true, project: true },
+  });
+  return row ?? null;
+}
+
+export async function getTicketComments(workspaceId: string, ticketId: string) {
+  return db.query.ticketComments.findMany({
+    where: and(
+      eq(ticketComments.workspaceId, workspaceId),
+      eq(ticketComments.ticketId, ticketId),
+    ),
+    orderBy: [asc(ticketComments.createdAt)],
+    with: { author: { columns: { id: true, name: true } } },
   });
 }
 
