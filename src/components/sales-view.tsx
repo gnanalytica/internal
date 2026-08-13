@@ -140,11 +140,25 @@ export function SalesView({
         }
       />
 
-      <Tabs defaultValue="pipeline" className="flex min-h-0 flex-1 flex-col">
+      {/* Land on a tab that has something in it. A workspace can hold hundreds
+          of accounts and contacts before its first deal exists, and opening on
+          an empty pipeline reads as "there is no data". */}
+      <Tabs
+        defaultValue={
+          initialDeals.length
+            ? "pipeline"
+            : initialContacts.length
+              ? "contacts"
+              : initialAccounts.length
+                ? "accounts"
+                : "pipeline"
+        }
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <TabsList className="mx-4 mt-2 self-start">
-          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-          <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="contacts">Contacts</TabsTrigger>
+          <TabsTrigger value="pipeline">Pipeline{count(initialDeals.length)}</TabsTrigger>
+          <TabsTrigger value="accounts">Accounts{count(initialAccounts.length)}</TabsTrigger>
+          <TabsTrigger value="contacts">Contacts{count(initialContacts.length)}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pipeline" className="flex min-h-0 flex-1 flex-col">
@@ -249,6 +263,12 @@ export function SalesView({
 }
 
 type Filter = { q: string; channel: string };
+
+/** Row count beside a tab label, so an empty tab is visibly empty from outside it. */
+function count(n: number) {
+  if (!n) return null;
+  return <span className="ml-1.5 text-[11px] tabular-nums opacity-60">{n}</span>;
+}
 
 function matches(q: string, ...fields: (string | null | undefined)[]) {
   const needle = q.trim().toLowerCase();
