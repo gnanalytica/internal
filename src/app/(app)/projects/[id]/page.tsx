@@ -129,8 +129,8 @@ export default async function ProjectRoute({
       href: `/projects/${id}/product`,
       icon: <Compass className="size-4" />,
       label: "Product",
-      stat: `${summary.openFeatures} open features`,
-      tool: "Roadmap & specs",
+      stat: `${summary.openMilestones} open gates`,
+      tool: "Milestones & tasks",
     },
     {
       slug: "engineering" as const,

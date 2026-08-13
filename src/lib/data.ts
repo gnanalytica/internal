@@ -1523,7 +1523,7 @@ export async function getContentItems(
 export async function getProjectSummaries(
   workspaceId: string,
 ): Promise<ProjectSummary[]> {
-  const [projects, allDeals, allIssues, allCampaigns, allInvoices, allTickets, allFeatures, allMetrics] =
+  const [projects, allDeals, allIssues, allCampaigns, allInvoices, allTickets, allMilestones, allMetrics] =
     await Promise.all([
     getProjects(workspaceId),
     db
@@ -1551,9 +1551,9 @@ export async function getProjectSummaries(
       .from(tickets)
       .where(eq(tickets.workspaceId, workspaceId)),
     db
-      .select({ projectId: features.projectId, status: features.status })
-      .from(features)
-      .where(eq(features.workspaceId, workspaceId)),
+      .select({ projectId: milestones.projectId, status: milestones.status })
+      .from(milestones)
+      .where(eq(milestones.workspaceId, workspaceId)),
     db
       .select({ projectId: metrics.projectId })
       .from(metrics)
@@ -1562,7 +1562,8 @@ export async function getProjectSummaries(
 
   const openStages = new Set(["lead", "qualified", "proposal", "negotiation"]);
   const openTicketStatuses = new Set(["open", "pending"]);
-  const openFeatureStatuses = new Set(["idea", "planned", "building"]);
+  // A gate is open until it is achieved or formally missed.
+  const openMilestoneStatuses = new Set(["planned", "on_track", "at_risk", "off_track"]);
   return projects
     .filter((p) => p.kind === "project")
     .map((p) => {
@@ -1584,8 +1585,8 @@ export async function getProjectSummaries(
       openTickets: allTickets.filter(
         (t) => t.projectId === p.id && openTicketStatuses.has(t.status),
       ).length,
-      openFeatures: allFeatures.filter(
-        (f) => f.projectId === p.id && openFeatureStatuses.has(f.status),
+      openMilestones: allMilestones.filter(
+        (m) => m.projectId === p.id && openMilestoneStatuses.has(m.status),
       ).length,
       metricCount: allMetrics.filter((m) => m.projectId === p.id).length,
     };

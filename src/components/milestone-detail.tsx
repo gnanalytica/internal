@@ -8,10 +8,8 @@ import { MilestoneStatusPicker, TypeChip } from "@/components/pickers";
 import { Topbar } from "@/components/topbar";
 import { updateMilestone } from "@/lib/actions";
 import { STATUS_MAP, type StatusId } from "@/lib/constants";
-import { FEATURE_STATUSES } from "@/lib/departments";
 import { issueIdentifier, type MilestoneDetail } from "@/lib/types";
 
-const statusMeta = (s: string) => FEATURE_STATUSES.find((x) => x.id === s);
 const toDateInput = (d: Date | string | null) =>
   d ? new Date(d).toISOString().slice(0, 10) : "";
 
@@ -64,9 +62,6 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
                 className="rounded border bg-transparent px-1.5 py-1"
               />
             </label>
-            <span className="text-xs text-muted-foreground">
-              {milestone.featureCount} feature{milestone.featureCount === 1 ? "" : "s"}
-            </span>
             <span className="text-xs tabular-nums text-muted-foreground">
               {total > 0 ? `${done}/${total} tasks · ${pct}%` : "no tasks yet"}
             </span>
@@ -89,46 +84,16 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
             className="mt-4 w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
           />
 
-          {/* Features in this milestone */}
+          {/* The tasks that deliver this gate. */}
           <h3 className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Features
+            Tasks
           </h3>
-          {milestone.features.length === 0 ? (
+          {milestone.directIssues.length === 0 ? (
             <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-              No features assigned yet. Assign a feature to this milestone from its detail page.
+              Nothing delivers this gate yet.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-xl border">
-              {milestone.features.map((f, i) => {
-                const sm = statusMeta(f.status);
-                const fp = f.progress;
-                return (
-                  <Link
-                    key={f.id}
-                    href={`/projects/${projectId}/product/${f.id}`}
-                    className={`press flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/40 ${i > 0 ? "border-t" : ""}`}
-                  >
-                    <span
-                      className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-                      style={{ backgroundColor: sm?.color ?? "#94a3b8" }}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{f.title}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{sm?.label ?? f.status}</span>
-                    <span className="w-24 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                      {fp.total > 0 ? `${fp.done}/${fp.total} · ${fp.pct}%` : "—"}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Tasks attached directly to this milestone (no feature) */}
-          {milestone.directIssues.length > 0 && (
             <>
-              <h3 className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Tasks
-              </h3>
               <div className="overflow-hidden rounded-xl border">
                 {milestone.directIssues.map((it, i) => {
                   const sm = STATUS_MAP[it.status as StatusId];

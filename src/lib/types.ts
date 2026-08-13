@@ -151,7 +151,7 @@ export type ProjectSummary = Project & {
   activeCampaigns: number;
   revenue: number; // sum of paid invoices
   openTickets: number;
-  openFeatures: number;
+  openMilestones: number;
   metricCount: number;
 };
 
