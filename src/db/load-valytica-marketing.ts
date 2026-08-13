@@ -2,29 +2,15 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 import { eq, sql } from "drizzle-orm";
 import { db } from "./index";
-import { campaigns, contentItems, features, issues, milestones, projects, users } from "./schema";
+import { campaigns, contentItems, projects, users } from "./schema";
 
 /**
- * Fill the two department surfaces that render their own objects rather than
- * issues, and so read as empty however much work is loaded:
- *   Product   — the 8 workflow steps as features, with their build tickets linked.
- *   Marketing — the campaigns and content calendar the MC and MS tickets describe.
+ * Load the campaigns and content calendar the MC and MS tickets describe, so
+ * the Marketing surface holds its own objects rather than reading as empty.
  * Re-runnable. Neon HTTP: sequential.
  */
 
 const at = (iso: string) => new Date(`${iso}T12:00:00Z`);
-
-/** The 8 steps every QA pass walks, from the MVP Launch Plan. */
-const STEPS: { title: string; milestone: string; target: string; tickets: string[] }[] = [
-  { title: "1 · Case creation + document upload", milestone: "Core report path demoable", target: "2026-09-03", tickets: ["FS-03"] },
-  { title: "2 · AI extraction from property documents", milestone: "Extraction 90% key fields", target: "2026-09-10", tickets: ["AIE-03", "AIE-04", "AIE-06"] },
-  { title: "3 · Cross-verification between documents", milestone: "Feature freeze / complete", target: "2026-09-10", tickets: ["AIE-07"] },
-  { title: "4 · Valuer review, correct and override", milestone: "Core report path demoable", target: "2026-09-03", tickets: ["FS-04", "AIE-05"] },
-  { title: "5 · Portal verification + manual fallback", milestone: "Core report path demoable", target: "2026-09-03", tickets: ["FS-07", "ARC-05"] },
-  { title: "6 · Mobile site visit — geotag, GPS, offline", milestone: "Feature freeze / complete", target: "2026-09-10", tickets: ["FS-08"] },
-  { title: "7 · Valuation workings engine", milestone: "Core report path demoable", target: "2026-09-03", tickets: ["FS-05"] },
-  { title: "8 · IBA-aligned report generation + signing", milestone: "Core report path demoable", target: "2026-09-03", tickets: ["FS-06"] },
-];
 
 /** Campaigns the marketing track actually runs, from the MC and MS tickets. */
 const CAMPAIGNS: {
@@ -92,46 +78,6 @@ async function main() {
   const people = await db.select({ id: users.id, name: users.name }).from(users);
   const userId = new Map(people.map((u) => [u.name, u.id]));
 
-  const ms = await db.select().from(milestones).where(eq(milestones.projectId, project.id));
-  const msId = new Map(ms.map((m) => [m.name, m.id]));
-
-  // ---- Product: the 8 workflow steps ----
-  await db.delete(features).where(eq(features.projectId, project.id));
-  const all = await db
-    .select({ id: issues.id, title: issues.title })
-    .from(issues)
-    .where(eq(issues.projectId, project.id));
-  const issueByKey = new Map<string, string>();
-  for (const i of all) {
-    const key = i.title.split(" · ")[0];
-    if (!key.includes(".")) issueByKey.set(key, i.id);
-  }
-
-  let linked = 0;
-  for (const [i, s] of STEPS.entries()) {
-    const [made] = await db
-      .insert(features)
-      .values({
-        workspaceId: ws,
-        projectId: project.id,
-        milestoneId: msId.get(s.milestone) ?? null,
-        title: s.title,
-        status: "planned",
-        targetDate: at(s.target),
-        ownerId: userId.get("Jayasaagar") ?? null,
-        sortKey: `a${String(i).padStart(3, "0")}`,
-      })
-      .returning({ id: features.id });
-    for (const key of s.tickets) {
-      const id = issueByKey.get(key);
-      if (!id) continue;
-      await db.update(issues).set({ featureId: made.id }).where(eq(issues.id, id));
-      linked++;
-    }
-  }
-  console.log(`features   ${STEPS.length} workflow steps · ${linked} build tickets linked`);
-
-  // ---- Marketing: campaigns + content calendar ----
   await db.delete(contentItems).where(eq(contentItems.projectId, project.id));
   await db.delete(campaigns).where(eq(campaigns.projectId, project.id));
   let items = 0;

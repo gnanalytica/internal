@@ -1,36 +1,36 @@
 "use client";
 
-import { FeaturesView } from "@/components/features-view";
 import { FeedbackView } from "@/components/feedback-view";
+import { MilestoneRoadmap } from "@/components/milestone-roadmap";
 import { Topbar } from "@/components/topbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
-  FeatureWithRelations,
   FeedbackWithRelations,
+  IssueWithRelations,
   MilestoneWithProgress,
 } from "@/lib/types";
 
 /**
- * The Product department surface: Roadmap (features timeline) + Feedback
- * (discovery). Feedback links into the roadmap, closing the discovery loop.
+ * The Product department surface: Roadmap (milestones and the tasks that
+ * deliver them) + Feedback (discovery).
+ *
+ * Tasks hang straight off a milestone. There is no epic layer in between: a
+ * milestone is a date, a task is work, and grouping work by capability is what
+ * labels are for.
  */
 export function ProductView({
   heading,
   scopeProjectId,
-  features,
-  nowISO,
+  issues,
   feedback,
   milestones,
 }: {
   heading: string;
   scopeProjectId: string;
-  features: FeatureWithRelations[];
-  nowISO: string;
+  issues: IssueWithRelations[];
   feedback: FeedbackWithRelations[];
   milestones: MilestoneWithProgress[];
 }) {
-  const featureRefs = features.map((f) => ({ id: f.id, title: f.title }));
-
   return (
     <div className="flex h-full flex-col">
       <Topbar breadcrumb={[{ label: heading }]} />
@@ -42,21 +42,14 @@ export function ProductView({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="roadmap" className="min-h-0 flex-1 overflow-hidden">
-          <FeaturesView
-            heading={heading}
-            features={features}
-            nowISO={nowISO}
-            scopeProjectId={scopeProjectId}
+          <MilestoneRoadmap
+            projectId={scopeProjectId}
             milestones={milestones}
-            embedded
+            issues={issues}
           />
         </TabsContent>
         <TabsContent value="feedback" className="min-h-0 flex-1 overflow-hidden">
-          <FeedbackView
-            scopeProjectId={scopeProjectId}
-            initialFeedback={feedback}
-            features={featureRefs}
-          />
+          <FeedbackView scopeProjectId={scopeProjectId} initialFeedback={feedback} features={[]} />
         </TabsContent>
       </Tabs>
     </div>
