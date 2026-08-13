@@ -980,6 +980,8 @@ export const crmContacts = pgTable(
     phone: text("phone"),
     lifecycleStage: text("lifecycle_stage").notNull().default("lead"), // lead | qualified | customer
     source: text("source"), // where the contact came from (campaign, referral, …)
+    // Prospect ranking carried over from lead research — higher is hotter.
+    leadScore: integer("lead_score"),
     // How this person reaches us / we reach them. See CRM_CHANNELS.
     channel: text("channel").notNull().default("direct"),
     // Self-reference: the contact who referred this one. App-managed, like
@@ -1498,6 +1500,10 @@ export const metrics = pgTable(
     name: text("name").notNull(),
     unit: text("unit"), // e.g. "users", "%", "€", "/5"
     cadence: text("cadence").notNull().default("monthly"), // weekly | monthly | quarterly
+    // The number this metric is steering towards, and which side of it is good.
+    // A metric with no target just trends; one with a target reads on/off track.
+    target: real("target"),
+    targetDirection: text("target_direction").notNull().default("above"), // above | below
     isNorthStar: boolean("is_north_star").notNull().default(false),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

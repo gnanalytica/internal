@@ -2442,6 +2442,7 @@ export async function updateContact(
     channel: string;
     referredById: string | null;
     pageId: string | null;
+    leadScore: number | null;
     entity: string;
   }>,
 ) {
@@ -3091,7 +3092,14 @@ export async function createMetric(input: {
 
 export async function updateMetric(
   id: string,
-  patch: Partial<{ name: string; unit: string | null; cadence: string; isNorthStar: boolean }>,
+  patch: Partial<{
+    name: string;
+    unit: string | null;
+    cadence: string;
+    target: number | null;
+    targetDirection: string;
+    isNorthStar: boolean;
+  }>,
 ) {
   const ws = await getWorkspace();
   await db.update(metrics).set(patch).where(and(eq(metrics.id, id), eq(metrics.workspaceId, ws.id)));

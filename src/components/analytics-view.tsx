@@ -16,6 +16,7 @@ import {
 } from "@/lib/actions";
 import { METRIC_CADENCES } from "@/lib/departments";
 import { formatDate } from "@/lib/matrix-format";
+import { formatTarget, readTarget, type TargetDirection } from "@/lib/metrics";
 import type { MetricWithRelations, Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -121,6 +122,7 @@ function MetricCard({ metric, onChanged }: { metric: MetricWithRelations; onChan
     label: formatDate(p.periodDate),
     value: p.value,
   }));
+  const read = readTarget(metric.latest, metric.target, metric.targetDirection as TargetDirection);
 
   function savePoint() {
     if (!period || value === "") return;
@@ -174,6 +176,28 @@ function MetricCard({ metric, onChanged }: { metric: MetricWithRelations; onChan
         )}
       </div>
 
+      {read && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className={cn("font-medium", read.onTrack ? "text-emerald-600" : "text-rose-600")}>
+              {read.onTrack ? "On track" : `${fmt(read.gap, metric.unit)} to go`}
+            </span>
+            <span className="tabular-nums text-muted-foreground">
+              {formatTarget(metric.target, metric.targetDirection as TargetDirection, metric.unit)}
+            </span>
+          </div>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                read.onTrack ? "bg-emerald-500" : "bg-rose-500",
+              )}
+              style={{ width: `${read.progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {chartData.length > 1 ? (
         <div className="mt-2">
           <AreaChart data={chartData} color="#14b8a6" height={64} format={(n) => fmt(n, metric.unit)} />
@@ -196,7 +220,28 @@ function MetricCard({ metric, onChanged }: { metric: MetricWithRelations; onChan
           defaultValue={metric.unit ?? ""}
           onBlur={(e) => (e.target.value || null) !== metric.unit && upd({ unit: e.target.value || null })}
           placeholder="unit (%, users, €)"
-          className="h-7 w-28 rounded border bg-background px-1.5 text-xs"
+          className="h-7 w-24 rounded border bg-background px-1.5 text-xs"
+        />
+        <select
+          defaultValue={metric.targetDirection}
+          onChange={(e) => upd({ targetDirection: e.target.value })}
+          className="h-7 rounded border bg-background px-1 text-xs text-muted-foreground"
+          aria-label="Target direction"
+        >
+          <option value="above">≥</option>
+          <option value="below">≤</option>
+        </select>
+        <input
+          type="number"
+          step="any"
+          defaultValue={metric.target ?? ""}
+          onBlur={(e) => {
+            const next = e.target.value === "" ? null : Number(e.target.value);
+            if (next !== metric.target) upd({ target: next });
+          }}
+          placeholder="target"
+          className="h-7 w-20 rounded border bg-background px-1.5 text-xs"
+          aria-label="Target"
         />
         {!adding && (
           <button onClick={() => setAdding(true)} className="ml-auto text-xs text-brand hover:underline">

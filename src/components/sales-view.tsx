@@ -79,13 +79,24 @@ export function SalesView({
   );
   const contacts = useMemo(
     () =>
-      initialContacts.filter(
-        (c) =>
-          (!contactFilter.channel || c.channel === contactFilter.channel) &&
-          matches(contactFilter.q, c.name, c.email, c.title, c.account?.name),
-      ),
+      initialContacts
+        .filter(
+          (c) =>
+            (!contactFilter.channel || c.channel === contactFilter.channel) &&
+            matches(contactFilter.q, c.name, c.email, c.title, c.account?.name),
+        )
+        // Hottest first — an unscored contact sorts last, not as a zero.
+        .sort((a, b) => (b.leadScore ?? -1) - (a.leadScore ?? -1)),
     [initialContacts, contactFilter],
   );
+
+  // Where the pipeline actually comes from — MA-03's "which channel produced
+  // leads", computed rather than reported by hand.
+  const byChannel: Slice[] = CRM_CHANNELS.map((c) => ({
+    label: c.label,
+    value: initialContacts.filter((x) => x.channel === c.id).length,
+    color: c.color,
+  })).filter((s) => s.value > 0);
 
   const openValue = initialDeals
     .filter((d) => OPEN_DEAL_STAGES.includes(d.stage as (typeof OPEN_DEAL_STAGES)[number]))
@@ -189,6 +200,15 @@ export function SalesView({
             onAdd={() => startTransition(async () => { await createContact({}); router.refresh(); })}
             addLabel="New contact"
           />
+          {byChannel.length > 1 && (
+            <ChartCard
+              title="Contacts by channel"
+              hint={`${initialContacts.length} total`}
+              className="mb-4"
+            >
+              <ColumnChart data={byChannel} height={96} />
+            </ChartCard>
+          )}
           <FilterBar
             value={contactFilter}
             onChange={setContactFilter}
@@ -389,6 +409,14 @@ function ContactRow({
     start(async () => { await updateContact(contact.id, patch); onChanged(); });
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2">
+      {contact.leadScore != null && (
+        <span
+          className="shrink-0 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
+          title={`Lead score ${contact.leadScore}`}
+        >
+          {contact.leadScore}
+        </span>
+      )}
       <input
         defaultValue={contact.name}
         onBlur={(e) => e.target.value !== contact.name && upd({ name: e.target.value })}
