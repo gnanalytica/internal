@@ -35,6 +35,25 @@ export const isStatus = (v: string): v is StatusId =>
 export const isPriority = (v: string): v is PriorityId =>
   PRIORITIES.some((p) => p.id === v);
 
+/** Gate verdict on a milestone. Order runs from not-started to closed. */
+export const MILESTONE_STATUSES = [
+  { id: "planned", label: "Planned", color: "#bec2c8" },
+  { id: "on_track", label: "On track", color: "#5e9b51" },
+  { id: "at_risk", label: "At risk", color: "#f2c94c" },
+  { id: "off_track", label: "Off track", color: "#eb5757" },
+  { id: "achieved", label: "Achieved", color: "#5e6ad2" },
+  { id: "missed", label: "Missed", color: "#95a2b3" },
+] as const;
+
+export type MilestoneStatusId = (typeof MILESTONE_STATUSES)[number]["id"];
+
+export const MILESTONE_STATUS_MAP = Object.fromEntries(
+  MILESTONE_STATUSES.map((s) => [s.id, s]),
+) as Record<MilestoneStatusId, (typeof MILESTONE_STATUSES)[number]>;
+
+export const isMilestoneStatus = (v: string): v is MilestoneStatusId =>
+  MILESTONE_STATUSES.some((s) => s.id === v);
+
 /** Functional category for a task — work isn't only engineering. */
 export const ISSUE_TYPES = [
   { id: "engineering", label: "Engineering", color: "#5e6ad2" },

@@ -1373,6 +1373,9 @@ export const milestones = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     targetDate: timestamp("target_date", { withTimezone: true }),
+    // Gate verdict — see MILESTONE_STATUSES. Drives the weekly green/amber/red
+    // review and the Go/No-Go call.
+    status: text("status").notNull().default("planned"),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

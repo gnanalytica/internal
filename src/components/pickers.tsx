@@ -22,11 +22,14 @@ import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
 import {
   ISSUE_TYPES,
   ISSUE_TYPE_MAP,
+  MILESTONE_STATUSES,
+  MILESTONE_STATUS_MAP,
   PRIORITIES,
   PRIORITY_MAP,
   STATUSES,
   STATUS_MAP,
   type IssueTypeId,
+  type MilestoneStatusId,
   type PriorityId,
   type StatusId,
 } from "@/lib/constants";
@@ -448,6 +451,53 @@ export function TypeChip({ type }: { type: string }) {
       <span className="size-1.5 rounded-full" style={{ backgroundColor: t.color }} />
       {t.label}
     </span>
+  );
+}
+
+/** Gate verdict on a milestone — the weekly green/amber/red call. */
+export function MilestoneStatusChip({ status }: { status: string }) {
+  const s = MILESTONE_STATUS_MAP[status as MilestoneStatusId];
+  if (!s) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+      style={{
+        borderColor: `color-mix(in oklch, ${s.color} 40%, transparent)`,
+        color: s.color,
+        backgroundColor: `color-mix(in oklch, ${s.color} 12%, transparent)`,
+      }}
+    >
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+      {s.label}
+    </span>
+  );
+}
+
+export function MilestoneStatusPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: MilestoneStatusId) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        aria-label="Set milestone status"
+      >
+        <MilestoneStatusChip status={value} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-40">
+        {MILESTONE_STATUSES.map((s) => (
+          <DropdownMenuItem key={s.id} onClick={() => onChange(s.id)} className="gap-2 text-xs">
+            <Dot color={s.color} />
+            <span className="flex-1">{s.label}</span>
+            {value === s.id && <Check className="size-3.5 opacity-70" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

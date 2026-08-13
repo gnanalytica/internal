@@ -61,7 +61,7 @@ import {
   getWorkspace,
   pickColor,
 } from "@/lib/data";
-import { isIssueType, isPriority, isStatus } from "@/lib/constants";
+import { isIssueType, isMilestoneStatus, isPriority, isStatus } from "@/lib/constants";
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
@@ -2985,6 +2985,7 @@ export async function updateMilestone(
     name: string;
     description: string | null;
     targetDate: string | null;
+    status: string;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -2993,6 +2994,7 @@ export async function updateMilestone(
   if (patch.description !== undefined) values.description = patch.description;
   if (patch.targetDate !== undefined)
     values.targetDate = patch.targetDate ? new Date(patch.targetDate) : null;
+  if (patch.status !== undefined && isMilestoneStatus(patch.status)) values.status = patch.status;
   await db
     .update(milestones)
     .set(values)

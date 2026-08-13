@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { TypeChip } from "@/components/pickers";
+import { MilestoneStatusPicker, TypeChip } from "@/components/pickers";
 import { Topbar } from "@/components/topbar";
 import { updateMilestone } from "@/lib/actions";
 import { STATUS_MAP, type StatusId } from "@/lib/constants";
@@ -51,6 +51,10 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
           />
 
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <MilestoneStatusPicker
+              value={milestone.status}
+              onChange={(status) => save({ status })}
+            />
             <label className="flex items-center gap-1 text-xs text-muted-foreground">
               Target
               <input
