@@ -93,6 +93,25 @@ These never go in the hub — they're regulated and per-entity.
 Track **deadlines and tasks** for these in the hub; do the **filings** with local
 providers. (Vendor names are examples — pick a local provider per country.)
 
+#### Entity reference — what each entity needs on file
+
+Registration details are deliberately blank here: they are identifiers, and they
+belong in the per-entity system of record, not in the repo. What this captures is
+the *checklist* — the recurring filings each entity owes and the providers who do
+them.
+
+| | India 🇮🇳 | Netherlands 🇳🇱 |
+|---|---|---|
+| Registration | Legal name & CIN · registered address · GSTIN / PAN / TAN | Legal name & KvK number · registered address · BTW (VAT) number |
+| Statutory calendar | GST returns (monthly/quarterly) · TDS deposit & returns · PF/ESI (if employees) · ROC annual filings (AOC-4, MGT-7) · income tax / advance tax | BTW/VAT returns (quarterly) · payroll tax (loonheffing, if employees) · corporate income tax (Vpb) · annual accounts to KvK |
+| Providers to name | Chartered Accountant · payroll · INR bank | Bookkeeper/accountant · payroll or EOR · EUR bank |
+
+#### Leave
+
+| India 🇮🇳 | Netherlands 🇳🇱 |
+|---|---|
+| Earned / casual / sick leave per the Shops & Establishments Act and company policy. Public holidays per state. | Statutory minimum of 4× weekly hours of paid holiday per year. Sick leave and public holidays per Dutch law. |
+
 ### 3. People layer
 
 Most people attach to **one** entity (their employer of record); leadership may

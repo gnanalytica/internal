@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Plus, Target, X } from "lucide-react";
 
+import { MilestoneStatusPicker } from "@/components/pickers";
 import { createMilestone, deleteMilestone, updateMilestone } from "@/lib/actions";
 import type { MilestoneWithProgress } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -72,15 +73,21 @@ export function MilestonesBar({
             </button>
           </div>
 
-          <input
-            type="date"
-            defaultValue={toDateInput(m.targetDate)}
-            onChange={(e) =>
-              run(() => updateMilestone(m.id, { targetDate: e.target.value || null }))
-            }
-            className="w-full rounded border bg-transparent px-1.5 py-0.5 text-[11px] text-muted-foreground outline-none focus:border-brand"
-            aria-label="Target date"
-          />
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              defaultValue={toDateInput(m.targetDate)}
+              onChange={(e) =>
+                run(() => updateMilestone(m.id, { targetDate: e.target.value || null }))
+              }
+              className="min-w-0 flex-1 rounded border bg-transparent px-1.5 py-0.5 text-[11px] text-muted-foreground outline-none focus:border-brand"
+              aria-label="Target date"
+            />
+            <MilestoneStatusPicker
+              value={m.status}
+              onChange={(status) => run(() => updateMilestone(m.id, { status }))}
+            />
+          </div>
 
           <div className="mt-0.5">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

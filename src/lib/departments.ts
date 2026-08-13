@@ -112,14 +112,14 @@ export const ALL_DEPARTMENT_SLUGS = DEPARTMENTS.map((d) => d.slug);
  * a company-level Operation (also confidential); HR lives in the People & HR
  * Operation (confidential via the project flag).
  */
-export const CONFIDENTIAL_DEPARTMENTS: DepartmentSlug[] = ["sales", "finance"];
+export const CONFIDENTIAL_DEPARTMENTS: DepartmentSlug[] = ["finance"];
 export const isConfidentialDepartment = (slug: string): boolean =>
   CONFIDENTIAL_DEPARTMENTS.includes(slug as DepartmentSlug);
 
 /**
  * Confidential departments a project's *owner* may see for their own product,
  * even without the admin role. A product lead owns their product's finances
- * (pricing, margin, its P&L) — but Sales stays founders-only.
+ * (pricing, margin, its P&L).
  */
 export const OWNER_VISIBLE_DEPARTMENTS: DepartmentSlug[] = ["finance"];
 const isOwnerVisibleDepartment = (slug: string): boolean =>

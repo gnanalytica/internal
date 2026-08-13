@@ -13,6 +13,9 @@ export const GET = withApiAuth(async (req, auth) => {
     status: url.searchParams.get("status"),
     projectId: url.searchParams.get("project"),
     assigneeId: url.searchParams.get("assignee"),
+    type: url.searchParams.get("type"),
+    cycleId: url.searchParams.get("cycle"),
+    milestoneId: url.searchParams.get("milestone"),
   });
   return ok({
     data: items.map(issueDto),

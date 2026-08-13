@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "neon@claude-plugins-official": true
-  },
   "hooks": {
     "SessionStart": [
       {
@@ -13,5 +10,6 @@
         ]
       }
     ]
-  }
+  },
+  "enabledPlugins": {}
 }

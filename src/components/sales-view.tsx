@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { ArrowUpRight, Plus } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { ArrowUpRight, FileText, Plus } from "lucide-react";
 
 import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
@@ -11,6 +11,7 @@ import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  attachCrmPage,
   createAccount,
   createContact,
   deleteAccount,
@@ -19,6 +20,8 @@ import {
   updateAccount,
   updateContact,
 } from "@/lib/actions";
+import { ChannelPicker } from "@/components/pickers";
+import { CRM_CHANNELS } from "@/lib/constants";
 import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
 import {
   ACCOUNT_TYPES,
@@ -60,6 +63,29 @@ export function SalesView({
   const [, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DealWithRelations | null>(null);
+  // The lists run to hundreds of rows once a lead database is loaded, so both
+  // tabs filter before they render.
+  const [accountFilter, setAccountFilter] = useState<Filter>({ q: "", channel: "" });
+  const [contactFilter, setContactFilter] = useState<Filter>({ q: "", channel: "" });
+
+  const accounts = useMemo(
+    () =>
+      initialAccounts.filter(
+        (a) =>
+          (!accountFilter.channel || a.channel === accountFilter.channel) &&
+          matches(accountFilter.q, a.name, a.industry, a.website),
+      ),
+    [initialAccounts, accountFilter],
+  );
+  const contacts = useMemo(
+    () =>
+      initialContacts.filter(
+        (c) =>
+          (!contactFilter.channel || c.channel === contactFilter.channel) &&
+          matches(contactFilter.q, c.name, c.email, c.title, c.account?.name),
+      ),
+    [initialContacts, contactFilter],
+  );
 
   const openValue = initialDeals
     .filter((d) => OPEN_DEAL_STAGES.includes(d.stage as (typeof OPEN_DEAL_STAGES)[number]))
@@ -136,33 +162,52 @@ export function SalesView({
         <TabsContent value="accounts" className="min-h-0 flex-1 overflow-auto p-4">
           <SectionHeader
             title="Accounts"
+            count={`${accounts.length} of ${initialAccounts.length}`}
             onAdd={() => startTransition(async () => { await createAccount({}); router.refresh(); })}
             addLabel="New account"
           />
+          <FilterBar
+            value={accountFilter}
+            onChange={setAccountFilter}
+            placeholder="Search name, industry, website"
+            rows={initialAccounts}
+          />
           <div className="space-y-1.5">
-            {initialAccounts.map((a) => (
+            {accounts.map((a) => (
               <AccountRow key={a.id} account={a} onChanged={() => router.refresh()} />
             ))}
-            {initialAccounts.length === 0 && <Empty inline label="No accounts yet." />}
+            {accounts.length === 0 && (
+              <Empty inline label={initialAccounts.length ? "No accounts match." : "No accounts yet."} />
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="contacts" className="min-h-0 flex-1 overflow-auto p-4">
           <SectionHeader
             title="Contacts"
+            count={`${contacts.length} of ${initialContacts.length}`}
             onAdd={() => startTransition(async () => { await createContact({}); router.refresh(); })}
             addLabel="New contact"
           />
+          <FilterBar
+            value={contactFilter}
+            onChange={setContactFilter}
+            placeholder="Search name, email, title, account"
+            rows={initialContacts}
+          />
           <div className="space-y-1.5">
-            {initialContacts.map((c) => (
+            {contacts.map((c) => (
               <ContactRow
                 key={c.id}
                 contact={c}
                 accounts={initialAccounts}
+                contacts={initialContacts}
                 onChanged={() => router.refresh()}
               />
             ))}
-            {initialContacts.length === 0 && <Empty inline label="No contacts yet." />}
+            {contacts.length === 0 && (
+              <Empty inline label={initialContacts.length ? "No contacts match." : "No contacts yet."} />
+            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -183,14 +228,101 @@ export function SalesView({
   );
 }
 
-function SectionHeader({ title, onAdd, addLabel }: { title: string; onAdd: () => void; addLabel: string }) {
+type Filter = { q: string; channel: string };
+
+function matches(q: string, ...fields: (string | null | undefined)[]) {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  return fields.some((f) => f?.toLowerCase().includes(needle));
+}
+
+function SectionHeader({
+  title,
+  count,
+  onAdd,
+  addLabel,
+}: {
+  title: string;
+  count?: string;
+  onAdd: () => void;
+  addLabel: string;
+}) {
   return (
     <div className="mb-3 flex items-center gap-2">
       <h2 className="text-sm font-semibold">{title}</h2>
+      {count && <span className="text-xs tabular-nums text-muted-foreground">{count}</span>}
       <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={onAdd}>
         <Plus className="size-4" /> {addLabel}
       </Button>
     </div>
+  );
+}
+
+/** Search + channel filter. Channel buttons show their live count. */
+function FilterBar({
+  value,
+  onChange,
+  placeholder,
+  rows,
+}: {
+  value: Filter;
+  onChange: (f: Filter) => void;
+  placeholder: string;
+  rows: { channel: string }[];
+}) {
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.channel, (counts.get(r.channel) ?? 0) + 1);
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <input
+        value={value.q}
+        onChange={(e) => onChange({ ...value, q: e.target.value })}
+        placeholder={placeholder}
+        className={fieldCls + " w-64"}
+        aria-label={placeholder}
+      />
+      <div className="flex flex-wrap items-center gap-1">
+        {CRM_CHANNELS.filter((c) => counts.get(c.id)).map((c) => {
+          const on = value.channel === c.id;
+          return (
+            <button
+              key={c.id}
+              onClick={() => onChange({ ...value, channel: on ? "" : c.id })}
+              aria-pressed={on}
+              className="rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors"
+              style={{
+                borderColor: `color-mix(in oklch, ${c.color} ${on ? "70%" : "30%"}, transparent)`,
+                color: c.color,
+                backgroundColor: `color-mix(in oklch, ${c.color} ${on ? "22%" : "8%"}, transparent)`,
+              }}
+            >
+              {c.label} {counts.get(c.id)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Opens this record's deck/pitch page, creating it on first click. */
+function DeckLink({ kind, id, pageId }: { kind: "account" | "contact"; id: string; pageId: string | null }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <button
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const { pageId: target } = await attachCrmPage(kind, id);
+          router.push(`/pages/${target}`);
+        })
+      }
+      className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+      title={pageId ? "Open deck & notes" : "Create a deck & notes page"}
+    >
+      <FileText className="size-3.5" /> {pageId ? "Deck" : "+ Deck"}
+    </button>
   );
 }
 
@@ -214,6 +346,7 @@ function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: ()
         onBlur={(e) => e.target.value !== (account.industry ?? "") && upd({ industry: e.target.value || null })}
         className={fieldCls + " w-32"}
       />
+      <ChannelPicker value={account.channel} onChange={(channel) => upd({ channel })} />
       <select defaultValue={account.entity} onChange={(e) => upd({ entity: e.target.value })} className={fieldCls}>
         {ENTITIES.map((en) => <option key={en.id} value={en.id}>{en.label}</option>)}
       </select>
@@ -223,6 +356,7 @@ function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: ()
         onBlur={(e) => e.target.value !== (account.website ?? "") && upd({ website: e.target.value || null })}
         className={fieldCls + " w-40"}
       />
+      <DeckLink kind="account" id={account.id} pageId={account.pageId} />
       <Link
         href={`/accounts/${account.id}`}
         className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
@@ -242,10 +376,12 @@ function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: ()
 function ContactRow({
   contact,
   accounts,
+  contacts,
   onChanged,
 }: {
   contact: ContactWithAccount;
   accounts: CrmAccount[];
+  contacts: ContactWithAccount[];
   onChanged: () => void;
 }) {
   const [, start] = useTransition();
@@ -285,6 +421,20 @@ function ContactRow({
       >
         {LIFECYCLE_STAGES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
       </select>
+      <ChannelPicker value={contact.channel} onChange={(channel) => upd({ channel })} />
+      <select
+        defaultValue={contact.referredById ?? ""}
+        onChange={(e) => upd({ referredById: e.target.value || null })}
+        className={fieldCls + " max-w-44"}
+        aria-label="Referred by"
+        title="Referred by"
+      >
+        <option value="">No referrer</option>
+        {contacts
+          .filter((c) => c.id !== contact.id)
+          .map((c) => <option key={c.id} value={c.id}>↩ {c.name}</option>)}
+      </select>
+      <DeckLink kind="contact" id={contact.id} pageId={contact.pageId} />
       <button
         onClick={() => start(async () => { await deleteContact(contact.id); onChanged(); })}
         className="text-xs text-muted-foreground hover:text-destructive"

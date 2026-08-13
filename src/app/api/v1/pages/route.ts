@@ -14,10 +14,20 @@ export const GET = withApiAuth(async (req, auth) => {
 });
 
 export const POST = withApiAuth(async (req, auth) => {
-  const body = await readJson<{ title?: string; content?: string }>(req);
+  const body = await readJson<{
+    title?: string;
+    content?: string;
+    icon?: string;
+    parentId?: string | null;
+    projectId?: string | null;
+  }>(req);
+  const title = body.title ?? "Untitled";
   const id = await apiCreatePage(auth.workspaceId, auth.userId, {
-    title: body.title ?? "Untitled",
+    title,
     content: body.content,
+    icon: body.icon,
+    parentId: body.parentId,
+    projectId: body.projectId,
   });
-  return ok({ data: { id, title: body.title ?? "Untitled" } }, 201);
+  return ok({ data: { id, title } }, 201);
 });

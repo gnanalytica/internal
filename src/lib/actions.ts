@@ -61,7 +61,7 @@ import {
   getWorkspace,
   pickColor,
 } from "@/lib/data";
-import { isIssueType, isPriority, isStatus } from "@/lib/constants";
+import { isIssueType, isMilestoneStatus, isPriority, isStatus } from "@/lib/constants";
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
@@ -70,6 +70,7 @@ import {
   dispatchWebhook,
   newWebhookSecret,
 } from "@/lib/api/webhooks";
+import { docToText } from "@/lib/markdown";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import {
   PRESENCE_STALE_MS,
@@ -1672,17 +1673,6 @@ export async function duplicateRow(id: string, databaseId: string) {
 
 // ---- GitHub issue sync ----
 
-function docToText(doc: unknown): string {
-  if (!doc || typeof doc !== "object") return "";
-  const node = doc as { type?: string; text?: string; content?: unknown[] };
-  if (typeof node.text === "string") return node.text;
-  if (Array.isArray(node.content)) {
-    const sep = node.type === "doc" || node.type === "bulletList" || node.type === "orderedList" ? "\n" : "";
-    return node.content.map(docToText).join(sep);
-  }
-  return "";
-}
-
 export async function setGithubConfig(input: { repo: string; token: string }) {
   const ws = await getWorkspace();
   await requireAdmin(ws.id);
@@ -2385,6 +2375,8 @@ export async function updateAccount(
     website: string | null;
     industry: string | null;
     type: string;
+    channel: string;
+    pageId: string | null;
     entity: string;
     ownerId: string | null;
   }>,
@@ -2447,6 +2439,9 @@ export async function updateContact(
     accountId: string | null;
     lifecycleStage: string;
     source: string | null;
+    channel: string;
+    referredById: string | null;
+    pageId: string | null;
     entity: string;
   }>,
 ) {
@@ -2464,6 +2459,46 @@ export async function deleteContact(id: string) {
     .delete(crmContacts)
     .where(and(eq(crmContacts.id, id), eq(crmContacts.workspaceId, ws.id)));
   revalidateMatrix();
+}
+
+/**
+ * The deck / pitch / working notes page for one CRM record. Returns the page
+ * already attached if there is one, otherwise creates it named after the
+ * record and links it, so the caller can navigate straight there.
+ */
+export async function attachCrmPage(
+  kind: "account" | "contact",
+  id: string,
+): Promise<{ pageId: string }> {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const table = kind === "account" ? crmAccounts : crmContacts;
+  const [row] = await db
+    .select({ name: table.name, pageId: table.pageId })
+    .from(table)
+    .where(and(eq(table.id, id), eq(table.workspaceId, ws.id)))
+    .limit(1);
+  if (!row) throw new Error(`${kind} not found`);
+  if (row.pageId) return { pageId: row.pageId };
+
+  const [page] = await db
+    .insert(pages)
+    .values({
+      workspaceId: ws.id,
+      projectId: null, // CRM collateral is workspace-wide, like the accounts it serves
+      title: `${row.name} — deck & notes`,
+      icon: kind === "account" ? "🏢" : "👤",
+      creatorId: me.id,
+      position: `a${Date.now()}`,
+    })
+    .returning({ id: pages.id });
+  await db
+    .update(table)
+    .set({ pageId: page.id })
+    .where(and(eq(table.id, id), eq(table.workspaceId, ws.id)));
+  revalidatePath("/", "layout");
+  revalidateMatrix();
+  return { pageId: page.id };
 }
 
 // ---- Sales: deals ----
@@ -2985,6 +3020,7 @@ export async function updateMilestone(
     name: string;
     description: string | null;
     targetDate: string | null;
+    status: string;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -2993,6 +3029,7 @@ export async function updateMilestone(
   if (patch.description !== undefined) values.description = patch.description;
   if (patch.targetDate !== undefined)
     values.targetDate = patch.targetDate ? new Date(patch.targetDate) : null;
+  if (patch.status !== undefined && isMilestoneStatus(patch.status)) values.status = patch.status;
   await db
     .update(milestones)
     .set(values)

@@ -1,13 +1,22 @@
-import { issueDto } from "@/lib/api/dto";
+import { issueDetailDto, issueDto } from "@/lib/api/dto";
 import { notFound, ok, readJson, withApiAuth } from "@/lib/api/http";
 import { apiDeleteIssue, apiUpdateIssue } from "@/lib/api/ops";
+import {
+  apiListIssueComments,
+  apiListIssueRelations,
+} from "@/lib/api/collab-ops";
 import { getIssue } from "@/lib/data";
 
 type Params = { id: string };
 
 export const GET = withApiAuth<Params>(async (_req, auth, { id }) => {
   const issue = await getIssue(auth.workspaceId, id);
-  return issue ? ok({ data: issueDto(issue) }) : notFound("Issue");
+  if (!issue) return notFound("Issue");
+  const [comments, relations] = await Promise.all([
+    apiListIssueComments(auth.workspaceId, id),
+    apiListIssueRelations(auth.workspaceId, id),
+  ]);
+  return ok({ data: { ...issueDetailDto(issue), comments, relations } });
 });
 
 export const PATCH = withApiAuth<Params>(async (req, auth, { id }) => {

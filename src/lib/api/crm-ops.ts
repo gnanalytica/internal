@@ -1,5 +1,7 @@
 import "server-only";
 
+import { and, eq } from "drizzle-orm";
+
 import { db } from "@/db";
 import {
   campaigns,
@@ -8,6 +10,7 @@ import {
   deals,
   expenses,
   invoices,
+  ticketComments,
   tickets,
 } from "@/db/schema";
 
@@ -162,7 +165,7 @@ export async function apiCreateExpense(
 export async function apiCreateTicket(
   workspaceId: string,
   _userId: string | null,
-  input: { subject?: string; projectId?: string | null; accountId?: string | null; status?: string; priority?: string; requesterEmail?: string | null; entity?: string },
+  input: { subject?: string; body?: string | null; projectId?: string | null; accountId?: string | null; status?: string; priority?: string; requesterEmail?: string | null; entity?: string },
 ): Promise<string> {
   if (!input.subject?.trim()) throw new Error("`subject` is required.");
   const [created] = await db
@@ -170,6 +173,7 @@ export async function apiCreateTicket(
     .values({
       workspaceId,
       subject: input.subject.trim(),
+      body: input.body ?? null,
       projectId: input.projectId ?? null,
       accountId: input.accountId ?? null,
       status: input.status ?? "open",
@@ -179,5 +183,32 @@ export async function apiCreateTicket(
       sortKey: `z${Date.now()}`,
     })
     .returning({ id: tickets.id });
+  return created.id;
+}
+
+export async function apiCreateTicketComment(
+  workspaceId: string,
+  userId: string | null,
+  ticketId: string,
+  body: string,
+): Promise<string> {
+  const text = body?.trim();
+  if (!text) throw new Error("`body` is required.");
+  const [ticket] = await db
+    .select({ id: tickets.id })
+    .from(tickets)
+    .where(and(eq(tickets.workspaceId, workspaceId), eq(tickets.id, ticketId)))
+    .limit(1);
+  if (!ticket) throw new Error("Ticket not found.");
+
+  const [created] = await db
+    .insert(ticketComments)
+    .values({ workspaceId, ticketId, authorId: userId, body: text })
+    .returning({ id: ticketComments.id });
+  // Keep the ticket's updatedAt honest so support views re-sort correctly.
+  await db
+    .update(tickets)
+    .set({ updatedAt: new Date() })
+    .where(and(eq(tickets.workspaceId, workspaceId), eq(tickets.id, ticketId)));
   return created.id;
 }

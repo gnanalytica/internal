@@ -9,6 +9,7 @@ import {
   OPEN_TICKET_STATUSES,
   canSeeConfidentialDept,
   enabledDepartments,
+  isConfidentialDepartment,
   isDealStage,
   isDepartmentEnabled,
   isTicketStatus,
@@ -98,10 +99,12 @@ describe("confidential department visibility", () => {
   const slugs = (role: string, isOwner: boolean) =>
     visibleDepartments(ALL_DEPARTMENT_SLUGS, role, isOwner).map((d) => d.slug);
 
-  it("hides Sales and Finance from plain members", () => {
+  it("hides Finance from plain members, but not Sales", () => {
     const s = slugs("member", false);
-    expect(s).not.toContain("sales");
     expect(s).not.toContain("finance");
+    // Sales is the working surface for whoever runs the pipeline, who is not
+    // necessarily an admin — only Finance stays founders-only.
+    expect(s).toContain("sales");
   });
 
   it("shows everything to admins", () => {
@@ -110,17 +113,16 @@ describe("confidential department visibility", () => {
     expect(s).toContain("finance");
   });
 
-  it("shows Finance (but not Sales) to a member who owns the project", () => {
+  it("shows Finance to a member who owns the project", () => {
     const s = slugs("member", true);
     expect(s).toContain("finance");
-    expect(s).not.toContain("sales");
   });
 
-  it("canSeeConfidentialDept: owner gets Finance, never Sales", () => {
+  it("canSeeConfidentialDept: owner gets Finance; Sales is not confidential", () => {
     expect(canSeeConfidentialDept("finance", "member", true)).toBe(true);
-    expect(canSeeConfidentialDept("sales", "member", true)).toBe(false);
-    expect(canSeeConfidentialDept("sales", "admin", false)).toBe(true);
     expect(canSeeConfidentialDept("finance", "member", false)).toBe(false);
+    expect(isConfidentialDepartment("sales")).toBe(false);
+    expect(isConfidentialDepartment("finance")).toBe(true);
   });
 });
 

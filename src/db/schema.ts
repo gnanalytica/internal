@@ -952,6 +952,10 @@ export const crmAccounts = pgTable(
     website: text("website"),
     industry: text("industry"),
     type: text("type").notNull().default("prospect"), // prospect | customer | partner | churned
+    // How this account reaches us / we reach it. See CRM_CHANNELS.
+    channel: text("channel").notNull().default("direct"),
+    // The account's deck, pitch or working notes — a page in this workspace.
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     entity: text("entity").notNull().default("Global"), // India | Netherlands | Global
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -976,6 +980,13 @@ export const crmContacts = pgTable(
     phone: text("phone"),
     lifecycleStage: text("lifecycle_stage").notNull().default("lead"), // lead | qualified | customer
     source: text("source"), // where the contact came from (campaign, referral, …)
+    // How this person reaches us / we reach them. See CRM_CHANNELS.
+    channel: text("channel").notNull().default("direct"),
+    // Self-reference: the contact who referred this one. App-managed, like
+    // `pages.parentId` — null = not a referral.
+    referredById: uuid("referred_by_id"),
+    // This contact's deck, pitch or working notes — a page in this workspace.
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     entity: text("entity").notNull().default("Global"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1373,6 +1384,9 @@ export const milestones = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     targetDate: timestamp("target_date", { withTimezone: true }),
+    // Gate verdict — see MILESTONE_STATUSES. Drives the weekly green/amber/red
+    // review and the Go/No-Go call.
+    status: text("status").notNull().default("planned"),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

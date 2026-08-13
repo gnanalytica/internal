@@ -13,6 +13,8 @@ export const WEBHOOK_EVENTS = [
   "issue.commented",
   "project.created",
   "page.created",
+  "page.updated",
+  "page.deleted",
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
