@@ -35,6 +35,29 @@ export const isStatus = (v: string): v is StatusId =>
 export const isPriority = (v: string): v is PriorityId =>
   PRIORITIES.some((p) => p.id === v);
 
+/**
+ * How an account or contact reaches us, or we reach them. Mirrors the channel
+ * expansion on the product roadmap: direct valuers first, then the bodies they
+ * belong to, then the lenders who commission the work.
+ */
+export const CRM_CHANNELS = [
+  { id: "direct", label: "Direct", color: "#5e6ad2" },
+  { id: "rvo", label: "RVO", color: "#8b5cf6" },
+  { id: "association", label: "Association", color: "#0ea5e9" },
+  { id: "lender", label: "Lender", color: "#10b981" },
+  { id: "referral", label: "Referral", color: "#f59e0b" },
+  { id: "inbound", label: "Inbound", color: "#ec4899" },
+] as const;
+
+export type CrmChannelId = (typeof CRM_CHANNELS)[number]["id"];
+
+export const CRM_CHANNEL_MAP = Object.fromEntries(
+  CRM_CHANNELS.map((c) => [c.id, c]),
+) as Record<CrmChannelId, (typeof CRM_CHANNELS)[number]>;
+
+export const isCrmChannel = (v: string): v is CrmChannelId =>
+  CRM_CHANNELS.some((c) => c.id === v);
+
 /** Gate verdict on a milestone. Order runs from not-started to closed. */
 export const MILESTONE_STATUSES = [
   { id: "planned", label: "Planned", color: "#bec2c8" },

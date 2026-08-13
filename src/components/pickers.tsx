@@ -20,6 +20,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
 import {
+  CRM_CHANNELS,
+  CRM_CHANNEL_MAP,
   ISSUE_TYPES,
   ISSUE_TYPE_MAP,
   MILESTONE_STATUSES,
@@ -28,6 +30,7 @@ import {
   PRIORITY_MAP,
   STATUSES,
   STATUS_MAP,
+  type CrmChannelId,
   type IssueTypeId,
   type MilestoneStatusId,
   type PriorityId,
@@ -451,6 +454,53 @@ export function TypeChip({ type }: { type: string }) {
       <span className="size-1.5 rounded-full" style={{ backgroundColor: t.color }} />
       {t.label}
     </span>
+  );
+}
+
+/** How an account or contact reaches us — direct, via a body, via a lender. */
+export function ChannelChip({ channel }: { channel: string }) {
+  const c = CRM_CHANNEL_MAP[channel as CrmChannelId];
+  if (!c) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+      style={{
+        borderColor: `color-mix(in oklch, ${c.color} 40%, transparent)`,
+        color: c.color,
+        backgroundColor: `color-mix(in oklch, ${c.color} 12%, transparent)`,
+      }}
+    >
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+      {c.label}
+    </span>
+  );
+}
+
+export function ChannelPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: CrmChannelId) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        aria-label="Set channel"
+      >
+        <ChannelChip channel={value} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-40">
+        {CRM_CHANNELS.map((c) => (
+          <DropdownMenuItem key={c.id} onClick={() => onChange(c.id)} className="gap-2 text-xs">
+            <Dot color={c.color} />
+            <span className="flex-1">{c.label}</span>
+            {value === c.id && <Check className="size-3.5 opacity-70" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
