@@ -21,6 +21,7 @@ import {
   updateContact,
 } from "@/lib/actions";
 import { ChannelPicker } from "@/components/pickers";
+import { DepartmentTasks } from "@/components/department-tasks";
 import { CRM_CHANNELS } from "@/lib/constants";
 import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
 import {
@@ -33,6 +34,7 @@ import {
 import { formatMoney } from "@/lib/matrix-format";
 import type {
   ContactWithAccount,
+  IssueWithRelations,
   CrmAccount,
   DealWithRelations,
   Member,
@@ -50,6 +52,7 @@ export function SalesView({
   initialDeals,
   initialAccounts,
   initialContacts,
+  issues,
 }: {
   heading: string;
   scopeProjectId: string | null;
@@ -58,6 +61,7 @@ export function SalesView({
   initialDeals: DealWithRelations[];
   initialAccounts: CrmAccount[];
   initialContacts: ContactWithAccount[];
+  issues: IssueWithRelations[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -144,22 +148,19 @@ export function SalesView({
           of accounts and contacts before its first deal exists, and opening on
           an empty pipeline reads as "there is no data". */}
       <Tabs
-        defaultValue={
-          initialDeals.length
-            ? "pipeline"
-            : initialContacts.length
-              ? "contacts"
-              : initialAccounts.length
-                ? "accounts"
-                : "pipeline"
-        }
+        defaultValue="tasks"
         className="flex min-h-0 flex-1 flex-col"
       >
         <TabsList className="mx-4 mt-2 self-start">
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline{count(initialDeals.length)}</TabsTrigger>
           <TabsTrigger value="accounts">Accounts{count(initialAccounts.length)}</TabsTrigger>
           <TabsTrigger value="contacts">Contacts{count(initialContacts.length)}</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-auto p-4">
+          <DepartmentTasks issues={issues} department="sales" emptyLabel="No sales tasks yet." />
+        </TabsContent>
 
         <TabsContent value="pipeline" className="flex min-h-0 flex-1 flex-col">
           {initialDeals.length === 0 ? (

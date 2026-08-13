@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { EngineeringView } from "@/components/engineering-view";
-import { isDepartmentEnabled } from "@/lib/departments";
+import { isDepartmentEnabled, issueBelongsToDepartment } from "@/lib/departments";
 import {
   getCycles,
   getIssues,
@@ -37,7 +37,12 @@ export default async function ProjectEngineeringPage({
     <EngineeringView
       heading={`${project.name} · Engineering`}
       projectId={id}
-      issues={allIssues.filter((i) => i.projectId === id)}
+      // Engineering owns the build — app, AI/ML, platform and QA. Sales,
+      // marketing and account-management work lives on those departments'
+      // own surfaces; the whole set is still on the global board.
+      issues={allIssues.filter(
+        (i) => i.projectId === id && issueBelongsToDepartment(i.labels, "engineering"),
+      )}
       projects={projects}
       members={members}
       labels={labels}

@@ -5,6 +5,7 @@ import { isDepartmentEnabled } from "@/lib/departments";
 import {
   getCampaigns,
   getContentItems,
+  getIssues,
   getProject,
   getProjects,
   getWorkspace,
@@ -21,7 +22,8 @@ export default async function ProjectMarketingPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "marketing")) notFound();
 
-  const [campaigns, content, projects] = await Promise.all([
+  const [issues, campaigns, content, projects] = await Promise.all([
+    getIssues(ws.id),
     getCampaigns(ws.id, id),
     getContentItems(ws.id, id),
     getProjects(ws.id),
@@ -35,6 +37,7 @@ export default async function ProjectMarketingPage({
       projects={projects}
       initialCampaigns={campaigns}
       initialContent={content}
+      issues={issues.filter((i) => i.projectId === id)}
     />
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FeedbackView } from "@/components/feedback-view";
+import { DepartmentTasks } from "@/components/department-tasks";
 import { MilestoneRoadmap } from "@/components/milestone-roadmap";
 import { Topbar } from "@/components/topbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,8 +38,9 @@ export function ProductView({
       <Tabs defaultValue="roadmap" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="feedback">
-            Feedback{feedback.length > 0 ? ` · ${feedback.length}` : ""}
+            Signals{feedback.length > 0 ? ` · ${feedback.length}` : ""}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="roadmap" className="min-h-0 flex-1 overflow-hidden">
@@ -48,6 +50,14 @@ export function ProductView({
             issues={issues}
           />
         </TabsContent>
+        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-auto p-4">
+          <DepartmentTasks
+            issues={issues}
+            department="product"
+            emptyLabel="No product, PM or risk tasks yet."
+          />
+        </TabsContent>
+
         <TabsContent value="feedback" className="min-h-0 flex-1 overflow-hidden">
           <FeedbackView scopeProjectId={scopeProjectId} initialFeedback={feedback} features={[]} />
         </TabsContent>

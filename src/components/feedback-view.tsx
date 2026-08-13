@@ -140,17 +140,20 @@ function FeedbackCard({
         </label>
       </div>
 
-      <div className="mt-1.5">
-        <select
-          defaultValue={item.featureId ?? ""}
-          onChange={(e) => upd({ featureId: e.target.value || null })}
-          className="h-6 w-full rounded border bg-background px-1 text-[11px] text-muted-foreground"
-          title="Link to a roadmap feature"
-        >
-          <option value="">↳ link to feature…</option>
-          {features.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
-        </select>
-      </div>
+      {/* Only offered where a roadmap feature exists to link to. */}
+      {features.length > 0 && (
+        <div className="mt-1.5">
+          <select
+            defaultValue={item.featureId ?? ""}
+            onChange={(e) => upd({ featureId: e.target.value || null })}
+            className="h-6 w-full rounded border bg-background px-1 text-[11px] text-muted-foreground"
+            title="Link to a roadmap feature"
+          >
+            <option value="">↳ link to feature…</option>
+            {features.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
+          </select>
+        </div>
+      )}
 
       {(showProject && item.project) || item.contact ? (
         <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">

@@ -9,6 +9,7 @@ import {
   getDeals,
   getMembers,
   getMyRole,
+  getIssues,
   getProject,
   getProjects,
   getWorkspace,
@@ -26,7 +27,8 @@ export default async function ProjectSalesPage({
   if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
   if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Sales" />;
 
-  const [deals, accounts, contacts, members, projects] = await Promise.all([
+  const [issues, deals, accounts, contacts, members, projects] = await Promise.all([
+    getIssues(ws.id),
     getDeals(ws.id, id),
     getAccounts(ws.id),
     getContacts(ws.id),
@@ -43,6 +45,7 @@ export default async function ProjectSalesPage({
       initialDeals={deals}
       initialAccounts={accounts}
       initialContacts={contacts}
+      issues={issues.filter((i) => i.projectId === id)}
     />
   );
 }

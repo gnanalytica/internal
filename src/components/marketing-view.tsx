@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { FileText, Plus } from "lucide-react";
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
+import { DepartmentTasks } from "@/components/department-tasks";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,6 +26,7 @@ import {
 } from "@/lib/departments";
 import { dateInputValue, formatDate, formatMoney } from "@/lib/matrix-format";
 import type {
+  IssueWithRelations,
   CampaignWithRelations,
   ContentItemWithCampaign,
   Project,
@@ -38,6 +40,7 @@ export function MarketingView({
   scopeProjectId,
   initialCampaigns,
   initialContent,
+  issues,
 }: {
   heading: string;
   scopeProjectId: string | null;
@@ -45,6 +48,7 @@ export function MarketingView({
   projects: Project[];
   initialCampaigns: CampaignWithRelations[];
   initialContent: ContentItemWithCampaign[];
+  issues: IssueWithRelations[];
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -69,11 +73,20 @@ export function MarketingView({
         }
       />
 
-      <Tabs defaultValue="campaigns" className="flex min-h-0 flex-1 flex-col">
+      <Tabs defaultValue="tasks" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-auto p-4">
+          <DepartmentTasks
+            issues={issues}
+            department="marketing"
+            emptyLabel="No marketing tasks yet."
+          />
+        </TabsContent>
 
         <TabsContent value="campaigns" className="min-h-0 flex-1 overflow-auto p-4">
           {totalBudget > 0 && (

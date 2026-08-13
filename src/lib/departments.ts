@@ -349,3 +349,32 @@ export function optionMeta(
 ): { label: string; color?: string } {
   return list.find((o) => o.id === id) ?? { label: id };
 }
+
+/**
+ * Which tracks belong to which department surface.
+ *
+ * Keyed on labels rather than `issues.type`, because type cannot separate the
+ * ops bucket: account management, maintenance and project setup all land in
+ * "ops" but answer to three different departments. The labels came 1:1 from
+ * the work-breakdown tracks, so they carry that distinction.
+ *
+ * A task appears in its department AND on the global board — these are lenses
+ * on one set of issues, not separate task systems.
+ */
+export const DEPARTMENT_LABELS: Partial<Record<DepartmentSlug, string[]>> = {
+  engineering: ["app", "ai-ml", "platform", "qa"],
+  product: ["product", "pm", "setup-pm", "launch", "post-launch", "compliance", "risk"],
+  marketing: ["content", "social", "marketing-analytics", "market-research"],
+  sales: ["sales"],
+  "customer-success": ["account-mgmt", "maintenance"],
+};
+
+/** True when an issue's labels put it on this department's surface. */
+export function issueBelongsToDepartment(
+  labels: { name: string }[],
+  slug: DepartmentSlug,
+): boolean {
+  const wanted = DEPARTMENT_LABELS[slug];
+  if (!wanted) return false;
+  return labels.some((l) => wanted.includes(l.name));
+}

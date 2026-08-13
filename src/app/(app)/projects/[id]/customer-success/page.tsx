@@ -6,6 +6,7 @@ import {
   getAccounts,
   getContacts,
   getMembers,
+  getIssues,
   getProject,
   getProjects,
   getTickets,
@@ -23,7 +24,8 @@ export default async function ProjectSupportPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "customer-success")) notFound();
 
-  const [tickets, accounts, contacts, members, projects] = await Promise.all([
+  const [issues, tickets, accounts, contacts, members, projects] = await Promise.all([
+    getIssues(ws.id),
     getTickets(ws.id, id),
     getAccounts(ws.id),
     getContacts(ws.id),
@@ -40,6 +42,7 @@ export default async function ProjectSupportPage({
       accounts={accounts}
       contacts={contacts}
       initialTickets={tickets}
+      issues={issues.filter((i) => i.projectId === id)}
     />
   );
 }
