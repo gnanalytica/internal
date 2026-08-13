@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Plus } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 
 import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  attachCrmPage,
   createCampaign,
   createContent,
   deleteCampaign,
@@ -149,6 +150,30 @@ export function MarketingView({
   );
 }
 
+/**
+ * Opens the campaign brief, creating it on first click. The structured fields
+ * live on the row; the copy, targeting and creative links live on the page.
+ */
+function BriefLink({ id, pageId }: { id: string; pageId: string | null }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <button
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const { pageId: target } = await attachCrmPage("campaign", id);
+          router.push(`/pages/${target}`);
+        })
+      }
+      className="inline-flex items-center gap-0.5 whitespace-nowrap text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+      title={pageId ? "Open brief" : "Create a brief page"}
+    >
+      <FileText className="size-3.5" /> {pageId ? "Brief" : "+ Brief"}
+    </button>
+  );
+}
+
 function CampaignRow({
   campaign,
   showProject,
@@ -224,6 +249,7 @@ function CampaignRow({
       <select defaultValue={campaign.entity} onChange={(e) => upd({ entity: e.target.value })} className={fieldCls}>
         {ENTITIES.map((en) => <option key={en.id} value={en.id}>{en.label}</option>)}
       </select>
+      <BriefLink id={campaign.id} pageId={campaign.pageId} />
       <button
         onClick={() => start(async () => { await deleteCampaign(campaign.id); onChanged(); })}
         className="text-xs text-muted-foreground hover:text-destructive"

@@ -2463,17 +2463,19 @@ export async function deleteContact(id: string) {
 }
 
 /**
- * The deck / pitch / working notes page for one CRM record. Returns the page
- * already attached if there is one, otherwise creates it named after the
- * record and links it, so the caller can navigate straight there.
+ * The collateral page for one record — a deck for an account or contact, a
+ * brief for a campaign. Returns the page already attached if there is one,
+ * otherwise creates it named after the record and links it, so the caller can
+ * navigate straight there.
  */
 export async function attachCrmPage(
-  kind: "account" | "contact",
+  kind: "account" | "contact" | "campaign",
   id: string,
 ): Promise<{ pageId: string }> {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
-  const table = kind === "account" ? crmAccounts : crmContacts;
+  const table =
+    kind === "account" ? crmAccounts : kind === "contact" ? crmContacts : campaigns;
   const [row] = await db
     .select({ name: table.name, pageId: table.pageId })
     .from(table)
@@ -2482,13 +2484,25 @@ export async function attachCrmPage(
   if (!row) throw new Error(`${kind} not found`);
   if (row.pageId) return { pageId: row.pageId };
 
+  // A campaign belongs to a project, so its brief belongs in that project's
+  // Docs. Accounts and contacts are workspace-wide, so theirs sit in the wiki.
+  let scope: string | null = null;
+  if (kind === "campaign") {
+    const [c] = await db
+      .select({ projectId: campaigns.projectId })
+      .from(campaigns)
+      .where(eq(campaigns.id, id))
+      .limit(1);
+    scope = c?.projectId ?? null;
+  }
+
   const [page] = await db
     .insert(pages)
     .values({
       workspaceId: ws.id,
-      projectId: null, // CRM collateral is workspace-wide, like the accounts it serves
-      title: `${row.name} — deck & notes`,
-      icon: kind === "account" ? "🏢" : "👤",
+      projectId: scope,
+      title: kind === "campaign" ? `${row.name} — brief` : `${row.name} — deck & notes`,
+      icon: kind === "account" ? "🏢" : kind === "contact" ? "👤" : "📣",
       creatorId: me.id,
       position: `a${Date.now()}`,
     })
@@ -2681,6 +2695,7 @@ export async function updateCampaign(
     reach: number;
     replies: number;
     conversions: number;
+    pageId: string | null;
     entity: string;
     startDate: string | null;
     endDate: string | null;

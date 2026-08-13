@@ -1082,6 +1082,9 @@ export const campaigns = pgTable(
     reach: integer("reach").notNull().default(0),
     replies: integer("replies").notNull().default(0),
     conversions: integer("conversions").notNull().default(0),
+    // The campaign brief — copy, targeting and creative links. The structured
+    // fields above live in the row; everything unstructured lives on a page.
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     entity: text("entity").notNull().default("Global"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
