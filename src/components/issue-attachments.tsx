@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { FileText, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { RelativeTime } from "@/components/relative-time";
 import { deleteAttachment, uploadAttachment } from "@/lib/actions";
 import type { Attachment } from "@/lib/types";
 import { cn, formatBytes } from "@/lib/utils";
@@ -104,7 +104,7 @@ export function IssueAttachments({
                   <p className="text-[11px] text-muted-foreground">
                     {formatBytes(a.size)}
                     {a.uploader ? ` · ${a.uploader.name}` : ""} ·{" "}
-                    {formatDistanceToNowStrict(new Date(a.createdAt), { addSuffix: true })}
+                    <RelativeTime date={a.createdAt} />
                   </p>
                 </div>
                 <button

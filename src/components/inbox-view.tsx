@@ -1,10 +1,10 @@
 "use client";
 
-import { formatDistanceToNowStrict } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { AtSign, Bell, CheckCheck, CircleDot, MessageSquare, UserPlus } from "lucide-react";
 
+import { RelativeTime } from "@/components/relative-time";
 import { UserAvatar } from "@/components/glyphs";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
@@ -103,7 +103,7 @@ export function InboxView({ notifications }: { notifications: NotificationItem[]
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
                   )}
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {formatDistanceToNowStrict(new Date(n.createdAt), { addSuffix: true })}
+                    <RelativeTime date={n.createdAt} />
                   </p>
                 </div>
               </button>

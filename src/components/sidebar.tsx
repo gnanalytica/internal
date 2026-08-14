@@ -130,8 +130,11 @@ export function Sidebar({
   function signOut() {
     startTransition(async () => {
       await authClient.signOut();
-      router.push("/auth/sign-in");
-      router.refresh();
+      // A full reload, not router.push. Under Cache Components the router keeps
+      // recently visited routes mounted (React <Activity>), so a client-side
+      // navigation would leave this user's drafts, filters and editor content
+      // in memory for whoever signs in next.
+      window.location.href = "/auth/sign-in";
     });
   }
 
@@ -139,7 +142,10 @@ export function Sidebar({
     if (id === workspace.id) return;
     startTransition(async () => {
       await setActiveWorkspace(id);
-      router.refresh();
+      // Same reasoning as sign-out: every route below is scoped to one
+      // workspace, so drop the mounted routes rather than carrying the old
+      // workspace's client state into the new one.
+      window.location.href = "/";
     });
   }
 

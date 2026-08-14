@@ -1,5 +1,7 @@
 import "server-only";
 
+import { apiInvalidate } from "@/lib/api/invalidate";
+
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -51,6 +53,7 @@ export async function apiCreateDeal(
       sortKey: `z${Date.now()}`,
     })
     .returning({ id: deals.id });
+  apiInvalidate(workspaceId, "crm");
   return created.id;
 }
 
@@ -72,6 +75,7 @@ export async function apiCreateAccount(
       ownerId: userId,
     })
     .returning({ id: crmAccounts.id });
+  apiInvalidate(workspaceId, "crm");
   return created.id;
 }
 
@@ -93,6 +97,7 @@ export async function apiCreateContact(
       ownerId: userId,
     })
     .returning({ id: crmContacts.id });
+  apiInvalidate(workspaceId, "crm");
   return created.id;
 }
 
@@ -115,6 +120,7 @@ export async function apiCreateCampaign(
       ownerId: userId,
     })
     .returning({ id: campaigns.id });
+  apiInvalidate(workspaceId, "campaigns");
   return created.id;
 }
 
@@ -137,6 +143,7 @@ export async function apiCreateInvoice(
       ownerId: userId,
     })
     .returning({ id: invoices.id });
+  apiInvalidate(workspaceId, "finance");
   return created.id;
 }
 
@@ -159,6 +166,7 @@ export async function apiCreateExpense(
       ownerId: userId,
     })
     .returning({ id: expenses.id });
+  apiInvalidate(workspaceId, "finance");
   return created.id;
 }
 
@@ -183,6 +191,7 @@ export async function apiCreateTicket(
       sortKey: `z${Date.now()}`,
     })
     .returning({ id: tickets.id });
+  apiInvalidate(workspaceId, "tickets");
   return created.id;
 }
 
@@ -210,5 +219,6 @@ export async function apiCreateTicketComment(
     .update(tickets)
     .set({ updatedAt: new Date() })
     .where(and(eq(tickets.workspaceId, workspaceId), eq(tickets.id, ticketId)));
+  apiInvalidate(workspaceId, "tickets");
   return created.id;
 }

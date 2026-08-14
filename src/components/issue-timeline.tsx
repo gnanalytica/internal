@@ -2,11 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { X } from "lucide-react";
 
 import { SmilePlus } from "lucide-react";
 
+import { RelativeTime } from "@/components/relative-time";
 import { UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -198,12 +198,12 @@ export function IssueTimeline({
                 <div className="mb-0.5 flex items-center gap-2">
                   <span className="text-xs font-medium">{item.author?.name ?? "Unknown"}</span>
                   <span className="text-[11px] text-muted-foreground">
-                    {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}
+                    <RelativeTime date={item.createdAt} />
                   </span>
                   <button
                     onClick={() =>
                       startTransition(async () => {
-                        await deleteComment(item.id, issueId);
+                        await deleteComment(item.id);
                         router.refresh();
                       })
                     }
@@ -234,7 +234,7 @@ export function IssueTimeline({
                 {describe(item.type, item.data, members)}
               </span>
               <span className="text-[11px]">
-                · {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}
+                · <RelativeTime date={item.createdAt} />
               </span>
             </div>
           ),

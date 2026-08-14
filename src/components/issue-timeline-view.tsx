@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { RoadmapChart, type GanttGroup } from "@/components/roadmap-chart";
+import { todayISO } from "@/lib/roadmap";
 import { updateIssue } from "@/lib/actions";
 import { STATUSES } from "@/lib/constants";
 import type { IssueWithRelations, Member } from "@/lib/types";
@@ -23,8 +24,10 @@ export function IssueTimelineView({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  // Stable "now" for the today marker; client-only value avoids SSR drift.
-  const [nowISO] = useState(() => new Date().toISOString());
+  // Stable "now" for the today marker. Truncated to the day by `todayISO` so
+  // the server render and the hydration render agree exactly — see the note on
+  // that helper.
+  const [nowISO] = useState(todayISO);
 
   const memberName = (id: string | null) =>
     id ? (members.find((m) => m.id === id)?.name ?? null) : null;
@@ -72,7 +75,10 @@ export function IssueTimelineView({
       onReschedule={reschedule}
       legend={
         <span className="text-[11px] text-muted-foreground">
-          Drag a bar to reschedule · grouped by status
+          {/* Dragging a bar is a pointer gesture, so only advertise it where
+              there is a pointer. Touch users still get the grouping context. */}
+          <span className="hidden md:inline">Drag a bar to reschedule · </span>
+          grouped by status
         </span>
       }
     />

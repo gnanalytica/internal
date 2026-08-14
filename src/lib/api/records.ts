@@ -4,6 +4,8 @@ import { and, eq } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
+import { apiInvalidate, apiInvalidateAttachments } from "@/lib/api/invalidate";
+import type { CacheEntity } from "@/lib/cache-tags";
 import {
   attachments,
   campaigns,
@@ -356,6 +358,37 @@ export const RESOURCES = {
 
 export type ResourceName = keyof typeof RESOURCES;
 
+/**
+ * Which cached reads each resource feeds, so a generic write can expire them.
+ * Keep in step with the `cacheTag` calls in `src/lib/data.ts`.
+ */
+const RESOURCE_ENTITIES = {
+  projects: ["projects"],
+  deals: ["crm"],
+  accounts: ["crm"],
+  contacts: ["crm"],
+  campaigns: ["campaigns"],
+  invoices: ["finance"],
+  expenses: ["finance"],
+  milestones: ["milestones"],
+  features: ["features"],
+  cycles: ["cycles"],
+  labels: ["labels"],
+  metrics: ["metrics"],
+  feedback: ["feedback"],
+  content: ["campaigns"],
+  activities: ["crm"],
+  databases: ["databases"],
+  // Attachments are cached per issue, so they are handled separately below.
+  attachments: [],
+  tickets: ["tickets"],
+  "org-roles": ["org"],
+  "status-updates": ["status-updates"],
+  // Page comments are only read through `getPageComments`, which resolves the
+  // current user and so is never cached.
+  "page-comments": [],
+} satisfies Record<ResourceName, CacheEntity[]>;
+
 export function isResource(name: string): name is ResourceName {
   return Object.hasOwn(RESOURCES, name);
 }
@@ -404,6 +437,7 @@ export async function apiUpdateRecord(
     .set(values)
     .where(and(eq(t.workspaceId, workspaceId), eq(t.id, id)))
     .returning({ id: t.id });
+  if (res.length > 0) await invalidateRecord(name, workspaceId, id);
   return res.length > 0;
 }
 
@@ -414,9 +448,45 @@ export async function apiDeleteRecord(
 ): Promise<boolean> {
   const resource: Resource = RESOURCES[name];
   const t = resource.table as unknown as { workspaceId: never; id: never };
+  // Read the owning issue before the row disappears — attachments are cached
+  // under their issue, not the workspace.
+  const attachmentIssueId =
+    name === "attachments" ? await ownerIssueId(workspaceId, id) : null;
   const res = await db
     .delete(resource.table)
     .where(and(eq(t.workspaceId, workspaceId), eq(t.id, id)))
     .returning({ id: t.id });
+  if (res.length > 0) {
+    if (attachmentIssueId) apiInvalidateAttachments(attachmentIssueId);
+    else await invalidateRecord(name, workspaceId, id);
+  }
   return res.length > 0;
+}
+
+async function ownerIssueId(
+  workspaceId: string,
+  attachmentId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ issueId: attachments.issueId })
+    .from(attachments)
+    .where(
+      and(eq(attachments.workspaceId, workspaceId), eq(attachments.id, attachmentId)),
+    )
+    .limit(1);
+  return row?.issueId ?? null;
+}
+
+/** Expire the cached reads a write to `name` invalidates. */
+async function invalidateRecord(
+  name: ResourceName,
+  workspaceId: string,
+  id: string,
+): Promise<void> {
+  if (name === "attachments") {
+    const issueId = await ownerIssueId(workspaceId, id);
+    if (issueId) apiInvalidateAttachments(issueId);
+    return;
+  }
+  apiInvalidate(workspaceId, ...RESOURCE_ENTITIES[name]);
 }

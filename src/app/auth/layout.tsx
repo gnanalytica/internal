@@ -1,14 +1,19 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { auth } from "@/lib/auth/server";
-
-export const dynamic = "force-dynamic";
 
 export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Stop prerendering here. Without this the build still reaches
+  // `auth.getSession()`, whose cookie read then rejects when the prerender is
+  // torn down — Next handles that, but the Neon Auth SDK logs the rejection
+  // itself, once per route. Nothing below this line can be prerendered anyway.
+  await connection();
+
   // If already signed in, skip the auth screens.
   const { data: session } = await auth.getSession();
   if (session?.user) redirect("/issues");

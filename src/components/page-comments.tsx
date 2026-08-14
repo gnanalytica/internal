@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { Check, CornerDownRight, RotateCcw, SmilePlus, X } from "lucide-react";
 
+import { RelativeTime } from "@/components/relative-time";
 import { UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -267,7 +267,7 @@ function CommentCard({
           <div className="mb-0.5 flex items-center gap-2">
             <span className="text-xs font-medium">{comment.author?.name ?? "Unknown"}</span>
             <span className="text-[11px] text-muted-foreground">
-              {formatDistanceToNowStrict(new Date(comment.createdAt), { addSuffix: true })}
+              <RelativeTime date={comment.createdAt} />
             </span>
             {resolved && (
               <span className="rounded bg-emerald-500/10 px-1 text-[10px] font-medium text-emerald-600">
@@ -277,7 +277,7 @@ function CommentCard({
             <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100">
               {resolved ? (
                 <button
-                  onClick={() => run(() => reopenPageComment(comment.id, pageId))}
+                  onClick={() => run(() => reopenPageComment(comment.id))}
                   className="text-muted-foreground hover:text-foreground"
                   aria-label="Reopen"
                   title="Reopen"
@@ -286,7 +286,7 @@ function CommentCard({
                 </button>
               ) : (
                 <button
-                  onClick={() => run(() => resolvePageComment(comment.id, pageId))}
+                  onClick={() => run(() => resolvePageComment(comment.id))}
                   className="text-muted-foreground hover:text-emerald-600"
                   aria-label="Resolve"
                   title="Resolve"
@@ -295,7 +295,7 @@ function CommentCard({
                 </button>
               )}
               <button
-                onClick={() => run(() => deletePageComment(comment.id, pageId))}
+                onClick={() => run(() => deletePageComment(comment.id))}
                 className="text-muted-foreground hover:text-destructive"
                 aria-label="Delete comment"
                 title="Delete (own comments)"
@@ -351,10 +351,10 @@ function CommentCard({
                 <div className="mb-0.5 flex items-center gap-2">
                   <span className="text-xs font-medium">{reply.author?.name ?? "Unknown"}</span>
                   <span className="text-[11px] text-muted-foreground">
-                    {formatDistanceToNowStrict(new Date(reply.createdAt), { addSuffix: true })}
+                    <RelativeTime date={reply.createdAt} />
                   </span>
                   <button
-                    onClick={() => run(() => deletePageComment(reply.id, pageId))}
+                    onClick={() => run(() => deletePageComment(reply.id))}
                     className="ml-auto text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
                     aria-label="Delete reply"
                   >

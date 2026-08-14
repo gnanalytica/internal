@@ -1,3 +1,4 @@
+import { todayISO } from "@/lib/roadmap";
 import { ProjectsView } from "@/components/projects-view";
 import {
   getCycles,
@@ -25,7 +26,7 @@ export default async function ProjectsPage() {
       roadmapProjects={roadmapProjects}
       weeklyProjects={allProjects.filter((p) => p.kind === "project")}
       cycles={cycles}
-      nowISO={new Date().toISOString()}
+      nowISO={todayISO()}
     />
   );
 }

@@ -570,7 +570,7 @@ function IssueRelations({
 
   function remove(relationId: string) {
     startTransition(async () => {
-      await removeIssueRelation(relationId, issueId);
+      await removeIssueRelation(relationId);
       onChange();
     });
   }

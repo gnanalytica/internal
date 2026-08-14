@@ -1,10 +1,13 @@
 import "server-only";
 
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { cacheLife, cacheTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { auth } from "@/lib/auth/server";
+import { issueAttachmentsTag, wsTags } from "@/lib/cache-tags";
 import { countOpenByDepartment } from "@/lib/departments";
 import { featureProgress } from "@/lib/feature-progress";
 import { db } from "@/db";
@@ -119,6 +122,13 @@ export { issueIdentifier } from "@/lib/types";
 
 /** Resolve the app user from the Neon Auth session (create on first sign-in). */
 async function resolveSessionUser(): Promise<Member> {
+  // Stop prerendering before the session is read. This is the entry point for
+  // every authenticated read, so without it the build walks into
+  // `auth.getSession()` on every route and the Neon Auth SDK logs the
+  // prerender-abort rejection each time. See the same call in
+  // src/app/auth/layout.tsx.
+  await connection();
+
   const { data: session } = await auth.getSession();
   const sUser = session?.user;
   if (!sUser?.email) redirect("/auth/sign-in");
@@ -172,6 +182,10 @@ export async function getWorkspace(): Promise<Workspace> {
 }
 
 export async function getMembers(workspaceId: string): Promise<Member[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "members"));
+  cacheLife("hours");
+
   const rows = await db
     .select({ user: users })
     .from(workspaceMembers)
@@ -202,6 +216,10 @@ export async function getCurrentUser(
 export async function getMembersWithRole(
   workspaceId: string,
 ): Promise<MemberWithRole[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "members", "org"));
+  cacheLife("hours");
+
   const rows = await db
     .select({
       user: users,
@@ -230,6 +248,10 @@ export async function getMembersWithRole(
 /** The org-chart positions for a workspace, assembled into a sorted tree.
  *  Decoupled from member managers so one person can hold several positions. */
 export async function getOrgRoles(workspaceId: string): Promise<OrgRoleNode[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "org"));
+  cacheLife("hours");
+
   const rows = await db
     .select({ role: orgRoles, user: users })
     .from(orgRoles)
@@ -274,6 +296,10 @@ export async function getMyRole(workspaceId: string): Promise<Role> {
 }
 
 export async function getProjects(workspaceId: string): Promise<Project[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "projects"));
+  cacheLife("minutes");
+
   return db
     .select()
     .from(projects)
@@ -287,6 +313,10 @@ export async function getProjects(workspaceId: string): Promise<Project[]> {
  * One pass over projects + a few aggregate queries (no per-project round-trips).
  */
 export async function getPortfolio(workspaceId: string): Promise<PortfolioRow[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "projects", "issues", "milestones", "status-updates", "members"));
+  cacheLife("minutes");
+
   const [projs, members] = await Promise.all([
     db.select().from(projects).where(eq(projects.workspaceId, workspaceId)).orderBy(asc(projects.name)),
     getMembers(workspaceId),
@@ -358,6 +388,10 @@ export async function getPortfolio(workspaceId: string): Promise<PortfolioRow[]>
 export async function getProjectsWithCounts(
   workspaceId: string,
 ): Promise<ProjectWithIssueCount[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "projects", "issues"));
+  cacheLife("minutes");
+
   const rows = await db.query.projects.findMany({
     where: eq(projects.workspaceId, workspaceId),
     orderBy: [asc(projects.name)],
@@ -374,6 +408,10 @@ export async function getStatusUpdates(
   workspaceId: string,
   projectId: string,
 ): Promise<import("@/lib/types").StatusUpdateItem[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "status-updates"));
+  cacheLife("minutes");
+
   const rows = await db.query.projectStatusUpdates.findMany({
     where: and(
       eq(projectStatusUpdates.workspaceId, workspaceId),
@@ -394,6 +432,10 @@ export async function getStatusUpdates(
 export type RoadmapProject = Project;
 
 export async function getRoadmap(workspaceId: string): Promise<RoadmapProject[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "projects", "milestones"));
+  cacheLife("minutes");
+
   const rows = await db.query.projects.findMany({
     where: eq(projects.workspaceId, workspaceId),
     orderBy: [asc(projects.startDate), asc(projects.name)],
@@ -405,6 +447,10 @@ export async function getProject(
   workspaceId: string,
   id: string,
 ): Promise<import("@/lib/types").ProjectDetail | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "projects"));
+  cacheLife("minutes");
+
   const row = await db.query.projects.findFirst({
     where: and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)),
     with: {
@@ -430,6 +476,10 @@ export async function getProject(
 }
 
 export async function getLabels(workspaceId: string): Promise<Label[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "labels"));
+  cacheLife("hours");
+
   return db
     .select()
     .from(labels)
@@ -440,6 +490,10 @@ export async function getLabels(workspaceId: string): Promise<Label[]> {
 export async function getIssues(
   workspaceId: string,
 ): Promise<IssueWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "issues", "labels"));
+  cacheLife("minutes");
+
   const rows = await db.query.issues.findMany({
     where: eq(issues.workspaceId, workspaceId),
     orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
@@ -472,6 +526,10 @@ export async function getIssuesPage(
     milestoneId?: string | null;
   },
 ): Promise<{ items: IssueWithRelations[]; nextCursor: import("@/lib/api/pagination").Cursor | null }> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "issues", "labels"));
+  cacheLife("minutes");
+
   const conds = [eq(issues.workspaceId, workspaceId)];
   if (opts.status) conds.push(eq(issues.status, opts.status));
   if (opts.projectId) conds.push(eq(issues.projectId, opts.projectId));
@@ -521,6 +579,10 @@ export async function getIssue(
   workspaceId: string,
   id: string,
 ): Promise<import("@/lib/types").IssueDetail | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "issues", "labels"));
+  cacheLife("minutes");
+
   const row = await db.query.issues.findFirst({
     where: and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)),
     with: {
@@ -574,6 +636,10 @@ export async function getIssueRelations(
   workspaceId: string,
   issueId: string,
 ): Promise<import("@/lib/types").RelationItem[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "issues", "pages"));
+  cacheLife("minutes");
+
   const select = {
     relationId: issueRelations.id,
     type: issueRelations.type,
@@ -633,6 +699,10 @@ export async function getPageTree(
   workspaceId: string,
   projectId?: string,
 ): Promise<PageNode[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages"));
+  cacheLife("minutes");
+
   const all = await db
     .select()
     .from(pages)
@@ -662,6 +732,10 @@ export async function getPageTree(
 
 /** Flat list of issues for link pickers. */
 export async function getIssuesFlat(workspaceId: string): Promise<FlatIssue[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "issues"));
+  cacheLife("minutes");
+
   const rows = await db
     .select({
       id: issues.id,
@@ -681,6 +755,10 @@ export async function getIssuesFlat(workspaceId: string): Promise<FlatIssue[]> {
 export async function getPagesFlat(
   workspaceId: string,
 ): Promise<Pick<Page, "id" | "title" | "icon">[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages"));
+  cacheLife("minutes");
+
   return db
     .select({ id: pages.id, title: pages.title, icon: pages.icon })
     .from(pages)
@@ -696,6 +774,10 @@ export async function getPagesPage(
   items: Pick<Page, "id" | "title" | "icon">[];
   nextCursor: import("@/lib/api/pagination").Cursor | null;
 }> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages"));
+  cacheLife("minutes");
+
   const conds = [eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)];
   if (opts.cursor) {
     const at = new Date(opts.cursor.createdAt);
@@ -733,6 +815,10 @@ export async function getPagesPage(
 export async function getTrashedPages(
   workspaceId: string,
 ): Promise<Pick<Page, "id" | "title" | "icon" | "deletedAt">[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages"));
+  cacheLife("minutes");
+
   return db
     .select({
       id: pages.id,
@@ -749,6 +835,10 @@ export async function getPage(
   workspaceId: string,
   id: string,
 ): Promise<(Page & { linkedIssues: IssueWithRelations[] }) | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages"));
+  cacheLife("minutes");
+
   const row = await db.query.pages.findFirst({
     where: and(eq(pages.workspaceId, workspaceId), eq(pages.id, id)),
     with: {
@@ -839,6 +929,10 @@ export async function getPageVersions(
   workspaceId: string,
   pageId: string,
 ): Promise<PageVersionItem[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages"));
+  cacheLife("minutes");
+
   const rows = await db.query.pageVersions.findMany({
     where: and(
       eq(pageVersions.workspaceId, workspaceId),
@@ -862,6 +956,10 @@ export async function getPageVersion(
   workspaceId: string,
   versionId: string,
 ): Promise<{ id: string; title: string; content: unknown } | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages"));
+  cacheLife("minutes");
+
   const [row] = await db
     .select({
       id: pageVersions.id,
@@ -882,6 +980,10 @@ export async function getCycles(
   workspaceId: string,
   projectId?: string,
 ): Promise<CycleWithCount[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "cycles", "issues"));
+  cacheLife("minutes");
+
   const rows = await db.query.cycles.findMany({
     where: projectId
       ? and(eq(cycles.workspaceId, workspaceId), eq(cycles.projectId, projectId))
@@ -911,6 +1013,10 @@ export async function getCycle(
     })
   | null
 > {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "cycles", "issues"));
+  cacheLife("minutes");
+
   const row = await db.query.cycles.findFirst({
     where: and(eq(cycles.workspaceId, workspaceId), eq(cycles.id, id)),
     with: {
@@ -956,6 +1062,10 @@ export async function getCycle(
 
 /** Cycles as a flat list for pickers. */
 export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "cycles"));
+  cacheLife("minutes");
+
   return db
     .select()
     .from(cycles)
@@ -966,6 +1076,10 @@ export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
 // ---- Databases ----
 
 export async function getDatabases(workspaceId: string): Promise<Database[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "databases"));
+  cacheLife("minutes");
+
   return db
     .select()
     .from(databases)
@@ -977,6 +1091,10 @@ export async function getDatabase(
   workspaceId: string,
   id: string,
 ): Promise<DatabaseWithSchema | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "databases"));
+  cacheLife("minutes");
+
   const row = await db.query.databases.findFirst({
     where: and(eq(databases.workspaceId, workspaceId), eq(databases.id, id)),
     with: {
@@ -1188,6 +1306,10 @@ export async function getFavorites(
 export async function getAttachments(
   issueId: string,
 ): Promise<import("@/lib/types").Attachment[]> {
+  "use cache";
+  cacheTag(issueAttachmentsTag(issueId));
+  cacheLife("minutes");
+
   const rows = await db.query.attachments.findMany({
     where: eq(attachments.issueId, issueId),
     orderBy: [desc(attachments.createdAt)],
@@ -1215,6 +1337,10 @@ export type ApiKeyRow = {
 };
 
 export async function getApiKeys(workspaceId: string): Promise<ApiKeyRow[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "api"));
+  cacheLife("hours");
+
   return db
     .select({
       id: apiKeys.id,
@@ -1241,6 +1367,10 @@ export type WebhookRow = {
 };
 
 export async function getWebhooks(workspaceId: string): Promise<WebhookRow[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "api"));
+  cacheLife("hours");
+
   const rows = await db
     .select({
       id: webhooks.id,
@@ -1262,6 +1392,10 @@ export async function getWebhooks(workspaceId: string): Promise<WebhookRow[]> {
 export async function getSavedViews(
   workspaceId: string,
 ): Promise<import("@/lib/types").SavedView[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "saved-views"));
+  cacheLife("minutes");
+
   const rows = await db
     .select({ id: savedViews.id, name: savedViews.name, config: savedViews.config })
     .from(savedViews)
@@ -1279,6 +1413,10 @@ export async function getSavedViews(
 export async function getMentionItems(
   workspaceId: string,
 ): Promise<import("@/lib/types").MentionItem[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "members", "pages", "issues"));
+  cacheLife("minutes");
+
   const [memberRows, issueRows, pageRows, projectRows] = await Promise.all([
     getMembers(workspaceId),
     db
@@ -1333,6 +1471,10 @@ export async function getBacklinks(
   targetType: string,
   targetId: string,
 ): Promise<import("@/lib/types").BacklinkItem[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "pages", "issues"));
+  cacheLife("minutes");
+
   const rows = await db
     .select({ sourceType: references.sourceType, sourceId: references.sourceId })
     .from(references)
@@ -1437,6 +1579,10 @@ export async function getDeals(
   workspaceId: string,
   projectId?: string,
 ): Promise<DealWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "crm"));
+  cacheLife("minutes");
+
   const rows = await db.query.deals.findMany({
     where: projectId
       ? and(eq(deals.workspaceId, workspaceId), eq(deals.projectId, projectId))
@@ -1448,6 +1594,10 @@ export async function getDeals(
 }
 
 export async function getAccounts(workspaceId: string): Promise<CrmAccount[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "crm"));
+  cacheLife("minutes");
+
   return db
     .select()
     .from(crmAccounts)
@@ -1458,6 +1608,10 @@ export async function getAccounts(workspaceId: string): Promise<CrmAccount[]> {
 export async function getContacts(
   workspaceId: string,
 ): Promise<ContactWithAccount[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "crm"));
+  cacheLife("minutes");
+
   return db.query.crmContacts.findMany({
     where: eq(crmContacts.workspaceId, workspaceId),
     orderBy: [asc(crmContacts.name)],
@@ -1469,6 +1623,10 @@ export async function getAccount(
   workspaceId: string,
   id: string,
 ): Promise<AccountDetail | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "crm"));
+  cacheLife("minutes");
+
   const row = await db.query.crmAccounts.findFirst({
     where: and(eq(crmAccounts.workspaceId, workspaceId), eq(crmAccounts.id, id)),
     with: {
@@ -1491,6 +1649,10 @@ export async function getCampaigns(
   workspaceId: string,
   projectId?: string,
 ): Promise<CampaignWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "campaigns"));
+  cacheLife("minutes");
+
   const rows = await db.query.campaigns.findMany({
     where: projectId
       ? and(
@@ -1508,6 +1670,10 @@ export async function getContentItems(
   workspaceId: string,
   projectId?: string,
 ): Promise<ContentItemWithCampaign[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "campaigns"));
+  cacheLife("minutes");
+
   return db.query.contentItems.findMany({
     where: projectId
       ? and(
@@ -1524,6 +1690,10 @@ export async function getContentItems(
 export async function getProjectSummaries(
   workspaceId: string,
 ): Promise<ProjectSummary[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "projects", "issues", "milestones", "metrics", "campaigns", "crm", "tickets"));
+  cacheLife("minutes");
+
   const [projects, allDeals, allIssues, labelledIssues, allCampaigns, allInvoices, allTickets, allMilestones, allMetrics] =
     await Promise.all([
     getProjects(workspaceId),
@@ -1615,6 +1785,10 @@ export async function getInvoices(
   workspaceId: string,
   projectId?: string,
 ): Promise<InvoiceWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "finance"));
+  cacheLife("minutes");
+
   return db.query.invoices.findMany({
     where: projectId
       ? and(eq(invoices.workspaceId, workspaceId), eq(invoices.projectId, projectId))
@@ -1629,6 +1803,10 @@ export async function getExpenses(
   workspaceId: string,
   projectId?: string,
 ): Promise<ExpenseWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "finance"));
+  cacheLife("minutes");
+
   return db.query.expenses.findMany({
     where: projectId
       ? and(eq(expenses.workspaceId, workspaceId), eq(expenses.projectId, projectId))
@@ -1643,6 +1821,10 @@ export async function getTickets(
   workspaceId: string,
   projectId?: string,
 ): Promise<TicketWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "tickets"));
+  cacheLife("minutes");
+
   return db.query.tickets.findMany({
     where: projectId
       ? and(eq(tickets.workspaceId, workspaceId), eq(tickets.projectId, projectId))
@@ -1657,6 +1839,10 @@ export async function getTicket(
   workspaceId: string,
   id: string,
 ): Promise<TicketWithRelations | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "tickets"));
+  cacheLife("minutes");
+
   const row = await db.query.tickets.findFirst({
     where: and(eq(tickets.workspaceId, workspaceId), eq(tickets.id, id)),
     with: { account: true, contact: true, assignee: true, project: true },
@@ -1665,6 +1851,10 @@ export async function getTicket(
 }
 
 export async function getTicketComments(workspaceId: string, ticketId: string) {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "tickets"));
+  cacheLife("minutes");
+
   return db.query.ticketComments.findMany({
     where: and(
       eq(ticketComments.workspaceId, workspaceId),
@@ -1680,6 +1870,10 @@ export async function getFeatures(
   workspaceId: string,
   projectId?: string,
 ): Promise<FeatureWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "features", "issues"));
+  cacheLife("minutes");
+
   const rows = await db.query.features.findMany({
     where: projectId
       ? and(eq(features.workspaceId, workspaceId), eq(features.projectId, projectId))
@@ -1734,6 +1928,10 @@ export async function getMilestones(
   workspaceId: string,
   projectId: string,
 ): Promise<MilestoneWithProgress[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "milestones", "features", "issues"));
+  cacheLife("minutes");
+
   const ms = await db
     .select()
     .from(milestones)
@@ -1825,6 +2023,10 @@ export async function getMilestone(
   workspaceId: string,
   id: string,
 ): Promise<MilestoneDetail | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "milestones", "features", "issues"));
+  cacheLife("minutes");
+
   const row = await db.query.milestones.findFirst({
     where: and(eq(milestones.workspaceId, workspaceId), eq(milestones.id, id)),
     with: { project: true },
@@ -1917,6 +2119,10 @@ export async function getFeature(
   workspaceId: string,
   id: string,
 ): Promise<import("@/lib/types").FeatureDetail | null> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "features", "issues"));
+  cacheLife("minutes");
+
   const row = await db.query.features.findFirst({
     where: and(eq(features.workspaceId, workspaceId), eq(features.id, id)),
     with: {
@@ -1954,6 +2160,10 @@ export async function getMetrics(
   workspaceId: string,
   projectId?: string,
 ): Promise<MetricWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "metrics"));
+  cacheLife("minutes");
+
   const rows = await db.query.metrics.findMany({
     where: projectId
       ? and(eq(metrics.workspaceId, workspaceId), eq(metrics.projectId, projectId))
@@ -1982,6 +2192,10 @@ export async function getFeedback(
   workspaceId: string,
   projectId?: string,
 ): Promise<FeedbackWithRelations[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "feedback"));
+  cacheLife("minutes");
+
   return db.query.feedback.findMany({
     where: projectId
       ? and(eq(feedback.workspaceId, workspaceId), eq(feedback.projectId, projectId))

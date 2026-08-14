@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { ShieldX } from "lucide-react";
 
@@ -8,14 +7,14 @@ import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
 
 export default function NoAccessPage() {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function signOut() {
     startTransition(async () => {
       await authClient.signOut();
-      router.push("/auth/sign-in");
-      router.refresh();
+      // Full reload so no client state survives the user change — see the note
+      // on the sidebar's signOut.
+      window.location.href = "/auth/sign-in";
     });
   }
 

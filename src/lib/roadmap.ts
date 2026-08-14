@@ -18,6 +18,22 @@ export function startOfMonth(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 }
 
+/**
+ * "Now" for the charts, truncated to UTC midnight.
+ *
+ * These charts are day-granular — a month/quarter axis and a today marker — so
+ * the extra precision buys nothing and costs correctness: a millisecond-precise
+ * instant computed during SSR and again at hydration yields two different bar
+ * offsets (`left: 10.6922%` vs `left: 10.692277825212509%`) and a hydration
+ * mismatch. Truncating to the day makes both sides agree exactly.
+ */
+export function todayISO(): string {
+  const d = new Date();
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  ).toISOString();
+}
+
 export function addMonths(d: Date, n: number): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
 }

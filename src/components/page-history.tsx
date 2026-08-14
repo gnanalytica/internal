@@ -3,10 +3,10 @@
 import type { JSONContent } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { Clock, History } from "lucide-react";
 import { toast } from "sonner";
 
+import { RelativeTime } from "@/components/relative-time";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
@@ -113,7 +113,7 @@ export function PageHistory({
                       className="size-4 text-[7px]"
                     />
                     <span className="font-medium">
-                      {formatDistanceToNowStrict(new Date(v.createdAt), { addSuffix: true })}
+                      <RelativeTime date={v.createdAt} />
                     </span>
                     {v.cause === "restore" && (
                       <span className="rounded bg-amber-500/15 px-1 text-[9px] font-medium text-amber-600">

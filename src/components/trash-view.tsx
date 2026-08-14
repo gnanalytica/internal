@@ -1,11 +1,11 @@
 "use client";
 
-import { formatDistanceToNowStrict } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { RelativeTime } from "@/components/relative-time";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { deletePageForever, restorePage } from "@/lib/actions";
@@ -69,7 +69,7 @@ export function TrashView({ pages }: { pages: TrashedPage[] }) {
                     <span className="flex-1 truncate text-sm">{p.title || "Untitled"}</span>
                     {p.deletedAt && (
                       <span className="text-[11px] text-muted-foreground">
-                        {formatDistanceToNowStrict(new Date(p.deletedAt), { addSuffix: true })}
+                        <RelativeTime date={p.deletedAt} />
                       </span>
                     )}
                     <Button

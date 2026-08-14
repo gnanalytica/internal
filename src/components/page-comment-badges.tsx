@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageSquare } from "lucide-react";
 
+import { RelativeTime } from "@/components/relative-time";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CommentComposer } from "@/components/page-comments";
 import { useRouter } from "next/navigation";
-import { formatDistanceToNowStrict } from "date-fns";
 import type { Member, PageCommentItem } from "@/lib/types";
 
 /**
@@ -125,9 +125,7 @@ export function PageCommentBadges({
                         {c.author?.name ?? "Unknown"}
                       </span>
                       <span className="text-[11px] text-muted-foreground">
-                        {formatDistanceToNowStrict(new Date(c.createdAt), {
-                          addSuffix: true,
-                        })}
+                        <RelativeTime date={c.createdAt} />
                       </span>
                     </div>
                     <p className="whitespace-pre-wrap leading-relaxed">{c.body}</p>

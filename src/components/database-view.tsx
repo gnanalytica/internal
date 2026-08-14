@@ -319,7 +319,7 @@ function TableView({
     const ids = [...selected];
     setSelected(new Set());
     persist(async () => {
-      for (const id of ids) await deleteRow(id, database.id);
+      for (const id of ids) await deleteRow(id);
     });
   };
 
@@ -409,7 +409,7 @@ function TableView({
                       aria-label={`Rename ${f.name}`}
                     />
                     <button
-                      onClick={() => persist(() => deleteField(f.id, database.id))}
+                      onClick={() => persist(() => deleteField(f.id))}
                       className="ml-auto text-muted-foreground opacity-0 hover:text-destructive group-hover/h:opacity-100"
                       aria-label="Delete field"
                     >
@@ -457,7 +457,7 @@ function TableView({
                 ))}
                 <td className="px-2 text-center">
                   <button
-                    onClick={() => persist(() => deleteRow(row.id, database.id))}
+                    onClick={() => persist(() => deleteRow(row.id))}
                     className="text-muted-foreground opacity-0 hover:text-destructive group-hover/r:opacity-100"
                     aria-label="Delete row"
                   >
@@ -474,7 +474,7 @@ function TableView({
                   <ContextMenuSeparator />
                   <ContextMenuItem
                     variant="destructive"
-                    onClick={() => persist(() => deleteRow(row.id, database.id))}
+                    onClick={() => persist(() => deleteRow(row.id))}
                   >
                     Delete row
                   </ContextMenuItem>
@@ -514,7 +514,7 @@ function TableView({
                 className="size-3.5 accent-[var(--brand)]"
               />
               <button
-                onClick={() => persist(() => deleteRow(row.id, database.id))}
+                onClick={() => persist(() => deleteRow(row.id))}
                 className="ml-auto text-muted-foreground hover:text-destructive"
                 aria-label="Delete row"
               >

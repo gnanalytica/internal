@@ -1,5 +1,7 @@
 import "server-only";
 
+import { apiInvalidate, apiInvalidateAttachments } from "@/lib/api/invalidate";
+
 import { and, desc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -77,6 +79,7 @@ export async function apiDeleteIssueComment(
     .delete(comments)
     .where(and(eq(comments.workspaceId, workspaceId), eq(comments.id, commentId)))
     .returning({ id: comments.id });
+  apiInvalidate(workspaceId, "issues");
   return res.length > 0;
 }
 
@@ -113,6 +116,7 @@ export async function apiAddIssueRelation(
     .insert(issueRelations)
     .values({ workspaceId, issueId: from, relatedIssueId: to, type: stored })
     .returning({ id: issueRelations.id });
+  apiInvalidate(workspaceId, "issues");
   return created.id;
 }
 
@@ -151,6 +155,7 @@ export async function apiDeleteIssueRelation(
       and(eq(issueRelations.workspaceId, workspaceId), eq(issueRelations.id, relationId)),
     )
     .returning({ id: issueRelations.id });
+  apiInvalidate(workspaceId, "issues");
   return res.length > 0;
 }
 
@@ -163,6 +168,7 @@ export async function apiLinkIssuePage(
 ): Promise<void> {
   await Promise.all([assertIssue(workspaceId, issueId), assertPage(workspaceId, pageId)]);
   await db.insert(issuePageLinks).values({ issueId, pageId }).onConflictDoNothing();
+  apiInvalidate(workspaceId, "issues", "pages");
 }
 
 export async function apiUnlinkIssuePage(
@@ -175,6 +181,7 @@ export async function apiUnlinkIssuePage(
     .delete(issuePageLinks)
     .where(and(eq(issuePageLinks.issueId, issueId), eq(issuePageLinks.pageId, pageId)))
     .returning({ issueId: issuePageLinks.issueId });
+  apiInvalidate(workspaceId, "issues", "pages");
   return res.length > 0;
 }
 
@@ -308,6 +315,7 @@ export async function apiRestorePageVersion(
       updatedAt: new Date(),
     })
     .where(and(eq(pages.workspaceId, workspaceId), eq(pages.id, pageId)));
+  apiInvalidate(workspaceId, "pages");
   return true;
 }
 
@@ -366,6 +374,7 @@ export async function apiRestorePage(
     .update(pages)
     .set({ deletedAt: null })
     .where(and(eq(pages.workspaceId, workspaceId), inArray(pages.id, ids)));
+  apiInvalidate(workspaceId, "pages");
   return true;
 }
 
@@ -384,6 +393,7 @@ export async function apiPurgePage(
       ),
     )
     .returning({ id: pages.id });
+  apiInvalidate(workspaceId, "pages");
   return res.length > 0;
 }
 
@@ -434,6 +444,7 @@ export async function apiAddAttachment(
       size: input.size ?? 0,
     })
     .returning({ id: attachments.id });
+  apiInvalidateAttachments(issueId);
   return created.id;
 }
 

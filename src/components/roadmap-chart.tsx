@@ -33,7 +33,16 @@ export type GanttGroup = { key: string; name: string; color: string; items: Gant
 type Dates = { startDate: Date | null; targetDate: Date | null };
 type DragMode = "move" | "start" | "end";
 
-const NAME_W = 260;
+/**
+ * Width of the fixed name column, as a CSS variable rather than a constant so a
+ * media query can narrow it. At 260px it swallowed two thirds of a phone screen
+ * and left barely any timeline visible, so below `sm` it drops to 9rem.
+ * Anything that needs the value in JS reads it back off the layout.
+ */
+const NAME_W_VAR = "var(--gantt-name-w)";
+const NAME_W_CLASS = "[--gantt-name-w:9rem] sm:[--gantt-name-w:16.25rem]";
+/** Minimum timeline width beside the names, before zoom. */
+const TRACK_MIN = 640;
 const DAY = 86_400_000;
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 8;
@@ -211,7 +220,7 @@ export function RoadmapChart({
     const sc = scrollRef.current;
     const tr = trackRef.current;
     if (!sc || !tr || todayFrac === null) return;
-    const left = NAME_W + todayFrac * tr.offsetWidth - sc.clientWidth / 2;
+    const left = tr.offsetLeft + todayFrac * tr.offsetWidth - sc.clientWidth / 2;
     sc.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
   };
 
@@ -224,9 +233,9 @@ export function RoadmapChart({
     });
 
   return (
-    <div className={cn("flex h-full flex-col", drag && "select-none")}>
+    <div className={cn("flex h-full flex-col", NAME_W_CLASS, drag && "select-none")}>
       {/* Toolbar: legend + zoom + today */}
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-4 py-2">
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">{legend}</div>
         <div className="flex shrink-0 items-center gap-1">
           <div className="flex rounded-md border p-0.5">
@@ -283,13 +292,13 @@ export function RoadmapChart({
       <div ref={scrollRef} className="scrollbar-thin flex-1 overflow-auto overscroll-x-contain">
         <div
           className="relative"
-          style={{ width: `${zoom * 100}%`, minWidth: NAME_W + 640 }}
+          style={{ width: `${zoom * 100}%`, minWidth: `calc(${NAME_W_VAR} + ${TRACK_MIN}px)` }}
         >
           {/* Column header */}
           <div className="sticky top-0 z-20 flex border-b bg-background/95 backdrop-blur">
             <div
               className="shrink-0 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
-              style={{ width: NAME_W }}
+              style={{ width: NAME_W_VAR }}
             >
               {labelHeader}
             </div>
@@ -319,7 +328,7 @@ export function RoadmapChart({
 
           {/* Rows + shared background grid */}
           <div className="relative">
-            <div ref={trackRef} className="pointer-events-none absolute inset-y-0 z-0" style={{ left: NAME_W, right: 0 }}>
+            <div ref={trackRef} className="pointer-events-none absolute inset-y-0 z-0" style={{ left: NAME_W_VAR, right: 0 }}>
               {cols.map((c, i) => (
                 <div
                   key={i}
@@ -364,7 +373,7 @@ export function RoadmapChart({
                             <Link
                               href={it.href}
                               className="flex shrink-0 flex-col justify-center gap-0.5 px-4 py-2"
-                              style={{ width: NAME_W }}
+                              style={{ width: NAME_W_VAR }}
                             >
                               <div className="flex items-center gap-2">
                                 <span

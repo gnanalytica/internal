@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { Database, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { RelativeTime } from "@/components/relative-time";
 import { Backlinks } from "@/components/backlinks";
 import { FavoriteButton } from "@/components/favorite-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
@@ -324,7 +324,7 @@ function ProjectStatusUpdates({
 
   function remove(id: string) {
     startTransition(async () => {
-      await deleteStatusUpdate(id, projectId);
+      await deleteStatusUpdate(id);
       onChange();
     });
   }
@@ -414,7 +414,7 @@ function ProjectStatusUpdates({
                     </span>
                   )}
                   <span className="text-[11px] text-muted-foreground">
-                    {formatDistanceToNowStrict(new Date(u.createdAt), { addSuffix: true })}
+                    <RelativeTime date={u.createdAt} />
                   </span>
                   <button
                     onClick={() => remove(u.id)}

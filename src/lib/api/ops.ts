@@ -28,6 +28,7 @@ import {
   isPriority,
   isStatus,
 } from "@/lib/constants";
+import { apiInvalidate } from "@/lib/api/invalidate";
 import { dispatchWebhook } from "@/lib/api/webhooks";
 import { docToText, markdownToDoc } from "@/lib/markdown";
 import { shouldSnapshot, VERSION_RETENTION } from "@/lib/page-collab";
@@ -234,6 +235,7 @@ export async function apiCreateIssue(
     data: null,
   });
 
+  apiInvalidate(workspaceId, "issues");
   await dispatchWebhook(workspaceId, "issue.created", {
     id: created.id,
     title: created.title,
@@ -298,6 +300,7 @@ export async function apiUpdateIssue(
   if (Array.isArray(patch.labelIds))
     await setIssueLabels(workspaceId, id, patch.labelIds as string[]);
 
+  apiInvalidate(workspaceId, "issues");
   await dispatchWebhook(workspaceId, "issue.updated", { id, ...patch });
   return true;
 }
@@ -307,7 +310,10 @@ export async function apiDeleteIssue(workspaceId: string, id: string): Promise<b
     .delete(issues)
     .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
     .returning({ id: issues.id });
-  if (res.length > 0) await dispatchWebhook(workspaceId, "issue.deleted", { id });
+  if (res.length > 0) {
+    apiInvalidate(workspaceId, "issues");
+    await dispatchWebhook(workspaceId, "issue.deleted", { id });
+  }
   return res.length > 0;
 }
 
@@ -329,6 +335,7 @@ export async function apiCreateComment(
     .insert(comments)
     .values({ workspaceId, issueId, authorId: userId, body: text })
     .returning();
+  apiInvalidate(workspaceId, "issues");
   await dispatchWebhook(workspaceId, "issue.commented", {
     issueId,
     commentId: created.id,
@@ -371,6 +378,7 @@ export async function apiCreateProject(
       color: PROJECT_COLORS[taken.size % PROJECT_COLORS.length],
     })
     .returning();
+  apiInvalidate(workspaceId, "projects");
   await dispatchWebhook(workspaceId, "project.created", {
     id: created.id,
     name: created.name,
@@ -418,6 +426,7 @@ export async function apiCreatePage(
       position: `a${Date.now()}`,
     })
     .returning();
+  apiInvalidate(workspaceId, "pages");
   await dispatchWebhook(workspaceId, "page.created", {
     id: created.id,
     title: created.title,
@@ -492,8 +501,10 @@ export async function apiUpdatePage(
       and(eq(pages.workspaceId, workspaceId), eq(pages.id, id), isNull(pages.deletedAt)),
     )
     .returning({ id: pages.id, title: pages.title });
-  if (res.length > 0)
+  if (res.length > 0) {
+    apiInvalidate(workspaceId, "pages");
     await dispatchWebhook(workspaceId, "page.updated", { id, title: res[0].title });
+  }
   return res.length > 0;
 }
 
@@ -536,6 +547,7 @@ export async function apiDeletePage(
     .update(pages)
     .set({ deletedAt: new Date() })
     .where(and(eq(pages.workspaceId, workspaceId), inArray(pages.id, ids)));
+  apiInvalidate(workspaceId, "pages");
   await dispatchWebhook(workspaceId, "page.deleted", { id, count: ids.length });
   return true;
 }
@@ -668,6 +680,7 @@ export async function apiCreateMilestone(
       sortKey: `a${Date.now()}`,
     })
     .returning({ id: milestones.id });
+  apiInvalidate(workspaceId, "milestones");
   return created.id;
 }
 
@@ -710,6 +723,7 @@ export async function apiCreateFeature(
       sortKey: `a${Date.now()}`,
     })
     .returning({ id: features.id });
+  apiInvalidate(workspaceId, "features");
   return created.id;
 }
 
@@ -751,6 +765,7 @@ export async function apiCreateCycle(
       endDate,
     })
     .returning({ id: cycles.id });
+  apiInvalidate(workspaceId, "cycles");
   return created.id;
 }
 
@@ -768,5 +783,6 @@ export async function apiCreateLabel(
       color: input.color?.trim() || "#a1a1aa",
     })
     .returning({ id: labels.id });
+  apiInvalidate(workspaceId, "labels");
   return created.id;
 }

@@ -2,7 +2,7 @@
 
 import { and, desc, eq, gte, ilike, inArray, isNull, lt, max, or } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
-import { revalidatePath } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { cookies } from "next/headers";
 
 import { db } from "@/db";
@@ -66,6 +66,11 @@ import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
 import {
+  issueAttachmentsTag,
+  wsTags,
+  type CacheEntity,
+} from "@/lib/cache-tags";
+import {
   WEBHOOK_EVENTS,
   dispatchWebhook,
   newWebhookSecret,
@@ -83,6 +88,20 @@ import { SELECT_COLORS } from "@/lib/types";
 import { isRelationType } from "@/lib/issue-relations";
 import { extractReferences } from "@/lib/references";
 import { snippetAround } from "@/lib/snippet";
+
+/**
+ * Expire the cached reads a mutation invalidates, then re-render the current
+ * route.
+ *
+ * `updateTag` is the read-your-own-writes form: the next read waits for fresh
+ * data rather than serving the stale entry. `refresh()` is separate and still
+ * needed — it refreshes the client router, which is what surfaces the reads we
+ * deliberately never cache (favourites, notifications, anything per-user).
+ */
+function invalidate(workspaceId: string, ...entities: CacheEntity[]): void {
+  for (const tag of wsTags(workspaceId, ...entities)) updateTag(tag);
+  refresh();
+}
 
 /** Rewrite the reference graph for a body (issue/page) from its document JSON. */
 async function syncReferences(
@@ -132,7 +151,7 @@ export async function setSlackWebhook(url: string) {
     .update(workspaces)
     .set({ slackWebhookUrl: clean || null })
     .where(eq(workspaces.id, ws.id));
-  revalidatePath("/settings/slack");
+  refresh();
 }
 
 export async function sendTestSlack() {
@@ -171,7 +190,7 @@ export async function createWorkspace(input: { name: string }) {
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
   });
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "members", "org", "projects");
   return ws;
 }
 
@@ -194,7 +213,7 @@ export async function setActiveWorkspace(workspaceId: string) {
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
   });
-  revalidatePath("/", "layout");
+  refresh();
 }
 
 // ---- Members & access ----
@@ -250,7 +269,7 @@ export async function inviteMember(input: {
     })
     .onConflictDoNothing();
   // People & HR (the members home) lives at /projects/[PPL]; refresh the shell.
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "members", "org");
 }
 
 export async function setMemberRole(userId: string, role: string) {
@@ -267,7 +286,7 @@ export async function setMemberRole(userId: string, role: string) {
         eq(workspaceMembers.userId, userId),
       ),
     );
-  revalidatePath("/projects");
+  invalidate(ws.id, "members", "org");
 }
 
 /** Update a member's HR/directory profile (title, entity, employment, manager). */
@@ -295,7 +314,7 @@ export async function updateMemberProfile(
     .update(workspaceMembers)
     .set(values)
     .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.userId, userId)));
-  revalidatePath("/projects");
+  invalidate(ws.id, "members", "org");
 }
 
 export async function removeMember(userId: string) {
@@ -323,7 +342,7 @@ export async function removeMember(userId: string) {
         eq(workspaceMembers.userId, userId),
       ),
     );
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "members", "org");
 }
 
 // ---- Org chart (positions/roles) ----
@@ -346,7 +365,7 @@ export async function createOrgRole(input: {
       sortKey: `a${Date.now()}`,
     })
     .returning({ id: orgRoles.id });
-  revalidatePath("/projects");
+  invalidate(ws.id, "org");
   return created;
 }
 
@@ -379,7 +398,7 @@ export async function updateOrgRole(
     .update(orgRoles)
     .set(values)
     .where(and(eq(orgRoles.id, id), eq(orgRoles.workspaceId, ws.id)));
-  revalidatePath("/projects");
+  invalidate(ws.id, "org");
 }
 
 export async function deleteOrgRole(id: string) {
@@ -398,7 +417,7 @@ export async function deleteOrgRole(id: string) {
     .set({ parentId: target.parentId })
     .where(and(eq(orgRoles.workspaceId, ws.id), eq(orgRoles.parentId, id)));
   await db.delete(orgRoles).where(and(eq(orgRoles.id, id), eq(orgRoles.workspaceId, ws.id)));
-  revalidatePath("/projects");
+  invalidate(ws.id, "org");
 }
 
 // ---- Issues ----
@@ -484,8 +503,7 @@ export async function createIssue(input: {
     priority: created.priority,
   });
 
-  revalidatePath("/issues");
-  if (created.parentId) revalidatePath(`/issues/${created.parentId}`);
+  invalidate(ws.id, "issues");
   return created;
 }
 
@@ -551,7 +569,7 @@ export async function addComment(issueId: string, body: string) {
 
   await dispatchWebhook(ws.id, "issue.commented", { issueId, body: text });
 
-  revalidatePath(`/issues/${issueId}`);
+  invalidate(ws.id, "issues");
 }
 
 const REACTION_EMOJI = new Set(["👍", "❤️", "🎉", "😄", "🚀", "👀", "✅"]);
@@ -589,15 +607,15 @@ export async function toggleReaction(commentId: string, emoji: string) {
       .values({ commentId, userId: me.id, emoji })
       .onConflictDoNothing();
   }
-  revalidatePath(`/issues/${c.issueId}`);
+  invalidate(ws.id, "issues");
 }
 
-export async function deleteComment(id: string, issueId: string) {
+export async function deleteComment(id: string) {
   const ws = await getWorkspace();
   await db
     .delete(comments)
     .where(and(eq(comments.workspaceId, ws.id), eq(comments.id, id)));
-  revalidatePath(`/issues/${issueId}`);
+  invalidate(ws.id, "issues");
 }
 
 export async function updateIssue(
@@ -699,15 +717,14 @@ export async function updateIssue(
   void _omitDesc;
   await dispatchWebhook(ws.id, "issue.updated", { id, ...changed });
 
-  revalidatePath("/issues");
-  revalidatePath(`/issues/${id}`);
+  invalidate(ws.id, "issues");
 }
 
 export async function deleteIssue(id: string) {
   const ws = await getWorkspace();
   await db.delete(issues).where(and(eq(issues.workspaceId, ws.id), eq(issues.id, id)));
   await dispatchWebhook(ws.id, "issue.deleted", { id });
-  revalidatePath("/issues");
+  invalidate(ws.id, "issues");
 }
 
 /** Replace an issue's assignee set; keeps issues.assigneeId as the primary. */
@@ -751,17 +768,16 @@ export async function setIssueAssignees(issueId: string, userIds: string[]) {
       })),
     );
   }
-  revalidatePath("/issues");
-  revalidatePath(`/issues/${issueId}`);
+  invalidate(ws.id, "issues");
 }
 
 export async function setIssueLabels(issueId: string, labelIds: string[]) {
+  const ws = await getWorkspace();
   await db.delete(issueLabels).where(eq(issueLabels.issueId, issueId));
   if (labelIds.length) {
     await db.insert(issueLabels).values(labelIds.map((labelId) => ({ issueId, labelId })));
   }
-  revalidatePath("/issues");
-  revalidatePath(`/issues/${issueId}`);
+  invalidate(ws.id, "issues");
 }
 
 /** Create a workspace label; color auto-picked from the palette when omitted. */
@@ -778,9 +794,7 @@ export async function createLabel(name: string, color?: string) {
     .insert(labels)
     .values({ workspaceId: ws.id, name: text, color: picked })
     .returning();
-  revalidatePath("/issues");
-  revalidatePath("/my-issues");
-  revalidatePath("/settings/labels");
+  invalidate(ws.id, "labels");
   return row;
 }
 
@@ -797,18 +811,14 @@ export async function updateLabel(
     .update(labels)
     .set(values)
     .where(and(eq(labels.workspaceId, ws.id), eq(labels.id, id)));
-  revalidatePath("/issues");
-  revalidatePath("/my-issues");
-  revalidatePath("/settings/labels");
+  invalidate(ws.id, "labels");
 }
 
 export async function deleteLabel(id: string) {
   // issueLabels.labelId FK is ON DELETE CASCADE, so this also detaches issues.
   const ws = await getWorkspace();
   await db.delete(labels).where(and(eq(labels.workspaceId, ws.id), eq(labels.id, id)));
-  revalidatePath("/issues");
-  revalidatePath("/my-issues");
-  revalidatePath("/settings/labels");
+  invalidate(ws.id, "labels");
 }
 
 // ---- Pages ----
@@ -842,8 +852,7 @@ export async function createPage(
     })
     .returning();
   await dispatchWebhook(ws.id, "page.created", { id: created.id, title: created.title });
-  revalidatePath("/", "layout");
-  if (scope) revalidatePath(`/projects/${scope}/docs`);
+  invalidate(ws.id, "pages");
   return created;
 }
 
@@ -914,8 +923,7 @@ export async function updatePage(
     .set(values)
     .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
 
-  revalidatePath("/", "layout");
-  revalidatePath(`/pages/${id}`);
+  invalidate(ws.id, "pages", "issues");
   return { conflict };
 }
 
@@ -1013,8 +1021,7 @@ export async function restorePageVersion(versionId: string) {
     .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, version.pageId)));
   await syncReferences(ws.id, "page", version.pageId, version.content);
 
-  revalidatePath("/", "layout");
-  revalidatePath(`/pages/${version.pageId}`);
+  invalidate(ws.id, "pages");
 }
 
 /** Soft-delete: move a page (and its descendants) to the trash. */
@@ -1045,8 +1052,7 @@ export async function deletePage(id: string) {
     .update(pages)
     .set({ deletedAt: now })
     .where(and(eq(pages.workspaceId, ws.id), inArray(pages.id, ids)));
-  revalidatePath("/", "layout");
-  revalidatePath("/trash");
+  invalidate(ws.id, "pages");
 }
 
 export async function restorePage(id: string) {
@@ -1055,16 +1061,14 @@ export async function restorePage(id: string) {
     .update(pages)
     .set({ deletedAt: null })
     .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
-  revalidatePath("/", "layout");
-  revalidatePath("/trash");
+  invalidate(ws.id, "pages");
 }
 
 /** Permanently delete a trashed page. */
 export async function deletePageForever(id: string) {
   const ws = await getWorkspace();
   await db.delete(pages).where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
-  revalidatePath("/trash");
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "pages");
 }
 
 // ---- Page comments ----
@@ -1132,10 +1136,10 @@ export async function createPageComment(
     if (rows.length) await db.insert(notifications).values(rows);
   }
 
-  revalidatePath(`/pages/${pageId}`);
+  invalidate(ws.id, "pages");
 }
 
-export async function deletePageComment(id: string, pageId: string) {
+export async function deletePageComment(id: string) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
   // Author-only. Delete the comment and any replies to it.
@@ -1151,25 +1155,25 @@ export async function deletePageComment(id: string, pageId: string) {
   await db
     .delete(pageComments)
     .where(and(eq(pageComments.workspaceId, ws.id), eq(pageComments.parentId, id)));
-  revalidatePath(`/pages/${pageId}`);
+  invalidate(ws.id, "pages");
 }
 
-export async function resolvePageComment(id: string, pageId: string) {
+export async function resolvePageComment(id: string) {
   const ws = await getWorkspace();
   await db
     .update(pageComments)
     .set({ resolvedAt: new Date() })
     .where(and(eq(pageComments.workspaceId, ws.id), eq(pageComments.id, id)));
-  revalidatePath(`/pages/${pageId}`);
+  invalidate(ws.id, "pages");
 }
 
-export async function reopenPageComment(id: string, pageId: string) {
+export async function reopenPageComment(id: string) {
   const ws = await getWorkspace();
   await db
     .update(pageComments)
     .set({ resolvedAt: null })
     .where(and(eq(pageComments.workspaceId, ws.id), eq(pageComments.id, id)));
-  revalidatePath(`/pages/${pageId}`);
+  invalidate(ws.id, "pages");
 }
 
 export async function togglePageCommentReaction(commentId: string, emoji: string) {
@@ -1206,7 +1210,7 @@ export async function togglePageCommentReaction(commentId: string, emoji: string
       .values({ pageCommentId: commentId, userId: me.id, emoji })
       .onConflictDoNothing();
   }
-  revalidatePath(`/pages/${c.pageId}`);
+  invalidate(ws.id, "pages");
 }
 
 // ---- Page presence ----
@@ -1314,32 +1318,31 @@ export async function addIssueRelation(
     relatedIssueId,
     type,
   });
-  revalidatePath(`/issues/${issueId}`);
-  revalidatePath(`/issues/${relatedIssueId}`);
+  invalidate(ws.id, "issues");
 }
 
-export async function removeIssueRelation(relationId: string, issueId: string) {
+export async function removeIssueRelation(relationId: string) {
   const ws = await getWorkspace();
   await db
     .delete(issueRelations)
     .where(and(eq(issueRelations.workspaceId, ws.id), eq(issueRelations.id, relationId)));
-  revalidatePath(`/issues/${issueId}`);
+  invalidate(ws.id, "issues");
 }
 
 // ---- Issue <-> Page links ----
 
 export async function linkIssueToPage(issueId: string, pageId: string) {
+  const ws = await getWorkspace();
   await db.insert(issuePageLinks).values({ issueId, pageId }).onConflictDoNothing();
-  revalidatePath(`/issues/${issueId}`);
-  revalidatePath(`/pages/${pageId}`);
+  invalidate(ws.id, "issues", "pages");
 }
 
 export async function unlinkIssueFromPage(issueId: string, pageId: string) {
+  const ws = await getWorkspace();
   await db
     .delete(issuePageLinks)
     .where(and(eq(issuePageLinks.issueId, issueId), eq(issuePageLinks.pageId, pageId)));
-  revalidatePath(`/issues/${issueId}`);
-  revalidatePath(`/pages/${pageId}`);
+  invalidate(ws.id, "issues", "pages");
 }
 
 // ---- Cycles ----
@@ -1368,8 +1371,7 @@ export async function createCycle(input: {
       endDate: new Date(input.endDate),
     })
     .returning();
-  revalidatePath(`/projects/${input.projectId}/engineering`);
-  revalidatePath("/projects");
+  invalidate(ws.id, "cycles");
   return created;
 }
 
@@ -1386,16 +1388,13 @@ export async function updateCycle(
     .update(cycles)
     .set(values)
     .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
-  revalidatePath(`/cycles/${id}`);
-  revalidatePath("/projects");
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "cycles");
 }
 
 export async function deleteCycle(id: string) {
   const ws = await getWorkspace();
   await db.delete(cycles).where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
-  revalidatePath("/projects");
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "cycles");
 }
 
 
@@ -1443,8 +1442,7 @@ export async function createProject(input: {
     name: created.name,
     key: created.key,
   });
-  revalidatePath("/projects");
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "projects");
   return created;
 }
 
@@ -1474,10 +1472,7 @@ export async function updateProject(
     .update(projects)
     .set(values)
     .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
-  revalidatePath("/projects");
-  revalidatePath(`/projects/${id}`);
-  revalidatePath("/roadmap");
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "projects");
 }
 
 const HEALTH = new Set(["on_track", "at_risk", "off_track"]);
@@ -1497,10 +1492,10 @@ export async function addStatusUpdate(
     health,
     body: body.trim(),
   });
-  revalidatePath(`/projects/${projectId}`);
+  invalidate(ws.id, "status-updates");
 }
 
-export async function deleteStatusUpdate(id: string, projectId: string) {
+export async function deleteStatusUpdate(id: string) {
   const ws = await getWorkspace();
   await db
     .delete(projectStatusUpdates)
@@ -1510,7 +1505,7 @@ export async function deleteStatusUpdate(id: string, projectId: string) {
         eq(projectStatusUpdates.id, id),
       ),
     );
-  revalidatePath(`/projects/${projectId}`);
+  invalidate(ws.id, "status-updates");
 }
 
 export async function deleteProject(id: string) {
@@ -1524,8 +1519,7 @@ export async function deleteProject(id: string) {
   await db
     .delete(projects)
     .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
-  revalidatePath("/projects");
-  revalidatePath("/", "layout");
+  invalidate(ws.id, "issues", "projects");
 }
 
 
@@ -1557,7 +1551,7 @@ export async function createDatabase(input: { name?: string }) {
     { databaseId: database.id, values: {}, position: "a1" },
     { databaseId: database.id, values: {}, position: "a2" },
   ]);
-  revalidatePath("/databases");
+  invalidate(ws.id, "databases");
   return database;
 }
 
@@ -1570,8 +1564,7 @@ export async function updateDatabase(
     .update(databases)
     .set(patch)
     .where(and(eq(databases.workspaceId, ws.id), eq(databases.id, id)));
-  revalidatePath("/databases");
-  revalidatePath(`/databases/${id}`);
+  invalidate(ws.id, "databases");
 }
 
 export async function deleteDatabase(id: string) {
@@ -1580,7 +1573,7 @@ export async function deleteDatabase(id: string) {
   await db
     .delete(databases)
     .where(and(eq(databases.workspaceId, ws.id), eq(databases.id, id)));
-  revalidatePath("/databases");
+  invalidate(ws.id, "databases");
 }
 
 export async function addField(
@@ -1592,6 +1585,7 @@ export async function addField(
     config?: unknown;
   },
 ) {
+  const ws = await getWorkspace();
   await db.insert(databaseFields).values({
     databaseId,
     name: input.name.trim() || "Field",
@@ -1605,7 +1599,7 @@ export async function addField(
       input.type === "relation" ? input.relationDatabaseId ?? null : null,
     config: input.type === "rollup" ? (input.config ?? null) : null,
   });
-  revalidatePath(`/databases/${databaseId}`);
+  invalidate(ws.id, "databases");
 }
 
 export async function updateField(
@@ -1613,13 +1607,15 @@ export async function updateField(
   databaseId: string,
   patch: Partial<{ name: string; type: string; options: unknown }>,
 ) {
+  const ws = await getWorkspace();
   await db.update(databaseFields).set(patch).where(eq(databaseFields.id, id));
-  revalidatePath(`/databases/${databaseId}`);
+  invalidate(ws.id, "databases");
 }
 
-export async function deleteField(id: string, databaseId: string) {
+export async function deleteField(id: string) {
+  const ws = await getWorkspace();
   await db.delete(databaseFields).where(eq(databaseFields.id, id));
-  revalidatePath(`/databases/${databaseId}`);
+  invalidate(ws.id, "databases");
 }
 
 /** Persist a table column width. No revalidate — the client already shows it. */
@@ -1631,10 +1627,11 @@ export async function setFieldWidth(id: string, width: number) {
 }
 
 export async function addRow(databaseId: string) {
+  const ws = await getWorkspace();
   await db
     .insert(databaseRows)
     .values({ databaseId, values: {}, position: `a${Date.now()}` });
-  revalidatePath(`/databases/${databaseId}`);
+  invalidate(ws.id, "databases");
 }
 
 export async function updateCell(
@@ -1643,6 +1640,7 @@ export async function updateCell(
   fieldId: string,
   value: unknown,
 ) {
+  const ws = await getWorkspace();
   const [row] = await db
     .select({ values: databaseRows.values })
     .from(databaseRows)
@@ -1650,15 +1648,17 @@ export async function updateCell(
     .limit(1);
   const next = { ...((row?.values as Record<string, unknown>) ?? {}), [fieldId]: value };
   await db.update(databaseRows).set({ values: next }).where(eq(databaseRows.id, rowId));
-  revalidatePath(`/databases/${databaseId}`);
+  invalidate(ws.id, "databases");
 }
 
-export async function deleteRow(id: string, databaseId: string) {
+export async function deleteRow(id: string) {
+  const ws = await getWorkspace();
   await db.delete(databaseRows).where(eq(databaseRows.id, id));
-  revalidatePath(`/databases/${databaseId}`);
+  invalidate(ws.id, "databases");
 }
 
 export async function duplicateRow(id: string, databaseId: string) {
+  const ws = await getWorkspace();
   const [row] = await db
     .select({ values: databaseRows.values })
     .from(databaseRows)
@@ -1668,7 +1668,7 @@ export async function duplicateRow(id: string, databaseId: string) {
   await db
     .insert(databaseRows)
     .values({ databaseId, values: row.values ?? {}, position: `a${Date.now()}` });
-  revalidatePath(`/databases/${databaseId}`);
+  invalidate(ws.id, "databases");
 }
 
 // ---- GitHub issue sync ----
@@ -1689,7 +1689,7 @@ export async function setGithubConfig(input: { repo: string; token: string }) {
     .update(workspaces)
     .set({ githubRepo: repo || null, githubToken: token || null })
     .where(eq(workspaces.id, ws.id));
-  revalidatePath("/settings/github");
+  refresh();
 }
 
 export async function disconnectGithub() {
@@ -1699,7 +1699,7 @@ export async function disconnectGithub() {
     .update(workspaces)
     .set({ githubRepo: null, githubToken: null })
     .where(eq(workspaces.id, ws.id));
-  revalidatePath("/settings/github");
+  refresh();
 }
 
 /** Push an internal issue to GitHub and link it back. */
@@ -1721,7 +1721,7 @@ export async function pushIssueToGithub(issueId: string) {
     .update(issues)
     .set({ githubUrl: htmlUrl, githubNumber: number })
     .where(eq(issues.id, issueId));
-  revalidatePath(`/issues/${issueId}`);
+  invalidate(ws.id, "issues");
 }
 
 // ---- Attachments ----
@@ -1766,7 +1766,8 @@ export async function uploadAttachment(issueId: string, formData: FormData) {
     size: file.size,
   });
 
-  revalidatePath(`/issues/${issueId}`);
+  updateTag(issueAttachmentsTag(issueId));
+  refresh();
 }
 
 /** Upload an image for embedding inline in the rich-text editor; returns its URL. */
@@ -1810,7 +1811,8 @@ export async function deleteAttachment(id: string, issueId: string) {
   await db
     .delete(attachments)
     .where(and(eq(attachments.workspaceId, ws.id), eq(attachments.id, id)));
-  revalidatePath(`/issues/${issueId}`);
+  updateTag(issueAttachmentsTag(issueId));
+  refresh();
 }
 
 // ---- Favorites ----
@@ -1848,7 +1850,7 @@ export async function toggleFavorite(
       .onConflictDoNothing();
     favorited = true;
   }
-  revalidatePath("/", "layout");
+  refresh();
   return favorited;
 }
 
@@ -1867,8 +1869,7 @@ export async function markNotificationRead(id: string) {
         eq(notifications.id, id),
       ),
     );
-  revalidatePath("/inbox");
-  revalidatePath("/", "layout");
+  refresh();
 }
 
 export async function markAllNotificationsRead() {
@@ -1884,8 +1885,7 @@ export async function markAllNotificationsRead() {
         isNull(notifications.read),
       ),
     );
-  revalidatePath("/inbox");
-  revalidatePath("/", "layout");
+  refresh();
 }
 
 // ---- AI ----
@@ -1971,8 +1971,7 @@ export async function createIssuesFromProposals(
     created += 1;
   }
 
-  revalidatePath(`/pages/${pageId}`);
-  revalidatePath("/issues");
+  invalidate(ws.id, "issues", "pages");
   return created;
 }
 
@@ -2129,7 +2128,7 @@ export async function createApiKey(
     keyPrefix: prefix,
     createdBy: me.id,
   });
-  revalidatePath("/settings/api");
+  invalidate(ws.id, "api");
   return { key, prefix };
 }
 
@@ -2137,7 +2136,7 @@ export async function revokeApiKey(id: string) {
   const ws = await getWorkspace();
   await requireAdmin(ws.id);
   await db.delete(apiKeys).where(and(eq(apiKeys.workspaceId, ws.id), eq(apiKeys.id, id)));
-  revalidatePath("/settings/api");
+  invalidate(ws.id, "api");
 }
 
 // ---- Webhooks ----
@@ -2160,7 +2159,7 @@ export async function createWebhook(
     events: valid.length ? valid : ["*"],
     createdBy: me.id,
   });
-  revalidatePath("/settings/api");
+  invalidate(ws.id, "api");
   return { secret };
 }
 
@@ -2171,14 +2170,14 @@ export async function setWebhookActive(id: string, active: boolean) {
     .update(webhooks)
     .set({ active })
     .where(and(eq(webhooks.workspaceId, ws.id), eq(webhooks.id, id)));
-  revalidatePath("/settings/api");
+  invalidate(ws.id, "api");
 }
 
 export async function deleteWebhook(id: string) {
   const ws = await getWorkspace();
   await requireAdmin(ws.id);
   await db.delete(webhooks).where(and(eq(webhooks.workspaceId, ws.id), eq(webhooks.id, id)));
-  revalidatePath("/settings/api");
+  invalidate(ws.id, "api");
 }
 
 // ---- Saved views ----
@@ -2195,7 +2194,7 @@ export async function createSavedView(
     .insert(savedViews)
     .values({ workspaceId: ws.id, createdBy: me.id, name: clean.slice(0, 60), config })
     .returning();
-  revalidatePath("/issues");
+  invalidate(ws.id, "saved-views");
   return { id: created.id, name: created.name };
 }
 
@@ -2204,7 +2203,7 @@ export async function deleteSavedView(id: string) {
   await db
     .delete(savedViews)
     .where(and(eq(savedViews.workspaceId, ws.id), eq(savedViews.id, id)));
-  revalidatePath("/issues");
+  invalidate(ws.id, "saved-views");
 }
 
 // ---- Global search (⌘K) ----
@@ -2331,13 +2330,26 @@ export async function searchWorkspace(
 // CRM / Sales / Marketing (the Project × Department matrix)
 // ============================================================================
 
-/** Revalidate both lenses (project-scoped + company-wide) after a mutation. */
-function revalidateMatrix(projectId?: string | null) {
-  // Department data lives under each project now (the global lenses were
-  // removed), so revalidate the project subtree + the projects index.
-  revalidatePath("/projects");
-  if (projectId) revalidatePath(`/projects/${projectId}`, "layout");
-  revalidatePath("/", "layout");
+/**
+ * Expire the cached reads behind the department surfaces after a matrix
+ * mutation. These lists are read together (a deal moving stage changes the
+ * project summary, the pipeline and the finance rollup) and the writes are
+ * infrequent, so one helper covers the set rather than threading exact
+ * entities through forty-odd call sites. The old version was coarser still —
+ * it revalidated the whole layout.
+ */
+function invalidateMatrix(workspaceId: string) {
+  invalidate(
+    workspaceId,
+    "crm",
+    "campaigns",
+    "finance",
+    "tickets",
+    "metrics",
+    "feedback",
+    "projects",
+    "status-updates",
+  );
 }
 
 const toDate = (v?: string | null): Date | null => (v ? new Date(v) : null);
@@ -2364,7 +2376,7 @@ export async function createAccount(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2386,7 +2398,7 @@ export async function updateAccount(
     .update(crmAccounts)
     .set(patch)
     .where(and(eq(crmAccounts.id, id), eq(crmAccounts.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteAccount(id: string) {
@@ -2394,7 +2406,7 @@ export async function deleteAccount(id: string) {
   await db
     .delete(crmAccounts)
     .where(and(eq(crmAccounts.id, id), eq(crmAccounts.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- CRM: contacts ----
@@ -2425,7 +2437,7 @@ export async function createContact(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2451,7 +2463,7 @@ export async function updateContact(
     .update(crmContacts)
     .set(patch)
     .where(and(eq(crmContacts.id, id), eq(crmContacts.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteContact(id: string) {
@@ -2459,7 +2471,7 @@ export async function deleteContact(id: string) {
   await db
     .delete(crmContacts)
     .where(and(eq(crmContacts.id, id), eq(crmContacts.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 /**
@@ -2511,8 +2523,8 @@ export async function attachCrmPage(
     .update(table)
     .set({ pageId: page.id })
     .where(and(eq(table.id, id), eq(table.workspaceId, ws.id)));
-  revalidatePath("/", "layout");
-  revalidateMatrix();
+  invalidate(ws.id, "pages");
+  invalidateMatrix(ws.id);
   return { pageId: page.id };
 }
 
@@ -2545,7 +2557,7 @@ export async function createDeal(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2572,7 +2584,7 @@ export async function updateDeal(
       updatedAt: new Date(),
     })
     .where(and(eq(deals.id, id), eq(deals.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 /** Persist pipeline drag-and-drop: a batch of {id, stage, sortKey}. */
@@ -2586,13 +2598,13 @@ export async function moveDeals(changed: { id: string; stage: string; sortKey: s
         .where(and(eq(deals.id, c.id), eq(deals.workspaceId, ws.id))),
     ),
   );
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteDeal(id: string) {
   const ws = await getWorkspace();
   await db.delete(deals).where(and(eq(deals.id, id), eq(deals.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- CRM/Sales: activities ----
@@ -2621,7 +2633,7 @@ export async function logActivity(input: {
       actorId: me.id,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2644,7 +2656,7 @@ export async function toggleActivityDone(id: string, done: boolean) {
     .update(crmActivities)
     .set({ done })
     .where(and(eq(crmActivities.id, id), eq(crmActivities.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Marketing: campaigns ----
@@ -2681,7 +2693,7 @@ export async function createCampaign(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2711,7 +2723,7 @@ export async function updateCampaign(
       ...(endDate !== undefined ? { endDate: toDate(endDate) } : {}),
     })
     .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteCampaign(id: string) {
@@ -2719,7 +2731,7 @@ export async function deleteCampaign(id: string) {
   await db
     .delete(campaigns)
     .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Marketing: content calendar ----
@@ -2750,7 +2762,7 @@ export async function createContent(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2775,7 +2787,7 @@ export async function updateContent(
       ...(publishDate !== undefined ? { publishDate: toDate(publishDate) } : {}),
     })
     .where(and(eq(contentItems.id, id), eq(contentItems.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteContent(id: string) {
@@ -2783,7 +2795,7 @@ export async function deleteContent(id: string) {
   await db
     .delete(contentItems)
     .where(and(eq(contentItems.id, id), eq(contentItems.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Finance: invoices ----
@@ -2814,7 +2826,7 @@ export async function createInvoice(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2840,13 +2852,13 @@ export async function updateInvoice(
       ...(dueDate !== undefined ? { dueDate: toDate(dueDate) } : {}),
     })
     .where(and(eq(invoices.id, id), eq(invoices.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteInvoice(id: string) {
   const ws = await getWorkspace();
   await db.delete(invoices).where(and(eq(invoices.id, id), eq(invoices.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Finance: expenses ----
@@ -2875,7 +2887,7 @@ export async function createExpense(input: {
       ownerId: me.id,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2899,13 +2911,13 @@ export async function updateExpense(
       ...(spentDate !== undefined ? { spentDate: toDate(spentDate) } : {}),
     })
     .where(and(eq(expenses.id, id), eq(expenses.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteExpense(id: string) {
   const ws = await getWorkspace();
   await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Support: tickets ----
@@ -2939,7 +2951,7 @@ export async function createTicket(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -2962,7 +2974,7 @@ export async function updateTicket(
     .update(tickets)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(tickets.id, id), eq(tickets.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Features department ----
@@ -2983,7 +2995,7 @@ export async function createFeature(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -3005,7 +3017,7 @@ export async function updateFeature(
     .update(features)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(features.id, id), eq(features.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Milestones (project phases) ----
@@ -3026,7 +3038,7 @@ export async function createMilestone(input: {
       sortKey: `m${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -3050,7 +3062,7 @@ export async function updateMilestone(
     .update(milestones)
     .set(values)
     .where(and(eq(milestones.id, id), eq(milestones.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteMilestone(id: string) {
@@ -3059,7 +3071,7 @@ export async function deleteMilestone(id: string) {
   await db
     .delete(milestones)
     .where(and(eq(milestones.id, id), eq(milestones.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Company-level: quarterly "bets" shown on the Overview home ----
@@ -3067,7 +3079,7 @@ export async function updateCompanyBets(bets: string[]) {
   const ws = await getWorkspace();
   const cleaned = bets.map((b) => b.trim()).filter(Boolean).slice(0, 5);
   await db.update(workspaces).set({ bets: cleaned }).where(eq(workspaces.id, ws.id));
-  revalidatePath("/", "layout");
+  refresh();
 }
 
 /** Link (or unlink) an issue to a feature. */
@@ -3077,7 +3089,7 @@ export async function linkIssueToFeature(issueId: string, featureId: string | nu
     .update(issues)
     .set({ featureId, updatedAt: new Date() })
     .where(and(eq(issues.id, issueId), eq(issues.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Analytics: metrics + points ----
@@ -3101,7 +3113,7 @@ export async function createMetric(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -3118,13 +3130,13 @@ export async function updateMetric(
 ) {
   const ws = await getWorkspace();
   await db.update(metrics).set(patch).where(and(eq(metrics.id, id), eq(metrics.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteMetric(id: string) {
   const ws = await getWorkspace();
   await db.delete(metrics).where(and(eq(metrics.id, id), eq(metrics.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 /** Record (or overwrite) a metric value for a period. */
@@ -3151,12 +3163,13 @@ export async function addMetricPoint(input: {
   } else {
     await db.insert(metricPoints).values({ metricId: input.metricId, periodDate: date, value: input.value });
   }
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteMetricPoint(id: string) {
+  const ws = await getWorkspace();
   await db.delete(metricPoints).where(eq(metricPoints.id, id));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 // ---- Product: feedback (discovery) ----
@@ -3178,7 +3191,7 @@ export async function createFeedback(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
-  revalidateMatrix(input.projectId);
+  invalidateMatrix(ws.id);
   return created;
 }
 
@@ -3199,13 +3212,13 @@ export async function updateFeedback(
     .update(feedback)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(feedback.id, id), eq(feedback.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteFeedback(id: string) {
   const ws = await getWorkspace();
   await db.delete(feedback).where(and(eq(feedback.id, id), eq(feedback.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 /** Persist ticket board drag-and-drop: a batch of {id, status, sortKey}. */
@@ -3219,13 +3232,13 @@ export async function moveTickets(changed: { id: string; status: string; sortKey
         .where(and(eq(tickets.id, c.id), eq(tickets.workspaceId, ws.id))),
     ),
   );
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function deleteTicket(id: string) {
   const ws = await getWorkspace();
   await db.delete(tickets).where(and(eq(tickets.id, id), eq(tickets.workspaceId, ws.id)));
-  revalidateMatrix();
+  invalidateMatrix(ws.id);
 }
 
 export async function loadTicketComments(ticketId: string) {

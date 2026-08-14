@@ -2,8 +2,6 @@ import { AccountSettings } from "@/components/settings/account-settings";
 import { auth } from "@/lib/auth/server";
 import { getCurrentUser, getWorkspace } from "@/lib/data";
 
-export const dynamic = "force-dynamic";
-
 export default async function SettingsPage() {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);

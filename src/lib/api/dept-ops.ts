@@ -1,5 +1,7 @@
 import "server-only";
 
+import { apiInvalidate } from "@/lib/api/invalidate";
+
 import { and, asc, eq, max } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -70,6 +72,7 @@ export async function apiCreateMetric(
       sortKey: `a${Date.now()}`,
     })
     .returning({ id: metrics.id });
+  apiInvalidate(workspaceId, "metrics");
   return created.id;
 }
 
@@ -111,6 +114,7 @@ export async function apiAddMetricPoint(
     .insert(metricPoints)
     .values({ metricId, periodDate, value })
     .returning({ id: metricPoints.id });
+  apiInvalidate(workspaceId, "metrics");
   return created.id;
 }
 
@@ -124,6 +128,7 @@ export async function apiDeleteMetricPoint(
     .delete(metricPoints)
     .where(and(eq(metricPoints.metricId, metricId), eq(metricPoints.id, pointId)))
     .returning({ id: metricPoints.id });
+  apiInvalidate(workspaceId, "metrics");
   return res.length > 0;
 }
 
@@ -158,6 +163,7 @@ export async function apiCreateFeedback(
       sortKey: `a${Date.now()}`,
     })
     .returning({ id: feedback.id });
+  apiInvalidate(workspaceId, "feedback");
   return created.id;
 }
 
@@ -193,6 +199,7 @@ export async function apiCreateContent(
       ownerId: input.ownerId || null,
     })
     .returning({ id: contentItems.id });
+  apiInvalidate(workspaceId, "campaigns");
   return created.id;
 }
 
@@ -217,6 +224,7 @@ export async function apiCreateStatusUpdate(
       body: input.body ?? "",
     })
     .returning({ id: projectStatusUpdates.id });
+  apiInvalidate(workspaceId, "status-updates");
   return created.id;
 }
 
@@ -254,6 +262,7 @@ export async function apiCreateActivity(
       actorId: userId,
     })
     .returning({ id: crmActivities.id });
+  apiInvalidate(workspaceId, "crm");
   return created.id;
 }
 
@@ -288,6 +297,7 @@ export async function apiCreateOrgRole(
       sortKey: `a${Date.now()}`,
     })
     .returning({ id: orgRoles.id });
+  apiInvalidate(workspaceId, "org");
   return created.id;
 }
 
@@ -322,6 +332,7 @@ export async function apiAddMember(
       title: input.title ?? null,
     })
     .onConflictDoNothing();
+  apiInvalidate(workspaceId, "members", "org");
   return user.id;
 }
 
@@ -371,6 +382,7 @@ export async function apiUpdateMember(
       ),
     )
     .returning({ userId: workspaceMembers.userId });
+  apiInvalidate(workspaceId, "members", "org");
   return res.length > 0;
 }
 
@@ -398,6 +410,7 @@ export async function apiRemoveMember(
       ),
     )
     .returning({ userId: workspaceMembers.userId });
+  apiInvalidate(workspaceId, "members", "org");
   return res.length > 0;
 }
 
@@ -415,6 +428,7 @@ export async function apiCreateDatabase(
       icon: input.icon?.trim() || "🗃️",
     })
     .returning({ id: databases.id });
+  apiInvalidate(workspaceId, "databases");
   return created.id;
 }
 
@@ -464,6 +478,7 @@ export async function apiAddDatabaseField(
       position: `${last ?? "a"}a`,
     })
     .returning({ id: databaseFields.id });
+  apiInvalidate(workspaceId, "databases");
   return created.id;
 }
 
@@ -479,6 +494,7 @@ export async function apiDeleteDatabaseField(
       and(eq(databaseFields.databaseId, databaseId), eq(databaseFields.id, fieldId)),
     )
     .returning({ id: databaseFields.id });
+  apiInvalidate(workspaceId, "databases");
   return res.length > 0;
 }
 
@@ -501,6 +517,7 @@ export async function apiAddDatabaseRow(
       position: `${last ?? "a"}a`,
     })
     .returning({ id: databaseRows.id });
+  apiInvalidate(workspaceId, "databases");
   return created.id;
 }
 
@@ -524,6 +541,7 @@ export async function apiUpdateDatabaseRow(
     .update(databaseRows)
     .set({ values: merged as never })
     .where(and(eq(databaseRows.databaseId, databaseId), eq(databaseRows.id, rowId)));
+  apiInvalidate(workspaceId, "databases");
   return true;
 }
 
@@ -537,5 +555,6 @@ export async function apiDeleteDatabaseRow(
     .delete(databaseRows)
     .where(and(eq(databaseRows.databaseId, databaseId), eq(databaseRows.id, rowId)))
     .returning({ id: databaseRows.id });
+  apiInvalidate(workspaceId, "databases");
   return res.length > 0;
 }

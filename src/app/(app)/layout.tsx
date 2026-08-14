@@ -18,10 +18,9 @@ import {
 } from "@/lib/data";
 
 // Every page in this segment reads the current user's session and workspace
-// data, so the whole authenticated app is rendered per-request. This also keeps
-// `next build` from trying to statically prerender these pages (which would
-// require auth/database access at build time).
-export const dynamic = "force-dynamic";
+// data, so the whole authenticated app is rendered per-request. Under Cache
+// Components that is expressed by the empty-fallback <Suspense> in the root
+// layout rather than a `dynamic` route-segment config, which no longer applies.
 
 export default async function AppLayout({
   children,

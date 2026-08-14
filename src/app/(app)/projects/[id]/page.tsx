@@ -7,10 +7,13 @@ import { OwnerPicker } from "@/components/owner-picker";
 import { PeopleHRView } from "@/components/people-hr-view";
 import { ProjectDetail } from "@/components/project-detail";
 import { Restricted } from "@/components/restricted";
+import { ProjectSchedule } from "@/components/project-schedule";
 import {
+  CONFIDENTIAL_DEPARTMENTS,
   canSeeConfidential,
   isConfidentialDepartment,
   isDepartmentEnabled,
+  issueBelongsToDepartment,
 } from "@/lib/departments";
 import {
   getAccounts,
@@ -19,6 +22,7 @@ import {
   getDatabases,
   getExpenses,
   getInvoices,
+  getIssues,
   getMembers,
   getMembersWithRole,
   getMyRole,
@@ -115,9 +119,10 @@ export default async function ProjectRoute({
   }
 
   // Projects: the department overview hub.
-  const [summaries, members] = await Promise.all([
+  const [summaries, members, allIssues] = await Promise.all([
     getProjectSummaries(ws.id),
     getMembers(ws.id),
+    getIssues(ws.id),
   ]);
   const summary = summaries.find((p) => p.id === id);
   if (!summary) notFound();
@@ -186,6 +191,17 @@ export default async function ProjectRoute({
     .filter((c) => isDepartmentEnabled(summary.enabledDepartments, c.slug))
     .filter((c) => canSeeConfidential(myRole) || !isConfidentialDepartment(c.slug));
 
+  // The schedule spans every department, so it has to honour the same
+  // confidentiality rule the cards do — otherwise a member would read a
+  // finance task here that the Finance card hides from them.
+  const scheduleIssues = allIssues
+    .filter((i) => i.projectId === id)
+    .filter(
+      (i) =>
+        canSeeConfidential(myRole) ||
+        !CONFIDENTIAL_DEPARTMENTS.some((d) => issueBelongsToDepartment(i.labels, d)),
+    );
+
   return (
     <div className="overflow-auto p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -220,6 +236,7 @@ export default async function ProjectRoute({
           </Link>
         ))}
       </div>
+      <ProjectSchedule issues={scheduleIssues} members={members} />
     </div>
   );
 }

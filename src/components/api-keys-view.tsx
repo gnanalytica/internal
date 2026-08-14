@@ -1,11 +1,11 @@
 "use client";
 
-import { formatDistanceToNowStrict } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Check, Copy, KeyRound, Plus, Trash2, Webhook } from "lucide-react";
 import { toast } from "sonner";
 
+import { RelativeTime } from "@/components/relative-time";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import {
@@ -193,10 +193,15 @@ export function ApiKeysView({
                     <div className="truncate text-sm font-medium">{k.name}</div>
                     <div className="text-xs text-muted-foreground">
                       <code>{k.keyPrefix}…</code> · created{" "}
-                      {formatDistanceToNowStrict(new Date(k.createdAt), { addSuffix: true })}
-                      {k.lastUsedAt
-                        ? ` · last used ${formatDistanceToNowStrict(new Date(k.lastUsedAt), { addSuffix: true })}`
-                        : " · never used"}
+                      <RelativeTime date={k.createdAt} />
+                      {k.lastUsedAt ? (
+                        <>
+                          {" · last used "}
+                          <RelativeTime date={k.lastUsedAt} />
+                        </>
+                      ) : (
+                        " · never used"
+                      )}
                     </div>
                   </div>
                   {isAdmin && (

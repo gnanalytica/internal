@@ -10,6 +10,7 @@ import {
   StatusPicker,
   TypeChip,
 } from "@/components/pickers";
+import { RelativeTime } from "@/components/relative-time";
 import { IssueContextMenu } from "@/components/issue-context-menu";
 import { LabelChips } from "@/components/label-chips";
 import { setIssueAssignees, updateIssue } from "@/lib/actions";
@@ -19,7 +20,6 @@ import { issueIdentifier } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { CalendarClock, ListTree } from "lucide-react";
-import { formatDistanceToNowStrict } from "date-fns";
 
 export function IssueRow({
   issue,
@@ -143,7 +143,7 @@ export function IssueRow({
       )}
 
       <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground lg:block">
-        {formatDistanceToNowStrict(new Date(issue.createdAt), { addSuffix: false })}
+        <RelativeTime date={issue.createdAt} addSuffix={false} />
       </span>
 
       <div className="shrink-0">
