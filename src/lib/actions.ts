@@ -78,6 +78,7 @@ import {
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
+import { ticketToIssueFields } from "@/lib/ticket-to-issue";
 import {
   audienceFor,
   notify,
@@ -1522,14 +1523,6 @@ async function stampCadence(
   return tasks.length;
 }
 
-/** Support priorities map onto task priorities; only "normal" differs in name. */
-const TICKET_TO_ISSUE_PRIORITY: Record<string, string> = {
-  urgent: "urgent",
-  high: "high",
-  normal: "medium",
-  low: "low",
-};
-
 /**
  * Turn a support ticket into a task, keeping the thread back to the reporter.
  *
@@ -1570,28 +1563,18 @@ export async function convertTicketToIssue(ticketId: string) {
         : eq(issues.workspaceId, ws.id),
     );
 
+  // Field mapping lives in `ticket-to-issue` so it can be tested without a
+  // database — it is the part that goes wrong silently.
+  const fields = ticketToIssueFields(ticket);
+
   const [created] = await db
     .insert(issues)
     .values({
       workspaceId: ws.id,
-      projectId: ticket.projectId,
       number: (maxNumber ?? 0) + 1,
-      title: ticket.subject,
-      // The ticket body is plain text; the editor stores a TipTap document.
-      description: ticket.body
-        ? {
-            type: "doc",
-            content: [{ type: "paragraph", content: [{ type: "text", text: ticket.body }] }],
-          }
-        : null,
-      status: "todo",
-      priority: TICKET_TO_ISSUE_PRIORITY[ticket.priority] ?? "none",
-      // Support work is rarely engineering-only; "ops" is the honest default
-      // and the type picker is one click away on the task.
-      type: "ops",
-      assigneeId: ticket.assigneeId,
       creatorId: me.id,
       sortKey: `a${Date.now()}`,
+      ...fields,
     })
     .returning();
 
