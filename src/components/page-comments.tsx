@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Check, CornerDownRight, RotateCcw, SmilePlus, X } from "lucide-react";
 
 import { RelativeTime } from "@/components/relative-time";
@@ -16,6 +16,7 @@ import {
   togglePageCommentReaction,
 } from "@/lib/actions";
 import { isMentionToken, mentionKeysForMember } from "@/lib/mentions";
+import { useMentionAutocomplete } from "@/lib/use-mention-autocomplete";
 import type { Member, PageCommentItem, ReactionSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -125,49 +126,17 @@ export function CommentComposer({
   const router = useRouter();
   const [body, setBody] = useState("");
   const [pending, startTransition] = useTransition();
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const mention = useMentionAutocomplete({ members, value: body, onChange: setBody });
+  const { textareaRef, suggestions, activeIndex } = mention;
 
-  const suggestions =
-    mentionQuery === null
-      ? []
-      : members
-          .filter((m) =>
-            mentionQuery === ""
-              ? true
-              : mentionKeysForMember(m).some((k) => k.startsWith(mentionQuery)),
-          )
-          .slice(0, 5);
 
-  function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value;
-    setBody(val);
-    const caret = e.target.selectionStart ?? val.length;
-    const m = val.slice(0, caret).match(/(?:^|\s)@([\w.-]*)$/);
-    setMentionQuery(m ? m[1].toLowerCase() : null);
-  }
-
-  function insertMention(member: Member) {
-    const ta = taRef.current;
-    const caret = ta?.selectionStart ?? body.length;
-    const before = body
-      .slice(0, caret)
-      .replace(/@([\w.-]*)$/, `@${mentionKeysForMember(member)[0]} `);
-    const next = before + body.slice(caret);
-    setBody(next);
-    setMentionQuery(null);
-    requestAnimationFrame(() => {
-      ta?.focus();
-      ta?.setSelectionRange(before.length, before.length);
-    });
-  }
 
   function submit() {
     if (!body.trim()) return;
     startTransition(async () => {
       await createPageComment(pageId, body, { blockId, parentId });
       setBody("");
-      setMentionQuery(null);
+      mention.close();
       router.refresh();
       onDone?.();
     });
@@ -177,15 +146,19 @@ export function CommentComposer({
     <div className="relative rounded-lg border focus-within:border-brand">
       {suggestions.length > 0 && (
         <div className="absolute bottom-full left-0 z-20 mb-1 w-60 overflow-hidden rounded-lg border bg-popover py-1 shadow-md">
-          {suggestions.map((m) => (
+          {suggestions.map((m, i) => (
             <button
               key={m.id}
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault();
-                insertMention(m);
+                mention.insert(m);
               }}
-              className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent"
+              onMouseEnter={() => mention.setActiveIndex(i)}
+              className={cn(
+                "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm",
+                i === activeIndex ? "bg-accent" : "hover:bg-accent/60",
+              )}
             >
               <UserAvatar name={m.name} color={m.avatarColor} className="size-5 text-[9px]" />
               <span className="truncate">{m.name}</span>
@@ -197,17 +170,15 @@ export function CommentComposer({
         </div>
       )}
       <textarea
-        ref={taRef}
+        ref={textareaRef}
         autoFocus={autoFocus}
         value={body}
-        onChange={onChange}
+        onChange={mention.handleChange}
         onKeyDown={(e) => {
+          // The dropdown takes Enter, Tab, arrows and Escape while it is open;
+          // Escape with it closed dismisses the composer instead.
+          if (mention.handleKeyDown(e)) return;
           if (e.key === "Escape") {
-            if (mentionQuery !== null) {
-              e.preventDefault();
-              setMentionQuery(null);
-              return;
-            }
             onDone?.();
             return;
           }

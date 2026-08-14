@@ -5,7 +5,6 @@ import { isGithubConnected } from "@/lib/github";
 import {
   getCyclesFlat,
   getBacklinks,
-  getFeatures,
   getIssue,
   getIssueRelations,
   getIssuesFlat,
@@ -39,7 +38,6 @@ export default async function IssueRoute({
     githubConnected,
     relations,
     allIssues,
-    features,
   ] = await Promise.all([
     getIssue(ws.id, id),
     getProjects(ws.id),
@@ -51,7 +49,6 @@ export default async function IssueRoute({
     isGithubConnected(ws.id),
     getIssueRelations(ws.id, id),
     getIssuesFlat(ws.id),
-    getFeatures(ws.id),
   ]);
   if (!issue) notFound();
   const [favorited, watching, mentionItems, backlinks, milestones] = await Promise.all([
@@ -70,7 +67,6 @@ export default async function IssueRoute({
       labels={labels}
       allPages={pages}
       cycles={cycles}
-      features={features.map((f) => ({ id: f.id, title: f.title }))}
       milestones={milestones.map((m) => ({ id: m.id, name: m.name }))}
       timeline={timeline}
       githubConnected={githubConnected}

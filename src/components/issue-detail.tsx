@@ -10,7 +10,6 @@ import {
   Link2,
   MoreHorizontal,
   Plus,
-  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -25,7 +24,6 @@ import { IssueAttachments } from "@/components/issue-attachments";
 import { IssueTimeline } from "@/components/issue-timeline";
 import {
   CyclePicker,
-  FeaturePicker,
   LabelPicker,
   MilestonePicker,
   MultiAssigneePicker,
@@ -57,7 +55,6 @@ import {
   createIssue,
   createLabel,
   deleteIssue,
-  linkIssueToFeature,
   setIssueLabels,
   linkIssueToPage,
   pushIssueToGithub,
@@ -100,7 +97,6 @@ export function IssueDetail({
   labels,
   allPages,
   cycles,
-  features,
   milestones,
   timeline,
   githubConnected,
@@ -117,7 +113,6 @@ export function IssueDetail({
   labels: Label[];
   allPages: FlatPage[];
   cycles: Cycle[];
-  features: { id: string; title: string }[];
   milestones: { id: string; name: string }[];
   timeline: TimelineItem[];
   githubConnected: boolean;
@@ -139,6 +134,17 @@ export function IssueDetail({
       await fn();
       router.refresh();
     });
+
+  // The full assignee set, falling back to the primary when the join table has
+  // none — the same fallback the task filters use. Writes keep the two in sync
+  // now, but a task assigned before that fix (or by a seed script) would
+  // otherwise read as unassigned here while looking assigned everywhere else.
+  const assigneeIds =
+    issue.assignees.length > 0
+      ? issue.assignees.map((a) => a.id)
+      : issue.assigneeId
+        ? [issue.assigneeId]
+        : [];
 
   const copyLink = () => {
     void navigator.clipboard?.writeText(`${window.location.origin}/issues/${issue.id}`);
@@ -351,7 +357,7 @@ export function IssueDetail({
             <PropRow label="Assignees">
               <MultiAssigneePicker
                 members={members}
-                value={issue.assignees.map((a) => a.id)}
+                value={assigneeIds}
                 onChange={(ids) => persist(() => setIssueAssignees(issue.id, ids))}
               />
             </PropRow>
@@ -380,34 +386,15 @@ export function IssueDetail({
                 onChange={(v) => persist(() => updateIssue(issue.id, { cycleId: v }))}
               />
             </PropRow>
-            <PropRow label="Feature">
-              <FeaturePicker
-                features={features}
-                value={issue.featureId}
-                onChange={(v) => persist(() => linkIssueToFeature(issue.id, v))}
+            {/* Tasks attach straight to a milestone — the feature layer was
+                removed from the product model, and its picker outlived it. */}
+            <PropRow label="Milestone">
+              <MilestonePicker
+                milestones={milestones}
+                value={issue.milestoneId}
+                onChange={(v) => persist(() => updateIssue(issue.id, { milestoneId: v }))}
               />
             </PropRow>
-            {issue.feature?.milestone ? (
-              <PropRow label="Milestone">
-                <Link
-                  href={`/projects/${issue.projectId}/milestones/${issue.feature.milestone.id}`}
-                  className="flex items-center gap-1.5 truncate text-xs text-foreground hover:underline"
-                  title={`Via feature · ${issue.feature.milestone.name}`}
-                >
-                  <Target className="size-3.5 shrink-0 text-brand" />
-                  <span className="truncate">{issue.feature.milestone.name}</span>
-                  <span className="text-[10px] text-muted-foreground">via feature</span>
-                </Link>
-              </PropRow>
-            ) : (
-              <PropRow label="Milestone">
-                <MilestonePicker
-                  milestones={milestones}
-                  value={issue.milestoneId}
-                  onChange={(v) => persist(() => updateIssue(issue.id, { milestoneId: v }))}
-                />
-              </PropRow>
-            )}
             <PropRow label="Start">
               <input
                 type="date"

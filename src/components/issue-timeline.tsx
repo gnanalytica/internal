@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { X } from "lucide-react";
 
 import { SmilePlus } from "lucide-react";
@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { addComment, deleteComment, toggleReaction } from "@/lib/actions";
 import { PRIORITY_MAP, STATUS_MAP, type PriorityId, type StatusId } from "@/lib/constants";
 import { isMentionToken, mentionKeysForMember } from "@/lib/mentions";
+import { useMentionAutocomplete } from "@/lib/use-mention-autocomplete";
 import type { Member, ReactionSummary, TimelineItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -125,20 +126,8 @@ export function IssueTimeline({
   const router = useRouter();
   const [body, setBody] = useState("");
   const [pending, startTransition] = useTransition();
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  // The partial @token currently being typed (null when not mentioning).
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-
-  const suggestions =
-    mentionQuery === null
-      ? []
-      : members
-          .filter((m) =>
-            mentionQuery === ""
-              ? true
-              : mentionKeysForMember(m).some((k) => k.startsWith(mentionQuery)),
-          )
-          .slice(0, 5);
+  const mention = useMentionAutocomplete({ members, value: body, onChange: setBody });
+  const { textareaRef, suggestions, activeIndex } = mention;
 
   function react(commentId: string, emoji: string) {
     startTransition(async () => {
@@ -147,34 +136,14 @@ export function IssueTimeline({
     });
   }
 
-  function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value;
-    setBody(val);
-    const caret = e.target.selectionStart ?? val.length;
-    const before = val.slice(0, caret);
-    const m = before.match(/(?:^|\s)@([\w.-]*)$/);
-    setMentionQuery(m ? m[1].toLowerCase() : null);
-  }
 
-  function insertMention(member: Member) {
-    const ta = taRef.current;
-    const caret = ta?.selectionStart ?? body.length;
-    const before = body.slice(0, caret).replace(/@([\w.-]*)$/, `@${mentionKeysForMember(member)[0]} `);
-    const next = before + body.slice(caret);
-    setBody(next);
-    setMentionQuery(null);
-    requestAnimationFrame(() => {
-      ta?.focus();
-      ta?.setSelectionRange(before.length, before.length);
-    });
-  }
 
   function submit() {
     if (!body.trim()) return;
     startTransition(async () => {
       await addComment(issueId, body);
       setBody("");
-      setMentionQuery(null);
+      mention.close();
       router.refresh();
     });
   }
@@ -248,15 +217,19 @@ export function IssueTimeline({
       <div className="relative mt-4 rounded-lg border focus-within:border-brand">
         {suggestions.length > 0 && (
           <div className="absolute bottom-full left-0 z-20 mb-1 w-60 overflow-hidden rounded-lg border bg-popover py-1 shadow-md">
-            {suggestions.map((m) => (
+            {suggestions.map((m, i) => (
               <button
                 key={m.id}
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  insertMention(m);
+                  mention.insert(m);
                 }}
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent"
+                onMouseEnter={() => mention.setActiveIndex(i)}
+                className={cn(
+                  "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm",
+                  i === activeIndex ? "bg-accent" : "hover:bg-accent/60",
+                )}
               >
                 <UserAvatar name={m.name} color={m.avatarColor} className="size-5 text-[9px]" />
                 <span className="truncate">{m.name}</span>
@@ -268,15 +241,13 @@ export function IssueTimeline({
           </div>
         )}
         <textarea
-          ref={taRef}
+          ref={textareaRef}
           value={body}
-          onChange={onChange}
+          onChange={mention.handleChange}
           onKeyDown={(e) => {
-            if (e.key === "Escape" && mentionQuery !== null) {
-              e.preventDefault();
-              setMentionQuery(null);
-              return;
-            }
+            // The mention dropdown gets first refusal on Enter, Tab, arrows
+            // and Escape; anything it doesn't consume falls through to submit.
+            if (mention.handleKeyDown(e)) return;
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
           }}
           placeholder="Leave a comment… (@ to mention)"

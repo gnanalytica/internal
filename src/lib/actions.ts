@@ -726,6 +726,23 @@ export async function updateIssue(
 
     const target = { kind: "issue" as const, id };
 
+    // `issues.assigneeId` is the primary assignee; `issue_assignees` is the
+    // full set, and the detail page reads only the latter. Writing the scalar
+    // alone left tasks that looked assigned in every list and unassigned the
+    // moment you opened them.
+    if (patch.assigneeId !== undefined && patch.assigneeId !== before.assigneeId) {
+      if (patch.assigneeId) {
+        await db
+          .insert(issueAssignees)
+          .values({ issueId: id, userId: patch.assigneeId })
+          .onConflictDoNothing();
+      } else {
+        // Clearing the primary through a single-assignee control means
+        // "unassign", so the whole set goes with it.
+        await db.delete(issueAssignees).where(eq(issueAssignees.issueId, id));
+      }
+    }
+
     // Notify the new assignee (when it's someone other than the actor).
     if (
       patch.assigneeId !== undefined &&
