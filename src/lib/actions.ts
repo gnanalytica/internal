@@ -1470,6 +1470,88 @@ async function stampCadence(
   return tasks.length;
 }
 
+/** Support priorities map onto task priorities; only "normal" differs in name. */
+const TICKET_TO_ISSUE_PRIORITY: Record<string, string> = {
+  urgent: "urgent",
+  high: "high",
+  normal: "medium",
+  low: "low",
+};
+
+/**
+ * Turn a support ticket into a task, keeping the thread back to the reporter.
+ *
+ * Support and engineering run as separate systems here, and without this the
+ * only way across is retyping — which loses the account, the contact and the
+ * conversation that produced the work. The ticket keeps its own lifecycle (it
+ * is still the customer's open thread) and simply gains a link.
+ *
+ * Idempotent: a ticket already converted returns its existing task rather than
+ * creating a second one.
+ */
+export async function convertTicketToIssue(ticketId: string) {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+
+  const [ticket] = await db
+    .select()
+    .from(tickets)
+    .where(and(eq(tickets.workspaceId, ws.id), eq(tickets.id, ticketId)))
+    .limit(1);
+  if (!ticket) throw new Error("Ticket not found");
+
+  if (ticket.issueId) {
+    const [existing] = await db
+      .select()
+      .from(issues)
+      .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, ticket.issueId)))
+      .limit(1);
+    if (existing) return { issue: existing, created: false };
+  }
+
+  const [{ value: maxNumber }] = await db
+    .select({ value: max(issues.number) })
+    .from(issues)
+    .where(
+      ticket.projectId
+        ? and(eq(issues.workspaceId, ws.id), eq(issues.projectId, ticket.projectId))
+        : eq(issues.workspaceId, ws.id),
+    );
+
+  const [created] = await db
+    .insert(issues)
+    .values({
+      workspaceId: ws.id,
+      projectId: ticket.projectId,
+      number: (maxNumber ?? 0) + 1,
+      title: ticket.subject,
+      // The ticket body is plain text; the editor stores a TipTap document.
+      description: ticket.body
+        ? {
+            type: "doc",
+            content: [{ type: "paragraph", content: [{ type: "text", text: ticket.body }] }],
+          }
+        : null,
+      status: "todo",
+      priority: TICKET_TO_ISSUE_PRIORITY[ticket.priority] ?? "none",
+      // Support work is rarely engineering-only; "ops" is the honest default
+      // and the type picker is one click away on the task.
+      type: "ops",
+      assigneeId: ticket.assigneeId,
+      creatorId: me.id,
+      sortKey: `a${Date.now()}`,
+    })
+    .returning();
+
+  await db
+    .update(tickets)
+    .set({ issueId: created.id, updatedAt: new Date() })
+    .where(and(eq(tickets.workspaceId, ws.id), eq(tickets.id, ticketId)));
+
+  invalidate(ws.id, "issues", "tickets");
+  return { issue: created, created: true };
+}
+
 /** Re-apply the project's cadence to an existing cycle. Adds only what's missing. */
 export async function applyCadenceToCycle(cycleId: string): Promise<number> {
   const ws = await getWorkspace();

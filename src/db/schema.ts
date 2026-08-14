@@ -1322,6 +1322,9 @@ export const tickets = pgTable(
     priority: text("priority").notNull().default("normal"), // urgent|high|normal|low
     assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
     requesterEmail: text("requester_email"),
+    // The task this ticket was converted into, so support work that became
+    // engineering work keeps the thread back to who reported it.
+    issueId: uuid("issue_id").references(() => issues.id, { onDelete: "set null" }),
     entity: text("entity").notNull().default("Global"),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1365,6 +1368,7 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
     references: [crmContacts.id],
   }),
   assignee: one(users, { fields: [tickets.assigneeId], references: [users.id] }),
+  issue: one(issues, { fields: [tickets.issueId], references: [issues.id] }),
   comments: many(ticketComments),
 }));
 

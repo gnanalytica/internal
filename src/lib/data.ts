@@ -1886,7 +1886,13 @@ export async function getTickets(
       ? and(eq(tickets.workspaceId, workspaceId), eq(tickets.projectId, projectId))
       : eq(tickets.workspaceId, workspaceId),
     orderBy: [asc(tickets.sortKey), desc(tickets.createdAt)],
-    with: { account: true, contact: true, assignee: true, project: true },
+    with: {
+      account: true,
+      contact: true,
+      assignee: true,
+      project: true,
+      issue: { columns: { id: true, number: true, title: true, projectId: true } },
+    },
   });
 }
 
@@ -1901,7 +1907,13 @@ export async function getTicket(
 
   const row = await db.query.tickets.findFirst({
     where: and(eq(tickets.workspaceId, workspaceId), eq(tickets.id, id)),
-    with: { account: true, contact: true, assignee: true, project: true },
+    with: {
+      account: true,
+      contact: true,
+      assignee: true,
+      project: true,
+      issue: { columns: { id: true, number: true, title: true, projectId: true } },
+    },
   });
   return row ?? null;
 }

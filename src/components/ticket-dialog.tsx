@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { GitPullRequestArrow } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -14,12 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   addTicketComment,
+  convertTicketToIssue,
   createTicket,
   deleteTicket,
   loadTicketComments,
   updateTicket,
 } from "@/lib/actions";
 import { ENTITIES, TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/departments";
+import { issueIdentifier } from "@/lib/types";
 import { formatDate } from "@/lib/matrix-format";
 import type {
   ContactWithAccount,
@@ -72,6 +76,8 @@ function TicketForm({
   onClose,
 }: Props) {
   const isEdit = !!ticket;
+  // Held in state so the panel flips to the link without closing the dialog.
+  const [linkedIssue, setLinkedIssue] = useState(ticket?.issue ?? null);
   const [subject, setSubject] = useState(ticket?.subject ?? "");
   const [projectId, setProjectId] = useState<string | null>(ticket?.projectId ?? scopeProjectId);
   const [status, setStatus] = useState(ticket?.status ?? "open");
@@ -139,6 +145,21 @@ function TicketForm({
       await addTicketComment(ticket.id, reply.trim());
       setReply("");
       setComments(await loadTicketComments(ticket.id));
+    });
+  }
+
+  function convert() {
+    if (!ticket) return;
+    startTransition(async () => {
+      const { issue, created } = await convertTicketToIssue(ticket.id);
+      setLinkedIssue({
+        id: issue.id,
+        number: issue.number,
+        title: issue.title,
+        projectId: issue.projectId,
+      });
+      toast.success(created ? "Task created from ticket" : "Ticket already tracked as a task");
+      onSaved();
     });
   }
 
@@ -252,6 +273,47 @@ function TicketForm({
           </div>
         )}
       </div>
+
+      {isEdit && (
+        <div className="mt-4 rounded-lg border bg-muted/30 px-3 py-2">
+          {linkedIssue ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Tracked as</span>
+              <Link
+                href={`/issues/${linkedIssue.id}`}
+                className="font-medium text-brand hover:underline"
+              >
+                {issueIdentifier({
+                  number: linkedIssue.number,
+                  project: projects.find((p) => p.id === linkedIssue.projectId) ?? null,
+                })}
+              </Link>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                {linkedIssue.title}
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Needs engineering work?</p>
+                <p className="text-xs text-muted-foreground">
+                  Creates a task from this ticket and links the two, so the fix keeps the
+                  thread back to who reported it.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={convert}
+                disabled={pending}
+              >
+                <GitPullRequestArrow className="size-3.5" /> Convert to task
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <DialogFooter className="mt-4 flex items-center justify-between sm:justify-between">
         {isEdit ? (

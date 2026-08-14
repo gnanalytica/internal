@@ -139,6 +139,8 @@ export type TicketWithRelations = Ticket & {
   contact: CrmContact | null;
   assignee: Member | null;
   project: Project | null;
+  /** The task this ticket was converted into, if any. */
+  issue: { id: string; number: number; title: string; projectId: string | null } | null;
 };
 
 export type TicketCommentWithAuthor = TicketComment & { author: Member | null };
