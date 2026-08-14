@@ -269,6 +269,8 @@ export type CycleWithCount = Cycle & {
   doneCount: number;
   projectName: string;
   projectColor: string;
+  /** Status + estimate per task, enough to compute velocity (see lib/velocity). */
+  issues: { status: string; estimate: number | null }[];
 };
 export type ProjectWithIssueCount = Project & {
   issueCount: number;

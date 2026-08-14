@@ -22,6 +22,12 @@ export default async function ProjectEngineeringPage({
     getCycles(ws.id, id),
   ]);
 
+  // What velocity has left to chew through: this project's unfinished work,
+  // weighted the same way burndown weights it (no estimate = one point).
+  const outstandingPoints = allIssues
+    .filter((i) => i.projectId === id && i.status !== "done" && i.status !== "canceled")
+    .reduce((sum, i) => sum + (i.estimate ?? 1), 0);
+
   return (
     <EngineeringView
       heading={`${project.name} · Engineering`}
@@ -34,6 +40,9 @@ export default async function ProjectEngineeringPage({
       )}
       ctx={ctx}
       cycles={cycles}
+      cadence={project.cycleCadence}
+      outstandingPoints={outstandingPoints}
+      nowISO={new Date().toISOString()}
     />
   );
 }

@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import type { CycleCadence } from "@/lib/cycle-cadence";
 import type { PricingModel } from "@/lib/pricing";
 import type { StrategyModel } from "@/lib/strategy";
 import {
@@ -94,6 +95,9 @@ export const projects = pgTable(
     // Strategy surface model (vision, stages, FDV signals, initiatives, …).
     // Shape is defined once in src/lib/strategy.ts. null = guided empty state.
     strategyModel: jsonb("strategy_model").$type<StrategyModel | null>(),
+    // Repeating ceremonies stamped into every cycle (planning, standup, retro).
+    // Shape is defined once in src/lib/cycle-cadence.ts. null = no cadence.
+    cycleCadence: jsonb("cycle_cadence").$type<CycleCadence | null>(),
     // Builder hat: the person who owns making this product work. null = open seat.
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",

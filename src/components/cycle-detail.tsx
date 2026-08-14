@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { MoreHorizontal, Timer, Trash2 } from "lucide-react";
+import { ArrowRightToLine, CalendarSync, MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AreaChart } from "@/components/charts";
@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { deleteCycle, updateCycle } from "@/lib/actions";
+import { applyCadenceToCycle, deleteCycle, rollOverCycle, updateCycle } from "@/lib/actions";
 import type { Cycle, IssueWithRelations, TaskContext } from "@/lib/types";
 import { cycleStatus } from "@/lib/types";
 
@@ -46,6 +46,10 @@ export function CycleDetail({
   const done = cycle.issues.filter((i) => i.status === "done").length;
   const pct = cycle.issues.length ? Math.round((done / cycle.issues.length) * 100) : 0;
 
+  const unfinished = cycle.issues.filter(
+    (i) => i.status !== "done" && i.status !== "canceled",
+  ).length;
+
   function onDelete() {
     startTransition(async () => {
       await deleteCycle(cycle.id);
@@ -55,7 +59,31 @@ export function CycleDetail({
     });
   }
 
+  function onApplyCadence() {
+    startTransition(async () => {
+      const added = await applyCadenceToCycle(cycle.id);
+      toast.success(
+        added === 0
+          ? "Cadence already applied — nothing missing"
+          : `Added ${added} ceremon${added === 1 ? "y" : "ies"}`,
+      );
+      router.refresh();
+    });
+  }
 
+  function onRollOver() {
+    startTransition(async () => {
+      const { movedCount, cycle: target, created } = await rollOverCycle(cycle.id);
+      toast.success(
+        movedCount === 0
+          ? `Nothing to carry — ${target.name} is ready`
+          : `Moved ${movedCount} task${movedCount === 1 ? "" : "s"} to ${target.name}`,
+        { description: created ? "Created the next cycle to receive them." : undefined },
+      );
+      router.push(`/cycles/${target.id}`);
+      router.refresh();
+    });
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -72,6 +100,12 @@ export function CycleDetail({
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onRollOver} className="gap-2">
+                <ArrowRightToLine className="size-4" /> Move unfinished to next cycle
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onApplyCadence} className="gap-2">
+                <CalendarSync className="size-4" /> Apply cadence
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={onDelete}
                 className="gap-2 text-destructive focus:text-destructive"
@@ -130,6 +164,23 @@ export function CycleDetail({
           </span>
         </div>
 
+        {/* A finished cycle still holding work is the moment rollover exists for. */}
+        {status === "completed" && unfinished > 0 && (
+          <div className="mt-3 flex max-w-md flex-wrap items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+            <span className="text-xs text-muted-foreground">
+              This cycle ended with {unfinished} unfinished task
+              {unfinished === 1 ? "" : "s"}.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto h-6 gap-1.5 text-xs"
+              onClick={onRollOver}
+            >
+              <ArrowRightToLine className="size-3.5" /> Roll over
+            </Button>
+          </div>
+        )}
 
         {/* Burndown */}
         <div className="mt-4 max-w-md">

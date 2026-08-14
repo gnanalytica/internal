@@ -4,6 +4,7 @@ import { CyclesView } from "@/components/cycles-view";
 import { IssuesView } from "@/components/issues-view";
 import { Topbar } from "@/components/topbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { CycleCadence } from "@/lib/cycle-cadence";
 import type { CycleWithCount, IssueWithRelations, TaskContext } from "@/lib/types";
 
 /**
@@ -17,12 +18,18 @@ export function EngineeringView({
   issues,
   ctx,
   cycles,
+  cadence,
+  outstandingPoints,
+  nowISO,
 }: {
   heading: string;
   projectId: string;
   issues: IssueWithRelations[];
   ctx: TaskContext;
   cycles: CycleWithCount[];
+  cadence: CycleCadence | null;
+  outstandingPoints: number;
+  nowISO: string;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -50,7 +57,14 @@ export function EngineeringView({
           />
         </TabsContent>
         <TabsContent value="cycles" className="min-h-0 flex-1 overflow-hidden">
-          <CyclesView cycles={cycles} projectId={projectId} embedded />
+          <CyclesView
+            cycles={cycles}
+            projectId={projectId}
+            cadence={cadence}
+            outstandingPoints={outstandingPoints}
+            nowISO={nowISO}
+            embedded
+          />
         </TabsContent>
       </Tabs>
     </div>

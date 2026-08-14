@@ -6,9 +6,12 @@ import { useTransition } from "react";
 import { format } from "date-fns";
 import { Plus, Timer } from "lucide-react";
 
+import { CadenceEditor } from "@/components/cadence-editor";
+import { CycleVelocity } from "@/components/cycle-velocity";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { createCycle } from "@/lib/actions";
+import type { CycleCadence } from "@/lib/cycle-cadence";
 import type { CycleWithCount } from "@/lib/types";
 import { cycleStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -22,11 +25,20 @@ const STATUS_STYLE: Record<string, string> = {
 export function CyclesView({
   cycles,
   projectId,
+  cadence = null,
+  outstandingPoints = 0,
+  nowISO,
   embedded = false,
 }: {
   cycles: CycleWithCount[];
   /** When set, cycles are scoped to this project and creation is enabled. */
   projectId?: string;
+  /** The project's standing ceremonies; editable only on a project surface. */
+  cadence?: CycleCadence | null;
+  /** Open points on this project, for the velocity projection. */
+  outstandingPoints?: number;
+  /** Server-rendered "now", so velocity doesn't shift between server and client. */
+  nowISO?: string;
   /** Render without the page Topbar (e.g. inside a project's Engineering tab). */
   embedded?: boolean;
 }) {
@@ -61,6 +73,14 @@ export function CyclesView({
       <div className="scrollbar-thin flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-6 py-8">
           {embedded && createButton && <div className="mb-3 flex justify-end">{createButton}</div>}
+          {nowISO && (
+            <CycleVelocity
+              cycles={cycles}
+              outstandingPoints={outstandingPoints}
+              nowISO={nowISO}
+            />
+          )}
+          {projectId && <CadenceEditor projectId={projectId} cadence={cadence} />}
           {cycles.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-20 text-center">
               <div className="grid size-12 place-items-center rounded-xl border bg-muted/50">

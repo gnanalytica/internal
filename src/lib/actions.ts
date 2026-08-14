@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, gte, ilike, inArray, isNull, lt, max, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, inArray, isNull, lt, max, notInArray, or } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
 import { refresh, updateTag } from "next/cache";
 import { cookies } from "next/headers";
@@ -62,6 +62,12 @@ import {
   pickColor,
 } from "@/lib/data";
 import { isIssueType, isMilestoneStatus, isPriority, isStatus } from "@/lib/constants";
+import {
+  ceremonyTasksFor,
+  isCadenceEmpty,
+  normalizeCadence,
+  type CycleCadence,
+} from "@/lib/cycle-cadence";
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
@@ -1354,6 +1360,7 @@ export async function createCycle(input: {
   endDate: string;
 }) {
   const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
   // Cycles are project-scoped, so numbering restarts per project.
   const [{ value: maxNumber }] = await db
     .select({ value: max(cycles.number) })
@@ -1371,7 +1378,13 @@ export async function createCycle(input: {
       endDate: new Date(input.endDate),
     })
     .returning();
-  invalidate(ws.id, "cycles");
+
+  // Every cycle starts with the team's standing ceremonies already in it —
+  // including the one rollover creates, which is the case that used to get
+  // forgotten.
+  await stampCadence(ws.id, me.id, created);
+
+  invalidate(ws.id, "cycles", "issues");
   return created;
 }
 
@@ -1395,6 +1408,170 @@ export async function deleteCycle(id: string) {
   const ws = await getWorkspace();
   await db.delete(cycles).where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)));
   invalidate(ws.id, "cycles");
+}
+
+/** Terminal statuses — work that a closing cycle leaves behind rather than carries. */
+const FINISHED = ["done", "canceled"];
+
+/**
+ * Stamp a project's cadence ceremonies into one cycle.
+ *
+ * Idempotent by task title, so it is safe on every cycle creation and safe to
+ * re-run by hand after the cadence changes — an existing ceremony is left
+ * alone and only genuinely new ones are added. Returns how many it created.
+ */
+async function stampCadence(
+  workspaceId: string,
+  creatorId: string,
+  cycle: { id: string; projectId: string; startDate: Date; endDate: Date },
+): Promise<number> {
+  const [project] = await db
+    .select({ cadence: projects.cycleCadence })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, cycle.projectId)))
+    .limit(1);
+  if (!project || isCadenceEmpty(project.cadence)) return 0;
+
+  const existing = await db
+    .select({ title: issues.title })
+    .from(issues)
+    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.cycleId, cycle.id)));
+
+  const tasks = ceremonyTasksFor(
+    project.cadence,
+    cycle,
+    existing.map((e) => e.title),
+  );
+  if (tasks.length === 0) return 0;
+
+  // Numbering restarts per project, matching createIssue.
+  const [{ value: maxNumber }] = await db
+    .select({ value: max(issues.number) })
+    .from(issues)
+    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.projectId, cycle.projectId)));
+
+  await db.insert(issues).values(
+    tasks.map((t, i) => ({
+      workspaceId,
+      projectId: cycle.projectId,
+      cycleId: cycle.id,
+      number: (maxNumber ?? 0) + 1 + i,
+      title: t.title,
+      type: t.type,
+      priority: t.priority,
+      status: "todo",
+      estimate: t.estimate,
+      dueDate: t.dueDate,
+      creatorId,
+      sortKey: `a${Date.now() + i}`,
+    })),
+  );
+
+  return tasks.length;
+}
+
+/** Re-apply the project's cadence to an existing cycle. Adds only what's missing. */
+export async function applyCadenceToCycle(cycleId: string): Promise<number> {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const [cycle] = await db
+    .select()
+    .from(cycles)
+    .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, cycleId)))
+    .limit(1);
+  if (!cycle) throw new Error("Cycle not found");
+
+  const added = await stampCadence(ws.id, me.id, cycle);
+  if (added > 0) invalidate(ws.id, "issues", "cycles");
+  return added;
+}
+
+/** Replace a project's cadence. Existing cycles keep whatever they already have. */
+export async function updateCycleCadence(projectId: string, cadence: CycleCadence) {
+  const ws = await getWorkspace();
+  const normalized = normalizeCadence(cadence);
+  await db
+    .update(projects)
+    .set({ cycleCadence: normalized.ceremonies.length > 0 ? normalized : null })
+    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, projectId)));
+  invalidate(ws.id, "projects");
+  return normalized;
+}
+
+/**
+ * Carry a cycle's unfinished work into the next one.
+ *
+ * Without this, closing a cycle silently strands whatever didn't land: the
+ * tasks keep pointing at a cycle that's over, so they fall out of the next
+ * plan and off the burndown. Moves everything that isn't done or canceled
+ * into the following cycle, creating that cycle (same length, starting when
+ * this one ends) when it doesn't exist yet.
+ *
+ * Idempotent: running it twice moves nothing the second time, because the
+ * first run left no unfinished tasks behind.
+ */
+export async function rollOverCycle(id: string) {
+  const ws = await getWorkspace();
+  const [cycle] = await db
+    .select()
+    .from(cycles)
+    .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)))
+    .limit(1);
+  if (!cycle) throw new Error("Cycle not found");
+
+  const unfinished = await db
+    .select({ id: issues.id })
+    .from(issues)
+    .where(
+      and(
+        eq(issues.workspaceId, ws.id),
+        eq(issues.cycleId, id),
+        notInArray(issues.status, FINISHED),
+      ),
+    );
+
+  // The next cycle is the soonest one starting after this one — not simply the
+  // next number, since cycles can be created out of order.
+  const [existingNext] = await db
+    .select()
+    .from(cycles)
+    .where(
+      and(
+        eq(cycles.workspaceId, ws.id),
+        eq(cycles.projectId, cycle.projectId),
+        gt(cycles.startDate, cycle.startDate),
+      ),
+    )
+    .orderBy(asc(cycles.startDate))
+    .limit(1);
+
+  const target =
+    existingNext ??
+    (await createCycle({
+      projectId: cycle.projectId,
+      startDate: cycle.endDate.toISOString(),
+      endDate: new Date(
+        cycle.endDate.getTime() + (cycle.endDate.getTime() - cycle.startDate.getTime()),
+      ).toISOString(),
+    }));
+
+  if (unfinished.length > 0) {
+    await db
+      .update(issues)
+      .set({ cycleId: target.id, updatedAt: new Date() })
+      .where(
+        and(
+          eq(issues.workspaceId, ws.id),
+          inArray(
+            issues.id,
+            unfinished.map((i) => i.id),
+          ),
+        ),
+      );
+  }
+
+  invalidate(ws.id, "cycles", "issues");
+  return { movedCount: unfinished.length, cycle: target, created: !existingNext };
 }
 
 

@@ -1025,7 +1025,9 @@ export async function getCycles(
       : eq(cycles.workspaceId, workspaceId),
     orderBy: [desc(cycles.startDate)],
     with: {
-      issues: { columns: { id: true, status: true } },
+      // Estimates come along so the Cycles surface can compute velocity without
+      // a second pass over the issues.
+      issues: { columns: { id: true, status: true, estimate: true } },
       project: { columns: { name: true, color: true } },
     },
   });
@@ -1035,6 +1037,7 @@ export async function getCycles(
     projectColor: c.project?.color ?? "#94a3b8",
     issueCount: c.issues.length,
     doneCount: c.issues.filter((i) => i.status === "done").length,
+    issues: c.issues.map((i) => ({ status: i.status, estimate: i.estimate })),
   }));
 }
 
