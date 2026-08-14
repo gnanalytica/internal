@@ -133,7 +133,9 @@ export function PageView({
       // Our own write becomes the new baseline for the next conflict check.
       loadedUpdatedAt.current = new Date().toISOString();
       if (res?.conflict) {
-        toast.warning("Someone else edited this page — check version history for their changes.");
+        toast.warning("Someone else edited this page while you were writing.", {
+          description: "Their version was saved to history — open History to merge it back.",
+        });
       }
     });
   }

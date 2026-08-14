@@ -938,7 +938,12 @@ export async function updatePage(
       if (current.updatedAt.getTime() - known > 1000) conflict = true;
     }
 
-    // Snapshot the PRE-update state at most once per window (see spec).
+    // Snapshot the PRE-update state at most once per window (see spec) — but
+    // always on a conflict, whatever the window says. Saves are last-write-wins,
+    // so on a conflict this row IS the other person's work and we are about to
+    // overwrite it; skipping the snapshot because one happened eight minutes ago
+    // is how their edit disappears for good. `cause` records which it was, so
+    // "how often does this actually happen" is a query rather than a guess.
     if (current) {
       const me = await getCurrentUser(ws.id);
       const [last] = await db
@@ -947,14 +952,14 @@ export async function updatePage(
         .where(eq(pageVersions.pageId, id))
         .orderBy(desc(pageVersions.createdAt))
         .limit(1);
-      if (shouldSnapshot(last?.createdAt ?? null, now)) {
+      if (conflict || shouldSnapshot(last?.createdAt ?? null, now)) {
         await db.insert(pageVersions).values({
           workspaceId: ws.id,
           pageId: id,
           title: current.title,
           content: current.content,
           authorId: me.id,
-          cause: "auto",
+          cause: conflict ? "conflict" : "auto",
         });
         await prunePageVersions(id);
       }

@@ -120,6 +120,13 @@ export function PageHistory({
                         restored
                       </span>
                     )}
+                    {/* The version that a concurrent save would otherwise have
+                        overwritten — the one you actually came here for. */}
+                    {v.cause === "conflict" && (
+                      <span className="rounded bg-rose-500/15 px-1 text-[9px] font-medium text-rose-600">
+                        overwritten
+                      </span>
+                    )}
                   </span>
                   <span className="truncate text-muted-foreground">
                     {v.author?.name ?? "Unknown"} · {v.title}
