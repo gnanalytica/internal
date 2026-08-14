@@ -1796,6 +1796,26 @@ export async function addStatusUpdate(
     health,
     body: body.trim(),
   });
+
+  // A red week that nobody hears about is the whole failure mode a status
+  // update exists to prevent. Posting one also subscribes you to the project.
+  const target = { kind: "project" as const, id: projectId };
+  await subscribe(ws.id, me.id, "project", projectId);
+  const [project] = await db
+    .select({ name: projects.name })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, projectId)))
+    .limit(1);
+  await notify({
+    workspaceId: ws.id,
+    actorId: me.id,
+    type: "status",
+    target,
+    userIds: await audienceFor(ws.id, target, me.id),
+    title: `${me.name} posted a ${health.replace("_", " ")} update on ${project?.name ?? "a project"}`,
+    body: body.trim().slice(0, 140),
+  });
+
   invalidate(ws.id, "status-updates");
 }
 

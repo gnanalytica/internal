@@ -11,7 +11,7 @@ export const SUBSCRIBABLE = new Set(["issue", "page", "project"]);
 
 export type NotificationType = "assigned" | "commented" | "mentioned" | "status";
 
-export type NotifyTarget = { kind: "issue" | "page"; id: string };
+export type NotifyTarget = { kind: "issue" | "page" | "project"; id: string };
 
 /**
  * Follow something, if not already following. Safe to call on every event that
@@ -116,6 +116,7 @@ export async function notify(input: NotifyInput): Promise<number> {
       type: input.type,
       issueId: input.target?.kind === "issue" ? input.target.id : null,
       pageId: input.target?.kind === "page" ? input.target.id : null,
+      projectId: input.target?.kind === "project" ? input.target.id : null,
       title: input.title,
       body: input.body ?? null,
     })),

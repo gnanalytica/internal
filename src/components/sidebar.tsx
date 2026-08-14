@@ -472,10 +472,11 @@ export function Sidebar({
           </Section>
         )}
 
-        {/* Wiki — company pages (handbook, SOPs, entity refs). Hidden while
-            empty; reappears when a company-level page exists (e.g. restored
-            from trash). */}
-        {pageTree.length > 0 && (
+        {/* Wiki — company pages (handbook, SOPs, entity refs). Always shown:
+            it used to hide while empty, which also hid the "+" that creates the
+            first page, leaving the command palette as the only way in. An empty
+            section with a visible + is the point at which someone starts one. */}
+        {(
           <Section
             title="Wiki"
             open={showPages}
@@ -499,15 +500,24 @@ export function Sidebar({
               </>
             }
           >
-            {pageTree.map((node) => (
-              <PageTreeItem
-                key={node.id}
-                node={node}
-                depth={0}
-                pathname={pathname}
-                onAddChild={(id) => newPage(id)}
-              />
-            ))}
+            {pageTree.length === 0 ? (
+              <button
+                onClick={() => newPage(null)}
+                className="w-full rounded px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              >
+                Start the handbook…
+              </button>
+            ) : (
+              pageTree.map((node) => (
+                <PageTreeItem
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  pathname={pathname}
+                  onAddChild={(id) => newPage(id)}
+                />
+              ))
+            )}
           </Section>
         )}
       </nav>

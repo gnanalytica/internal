@@ -1632,6 +1632,7 @@ export async function getNotifications(
     read: n.read,
     issueId: n.issueId,
     pageId: n.pageId,
+    projectId: n.projectId,
     createdAt: n.createdAt,
     actor: n.actor,
   }));

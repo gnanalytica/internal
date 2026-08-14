@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { WatchButton } from "@/components/watch-button";
 import { visibleDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
@@ -12,10 +13,13 @@ export function ProjectTabs({
   project,
   isAdmin = false,
   isOwner = false,
+  watching = false,
 }: {
   project: Project;
   isAdmin?: boolean;
   isOwner?: boolean;
+  /** Whether the signed-in user follows this project's status updates. */
+  watching?: boolean;
 }) {
   const pathname = usePathname();
   const base = `/projects/${project.id}`;
@@ -66,6 +70,11 @@ export function ProjectTabs({
           </Link>
         );
       })}
+      {/* Sits with the project, not a department, because what you follow here
+          is the project's status updates. */}
+      <div className="ml-auto pl-2">
+        <WatchButton kind="project" targetId={project.id} initial={watching} />
+      </div>
     </div>
   );
 }

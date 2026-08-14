@@ -2,7 +2,13 @@ import { notFound } from "next/navigation";
 
 import { ProjectTabs } from "@/components/project-tabs";
 import { canSeeConfidential } from "@/lib/departments";
-import { getCurrentUser, getMyRole, getProject, getWorkspace } from "@/lib/data";
+import {
+  getCurrentUser,
+  getMyRole,
+  getProject,
+  getWorkspace,
+  isSubscribed,
+} from "@/lib/data";
 
 export default async function ProjectLayout({
   params,
@@ -18,11 +24,17 @@ export default async function ProjectLayout({
   const isAdmin = canSeeConfidential(await getMyRole(ws.id));
   const me = await getCurrentUser(ws.id);
   const isOwner = project.ownerId === me.id;
+  const watching = await isSubscribed(ws.id, "project", id);
 
   return (
     <div className="flex h-full flex-col">
       {/* Projects show department tabs; operations show Overview + Docs. */}
-      <ProjectTabs project={project} isAdmin={isAdmin} isOwner={isOwner} />
+      <ProjectTabs
+        project={project}
+        isAdmin={isAdmin}
+        isOwner={isOwner}
+        watching={watching}
+      />
       <div className="min-h-0 flex-1">{children}</div>
     </div>
   );

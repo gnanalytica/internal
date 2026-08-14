@@ -384,8 +384,10 @@ export const notifications = pgTable(
     actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
     type: text("type").notNull(), // assigned | commented | mentioned | status
     issueId: uuid("issue_id").references(() => issues.id, { onDelete: "cascade" }),
-    // Page events (comments, mentions in a doc) had nowhere to point before.
+    // Page and project events (doc comments, status updates) had nowhere to
+    // point before.
     pageId: uuid("page_id").references(() => pages.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     body: text("body"),
     read: timestamp("read", { withTimezone: true }),
