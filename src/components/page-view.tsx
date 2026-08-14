@@ -17,6 +17,7 @@ import {
   PagePresenceOverlay,
   usePagePresence,
 } from "@/components/page-presence";
+import { PageTemplateStrip } from "@/components/page-template-strip";
 import { PageToc } from "@/components/page-toc";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { StatusIcon } from "@/components/glyphs";
@@ -63,6 +64,7 @@ import { issueIdentifier } from "@/lib/types";
 import { docToMarkdown } from "@/lib/markdown";
 import { downloadText, slugifyFilename } from "@/lib/download";
 import { extractHeadings } from "@/lib/toc";
+import { isBlankPage, type PageTemplate } from "@/lib/page-templates";
 import type { StatusId } from "@/lib/constants";
 
 const EMOJIS = ["📄", "📝", "📚", "🛠️", "🚀", "🏗️", "📌", "💡", "🎯", "🔥", "✅", "📁", "🧭", "🗂️", "⭐", "🧪"];
@@ -98,6 +100,11 @@ export function PageView({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [words, setWords] = useState<number | null>(null);
+  // The document a template just produced. `RichEditor` reads `content` only at
+  // init, so this both remounts it with the new body and stands in for the
+  // server's copy until the refresh lands — otherwise the editor would remount
+  // against the still-empty page and drop the template.
+  const [templated, setTemplated] = useState<JSONContent | null>(null);
   const columnRef = useRef<HTMLDivElement | null>(null);
   // The updatedAt the client loaded — sent with saves so updatePage can flag
   // a concurrent edit by someone else (last-write-wins + a warning toast).
@@ -124,6 +131,19 @@ export function PageView({
     setIcon(next);
     setEmojiOpen(false);
     startTransition(() => void updatePage(page.id, { icon: next }));
+  }
+
+  function applyTemplate(template: PageTemplate) {
+    const content = template.build() as JSONContent;
+    setTemplated(content);
+    // Only claim the title if the page is still unnamed — someone who titled
+    // the page first meant it.
+    const nextTitle = title.trim() && title !== "Untitled" ? title : template.title;
+    setTitle(nextTitle);
+    return updatePage(page.id, { title: nextTitle, content }).then(() => {
+      loadedUpdatedAt.current = new Date().toISOString();
+      router.refresh();
+    });
   }
 
   function saveContent(json: JSONContent) {
@@ -247,10 +267,18 @@ export function PageView({
             }}
           />
 
+          {/* A blank page is the one moment a template costs nothing to offer. */}
+          {templated === null && isBlankPage(page.content) && (
+            <div className="mt-4">
+              <PageTemplateStrip onPick={applyTemplate} />
+            </div>
+          )}
+
           {/* Body */}
           <div className="mt-3 text-[15px]">
             <RichEditor
-              content={(page.content as JSONContent) ?? null}
+              key={templated ? "templated" : "initial"}
+              content={templated ?? (page.content as JSONContent) ?? null}
               onChange={saveContent}
               onStats={({ words: w }) => setWords(w)}
               placeholder="Write something… ('/' for blocks, '@' to link)"
