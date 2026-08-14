@@ -3,16 +3,8 @@ import { notFound } from "next/navigation";
 import { IssuesView } from "@/components/issues-view";
 import { Restricted } from "@/components/restricted";
 import { canSeeConfidential } from "@/lib/departments";
-import {
-  getIssues,
-  getLabels,
-  getMembers,
-  getMyRole,
-  getProject,
-  getProjects,
-  getSavedViews,
-  getWorkspace,
-} from "@/lib/data";
+import { getIssues, getMyRole, getProject, getWorkspace } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 /**
  * An operation's Tasks surface: the full filter/group/board issue tooling scoped
@@ -34,13 +26,7 @@ export default async function ProjectTasksPage({
     return <Restricted label={project.name} />;
   }
 
-  const [allIssues, projects, members, labels, savedViews] = await Promise.all([
-    getIssues(ws.id),
-    getProjects(ws.id),
-    getMembers(ws.id),
-    getLabels(ws.id),
-    getSavedViews(ws.id),
-  ]);
+  const [allIssues, ctx] = await Promise.all([getIssues(ws.id), getTaskContext(ws.id)]);
 
   return (
     <IssuesView
@@ -48,10 +34,13 @@ export default async function ProjectTasksPage({
       heading="Tasks"
       initialIssues={allIssues.filter((i) => i.projectId === id)}
       defaultProjectId={id}
-      projects={projects}
-      members={members}
-      labels={labels}
-      savedViews={savedViews}
+      projects={ctx.projects}
+      members={ctx.members}
+      labels={ctx.labels}
+      savedViews={ctx.savedViews}
+      cycles={ctx.cycles}
+      milestones={ctx.milestones}
+      blockedIds={ctx.blockedIds}
     />
   );
 }

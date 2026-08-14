@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -78,6 +78,7 @@ import type {
   MemberWithRole,
   MetricWithRelations,
   MilestoneDetail,
+  Milestone,
   MilestoneWithProgress,
   OrgRoleNode,
   Page,
@@ -510,6 +511,40 @@ export async function getIssues(
     ...r,
     labels: r.labels.map((l) => l.label), assignees: r.assignees.map((a) => a.user),
   }));
+}
+
+/**
+ * Ids of issues that something unfinished is blocking.
+ *
+ * A relation row is `A blocks B`, so B is blocked. Only *open* blockers count:
+ * once the thing in the way is done or canceled it isn't in the way, and a
+ * badge that never clears is a badge people stop reading.
+ *
+ * Returned as a flat id list rather than folded into `getIssues` so the eight
+ * places that build an issue list don't each have to join relations — the
+ * surfaces that render tasks pull it once via `getTaskContext`.
+ */
+export async function getBlockedIssueIds(workspaceId: string): Promise<string[]> {
+  "use cache";
+  // Relations are invalidated under the "issues" tag, as is any status change
+  // that clears a blocker.
+  cacheTag(...wsTags(workspaceId, "issues"));
+  cacheLife("minutes");
+
+  const rows = await db
+    .selectDistinct({ id: issueRelations.relatedIssueId })
+    .from(issueRelations)
+    // Join the blocker (the relation's own issue), not the blocked one.
+    .innerJoin(issues, eq(issues.id, issueRelations.issueId))
+    .where(
+      and(
+        eq(issueRelations.workspaceId, workspaceId),
+        eq(issueRelations.type, "blocks"),
+        notInArray(issues.status, ["done", "canceled"]),
+      ),
+    );
+
+  return rows.map((r) => r.id);
 }
 
 /** Keyset-paginated issues for the API (newest first). */
@@ -1071,6 +1106,24 @@ export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
     .from(cycles)
     .where(eq(cycles.workspaceId, workspaceId))
     .orderBy(desc(cycles.startDate));
+}
+
+/**
+ * Milestones as a flat list for pickers and group-by ordering.
+ *
+ * Ordered the way the roadmap reads — by gate date, undated last — so grouping
+ * a task list by milestone lands in roadmap order rather than alphabetically.
+ */
+export async function getMilestonesFlat(workspaceId: string): Promise<Milestone[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "milestones"));
+  cacheLife("minutes");
+
+  return db
+    .select()
+    .from(milestones)
+    .where(eq(milestones.workspaceId, workspaceId))
+    .orderBy(sql`${milestones.targetDate} asc nulls last`, asc(milestones.sortKey));
 }
 
 // ---- Databases ----

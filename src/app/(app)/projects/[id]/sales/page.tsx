@@ -14,6 +14,7 @@ import {
   getProjects,
   getWorkspace,
 } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function ProjectSalesPage({
   params,
@@ -27,6 +28,7 @@ export default async function ProjectSalesPage({
   if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
   if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Sales" />;
 
+  const ctx = await getTaskContext(ws.id);
   const [issues, deals, accounts, contacts, members, projects] = await Promise.all([
     getIssues(ws.id),
     getDeals(ws.id, id),
@@ -38,6 +40,7 @@ export default async function ProjectSalesPage({
 
   return (
     <SalesView
+      ctx={ctx}
       heading={`${project.name} · Sales`}
       scopeProjectId={id}
       projects={projects}

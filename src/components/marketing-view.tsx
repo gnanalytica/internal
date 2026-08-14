@@ -30,6 +30,7 @@ import type {
   CampaignWithRelations,
   ContentItemWithCampaign,
   Project,
+  TaskContext,
 } from "@/lib/types";
 
 const fieldCls =
@@ -38,6 +39,7 @@ const fieldCls =
 export function MarketingView({
   heading,
   scopeProjectId,
+  ctx,
   initialCampaigns,
   initialContent,
   issues,
@@ -49,6 +51,7 @@ export function MarketingView({
   initialCampaigns: CampaignWithRelations[];
   initialContent: ContentItemWithCampaign[];
   issues: IssueWithRelations[];
+  ctx: TaskContext;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -80,10 +83,12 @@ export function MarketingView({
           <TabsTrigger value="content">Content</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
           <DepartmentTasks
             issues={issues}
             department="marketing"
+            ctx={ctx}
+            projectId={scopeProjectId}
             emptyLabel="No marketing tasks yet."
           />
         </TabsContent>

@@ -23,19 +23,17 @@ import {
   getExpenses,
   getInvoices,
   getIssues,
-  getLabels,
-  getMembers,
   getMembersWithRole,
   getMyRole,
   getOrgRoles,
   getProject,
   getProjects,
   getProjectSummaries,
-  getSavedViews,
   getStatusUpdates,
   getWorkspace,
   isFavorite,
 } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 import { formatMoney } from "@/lib/matrix-format";
 
 export default async function ProjectRoute({
@@ -98,9 +96,9 @@ export default async function ProjectRoute({
   // workspace databases (Tools & Subscriptions), folded in from the old top-level
   // Databases page.
   if (project.kind !== "project") {
-    const [members, role, favorited, statusUpdates, backlinks, databases] =
+    const [ctx, role, favorited, statusUpdates, backlinks, databases] =
       await Promise.all([
-        getMembers(ws.id),
+        getTaskContext(ws.id),
         getMyRole(ws.id),
         isFavorite(ws.id, "project", id),
         getStatusUpdates(ws.id, id),
@@ -110,7 +108,8 @@ export default async function ProjectRoute({
     return (
       <ProjectDetail
         project={project}
-        members={members}
+        members={ctx.members}
+        ctx={ctx}
         isAdmin={role === "admin"}
         favorited={favorited}
         statusUpdates={statusUpdates}
@@ -121,15 +120,12 @@ export default async function ProjectRoute({
   }
 
   // Projects: the department overview hub.
-  const [summaries, members, allIssues, allProjects, allLabels, savedViews] =
-    await Promise.all([
-      getProjectSummaries(ws.id),
-      getMembers(ws.id),
-      getIssues(ws.id),
-      getProjects(ws.id),
-      getLabels(ws.id),
-      getSavedViews(ws.id),
-    ]);
+  const [summaries, allIssues, ctx] = await Promise.all([
+    getProjectSummaries(ws.id),
+    getIssues(ws.id),
+    getTaskContext(ws.id),
+  ]);
+  const members = ctx.members;
   const summary = summaries.find((p) => p.id === id);
   if (!summary) notFound();
   const owner = members.find((m) => m.id === summary.ownerId) ?? null;
@@ -242,14 +238,7 @@ export default async function ProjectRoute({
           </Link>
         ))}
       </div>
-      <ProjectSchedule
-        projectId={id}
-        issues={scheduleIssues}
-        projects={allProjects}
-        members={members}
-        labels={allLabels}
-        savedViews={savedViews}
-      />
+      <ProjectSchedule projectId={id} issues={scheduleIssues} ctx={ctx} />
     </div>
   );
 }

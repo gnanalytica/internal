@@ -1,5 +1,5 @@
 import { ISSUE_TYPES, PRIORITIES, STATUSES } from "@/lib/constants";
-import type { IssueWithRelations, Member, Project } from "@/lib/types";
+import type { Cycle, IssueWithRelations, Member, Milestone, Project } from "@/lib/types";
 
 /** Active issue filters. Empty set = no constraint for that dimension. */
 export type IssueFilters = {
@@ -11,13 +11,24 @@ export type IssueFilters = {
   assignee: Set<string>;
   /** Label ids; an issue matches if it carries ANY selected label. */
   label: Set<string>;
+  /** Cycle ids; the sentinel "none" matches tasks in no cycle. */
+  cycle: Set<string>;
+  /** Milestone ids; the sentinel "none" matches tasks clearing no gate. */
+  milestone: Set<string>;
+  /**
+   * "blocked" / "unblocked". Reads `issue.blockedBy`, which the view stamps
+   * from the workspace's blocked-id set — so a surface that never loaded that
+   * set sees every task as unblocked rather than as an error.
+   */
+  blocked: Set<string>;
 };
 
-export type SortId = "manual" | "priority" | "created" | "updated" | "title";
+export type SortId = "manual" | "priority" | "due" | "created" | "updated" | "title";
 
 export const SORTS: { id: SortId; label: string }[] = [
   { id: "manual", label: "Manual" },
   { id: "priority", label: "Priority" },
+  { id: "due", label: "Due date" },
   { id: "created", label: "Created date" },
   { id: "updated", label: "Last updated" },
   { id: "title", label: "Title" },
@@ -34,17 +45,33 @@ export function emptyFilters(): IssueFilters {
     type: new Set(),
     assignee: new Set(),
     label: new Set(),
+    cycle: new Set(),
+    milestone: new Set(),
+    blocked: new Set(),
   };
 }
 
 export function activeFilterCount(f: IssueFilters): number {
-  return f.status.size + f.priority.size + f.type.size + f.assignee.size + f.label.size;
+  return (
+    f.status.size +
+    f.priority.size +
+    f.type.size +
+    f.assignee.size +
+    f.label.size +
+    f.cycle.size +
+    f.milestone.size +
+    f.blocked.size
+  );
 }
 
 /** Whether a single issue passes all active filter dimensions (AND across dimensions). */
 export function matchesFilters(
-  issue: Pick<IssueWithRelations, "status" | "priority" | "type" | "assigneeId" | "labels"> & {
+  issue: Pick<
+    IssueWithRelations,
+    "status" | "priority" | "type" | "assigneeId" | "labels" | "cycleId" | "milestoneId"
+  > & {
     assignees?: { id: string }[];
+    blockedBy?: number;
   },
   f: IssueFilters,
 ): boolean {
@@ -62,6 +89,10 @@ export function matchesFilters(
     if (!ids.some((id) => f.assignee.has(id))) return false;
   }
   if (f.label.size && !issue.labels.some((l) => f.label.has(l.id))) return false;
+  if (f.cycle.size && !f.cycle.has(issue.cycleId ?? "none")) return false;
+  if (f.milestone.size && !f.milestone.has(issue.milestoneId ?? "none")) return false;
+  if (f.blocked.size && !f.blocked.has(issue.blockedBy ? "blocked" : "unblocked"))
+    return false;
   return true;
 }
 
@@ -73,7 +104,15 @@ export function filterIssues<T extends IssueWithRelations>(
 }
 
 /** Comparator for the chosen sort. "manual" falls back to the persisted sortKey. */
-export type GroupBy = "status" | "priority" | "type" | "assignee" | "project" | "none";
+export type GroupBy =
+  | "status"
+  | "priority"
+  | "type"
+  | "assignee"
+  | "project"
+  | "cycle"
+  | "milestone"
+  | "none";
 
 export const GROUP_BYS: { id: GroupBy; label: string }[] = [
   { id: "status", label: "Status" },
@@ -81,8 +120,25 @@ export const GROUP_BYS: { id: GroupBy; label: string }[] = [
   { id: "type", label: "Type" },
   { id: "assignee", label: "Assignee" },
   { id: "project", label: "Project" },
+  { id: "cycle", label: "Cycle" },
+  { id: "milestone", label: "Milestone" },
   { id: "none", label: "None" },
 ];
+
+/**
+ * Lookup lists that give groups their order and their labels.
+ *
+ * `cycles` and `milestones` are optional: when a surface doesn't have them the
+ * groups are derived from the tasks themselves (each issue carries its own
+ * cycle and milestone), which costs only the ordering — a passed list sorts
+ * cycles newest-first and milestones by gate date, matching the roadmap.
+ */
+export type GroupContext = {
+  members: Member[];
+  projects: Project[];
+  cycles?: Pick<Cycle, "id" | "name">[];
+  milestones?: Pick<Milestone, "id" | "name">[];
+};
 
 export type IssueGroup = {
   key: string;
@@ -91,11 +147,27 @@ export type IssueGroup = {
   items: IssueWithRelations[];
 };
 
+/**
+ * The distinct cycles or milestones carried by a set of issues, in first-seen
+ * order. Used to build groups when the caller has no ordered lookup list.
+ */
+function derive(
+  issues: IssueWithRelations[],
+  pick: (i: IssueWithRelations) => { id: string; name: string } | null,
+): { id: string; name: string }[] {
+  const seen = new Map<string, { id: string; name: string }>();
+  for (const i of issues) {
+    const v = pick(i);
+    if (v && !seen.has(v.id)) seen.set(v.id, { id: v.id, name: v.name });
+  }
+  return [...seen.values()];
+}
+
 /** Partition issues into ordered, non-empty groups by the chosen dimension. */
 export function groupIssues(
   issues: IssueWithRelations[],
   groupBy: GroupBy,
-  ctx: { members: Member[]; projects: Project[] },
+  ctx: GroupContext,
 ): IssueGroup[] {
   let defs: { key: string; label: string; color?: string; match: (i: IssueWithRelations) => boolean }[];
 
@@ -137,6 +209,30 @@ export function groupIssues(
         { key: "none", label: "No project", match: (i) => !i.projectId },
       ];
       break;
+    case "cycle": {
+      const list = ctx.cycles ?? derive(issues, (i) => i.cycle);
+      defs = [
+        ...list.map((c) => ({
+          key: c.id,
+          label: c.name,
+          match: (i: IssueWithRelations) => i.cycleId === c.id,
+        })),
+        { key: "none", label: "No cycle", match: (i) => !i.cycleId },
+      ];
+      break;
+    }
+    case "milestone": {
+      const list = ctx.milestones ?? derive(issues, (i) => i.milestone);
+      defs = [
+        ...list.map((m) => ({
+          key: m.id,
+          label: m.name,
+          match: (i: IssueWithRelations) => i.milestoneId === m.id,
+        })),
+        { key: "none", label: "No milestone", match: (i) => !i.milestoneId },
+      ];
+      break;
+    }
     case "none":
       defs = [{ key: "all", label: "All tasks", match: () => true }];
       break;
@@ -166,6 +262,14 @@ export function issueComparator(
     case "priority":
       return (a, b) =>
         (PRIORITY_RANK.get(a.priority) ?? 99) - (PRIORITY_RANK.get(b.priority) ?? 99);
+    // Soonest first, undated last — the question this answers is "what's due",
+    // and a task with no date is never the answer.
+    case "due":
+      return (a, b) => {
+        const at = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const bt = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        return at - bt;
+      };
     case "created":
       return (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();

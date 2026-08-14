@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { FeedbackView } from "@/components/feedback-view";
 import { DepartmentTasks } from "@/components/department-tasks";
 import { MilestoneRoadmap } from "@/components/milestone-roadmap";
@@ -9,6 +11,7 @@ import type {
   FeedbackWithRelations,
   IssueWithRelations,
   MilestoneWithProgress,
+  TaskContext,
 } from "@/lib/types";
 
 /**
@@ -25,13 +28,19 @@ export function ProductView({
   issues,
   feedback,
   milestones,
+  ctx,
 }: {
   heading: string;
   scopeProjectId: string;
   issues: IssueWithRelations[];
   feedback: FeedbackWithRelations[];
   milestones: MilestoneWithProgress[];
+  ctx: TaskContext;
 }) {
+  // Held here rather than inside the roadmap so switching to Tasks and back
+  // returns to the gate you were looking at.
+  const [gate, setGate] = useState<string | null>(null);
+
   return (
     <div className="flex h-full flex-col">
       <Topbar breadcrumb={[{ label: heading }]} />
@@ -48,12 +57,17 @@ export function ProductView({
             projectId={scopeProjectId}
             milestones={milestones}
             issues={issues}
+            ctx={ctx}
+            selectedId={gate}
+            onSelect={setGate}
           />
         </TabsContent>
-        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
           <DepartmentTasks
             issues={issues}
             department="product"
+            ctx={ctx}
+            projectId={scopeProjectId}
             emptyLabel="No product, PM or risk tasks yet."
           />
         </TabsContent>

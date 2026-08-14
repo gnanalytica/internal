@@ -19,7 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { CalendarClock, ListTree } from "lucide-react";
+import { Ban, CalendarClock, ListTree } from "lucide-react";
 import { nestGroup, subIssueProgress } from "@/lib/issue-tree";
 
 import { PriorityIcon, StatusIcon } from "@/components/glyphs";
@@ -262,6 +262,16 @@ function BoardCard({
           <LabelChips labels={issue.labels} />
         </div>
       )}
+      {issue.blockedBy ? (
+        <div className="mt-1.5">
+          <span
+            className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-500"
+            title="Blocked by unfinished work"
+          >
+            <Ban className="size-3" /> Blocked
+          </span>
+        </div>
+      ) : null}
       {issue.dueDate && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {issue.dueDate && (

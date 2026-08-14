@@ -1,24 +1,11 @@
 import { IssuesView } from "@/components/issues-view";
-import {
-  getCurrentUser,
-  getIssues,
-  getLabels,
-  getMembers,
-  getProjects,
-  getSavedViews,
-  getWorkspace,
-} from "@/lib/data";
+import { getCurrentUser, getIssues, getWorkspace } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function MyIssuesPage() {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
-  const [allIssues, projects, members, labels, savedViews] = await Promise.all([
-    getIssues(ws.id),
-    getProjects(ws.id),
-    getMembers(ws.id),
-    getLabels(ws.id),
-    getSavedViews(ws.id),
-  ]);
+  const [allIssues, ctx] = await Promise.all([getIssues(ws.id), getTaskContext(ws.id)]);
 
   // Issues where I'm the primary assignee or one of the co-assignees.
   const mine = allIssues.filter(
@@ -28,12 +15,15 @@ export default async function MyIssuesPage() {
   return (
     <IssuesView
       initialIssues={mine}
-      projects={projects}
-      members={members}
-      labels={labels}
+      projects={ctx.projects}
+      members={ctx.members}
+      labels={ctx.labels}
       heading="My Issues"
       defaultProjectId={null}
-      savedViews={savedViews}
+      savedViews={ctx.savedViews}
+      cycles={ctx.cycles}
+      milestones={ctx.milestones}
+      blockedIds={ctx.blockedIds}
     />
   );
 }

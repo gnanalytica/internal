@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 
 import { CycleDetail } from "@/components/cycle-detail";
 import { computeBurndown } from "@/lib/burndown";
-import { getCycle, getMembers, getWorkspace } from "@/lib/data";
+import { getCycle, getWorkspace } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function CycleRoute({
   params,
@@ -13,7 +14,7 @@ export default async function CycleRoute({
   const ws = await getWorkspace();
   const cycle = await getCycle(ws.id, id);
   if (!cycle) notFound();
-  const members = await getMembers(ws.id);
+  const ctx = await getTaskContext(ws.id);
 
   const burndown = computeBurndown({
     issues: cycle.issues.map((i) => ({
@@ -30,7 +31,7 @@ export default async function CycleRoute({
   return (
     <CycleDetail
       cycle={cycle}
-      members={members}
+      ctx={ctx}
       burndownPoints={burndown.points}
       totalPoints={burndown.totalPoints}
     />

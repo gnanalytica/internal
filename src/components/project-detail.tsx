@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import { RelativeTime } from "@/components/relative-time";
 import { Backlinks } from "@/components/backlinks";
 import { FavoriteButton } from "@/components/favorite-button";
-import { StatusIcon, UserAvatar } from "@/components/glyphs";
-import { IssueRow } from "@/components/issue-row";
+import { UserAvatar } from "@/components/glyphs";
+import { TaskPanel } from "@/components/task-panel";
 import { AssigneePicker } from "@/components/pickers";
 import { Topbar } from "@/components/topbar";
 import {
@@ -26,7 +26,6 @@ import {
   deleteStatusUpdate,
   updateProject,
 } from "@/lib/actions";
-import { STATUSES } from "@/lib/constants";
 import {
   PROJECT_HEALTH,
   type BacklinkItem,
@@ -34,6 +33,7 @@ import {
   type ProjectDetail as ProjectDetailType,
   type ProjectHealth,
   type StatusUpdateItem,
+  type TaskContext,
 } from "@/lib/types";
 
 export function ProjectDetail({
@@ -44,9 +44,11 @@ export function ProjectDetail({
   statusUpdates,
   backlinks,
   databases = [],
+  ctx,
 }: {
   project: ProjectDetailType;
   members: Member[];
+  ctx: TaskContext;
   isAdmin: boolean;
   favorited: boolean;
   statusUpdates: StatusUpdateItem[];
@@ -71,11 +73,6 @@ export function ProjectDetail({
   const latestHealth = statusUpdates[0]
     ? PROJECT_HEALTH.find((h) => h.id === statusUpdates[0].health)
     : null;
-
-  const grouped = STATUSES.map((s) => ({
-    status: s,
-    items: project.issues.filter((i) => i.status === s.id),
-  })).filter((g) => g.items.length > 0);
 
   return (
     <div className="flex h-full flex-col">
@@ -235,27 +232,29 @@ export function ProjectDetail({
               Manage tasks →
             </Link>
           </div>
-          {total === 0 ? (
+          {total === 0 && (
             <p className="mt-2 text-xs text-muted-foreground">
               No tasks yet. Open <strong>Tasks</strong> to add one, or set a task&apos;s{" "}
               <strong>Project</strong> to this operation.
             </p>
-          ) : (
-            <div className="mt-2 overflow-hidden rounded-xl border">
-              {grouped.map((g) => (
-                <div key={g.status.id}>
-                  <div className="flex items-center gap-2 bg-muted/60 px-4 py-1.5">
-                    <StatusIcon status={g.status.id} />
-                    <span className="text-xs font-semibold">{g.status.label}</span>
-                    <span className="text-xs text-muted-foreground">{g.items.length}</span>
-                  </div>
-                  {g.items.map((issue) => (
-                    <IssueRow key={issue.id} issue={issue} members={members} />
-                  ))}
-                </div>
-              ))}
-            </div>
           )}
+        </div>
+
+        {/* The task tool sits wider than the reading column — it needs room for
+            its toolbar and titles that a prose measure can't give it. */}
+        {total > 0 && (
+          <div className="mx-auto w-full max-w-6xl px-5 pb-2 md:px-8">
+            <TaskPanel
+              heading="Tasks"
+              issues={project.issues}
+              ctx={ctx}
+              projectId={project.id}
+              storageScope="operation"
+            />
+          </div>
+        )}
+
+        <div className="mx-auto w-full max-w-3xl px-5 pb-8 md:px-8 md:pb-10">
 
           {/* Databases (e.g. Tools & Subscriptions under IT) */}
           {databases.length > 0 && (

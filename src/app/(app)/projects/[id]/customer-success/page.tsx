@@ -12,6 +12,7 @@ import {
   getTickets,
   getWorkspace,
 } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function ProjectSupportPage({
   params,
@@ -24,6 +25,7 @@ export default async function ProjectSupportPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "customer-success")) notFound();
 
+  const ctx = await getTaskContext(ws.id);
   const [issues, tickets, accounts, contacts, members, projects] = await Promise.all([
     getIssues(ws.id),
     getTickets(ws.id, id),
@@ -35,6 +37,7 @@ export default async function ProjectSupportPage({
 
   return (
     <SupportView
+      ctx={ctx}
       heading={`${project.name} · Customer Success`}
       scopeProjectId={id}
       projects={projects}

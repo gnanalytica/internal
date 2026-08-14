@@ -1,19 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { MilestoneStatusPicker, TypeChip } from "@/components/pickers";
+import { MilestoneStatusPicker } from "@/components/pickers";
+import { TaskPanel } from "@/components/task-panel";
 import { Topbar } from "@/components/topbar";
 import { updateMilestone } from "@/lib/actions";
-import { STATUS_MAP, type StatusId } from "@/lib/constants";
-import { issueIdentifier, type MilestoneDetail } from "@/lib/types";
+import type { MilestoneDetail, TaskContext } from "@/lib/types";
 
 const toDateInput = (d: Date | string | null) =>
   d ? new Date(d).toISOString().slice(0, 10) : "";
 
-export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail }) {
+export function MilestoneDetailView({
+  milestone,
+  ctx,
+}: {
+  milestone: MilestoneDetail;
+  ctx: TaskContext;
+}) {
   const router = useRouter();
   const [, start] = useTransition();
   const [name, setName] = useState(milestone.name);
@@ -83,9 +88,13 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
             rows={2}
             className="mt-4 w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
           />
+        </div>
 
-          {/* The tasks that deliver this gate. */}
-          <h3 className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {/* The tasks that deliver this gate. Wider than the prose column above:
+            the task tool needs room for its toolbar and titles, and cramming it
+            into a reading measure made both unreadable. */}
+        <div className="mx-auto w-full max-w-6xl px-8 pb-10">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Tasks
           </h3>
           {milestone.directIssues.length === 0 ? (
@@ -93,33 +102,13 @@ export function MilestoneDetailView({ milestone }: { milestone: MilestoneDetail 
               Nothing delivers this gate yet.
             </p>
           ) : (
-            <>
-              <div className="overflow-hidden rounded-xl border">
-                {milestone.directIssues.map((it, i) => {
-                  const sm = STATUS_MAP[it.status as StatusId];
-                  return (
-                    <Link
-                      key={it.id}
-                      href={`/issues/${it.id}`}
-                      className={`press flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/40 ${i > 0 ? "border-t" : ""}`}
-                    >
-                      <span
-                        className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-                        style={{ backgroundColor: sm?.color ?? "#94a3b8" }}
-                      />
-                      <span className="w-16 shrink-0 font-mono text-xs text-muted-foreground">
-                        {issueIdentifier(it)}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{it.title}</span>
-                      {it.type !== "engineering" && <TypeChip type={it.type} />}
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {sm?.label ?? it.status}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </>
+            <TaskPanel
+              heading="Delivering this gate"
+              issues={milestone.directIssues}
+              ctx={ctx}
+              projectId={projectId}
+              storageScope={`milestone:${milestone.id}`}
+            />
           )}
         </div>
       </div>

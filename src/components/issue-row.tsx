@@ -19,7 +19,7 @@ import type { IssueWithRelations, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { CalendarClock, ListTree } from "lucide-react";
+import { Ban, CalendarClock, ListTree } from "lucide-react";
 
 export function IssueRow({
   issue,
@@ -104,6 +104,18 @@ export function IssueRow({
           <LabelChips labels={issue.labels} />
         </span>
       )}
+
+      {/* Blocked by unfinished work — the one thing that changes whether this
+          row can be picked up at all, so it sits ahead of the softer chips. */}
+      {issue.blockedBy ? (
+        <span
+          className="flex shrink-0 items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-500"
+          title="Blocked by unfinished work"
+        >
+          <Ban className="size-3" />
+          <span className="hidden sm:inline">Blocked</span>
+        </span>
+      ) : null}
 
       {/* Surface non-engineering tasks; keep default eng rows uncluttered. */}
       {issue.type && issue.type !== "engineering" && (

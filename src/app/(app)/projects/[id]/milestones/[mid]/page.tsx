@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { MilestoneDetailView } from "@/components/milestone-detail";
 import { getMilestone, getWorkspace } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function MilestoneDetailPage({
   params,
@@ -12,5 +13,6 @@ export default async function MilestoneDetailPage({
   const ws = await getWorkspace();
   const milestone = await getMilestone(ws.id, mid);
   if (!milestone) notFound();
-  return <MilestoneDetailView milestone={milestone} />;
+  const ctx = await getTaskContext(ws.id);
+  return <MilestoneDetailView milestone={milestone} ctx={ctx} />;
 }

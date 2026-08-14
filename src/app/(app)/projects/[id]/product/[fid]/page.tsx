@@ -8,6 +8,7 @@ import {
   getPagesFlat,
   getWorkspace,
 } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function FeatureDetailPage({
   params,
@@ -16,11 +17,12 @@ export default async function FeatureDetailPage({
 }) {
   const { id, fid } = await params;
   const ws = await getWorkspace();
-  const [feature, members, pages, milestones] = await Promise.all([
+  const [feature, members, pages, milestones, ctx] = await Promise.all([
     getFeature(ws.id, fid),
     getMembers(ws.id),
     getPagesFlat(ws.id),
     getMilestones(ws.id, id),
+    getTaskContext(ws.id),
   ]);
   if (!feature) notFound();
   return (
@@ -29,6 +31,7 @@ export default async function FeatureDetailPage({
       members={members}
       pages={pages}
       milestones={milestones}
+      ctx={ctx}
     />
   );
 }

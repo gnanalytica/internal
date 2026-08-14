@@ -2,16 +2,8 @@ import { notFound } from "next/navigation";
 
 import { EngineeringView } from "@/components/engineering-view";
 import { isDepartmentEnabled, issueBelongsToDepartment } from "@/lib/departments";
-import {
-  getCycles,
-  getIssues,
-  getLabels,
-  getMembers,
-  getProject,
-  getProjects,
-  getSavedViews,
-  getWorkspace,
-} from "@/lib/data";
+import { getCycles, getIssues, getProject, getWorkspace } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function ProjectEngineeringPage({
   params,
@@ -24,12 +16,9 @@ export default async function ProjectEngineeringPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "engineering")) notFound();
 
-  const [allIssues, projects, members, labels, savedViews, cycles] = await Promise.all([
+  const [allIssues, ctx, cycles] = await Promise.all([
     getIssues(ws.id),
-    getProjects(ws.id),
-    getMembers(ws.id),
-    getLabels(ws.id),
-    getSavedViews(ws.id),
+    getTaskContext(ws.id),
     getCycles(ws.id, id),
   ]);
 
@@ -43,10 +32,7 @@ export default async function ProjectEngineeringPage({
       issues={allIssues.filter(
         (i) => i.projectId === id && issueBelongsToDepartment(i.labels, "engineering"),
       )}
-      projects={projects}
-      members={members}
-      labels={labels}
-      savedViews={savedViews}
+      ctx={ctx}
       cycles={cycles}
     />
   );

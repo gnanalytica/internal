@@ -15,6 +15,7 @@ import {
   List as ListIcon,
   ListFilter,
   Plus,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -62,10 +63,13 @@ import {
   type SortId,
 } from "@/lib/issue-filters";
 import { nestGroup, subIssueProgress } from "@/lib/issue-tree";
+import { issueIdentifier } from "@/lib/types";
 import type {
+  Cycle,
   IssueWithRelations,
   Label,
   Member,
+  Milestone,
   Project,
   SavedView,
   SavedViewConfig,
@@ -73,6 +77,13 @@ import type {
 import { cn } from "@/lib/utils";
 
 type View = "list" | "board" | "timeline";
+
+/** Distinct non-null refs in first-seen order, for menus built from the tasks. */
+function dedupeBy(refs: ({ id: string; name: string } | null)[]) {
+  const seen = new Map<string, { id: string; name: string }>();
+  for (const r of refs) if (r && !seen.has(r.id)) seen.set(r.id, { id: r.id, name: r.name });
+  return [...seen.values()];
+}
 
 export function IssuesView({
   initialIssues,
@@ -82,6 +93,10 @@ export function IssuesView({
   heading = "All tasks",
   defaultProjectId = null,
   savedViews = [],
+  cycles = [],
+  milestones = [],
+  blockedIds = [],
+  defaultGroupBy = "status",
   embedded = false,
   storageScope,
 }: {
@@ -92,6 +107,26 @@ export function IssuesView({
   heading?: string;
   defaultProjectId?: string | null;
   savedViews?: SavedView[];
+  /**
+   * Cycles and milestones for the filter menus and group ordering. Optional:
+   * when omitted, both are derived from the tasks in view, which loses only the
+   * chronological ordering and the ability to pick an empty cycle/gate.
+   */
+  cycles?: Cycle[];
+  milestones?: Milestone[];
+  /**
+   * Ids of tasks something unfinished is blocking (see `getBlockedIssueIds`).
+   * Optional: without it nothing reads as blocked and the filter stays hidden,
+   * rather than every task quietly claiming to be unblocked in a UI that
+   * offers to filter on it.
+   */
+  blockedIds?: string[];
+  /**
+   * Opening grouping for surfaces where one dimension is the point — the
+   * roadmap groups by milestone. A stored preference still wins: this is the
+   * starting point, not a lock.
+   */
+  defaultGroupBy?: GroupBy;
   /** Hide the page Topbar when rendered inside another tabbed surface. */
   embedded?: boolean;
   /**
@@ -113,8 +148,14 @@ export function IssuesView({
   const [fType, setFType] = useState<Set<string>>(new Set());
   const [fAssignee, setFAssignee] = useState<Set<string>>(new Set());
   const [fLabel, setFLabel] = useState<Set<string>>(new Set());
+  const [fCycle, setFCycle] = useState<Set<string>>(new Set());
+  const [fMilestone, setFMilestone] = useState<Set<string>>(new Set());
+  const [fBlocked, setFBlocked] = useState<Set<string>>(new Set());
+  // Deliberately not persisted or saved into a view: search is how you find one
+  // task now, not how you define a view you come back to.
+  const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortId>("manual");
-  const [groupBy, setGroupBy] = useState<GroupBy>("status");
+  const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroupBy);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleCollapse = (id: string) =>
@@ -150,6 +191,9 @@ export function IssuesView({
       type: [...fType],
       assignee: [...fAssignee],
       label: [...fLabel],
+      cycle: [...fCycle],
+      milestone: [...fMilestone],
+      blocked: [...fBlocked],
       sort,
       groupBy,
       view,
@@ -162,6 +206,9 @@ export function IssuesView({
     setFType(new Set(config.type ?? []));
     setFAssignee(new Set(config.assignee ?? []));
     setFLabel(new Set(config.label ?? []));
+    setFCycle(new Set(config.cycle ?? []));
+    setFMilestone(new Set(config.milestone ?? []));
+    setFBlocked(new Set(config.blocked ?? []));
     if (config.sort) setSort(config.sort as SortId);
     if (config.groupBy) setGroupBy(config.groupBy as GroupBy);
     if (config.view === "list" || config.view === "board" || config.view === "timeline")
@@ -213,6 +260,9 @@ export function IssuesView({
           if (Array.isArray(s.type)) setFType(new Set(s.type));
           if (Array.isArray(s.assignee)) setFAssignee(new Set(s.assignee));
           if (Array.isArray(s.label)) setFLabel(new Set(s.label));
+          if (Array.isArray(s.cycle)) setFCycle(new Set(s.cycle));
+          if (Array.isArray(s.milestone)) setFMilestone(new Set(s.milestone));
+          if (Array.isArray(s.blocked)) setFBlocked(new Set(s.blocked));
           if (typeof s.sort === "string") setSort(s.sort as SortId);
           if (typeof s.groupBy === "string") setGroupBy(s.groupBy as GroupBy);
           if (s.view === "list" || s.view === "board" || s.view === "timeline")
@@ -240,6 +290,9 @@ export function IssuesView({
           type: [...fType],
           assignee: [...fAssignee],
           label: [...fLabel],
+          cycle: [...fCycle],
+          milestone: [...fMilestone],
+          blocked: [...fBlocked],
           sort,
           groupBy,
           view,
@@ -248,7 +301,20 @@ export function IssuesView({
     } catch {
       // Storage may be unavailable (private mode); ignore.
     }
-  }, [storageKey, fStatus, fPriority, fType, fAssignee, fLabel, sort, groupBy, view]);
+  }, [
+    storageKey,
+    fStatus,
+    fPriority,
+    fType,
+    fAssignee,
+    fLabel,
+    fCycle,
+    fMilestone,
+    fBlocked,
+    sort,
+    groupBy,
+    view,
+  ]);
 
   function persist(changed: { id: string; status: StatusId; sortKey: string }[]) {
     startTransition(async () => {
@@ -268,23 +334,73 @@ export function IssuesView({
   }
 
   const activeFilterCount =
-    fStatus.size + fPriority.size + fType.size + fAssignee.size + fLabel.size;
+    fStatus.size +
+    fPriority.size +
+    fType.size +
+    fAssignee.size +
+    fLabel.size +
+    fCycle.size +
+    fMilestone.size +
+    fBlocked.size;
 
-  const visible = useMemo(
-    () =>
-      filterIssues(issues, {
-        status: fStatus,
-        priority: fPriority,
-        type: fType,
-        assignee: fAssignee,
-        label: fLabel,
-      }),
-    [issues, fStatus, fPriority, fType, fAssignee, fLabel],
+  // Cycles and milestones are project-scoped, so a project surface offers only
+  // its own; the cross-project board offers all of them. Falling back to what
+  // the tasks in view carry keeps the menus working on surfaces that don't
+  // load the lists.
+  const cycleOptions = useMemo(() => {
+    const scoped = defaultProjectId
+      ? cycles.filter((c) => c.projectId === defaultProjectId)
+      : cycles;
+    if (scoped.length > 0) return scoped.map((c) => ({ id: c.id, name: c.name }));
+    return dedupeBy(issues.map((i) => i.cycle));
+  }, [cycles, defaultProjectId, issues]);
+
+  const milestoneOptions = useMemo(() => {
+    const scoped = defaultProjectId
+      ? milestones.filter((m) => m.projectId === defaultProjectId)
+      : milestones;
+    if (scoped.length > 0) return scoped.map((m) => ({ id: m.id, name: m.name }));
+    return dedupeBy(issues.map((i) => i.milestone));
+  }, [milestones, defaultProjectId, issues]);
+
+  // Stamp the blocked count once so the filter, the row badge and the board
+  // card all read one field rather than each closing over the id set.
+  const blocked = useMemo(() => new Set(blockedIds), [blockedIds]);
+  const stamped = useMemo(
+    () => (blocked.size === 0 ? issues : issues.map((i) => (blocked.has(i.id) ? { ...i, blockedBy: 1 } : i))),
+    [issues, blocked],
   );
+
+  const visible = useMemo(() => {
+    const matched = filterIssues(stamped, {
+      status: fStatus,
+      priority: fPriority,
+      type: fType,
+      assignee: fAssignee,
+      label: fLabel,
+      cycle: fCycle,
+      milestone: fMilestone,
+      blocked: fBlocked,
+    });
+    const needle = query.trim().toLowerCase();
+    if (!needle) return matched;
+    return matched.filter(
+      (i) =>
+        i.title.toLowerCase().includes(needle) ||
+        issueIdentifier(i).toLowerCase().includes(needle) ||
+        i.assignee?.name.toLowerCase().includes(needle) ||
+        i.milestone?.name.toLowerCase().includes(needle),
+    );
+  }, [stamped, fStatus, fPriority, fType, fAssignee, fLabel, fCycle, fMilestone, fBlocked, query]);
 
   const compare = useMemo(() => issueComparator(sort), [sort]);
 
-  const grouped = groupIssues(visible, groupBy, { members, projects }).map((g) => ({
+  const grouped = groupIssues(visible, groupBy, {
+    members,
+    projects,
+    cycles: cycleOptions,
+    milestones: milestoneOptions,
+  }).map((g) => ({
     ...g,
     items: g.items.slice().sort(compare),
   }));
@@ -295,6 +411,10 @@ export function IssuesView({
     setFType(new Set());
     setFAssignee(new Set());
     setFLabel(new Set());
+    setFCycle(new Set());
+    setFMilestone(new Set());
+    setFBlocked(new Set());
+    setQuery("");
   }
 
   return (
@@ -322,6 +442,17 @@ export function IssuesView({
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-1.5">
         <span className="text-sm font-medium">{heading}</span>
         <span className="text-xs text-muted-foreground">{visible.length}</span>
+
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search tasks"
+            aria-label="Search tasks"
+            className="h-7 w-44 rounded-md border bg-background pl-7 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring/40"
+          />
+        </div>
 
         <FilterMenu
           label="Status"
@@ -358,7 +489,40 @@ export function IssuesView({
             onChange={setFLabel}
           />
         )}
-        {activeFilterCount > 0 && (
+        {cycleOptions.length > 0 && (
+          <FilterMenu
+            label="Cycle"
+            options={[
+              { value: "none", label: "No cycle" },
+              ...cycleOptions.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+            selected={fCycle}
+            onChange={setFCycle}
+          />
+        )}
+        {milestoneOptions.length > 0 && (
+          <FilterMenu
+            label="Milestone"
+            options={[
+              { value: "none", label: "No milestone" },
+              ...milestoneOptions.map((m) => ({ value: m.id, label: m.name })),
+            ]}
+            selected={fMilestone}
+            onChange={setFMilestone}
+          />
+        )}
+        {blocked.size > 0 && (
+          <FilterMenu
+            label="Blocked"
+            options={[
+              { value: "blocked", label: "Blocked" },
+              { value: "unblocked", label: "Not blocked" },
+            ]}
+            selected={fBlocked}
+            onChange={setFBlocked}
+          />
+        )}
+        {(activeFilterCount > 0 || query) && (
           <button
             onClick={clearFilters}
             className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:text-foreground"

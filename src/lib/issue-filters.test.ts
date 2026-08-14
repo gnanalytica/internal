@@ -45,6 +45,11 @@ function withFilters(p: Partial<IssueFilters>): IssueFilters {
   return { ...emptyFilters(), ...p };
 }
 
+/** Only the id and name are read when grouping, so the rest of the cycle is noise. */
+function cycleRef(id: string, name: string): IssueWithRelations["cycle"] {
+  return { id, name } as IssueWithRelations["cycle"];
+}
+
 describe("matchesFilters", () => {
   it("passes everything when no filters are active", () => {
     const issue = makeIssue({ status: "todo", priority: "high" });
@@ -172,5 +177,88 @@ describe("groupIssues", () => {
     const g = groupIssues([makeIssue({ id: "a" })], "none", { members, projects });
     expect(g).toHaveLength(1);
     expect(g[0].key).toBe("all");
+  });
+
+  it("orders cycle groups by the passed list, not by first appearance", () => {
+    const issues = [
+      makeIssue({ id: "a", cycleId: "c2", cycle: cycleRef("c2", "Cycle 2") }),
+      makeIssue({ id: "b", cycleId: "c1", cycle: cycleRef("c1", "Cycle 1") }),
+      makeIssue({ id: "c", cycleId: null }),
+    ] as IssueWithRelations[];
+    const g = groupIssues(issues, "cycle", {
+      members,
+      projects,
+      cycles: [
+        { id: "c1", name: "Cycle 1" },
+        { id: "c2", name: "Cycle 2" },
+      ],
+    });
+    expect(g.map((x) => x.label)).toEqual(["Cycle 1", "Cycle 2", "No cycle"]);
+  });
+
+  it("derives milestone groups from the tasks when no list is passed", () => {
+    const issues = [
+      makeIssue({ id: "a", milestoneId: "m1", milestone: { id: "m1", name: "v1.0" } }),
+      makeIssue({ id: "b", milestoneId: "m1", milestone: { id: "m1", name: "v1.0" } }),
+      makeIssue({ id: "c", milestoneId: null }),
+    ] as IssueWithRelations[];
+    const g = groupIssues(issues, "milestone", { members, projects });
+    expect(g.map((x) => x.label)).toEqual(["v1.0", "No milestone"]);
+    expect(g[0].items).toHaveLength(2);
+  });
+});
+
+describe("cycle and milestone filters", () => {
+  it("matches a cycle, with 'none' for tasks in no cycle", () => {
+    const inCycle = makeIssue({ cycleId: "c1" });
+    const loose = makeIssue({ cycleId: null });
+    expect(matchesFilters(inCycle, withFilters({ cycle: new Set(["c1"]) }))).toBe(true);
+    expect(matchesFilters(loose, withFilters({ cycle: new Set(["c1"]) }))).toBe(false);
+    expect(matchesFilters(loose, withFilters({ cycle: new Set(["none"]) }))).toBe(true);
+  });
+
+  it("matches a milestone, with 'none' for tasks clearing no gate", () => {
+    const gated = makeIssue({ milestoneId: "m1" });
+    const loose = makeIssue({ milestoneId: null });
+    expect(matchesFilters(gated, withFilters({ milestone: new Set(["m1"]) }))).toBe(true);
+    expect(matchesFilters(loose, withFilters({ milestone: new Set(["m1"]) }))).toBe(false);
+    expect(matchesFilters(loose, withFilters({ milestone: new Set(["none"]) }))).toBe(true);
+  });
+
+  it("splits blocked from unblocked on the stamped blockedBy count", () => {
+    const blocked = makeIssue({ blockedBy: 2 });
+    const free = makeIssue({ blockedBy: 0 });
+    expect(matchesFilters(blocked, withFilters({ blocked: new Set(["blocked"]) }))).toBe(true);
+    expect(matchesFilters(free, withFilters({ blocked: new Set(["blocked"]) }))).toBe(false);
+    expect(matchesFilters(free, withFilters({ blocked: new Set(["unblocked"]) }))).toBe(true);
+  });
+
+  it("treats an unstamped issue as unblocked rather than dropping it", () => {
+    // Surfaces that never loaded the blocked set leave blockedBy undefined; the
+    // task should still show up, just never under the "Blocked" filter.
+    const unknown = makeIssue({});
+    expect(matchesFilters(unknown, withFilters({ blocked: new Set(["unblocked"]) }))).toBe(true);
+    expect(matchesFilters(unknown, withFilters({ blocked: new Set(["blocked"]) }))).toBe(false);
+    expect(matchesFilters(unknown, emptyFilters())).toBe(true);
+  });
+
+  it("counts the new dimensions as active filters", () => {
+    expect(
+      activeFilterCount(
+        withFilters({ cycle: new Set(["c1"]), milestone: new Set(["m1", "m2"]) }),
+      ),
+    ).toBe(3);
+  });
+});
+
+describe("due-date sort", () => {
+  it("orders soonest first and pushes undated tasks last", () => {
+    const issues = [
+      makeIssue({ id: "none", dueDate: null }),
+      makeIssue({ id: "late", dueDate: new Date("2026-03-01") }),
+      makeIssue({ id: "soon", dueDate: new Date("2026-01-01") }),
+    ] as IssueWithRelations[];
+    const sorted = issues.slice().sort(issueComparator("due"));
+    expect(sorted.map((i) => i.id)).toEqual(["soon", "late", "none"]);
   });
 });

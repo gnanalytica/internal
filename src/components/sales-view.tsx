@@ -39,6 +39,7 @@ import type {
   DealWithRelations,
   Member,
   Project,
+  TaskContext,
 } from "@/lib/types";
 
 const fieldCls =
@@ -47,6 +48,7 @@ const fieldCls =
 export function SalesView({
   heading,
   scopeProjectId,
+  ctx,
   projects,
   members,
   initialDeals,
@@ -62,6 +64,7 @@ export function SalesView({
   initialAccounts: CrmAccount[];
   initialContacts: ContactWithAccount[];
   issues: IssueWithRelations[];
+  ctx: TaskContext;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -158,8 +161,14 @@ export function SalesView({
           <TabsTrigger value="contacts">Contacts{count(initialContacts.length)}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-auto p-4">
-          <DepartmentTasks issues={issues} department="sales" emptyLabel="No sales tasks yet." />
+        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
+          <DepartmentTasks
+            issues={issues}
+            department="sales"
+            ctx={ctx}
+            projectId={scopeProjectId}
+            emptyLabel="No sales tasks yet."
+          />
         </TabsContent>
 
         <TabsContent value="pipeline" className="flex min-h-0 flex-1 flex-col">

@@ -4,14 +4,7 @@ import { CyclesView } from "@/components/cycles-view";
 import { IssuesView } from "@/components/issues-view";
 import { Topbar } from "@/components/topbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type {
-  CycleWithCount,
-  IssueWithRelations,
-  Label,
-  Member,
-  Project,
-  SavedView,
-} from "@/lib/types";
+import type { CycleWithCount, IssueWithRelations, TaskContext } from "@/lib/types";
 
 /**
  * A project's Engineering surface: Tasks (the board) + Cycles (this project's
@@ -22,19 +15,13 @@ export function EngineeringView({
   heading,
   projectId,
   issues,
-  projects,
-  members,
-  labels,
-  savedViews,
+  ctx,
   cycles,
 }: {
   heading: string;
   projectId: string;
   issues: IssueWithRelations[];
-  projects: Project[];
-  members: Member[];
-  labels: Label[];
-  savedViews: SavedView[];
+  ctx: TaskContext;
   cycles: CycleWithCount[];
 }) {
   return (
@@ -50,12 +37,15 @@ export function EngineeringView({
         <TabsContent value="issues" className="min-h-0 flex-1 overflow-hidden">
           <IssuesView
             initialIssues={issues}
-            projects={projects}
-            members={members}
-            labels={labels}
+            projects={ctx.projects}
+            members={ctx.members}
+            labels={ctx.labels}
             heading={heading}
             defaultProjectId={projectId}
-            savedViews={savedViews}
+            savedViews={ctx.savedViews}
+            cycles={ctx.cycles}
+            milestones={ctx.milestones}
+            blockedIds={ctx.blockedIds}
             embedded
           />
         </TabsContent>

@@ -1,12 +1,6 @@
 import { IssuesView } from "@/components/issues-view";
-import {
-  getIssues,
-  getLabels,
-  getMembers,
-  getProjects,
-  getSavedViews,
-  getWorkspace,
-} from "@/lib/data";
+import { getIssues, getWorkspace } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function IssuesPage({
   searchParams,
@@ -15,13 +9,8 @@ export default async function IssuesPage({
 }) {
   const { project: projectId } = await searchParams;
   const ws = await getWorkspace();
-  const [allIssues, projects, members, labels, savedViews] = await Promise.all([
-    getIssues(ws.id),
-    getProjects(ws.id),
-    getMembers(ws.id),
-    getLabels(ws.id),
-    getSavedViews(ws.id),
-  ]);
+  const [allIssues, ctx] = await Promise.all([getIssues(ws.id), getTaskContext(ws.id)]);
+  const { projects } = ctx;
 
   const activeProject = projectId
     ? projects.find((p) => p.id === projectId) ?? null
@@ -34,11 +23,14 @@ export default async function IssuesPage({
     <IssuesView
       initialIssues={issues}
       projects={projects}
-      members={members}
-      labels={labels}
+      members={ctx.members}
+      labels={ctx.labels}
       heading={activeProject ? activeProject.name : "All tasks"}
       defaultProjectId={activeProject?.id ?? null}
-      savedViews={savedViews}
+      savedViews={ctx.savedViews}
+      cycles={ctx.cycles}
+      milestones={ctx.milestones}
+      blockedIds={ctx.blockedIds}
     />
   );
 }

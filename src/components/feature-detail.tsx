@@ -5,12 +5,12 @@ import { useState } from "react";
 import type { JSONContent } from "@tiptap/react";
 
 import { RichEditor } from "@/components/editor/rich-editor";
-import { IssueRow } from "@/components/issue-row";
+import { TaskPanel } from "@/components/task-panel";
 import { Topbar } from "@/components/topbar";
 import { FEATURE_STATUSES } from "@/lib/departments";
 import { featureProgress } from "@/lib/feature-progress";
 import { updateFeature } from "@/lib/actions";
-import type { FeatureDetail, Member, MilestoneWithProgress } from "@/lib/types";
+import type { FeatureDetail, Member, MilestoneWithProgress, TaskContext } from "@/lib/types";
 
 const toDateInput = (d: Date | string | null) =>
   d ? new Date(d).toISOString().slice(0, 10) : "";
@@ -20,11 +20,13 @@ export function FeatureDetailView({
   members,
   pages,
   milestones = [],
+  ctx,
 }: {
   feature: FeatureDetail;
   members: Member[];
   pages: { id: string; title: string; icon: string }[];
   milestones?: MilestoneWithProgress[];
+  ctx: TaskContext;
 }) {
   const [title, setTitle] = useState(feature.title);
   const [status, setStatus] = useState(feature.status);
@@ -157,28 +159,34 @@ export function FeatureDetailView({
             />
           </div>
 
-          {/* Linked issues */}
-          <div className="mt-8">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Issues
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                {progress.done}/{progress.total} · {progress.pct}%
-              </span>
-            </div>
-            {feature.issues.length === 0 ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                No tasks linked yet. Set a task&apos;s <strong>Feature</strong> to add it here.
-              </p>
-            ) : (
-              <div className="mt-2 divide-y rounded-lg border">
-                {feature.issues.map((issue) => (
-                  <IssueRow key={issue.id} issue={issue} members={members} />
-                ))}
-              </div>
-            )}
+        </div>
+
+        {/* Linked issues. Wider than the spec column above: the task tool needs
+            room for its toolbar and titles, which a reading measure denies it. */}
+        <div className="mx-auto w-full max-w-6xl px-8 pb-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Issues
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              {progress.done}/{progress.total} · {progress.pct}%
+            </span>
           </div>
+          {feature.issues.length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              No tasks linked yet. Set a task&apos;s <strong>Feature</strong> to add it here.
+            </p>
+          ) : (
+            <div className="mt-2">
+              <TaskPanel
+                heading="Delivering this feature"
+                issues={feature.issues}
+                ctx={ctx}
+                projectId={feature.projectId}
+                storageScope={`feature:${feature.id}`}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

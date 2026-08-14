@@ -10,6 +10,7 @@ import {
   getProjects,
   getWorkspace,
 } from "@/lib/data";
+import { getTaskContext } from "@/lib/task-context";
 
 export default async function ProjectMarketingPage({
   params,
@@ -22,6 +23,7 @@ export default async function ProjectMarketingPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "marketing")) notFound();
 
+  const ctx = await getTaskContext(ws.id);
   const [issues, campaigns, content, projects] = await Promise.all([
     getIssues(ws.id),
     getCampaigns(ws.id, id),
@@ -31,6 +33,7 @@ export default async function ProjectMarketingPage({
 
   return (
     <MarketingView
+      ctx={ctx}
       heading={`${project.name} · Marketing`}
       scopeProjectId={id}
       productKey={project.key}

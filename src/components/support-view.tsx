@@ -21,11 +21,13 @@ import type {
   Member,
   Project,
   TicketWithRelations,
+  TaskContext,
 } from "@/lib/types";
 
 export function SupportView({
   heading,
   scopeProjectId,
+  ctx,
   projects,
   members,
   accounts,
@@ -41,6 +43,7 @@ export function SupportView({
   contacts: ContactWithAccount[];
   initialTickets: TicketWithRelations[];
   issues: IssueWithRelations[];
+  ctx: TaskContext;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -84,10 +87,12 @@ export function SupportView({
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
           <DepartmentTasks
             issues={issues}
             department="customer-success"
+            ctx={ctx}
+            projectId={scopeProjectId}
             emptyLabel="No onboarding or support tasks yet."
           />
         </TabsContent>

@@ -235,6 +235,13 @@ export type IssueWithRelations = Issue & {
   // Direct milestone link (Milestone → Task without a feature). For display,
   // prefer the feature's milestone when the task belongs to a feature.
   milestone: { id: string; name: string } | null;
+  /**
+   * How many unfinished tasks are blocking this one. Not loaded by the issue
+   * queries — `IssuesView` stamps it from the workspace's blocked-id set (see
+   * `getBlockedIssueIds`), so it is absent wherever that set wasn't loaded and
+   * absent reads as "not known to be blocked".
+   */
+  blockedBy?: number;
 };
 
 export type IssueDetail = IssueWithRelations & {
@@ -473,12 +480,37 @@ export type SavedViewConfig = {
   type: string[];
   assignee: string[];
   label: string[];
+  /** Added after the first saved views shipped — absent on older rows. */
+  cycle?: string[];
+  milestone?: string[];
+  blocked?: string[];
   sort: string;
   groupBy: string;
   view: string;
 };
 
 export type SavedView = { id: string; name: string; config: SavedViewConfig };
+
+/**
+ * Everything `IssuesView` needs besides the issues themselves.
+ *
+ * Tasks show up on a dozen surfaces — the global board, a project's Tasks tab,
+ * every department, a cycle, a milestone — and each needs the same lookups to
+ * render the full tool rather than a read-only list. Loaded in one call by
+ * `getTaskContext` (src/lib/task-context.ts).
+ */
+export type TaskContext = {
+  projects: Project[];
+  members: Member[];
+  labels: Label[];
+  savedViews: SavedView[];
+  /** Ordered newest-first; scopes the cycle filter and orders cycle groups. */
+  cycles: Cycle[];
+  /** Ordered by gate date; orders milestone groups the way the roadmap reads. */
+  milestones: Milestone[];
+  /** Ids of tasks something unfinished is blocking. See `getBlockedIssueIds`. */
+  blockedIds: string[];
+};
 
 export type AskSource = { kind: "issue" | "page"; title: string; href: string };
 export type AskResult = { answer: string; sources: AskSource[] };

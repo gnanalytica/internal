@@ -7,8 +7,7 @@ import { MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AreaChart } from "@/components/charts";
-import { StatusIcon } from "@/components/glyphs";
-import { IssueRow } from "@/components/issue-row";
+import { IssuesView } from "@/components/issues-view";
 import { Topbar } from "@/components/topbar";
 import {
   DropdownMenu,
@@ -18,18 +17,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { deleteCycle, updateCycle } from "@/lib/actions";
-import { STATUSES } from "@/lib/constants";
-import type { Cycle, IssueWithRelations, Member } from "@/lib/types";
+import type { Cycle, IssueWithRelations, TaskContext } from "@/lib/types";
 import { cycleStatus } from "@/lib/types";
 
 export function CycleDetail({
   cycle,
-  members,
+  ctx,
   burndownPoints,
   totalPoints,
 }: {
   cycle: Cycle & { issues: IssueWithRelations[] };
-  members: Member[];
+  ctx: TaskContext;
   burndownPoints: { date: string; remaining: number; ideal: number }[];
   totalPoints: number;
 }) {
@@ -48,11 +46,6 @@ export function CycleDetail({
   const done = cycle.issues.filter((i) => i.status === "done").length;
   const pct = cycle.issues.length ? Math.round((done / cycle.issues.length) * 100) : 0;
 
-  const grouped = STATUSES.map((s) => ({
-    status: s,
-    items: cycle.issues.filter((i) => i.status === s.id),
-  })).filter((g) => g.items.length > 0);
-
   function onDelete() {
     startTransition(async () => {
       await deleteCycle(cycle.id);
@@ -61,6 +54,8 @@ export function CycleDetail({
       router.refresh();
     });
   }
+
+
 
   return (
     <div className="flex h-full flex-col">
@@ -135,6 +130,7 @@ export function CycleDetail({
           </span>
         </div>
 
+
         {/* Burndown */}
         <div className="mt-4 max-w-md">
           <div className="mb-1 flex items-center justify-between">
@@ -166,8 +162,8 @@ export function CycleDetail({
         </div>
       </div>
 
-      {/* Issues */}
-      <div className="scrollbar-thin flex-1 overflow-y-auto">
+      {/* Issues — the full task tool, so a cycle can be planned in place. */}
+      <div className="min-h-0 flex-1">
         {cycle.issues.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-20 text-center">
             <p className="text-sm font-medium">No tasks in this cycle</p>
@@ -176,18 +172,20 @@ export function CycleDetail({
             </p>
           </div>
         ) : (
-          grouped.map((g) => (
-            <div key={g.status.id}>
-              <div className="sticky top-0 z-10 flex items-center gap-2 bg-muted/60 px-6 py-1.5 backdrop-blur">
-                <StatusIcon status={g.status.id} />
-                <span className="text-xs font-semibold">{g.status.label}</span>
-                <span className="text-xs text-muted-foreground">{g.items.length}</span>
-              </div>
-              {g.items.map((issue) => (
-                <IssueRow key={issue.id} issue={issue} members={members} />
-              ))}
-            </div>
-          ))
+          <IssuesView
+            embedded
+            heading="Cycle tasks"
+            initialIssues={cycle.issues}
+            defaultProjectId={cycle.projectId}
+            storageScope={`cycle:${cycle.id}`}
+            projects={ctx.projects}
+            members={ctx.members}
+            labels={ctx.labels}
+            savedViews={ctx.savedViews}
+            cycles={ctx.cycles}
+            milestones={ctx.milestones}
+            blockedIds={ctx.blockedIds}
+          />
         )}
       </div>
     </div>
