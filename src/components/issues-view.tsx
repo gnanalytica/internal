@@ -83,6 +83,7 @@ export function IssuesView({
   defaultProjectId = null,
   savedViews = [],
   embedded = false,
+  storageScope,
 }: {
   initialIssues: IssueWithRelations[];
   projects: Project[];
@@ -93,6 +94,12 @@ export function IssuesView({
   savedViews?: SavedView[];
   /** Hide the page Topbar when rendered inside another tabbed surface. */
   embedded?: boolean;
+  /**
+   * Distinguishes the persisted filter/sort/view state when the same project is
+   * shown on more than one surface. Without it, changing the view on the
+   * project overview would silently change the Tasks tab too.
+   */
+  storageScope?: string;
 }) {
   const router = useRouter();
   const [issues, setIssues] = useState(initialIssues);
@@ -178,7 +185,7 @@ export function IssuesView({
   }
 
   // Persist filter/sort/view per project scope so it survives reloads.
-  const storageKey = `issues-view:${defaultProjectId ?? "all"}`;
+  const storageKey = `issues-view:${defaultProjectId ?? "all"}${storageScope ? `:${storageScope}` : ""}`;
   const loaded = useRef(false);
   const skipSave = useRef(true);
 

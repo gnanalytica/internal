@@ -17,9 +17,6 @@ import { cn } from "@/lib/utils";
  * filtered to the tracks that department owns. Each row shows the gate it
  * clears, so the milestones can stay project-level and shared rather than
  * being duplicated per department.
- *
- * Omit `department` to list every task in the set, which is how the project
- * overview shows the whole schedule rather than one department's slice.
  */
 export function DepartmentTasks({
   issues,
@@ -27,7 +24,7 @@ export function DepartmentTasks({
   emptyLabel,
 }: {
   issues: IssueWithRelations[];
-  department?: DepartmentSlug;
+  department: DepartmentSlug;
   emptyLabel?: string;
 }) {
   const [q, setQ] = useState("");
@@ -38,11 +35,7 @@ export function DepartmentTasks({
   // own breakdown. The parent's detail page is where the breakdown belongs.
   const mine = useMemo(
     () =>
-      issues.filter(
-        (i) =>
-          !i.parentId &&
-          (department === undefined || issueBelongsToDepartment(i.labels, department)),
-      ),
+      issues.filter((i) => !i.parentId && issueBelongsToDepartment(i.labels, department)),
     [issues, department],
   );
 

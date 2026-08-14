@@ -23,6 +23,7 @@ import {
   getExpenses,
   getInvoices,
   getIssues,
+  getLabels,
   getMembers,
   getMembersWithRole,
   getMyRole,
@@ -30,6 +31,7 @@ import {
   getProject,
   getProjects,
   getProjectSummaries,
+  getSavedViews,
   getStatusUpdates,
   getWorkspace,
   isFavorite,
@@ -119,11 +121,15 @@ export default async function ProjectRoute({
   }
 
   // Projects: the department overview hub.
-  const [summaries, members, allIssues] = await Promise.all([
-    getProjectSummaries(ws.id),
-    getMembers(ws.id),
-    getIssues(ws.id),
-  ]);
+  const [summaries, members, allIssues, allProjects, allLabels, savedViews] =
+    await Promise.all([
+      getProjectSummaries(ws.id),
+      getMembers(ws.id),
+      getIssues(ws.id),
+      getProjects(ws.id),
+      getLabels(ws.id),
+      getSavedViews(ws.id),
+    ]);
   const summary = summaries.find((p) => p.id === id);
   if (!summary) notFound();
   const owner = members.find((m) => m.id === summary.ownerId) ?? null;
@@ -236,7 +242,14 @@ export default async function ProjectRoute({
           </Link>
         ))}
       </div>
-      <ProjectSchedule issues={scheduleIssues} members={members} />
+      <ProjectSchedule
+        projectId={id}
+        issues={scheduleIssues}
+        projects={allProjects}
+        members={members}
+        labels={allLabels}
+        savedViews={savedViews}
+      />
     </div>
   );
 }
