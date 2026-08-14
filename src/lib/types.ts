@@ -526,6 +526,7 @@ export type NotificationItem = {
   body: string | null;
   read: Date | null;
   issueId: string | null;
+  pageId: string | null;
   createdAt: Date;
   actor: Member | null;
 };

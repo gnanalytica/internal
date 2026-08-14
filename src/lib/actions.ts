@@ -61,7 +61,14 @@ import {
   getWorkspace,
   pickColor,
 } from "@/lib/data";
-import { isIssueType, isMilestoneStatus, isPriority, isStatus } from "@/lib/constants";
+import {
+  isIssueType,
+  isMilestoneStatus,
+  isPriority,
+  isStatus,
+  STATUS_MAP,
+  type StatusId,
+} from "@/lib/constants";
 import {
   ceremonyTasksFor,
   isCadenceEmpty,
@@ -71,6 +78,15 @@ import {
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
+import {
+  audienceFor,
+  notify,
+  subscribe,
+  subscribeMany,
+  subscriberIds,
+  unsubscribe,
+  SUBSCRIBABLE,
+} from "@/lib/notify";
 import {
   issueAttachmentsTag,
   wsTags,
@@ -475,6 +491,12 @@ export async function createIssue(input: {
     })
     .returning();
 
+  // You hear about what you created, and about what you were handed.
+  await subscribe(ws.id, me.id, "issue", created.id);
+  if (input.assigneeId && input.assigneeId !== me.id) {
+    await subscribe(ws.id, input.assigneeId, "issue", created.id);
+  }
+
   // Mirror the primary assignee into the assignee set.
   if (input.assigneeId) {
     await db
@@ -541,36 +563,37 @@ export async function addComment(issueId: string, body: string) {
     .limit(1);
   if (issue) {
     const members = await getMembers(ws.id);
-    const mentioned = new Set(
-      findMentionedMemberIds(text, members).filter((uid) => uid !== me.id),
-    );
-    const commented = new Set(
-      [issue.assigneeId, issue.creatorId].filter(
-        (uid): uid is string => uid != null && uid !== me.id && !mentioned.has(uid),
-      ),
-    );
+    const target = { kind: "issue" as const, id: issueId };
+    const mentioned = findMentionedMemberIds(text, members).filter((uid) => uid !== me.id);
 
-    const rows = [
-      ...[...mentioned].map((userId) => ({
-        workspaceId: ws.id,
-        userId,
-        actorId: me.id,
-        type: "mentioned",
-        issueId,
-        title: `${me.name} mentioned you on ${issue.title}`,
-        body: text.slice(0, 140),
-      })),
-      ...[...commented].map((userId) => ({
-        workspaceId: ws.id,
-        userId,
-        actorId: me.id,
-        type: "commented",
-        issueId,
-        title: `${me.name} commented on ${issue.title}`,
-        body: text.slice(0, 140),
-      })),
-    ];
-    if (rows.length) await db.insert(notifications).values(rows);
+    // Commenting and being mentioned both mean you care about what happens
+    // next, so both start a subscription.
+    await subscribe(ws.id, me.id, "issue", issueId);
+    await subscribeMany(ws.id, mentioned, "issue", issueId);
+
+    // A mention wins over the generic notice so nobody is pinged twice.
+    await notify({
+      workspaceId: ws.id,
+      actorId: me.id,
+      type: "mentioned",
+      target,
+      userIds: mentioned,
+      title: `${me.name} mentioned you on ${issue.title}`,
+      body: text.slice(0, 140),
+    });
+
+    const others = (await audienceFor(ws.id, target, me.id)).filter(
+      (uid) => !mentioned.includes(uid),
+    );
+    await notify({
+      workspaceId: ws.id,
+      actorId: me.id,
+      type: "commented",
+      target,
+      userIds: others,
+      title: `${me.name} commented on ${issue.title}`,
+      body: text.slice(0, 140),
+    });
   }
 
   await dispatchWebhook(ws.id, "issue.commented", { issueId, body: text });
@@ -700,21 +723,38 @@ export async function updateIssue(
       );
     }
 
+    const target = { kind: "issue" as const, id };
+
     // Notify the new assignee (when it's someone other than the actor).
     if (
       patch.assigneeId !== undefined &&
       patch.assigneeId &&
-      patch.assigneeId !== before.assigneeId &&
-      patch.assigneeId !== me.id
+      patch.assigneeId !== before.assigneeId
     ) {
-      await db.insert(notifications).values({
+      // Being handed a task subscribes you to it, whoever did the handing.
+      await subscribe(ws.id, patch.assigneeId, "issue", id);
+      await notify({
         workspaceId: ws.id,
-        userId: patch.assigneeId,
         actorId: me.id,
         type: "assigned",
-        issueId: id,
+        target,
+        userIds: [patch.assigneeId],
         title: `${me.name} assigned you an issue`,
         body: patch.title ?? before.title,
+      });
+    }
+
+    // Status is the change watchers actually care about, and the one that had
+    // no notification at all before subscriptions existed.
+    if (patch.status !== undefined && patch.status !== before.status) {
+      const label = STATUS_MAP[patch.status as StatusId]?.label ?? patch.status;
+      await notify({
+        workspaceId: ws.id,
+        actorId: me.id,
+        type: "status",
+        target,
+        userIds: await audienceFor(ws.id, target, me.id),
+        title: `${me.name} moved ${patch.title ?? before.title} to ${label}`,
       });
     }
   }
@@ -759,20 +799,19 @@ export async function setIssueAssignees(issueId: string, userIds: string[]) {
     .set({ assigneeId: ids[0] ?? null, updatedAt: new Date() })
     .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, issueId)));
 
-  // Notify newly added assignees (not the actor).
+  // Notify newly added assignees (not the actor), and start them watching.
   const added = ids.filter((uid) => !had.has(uid) && uid !== me.id);
   if (added.length) {
-    await db.insert(notifications).values(
-      added.map((uid) => ({
-        workspaceId: ws.id,
-        userId: uid,
-        actorId: me.id,
-        type: "assigned",
-        issueId,
-        title: `${me.name} assigned you an issue`,
-        body: before?.title ?? null,
-      })),
-    );
+    await subscribeMany(ws.id, added, "issue", issueId);
+    await notify({
+      workspaceId: ws.id,
+      actorId: me.id,
+      type: "assigned",
+      target: { kind: "issue", id: issueId },
+      userIds: added,
+      title: `${me.name} assigned you an issue`,
+      body: before?.title ?? null,
+    });
   }
   invalidate(ws.id, "issues");
 }
@@ -1113,33 +1152,34 @@ export async function createPageComment(
   const page = await loadPageForComment(ws.id, pageId);
   if (page) {
     const members = await getMembers(ws.id);
-    const mentioned = new Set(
-      findMentionedMemberIds(text, members).filter((uid) => uid !== me.id),
+    const target = { kind: "page" as const, id: pageId };
+    const mentioned = findMentionedMemberIds(text, members).filter((uid) => uid !== me.id);
+
+    await subscribe(ws.id, me.id, "page", pageId);
+    await subscribeMany(ws.id, mentioned, "page", pageId);
+
+    await notify({
+      workspaceId: ws.id,
+      actorId: me.id,
+      type: "mentioned",
+      target,
+      userIds: mentioned,
+      title: `${me.name} mentioned you on ${page.title}`,
+      body: text.slice(0, 140),
+    });
+
+    const others = (await audienceFor(ws.id, target, me.id)).filter(
+      (uid) => !mentioned.includes(uid),
     );
-    const commented = new Set(
-      [page.creatorId].filter(
-        (uid): uid is string => uid != null && uid !== me.id && !mentioned.has(uid),
-      ),
-    );
-    const rows = [
-      ...[...mentioned].map((userId) => ({
-        workspaceId: ws.id,
-        userId,
-        actorId: me.id,
-        type: "mentioned",
-        title: `${me.name} mentioned you on ${page.title}`,
-        body: text.slice(0, 140),
-      })),
-      ...[...commented].map((userId) => ({
-        workspaceId: ws.id,
-        userId,
-        actorId: me.id,
-        type: "commented",
-        title: `${me.name} commented on ${page.title}`,
-        body: text.slice(0, 140),
-      })),
-    ];
-    if (rows.length) await db.insert(notifications).values(rows);
+    await notify({
+      workspaceId: ws.id,
+      actorId: me.id,
+      type: "commented",
+      target,
+      userIds: others,
+      title: `${me.name} commented on ${page.title}`,
+      body: text.slice(0, 140),
+    });
   }
 
   invalidate(ws.id, "pages");
@@ -2079,6 +2119,26 @@ export async function deleteAttachment(id: string, issueId: string) {
 const FAVORITE_KINDS = new Set(["issue", "page", "project"]);
 
 /** Toggle a favorite for the current user; returns the new favorited state. */
+/**
+ * Follow or unfollow a task, page or project. Returns the resulting state so
+ * the button can settle on the server's answer rather than its optimistic one.
+ */
+export async function toggleSubscription(
+  kind: string,
+  targetId: string,
+): Promise<boolean> {
+  if (!SUBSCRIBABLE.has(kind)) throw new Error("Invalid subscription kind.");
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const following = await subscriberIds(ws.id, kind, targetId);
+  if (following.includes(me.id)) {
+    await unsubscribe(ws.id, me.id, kind, targetId);
+    return false;
+  }
+  await subscribe(ws.id, me.id, kind, targetId);
+  return true;
+}
+
 export async function toggleFavorite(
   kind: string,
   targetId: string,

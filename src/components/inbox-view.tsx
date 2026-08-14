@@ -36,6 +36,7 @@ export function InboxView({ notifications }: { notifications: NotificationItem[]
     startTransition(async () => {
       if (!n.read) await markNotificationRead(n.id);
       if (n.issueId) router.push(`/issues/${n.issueId}`);
+      else if (n.pageId) router.push(`/pages/${n.pageId}`);
       else router.refresh();
     });
   }

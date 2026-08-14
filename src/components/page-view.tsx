@@ -21,6 +21,7 @@ import { PageToc } from "@/components/page-toc";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { StatusIcon } from "@/components/glyphs";
 import { FavoriteButton } from "@/components/favorite-button";
+import { WatchButton } from "@/components/watch-button";
 import { Topbar } from "@/components/topbar";
 import {
   Command,
@@ -70,6 +71,7 @@ export function PageView({
   page,
   allIssues,
   favorited,
+  watching,
   mentionItems,
   backlinks,
   comments,
@@ -80,6 +82,8 @@ export function PageView({
   page: Page & { linkedIssues: IssueWithRelations[] };
   allIssues: FlatIssue[];
   favorited: boolean;
+  /** Whether the signed-in user follows this. */
+  watching: boolean;
   mentionItems: MentionItem[];
   backlinks: BacklinkItem[];
   comments: PageCommentItem[];
@@ -153,6 +157,7 @@ export function PageView({
             <AiGenerateIssues pageId={page.id} enabled={aiEnabled} />
             <PageHistory currentTitle={title || "Untitled"} versions={versions} />
             <FavoriteButton kind="page" targetId={page.id} initial={favorited} />
+          <WatchButton kind="page" targetId={page.id} initial={watching} />
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon" className="size-7" />}

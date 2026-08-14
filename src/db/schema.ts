@@ -384,6 +384,8 @@ export const notifications = pgTable(
     actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
     type: text("type").notNull(), // assigned | commented | mentioned | status
     issueId: uuid("issue_id").references(() => issues.id, { onDelete: "cascade" }),
+    // Page events (comments, mentions in a doc) had nowhere to point before.
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     body: text("body"),
     read: timestamp("read", { withTimezone: true }),
@@ -560,6 +562,38 @@ export const favorites = pgTable(
     index("favorites_user_idx").on(t.workspaceId, t.userId),
   ],
 );
+
+/**
+ * Who wants to hear about a thing.
+ *
+ * Distinct from `favorites`, which is bookmarking: a favourite puts something
+ * in your sidebar, a subscription puts it in your inbox. Kept as its own table
+ * so following a task you don't own doesn't also clutter your shortcuts.
+ */
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // issue | page | project
+    targetId: uuid("target_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("subscriptions_unique_idx").on(t.userId, t.kind, t.targetId),
+    // The hot path: "who should hear about this thing".
+    index("subscriptions_target_idx").on(t.workspaceId, t.kind, t.targetId),
+  ],
+);
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(users, { fields: [subscriptions.userId], references: [users.id] }),
+}));
 
 /** Emoji reactions on comments. */
 export const commentReactions = pgTable(

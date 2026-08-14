@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { RichEditor } from "@/components/editor/rich-editor";
 import { GitHubIcon } from "@/components/auth/provider-icons";
 import { FavoriteButton } from "@/components/favorite-button";
+import { WatchButton } from "@/components/watch-button";
 import { StatusIcon, UserAvatar } from "@/components/glyphs";
 import { IssueAttachments } from "@/components/issue-attachments";
 import { IssueTimeline } from "@/components/issue-timeline";
@@ -104,6 +105,7 @@ export function IssueDetail({
   timeline,
   githubConnected,
   favorited,
+  watching,
   relations,
   allIssues,
   mentionItems,
@@ -120,6 +122,8 @@ export function IssueDetail({
   timeline: TimelineItem[];
   githubConnected: boolean;
   favorited: boolean;
+  /** Whether the signed-in user follows this. */
+  watching: boolean;
   relations: RelationItem[];
   allIssues: FlatIssue[];
   mentionItems: MentionItem[];
@@ -154,6 +158,7 @@ export function IssueDetail({
         actions={
           <>
           <FavoriteButton kind="issue" targetId={issue.id} initial={favorited} />
+          <WatchButton kind="issue" targetId={issue.id} initial={watching} />
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon" className="size-7" />}

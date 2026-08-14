@@ -18,6 +18,7 @@ import {
   getProjects,
   getWorkspace,
   isFavorite,
+  isSubscribed,
 } from "@/lib/data";
 
 export default async function IssueRoute({
@@ -53,8 +54,9 @@ export default async function IssueRoute({
     getFeatures(ws.id),
   ]);
   if (!issue) notFound();
-  const [favorited, mentionItems, backlinks, milestones] = await Promise.all([
+  const [favorited, watching, mentionItems, backlinks, milestones] = await Promise.all([
     isFavorite(ws.id, "issue", id),
+    isSubscribed(ws.id, "issue", id),
     getMentionItems(ws.id),
     getBacklinks(ws.id, "issue", id),
     issue.projectId ? getMilestones(ws.id, issue.projectId) : Promise.resolve([]),
@@ -73,6 +75,7 @@ export default async function IssueRoute({
       timeline={timeline}
       githubConnected={githubConnected}
       favorited={favorited}
+      watching={watching}
       relations={relations}
       allIssues={allIssues}
       mentionItems={mentionItems}

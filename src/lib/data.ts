@@ -47,6 +47,7 @@ import {
   projectStatusUpdates,
   references,
   savedViews,
+  subscriptions,
   projects,
   ticketComments,
   tickets,
@@ -1251,6 +1252,31 @@ export async function getIssueTimeline(
 
 // ---- Favorites ----
 
+/**
+ * Whether the signed-in user follows a target. User-dependent, so deliberately
+ * uncached — a cache keyed on workspace alone would leak one member's inbox
+ * settings to another.
+ */
+export async function isSubscribed(
+  workspaceId: string,
+  kind: string,
+  targetId: string,
+): Promise<boolean> {
+  const me = await getCurrentUser(workspaceId);
+  const [row] = await db
+    .select({ id: subscriptions.id })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.userId, me.id),
+        eq(subscriptions.kind, kind),
+        eq(subscriptions.targetId, targetId),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
 export async function isFavorite(
   workspaceId: string,
   kind: string,
@@ -1605,6 +1631,7 @@ export async function getNotifications(
     body: n.body,
     read: n.read,
     issueId: n.issueId,
+    pageId: n.pageId,
     createdAt: n.createdAt,
     actor: n.actor,
   }));
