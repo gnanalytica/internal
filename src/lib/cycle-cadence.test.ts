@@ -87,6 +87,22 @@ describe("ceremonyTasksFor", () => {
     expect(second).toEqual([]);
   });
 
+  it("adds nothing when the rolled-over work is already the cadence", () => {
+    // The invariant rollover depends on: it moves unfinished ceremonies into
+    // the new cycle *before* stamping, so stamping sees them and adds none.
+    // Stamping first duplicated every one — a cycle with two standups.
+    const rolledOver = CADENCE.ceremonies.map((c) => c.title);
+    expect(ceremonyTasksFor(CADENCE, CYCLE, rolledOver)).toEqual([]);
+  });
+
+  it("fills only the ceremonies that did not roll over", () => {
+    // Planning was finished last cycle, so it stayed behind; the new cycle
+    // still needs its own.
+    const rolledOver = ["Daily 15-min standup", "Thu: demo + metrics review + retro"];
+    const added = ceremonyTasksFor(CADENCE, CYCLE, rolledOver);
+    expect(added.map((t) => t.title)).toEqual(["Fri: sprint planning"]);
+  });
+
   it("keeps a ceremony inside its cycle when the offset overshoots the end", () => {
     const tasks = ceremonyTasksFor(
       { ceremonies: [{ title: "Retro", dayOffset: 99 }] },

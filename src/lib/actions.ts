@@ -1398,12 +1398,19 @@ export async function unlinkIssueFromPage(issueId: string, pageId: string) {
 
 // ---- Cycles ----
 
-export async function createCycle(input: {
-  projectId: string;
-  name?: string;
-  startDate: string;
-  endDate: string;
-}) {
+export async function createCycle(
+  input: {
+    projectId: string;
+    name?: string;
+    startDate: string;
+    endDate: string;
+  },
+  /**
+   * Rollover defers stamping until after it has moved the unfinished work in,
+   * so the cadence can see what already arrived instead of duplicating it.
+   */
+  opts?: { applyCadence?: boolean },
+) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
   // Cycles are project-scoped, so numbering restarts per project.
@@ -1427,7 +1434,7 @@ export async function createCycle(input: {
   // Every cycle starts with the team's standing ceremonies already in it —
   // including the one rollover creates, which is the case that used to get
   // forgotten.
-  await stampCadence(ws.id, me.id, created);
+  if (opts?.applyCadence !== false) await stampCadence(ws.id, me.id, created);
 
   invalidate(ws.id, "cycles", "issues");
   return created;
@@ -1639,6 +1646,7 @@ export async function updateCycleCadence(projectId: string, cadence: CycleCadenc
  */
 export async function rollOverCycle(id: string) {
   const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
   const [cycle] = await db
     .select()
     .from(cycles)
@@ -1672,15 +1680,21 @@ export async function rollOverCycle(id: string) {
     .orderBy(asc(cycles.startDate))
     .limit(1);
 
+  // Created without its cadence: the ceremonies are about to arrive from the
+  // cycle being rolled over, and stamping first would duplicate every one of
+  // them — the title dedupe cannot see tasks that have not moved yet.
   const target =
     existingNext ??
-    (await createCycle({
-      projectId: cycle.projectId,
-      startDate: cycle.endDate.toISOString(),
-      endDate: new Date(
-        cycle.endDate.getTime() + (cycle.endDate.getTime() - cycle.startDate.getTime()),
-      ).toISOString(),
-    }));
+    (await createCycle(
+      {
+        projectId: cycle.projectId,
+        startDate: cycle.endDate.toISOString(),
+        endDate: new Date(
+          cycle.endDate.getTime() + (cycle.endDate.getTime() - cycle.startDate.getTime()),
+        ).toISOString(),
+      },
+      { applyCadence: false },
+    ));
 
   if (unfinished.length > 0) {
     await db
@@ -1696,6 +1710,13 @@ export async function rollOverCycle(id: string) {
         ),
       );
   }
+
+  // Now that the carried-over work is in place, fill whatever the cadence is
+  // still missing — the retro that was already done last cycle, and so didn't
+  // roll over, gets a fresh one for this cycle. Only for a cycle we just
+  // created: re-stamping one the team already has would resurrect ceremonies
+  // they deliberately deleted.
+  if (!existingNext) await stampCadence(ws.id, me.id, target);
 
   invalidate(ws.id, "cycles", "issues");
   return { movedCount: unfinished.length, cycle: target, created: !existingNext };
