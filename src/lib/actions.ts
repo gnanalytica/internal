@@ -78,6 +78,7 @@ import {
 import { callClaude, isAiConfigured } from "@/lib/ai";
 import { extractJsonArray, normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
+import { cycleSubtitle } from "@/lib/cycle-format";
 import { ticketToIssueFields } from "@/lib/ticket-to-issue";
 import {
   audienceFor,
@@ -2633,7 +2634,12 @@ export async function searchWorkspace(
       .where(and(eq(databases.workspaceId, ws.id), ilike(databases.name, term)))
       .limit(LIMIT),
     db
-      .select({ id: cycles.id, name: cycles.name, number: cycles.number })
+      .select({
+        id: cycles.id,
+        name: cycles.name,
+        startDate: cycles.startDate,
+        endDate: cycles.endDate,
+      })
       .from(cycles)
       .where(and(eq(cycles.workspaceId, ws.id), ilike(cycles.name, term)))
       .limit(LIMIT),
@@ -2683,7 +2689,8 @@ export async function searchWorkspace(
       kind: "cycle",
       id: r.id,
       title: r.name,
-      subtitle: `Cycle ${r.number}`,
+      // Dates say more than the ordinal ever did.
+      subtitle: cycleSubtitle(r, new Date()),
       href: `/cycles/${r.id}`,
     });
   }

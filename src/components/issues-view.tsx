@@ -62,6 +62,7 @@ import {
   type GroupBy,
   type SortId,
 } from "@/lib/issue-filters";
+import { cycleSubtitle } from "@/lib/cycle-format";
 import { nestGroup, subIssueProgress } from "@/lib/issue-tree";
 import { issueIdentifier } from "@/lib/types";
 import type {
@@ -154,6 +155,9 @@ export function IssuesView({
   // Deliberately not persisted or saved into a view: search is how you find one
   // task now, not how you define a view you come back to.
   const [query, setQuery] = useState("");
+  // One clock for the whole view — cycle timings that disagree row to row read
+  // as a bug.
+  const [now] = useState(() => new Date());
   const [sort, setSort] = useState<SortId>("manual");
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroupBy);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -351,9 +355,17 @@ export function IssuesView({
     const scoped = defaultProjectId
       ? cycles.filter((c) => c.projectId === defaultProjectId)
       : cycles;
-    if (scoped.length > 0) return scoped.map((c) => ({ id: c.id, name: c.name }));
-    return dedupeBy(issues.map((i) => i.cycle));
-  }, [cycles, defaultProjectId, issues]);
+    // Dates come along when we have the real rows. Falling back to what the
+    // tasks carry still names the cycle, just without its dates.
+    if (scoped.length > 0) {
+      return scoped.map((c) => ({
+        id: c.id,
+        name: c.name,
+        hint: cycleSubtitle(c, now),
+      }));
+    }
+    return dedupeBy(issues.map((i) => i.cycle)).map((c) => ({ ...c, hint: undefined }));
+  }, [cycles, defaultProjectId, issues, now]);
 
   const milestoneOptions = useMemo(() => {
     const scoped = defaultProjectId
@@ -494,7 +506,7 @@ export function IssuesView({
             label="Cycle"
             options={[
               { value: "none", label: "No cycle" },
-              ...cycleOptions.map((c) => ({ value: c.id, label: c.name })),
+              ...cycleOptions.map((c) => ({ value: c.id, label: c.name, hint: c.hint })),
             ]}
             selected={fCycle}
             onChange={setFCycle}
@@ -676,6 +688,9 @@ export function IssuesView({
                   <span className="size-2.5 rounded-full" style={{ backgroundColor: g.color }} />
                 ) : null}
                 <span className="text-xs font-semibold">{g.label}</span>
+                {g.hint && (
+                  <span className="text-[11px] text-muted-foreground">{g.hint}</span>
+                )}
                 <span className="text-xs text-muted-foreground">{g.items.length}</span>
               </div>
               {nestGroup(g.items).rows.map(({ issue, children }) => {
@@ -821,12 +836,14 @@ function FilterMenu({
   onChange,
 }: {
   label: string;
-  options: { value: string; label: string; color?: string }[];
+  /** `hint` is a secondary line — dates for a cycle, so the code isn't opaque. */
+  options: { value: string; label: string; color?: string; hint?: string }[];
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const count = options.filter((o) => selected.has(o.value)).length;
+  const hasHints = options.some((o) => o.hint);
 
   function toggle(value: string) {
     const next = new Set(selected);
@@ -854,7 +871,7 @@ function FilterMenu({
           </span>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-0">
+      <PopoverContent align="start" className={cn("p-0", hasHints ? "w-72" : "w-56")}>
         <Command>
           <CommandInput placeholder={`Filter ${label.toLowerCase()}…`} className="h-9" />
           <CommandList>
@@ -865,18 +882,26 @@ function FilterMenu({
                 return (
                   <CommandItem
                     key={o.value}
-                    value={o.label}
+                    // Searching a cycle by its dates should find it too.
+                    value={o.hint ? `${o.label} ${o.hint}` : o.label}
                     onSelect={() => toggle(o.value)}
-                    className="gap-2"
+                    className="items-start gap-2"
                   >
                     {o.color && (
                       <span
-                        className="size-2.5 rounded-full"
+                        className="mt-1.5 size-2.5 shrink-0 rounded-full"
                         style={{ backgroundColor: o.color }}
                       />
                     )}
-                    <span className="flex-1 truncate">{o.label}</span>
-                    {checked && <Check className="size-3.5 opacity-70" />}
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{o.label}</span>
+                      {o.hint && (
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {o.hint}
+                        </span>
+                      )}
+                    </span>
+                    {checked && <Check className="mt-0.5 size-3.5 shrink-0 opacity-70" />}
                   </CommandItem>
                 );
               })}

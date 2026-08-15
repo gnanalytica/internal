@@ -30,6 +30,7 @@ import {
   Sparkles,
   Star,
   Target,
+  Timer,
   Trash2,
   TrendingUp,
   Users,
@@ -613,11 +614,22 @@ function ProjectNavItem({
     roadmap: <Map className="size-3.5" />,
     growth: <Rocket className="size-3.5" />,
   };
-  const depts = visibleDepartments(project.enabledDepartments, isAdmin ? "admin" : "member", isOwner).map((d) => ({
-    href: `${base}/${d.slug}`,
-    icon: deptIcons[d.slug],
-    label: d.label,
-  }));
+  const depts = [
+    ...visibleDepartments(
+      project.enabledDepartments,
+      isAdmin ? "admin" : "member",
+      isOwner,
+    ).map((d) => ({
+      href: `${base}/${d.slug}`,
+      icon: deptIcons[d.slug],
+      label: d.label,
+    })),
+    // Not a department, but the surface people open most often — cadence,
+    // velocity and the current sprint all live here.
+    ...(project.kind === "operation"
+      ? []
+      : [{ href: `${base}/cycles`, icon: <Timer className="size-3.5" />, label: "Cycles" }]),
+  ];
   return (
     <div>
       <ContextMenu>

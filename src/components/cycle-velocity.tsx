@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { TrendingUp } from "lucide-react";
 
+import { cycleCode } from "@/lib/cycle-format";
 import { computeVelocity } from "@/lib/velocity";
 import type { CycleWithCount } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function CycleVelocity({
         <span className="text-sm font-medium">Velocity</span>
         {v.cycles.length === 1 ? (
           <span className="text-xs text-muted-foreground">
-            Only {v.cycles[0].name.split(" — ")[0]} has finished, completing{" "}
+            Only {cycleCode(v.cycles[0].name)} has finished, completing{" "}
             {v.averagePoints} pts — not a trend yet.
           </span>
         ) : (
@@ -89,7 +90,7 @@ export function CycleVelocity({
               title={`${c.name}: ${c.donePoints} pts · ${c.doneCount} tasks · ${c.completionPct}% of committed`}
             />
             <span className="w-full truncate text-center text-[10px] text-muted-foreground">
-              {c.name.split(" — ")[0]}
+              {cycleCode(c.name)}
             </span>
           </div>
         ))}

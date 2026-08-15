@@ -36,7 +36,9 @@ import {
   type PriorityId,
   type StatusId,
 } from "@/lib/constants";
+import { cycleRange, cycleSubtitle } from "@/lib/cycle-format";
 import type { Cycle, Label, Member, Project } from "@/lib/types";
+import { cycleStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const triggerCls =
@@ -633,29 +635,62 @@ export function CyclePicker({
   compact?: boolean;
 }) {
   const c = cycles.find((x) => x.id === value) ?? null;
+  // One `now` for the whole menu, so every row's timing is measured against
+  // the same instant.
+  const now = new Date();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={triggerCls} aria-label="Set cycle">
         <Timer className={cn("size-3.5", c ? "text-foreground" : "text-muted-foreground")} />
-        {!compact && <span>{c ? c.name : "No cycle"}</span>}
+        {!compact && (
+          <span className="truncate">
+            {c ? c.name : "No cycle"}
+            {c && (
+              <span className="ml-1.5 text-[11px] text-muted-foreground">
+                {cycleRange(c)}
+              </span>
+            )}
+          </span>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-52">
+      <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
           <Timer className="size-3.5 text-muted-foreground" />
           <span className="flex-1">No cycle</span>
           {!value && <Check className="size-3.5 opacity-70" />}
         </DropdownMenuItem>
-        {cycles.map((cy) => (
-          <DropdownMenuItem
-            key={cy.id}
-            onClick={() => onChange(cy.id)}
-            className="gap-2 text-xs"
-          >
-            <Timer className="size-3.5" />
-            <span className="flex-1 truncate">{cy.name}</span>
-            {value === cy.id && <Check className="size-3.5 opacity-70" />}
-          </DropdownMenuItem>
-        ))}
+        {cycles.map((cy) => {
+          const status = cycleStatus(cy, now);
+          return (
+            <DropdownMenuItem
+              key={cy.id}
+              onClick={() => onChange(cy.id)}
+              className="items-start gap-2 text-xs"
+            >
+              <Timer
+                className={cn(
+                  "mt-0.5 size-3.5 shrink-0",
+                  status === "active" ? "text-brand" : "text-muted-foreground",
+                )}
+              />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate">{cy.name}</span>
+                  {/* Which one is running is the first thing you look for. */}
+                  {status === "active" && (
+                    <span className="shrink-0 rounded bg-brand/10 px-1 text-[9px] font-medium text-brand">
+                      now
+                    </span>
+                  )}
+                </span>
+                <span className="truncate text-[11px] text-muted-foreground">
+                  {cycleSubtitle(cy, now)}
+                </span>
+              </span>
+              {value === cy.id && <Check className="mt-0.5 size-3.5 shrink-0 opacity-70" />}
+            </DropdownMenuItem>
+          );
+        })}
         {cycles.length === 0 && (
           <div className="px-2 py-1.5 text-xs text-muted-foreground">No cycles yet</div>
         )}

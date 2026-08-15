@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { format } from "date-fns";
 import { Plus, Timer } from "lucide-react";
 
 import { CadenceEditor } from "@/components/cadence-editor";
@@ -11,6 +10,7 @@ import { CycleVelocity } from "@/components/cycle-velocity";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { createCycle } from "@/lib/actions";
+import { cycleSubtitle } from "@/lib/cycle-format";
 import type { CycleCadence } from "@/lib/cycle-cadence";
 import type { CycleWithCount } from "@/lib/types";
 import { cycleStatus } from "@/lib/types";
@@ -132,8 +132,7 @@ export function CyclesView({
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {format(new Date(c.startDate), "MMM d")} –{" "}
-                        {format(new Date(c.endDate), "MMM d, yyyy")}
+                        {cycleSubtitle(c, now)}
                       </div>
                     </div>
                     <div className="w-32 shrink-0">

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { EngineeringView } from "@/components/engineering-view";
 import { isDepartmentEnabled, issueBelongsToDepartment } from "@/lib/departments";
-import { getCycles, getIssues, getProject, getWorkspace } from "@/lib/data";
+import { getIssues, getProject, getWorkspace } from "@/lib/data";
 import { getTaskContext } from "@/lib/task-context";
 
 export default async function ProjectEngineeringPage({
@@ -16,17 +16,7 @@ export default async function ProjectEngineeringPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "engineering")) notFound();
 
-  const [allIssues, ctx, cycles] = await Promise.all([
-    getIssues(ws.id),
-    getTaskContext(ws.id),
-    getCycles(ws.id, id),
-  ]);
-
-  // What velocity has left to chew through: this project's unfinished work,
-  // weighted the same way burndown weights it (no estimate = one point).
-  const outstandingPoints = allIssues
-    .filter((i) => i.projectId === id && i.status !== "done" && i.status !== "canceled")
-    .reduce((sum, i) => sum + (i.estimate ?? 1), 0);
+  const [allIssues, ctx] = await Promise.all([getIssues(ws.id), getTaskContext(ws.id)]);
 
   return (
     <EngineeringView
@@ -39,10 +29,6 @@ export default async function ProjectEngineeringPage({
         (i) => i.projectId === id && issueBelongsToDepartment(i.labels, "engineering"),
       )}
       ctx={ctx}
-      cycles={cycles}
-      cadence={project.cycleCadence}
-      outstandingPoints={outstandingPoints}
-      nowISO={new Date().toISOString()}
     />
   );
 }

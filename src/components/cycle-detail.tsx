@@ -89,7 +89,7 @@ export function CycleDetail({
     <div className="flex h-full flex-col">
       <Topbar
         breadcrumb={[
-          { label: "Cycles", href: `/projects/${cycle.projectId}/engineering` },
+          { label: "Cycles", href: `/projects/${cycle.projectId}/cycles` },
           { label: cycle.name },
         ]}
         actions={

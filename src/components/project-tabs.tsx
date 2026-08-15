@@ -45,6 +45,8 @@ export function ProjectTabs({
             isAdmin ? "admin" : "member",
             isOwner,
           ).map((d) => ({ href: `${base}/${d.slug}`, label: d.label })),
+          // A cycle is the project's rhythm, not a department's.
+          { href: `${base}/cycles`, label: "Cycles" },
           { href: `${base}/docs`, label: "Docs" },
         ];
   return (

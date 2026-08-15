@@ -136,7 +136,8 @@ export const GROUP_BYS: { id: GroupBy; label: string }[] = [
 export type GroupContext = {
   members: Member[];
   projects: Project[];
-  cycles?: Pick<Cycle, "id" | "name">[];
+  /** `hint` is a secondary label for the group header — a cycle's dates. */
+  cycles?: (Pick<Cycle, "id" | "name"> & { hint?: string })[];
   milestones?: Pick<Milestone, "id" | "name">[];
 };
 
@@ -144,6 +145,8 @@ export type IssueGroup = {
   key: string;
   label: string;
   color?: string;
+  /** Secondary text beside the group name, e.g. a cycle's date range. */
+  hint?: string;
   items: IssueWithRelations[];
 };
 
@@ -154,7 +157,7 @@ export type IssueGroup = {
 function derive(
   issues: IssueWithRelations[],
   pick: (i: IssueWithRelations) => { id: string; name: string } | null,
-): { id: string; name: string }[] {
+): { id: string; name: string; hint?: string }[] {
   const seen = new Map<string, { id: string; name: string }>();
   for (const i of issues) {
     const v = pick(i);
@@ -169,7 +172,13 @@ export function groupIssues(
   groupBy: GroupBy,
   ctx: GroupContext,
 ): IssueGroup[] {
-  let defs: { key: string; label: string; color?: string; match: (i: IssueWithRelations) => boolean }[];
+  let defs: {
+    key: string;
+    label: string;
+    color?: string;
+    hint?: string;
+    match: (i: IssueWithRelations) => boolean;
+  }[];
 
   switch (groupBy) {
     case "priority":
@@ -215,6 +224,7 @@ export function groupIssues(
         ...list.map((c) => ({
           key: c.id,
           label: c.name,
+          hint: c.hint,
           match: (i: IssueWithRelations) => i.cycleId === c.id,
         })),
         { key: "none", label: "No cycle", match: (i) => !i.cycleId },
@@ -250,6 +260,7 @@ export function groupIssues(
       key: d.key,
       label: d.label,
       color: d.color,
+      hint: d.hint,
       items: issues.filter(d.match),
     }))
     .filter((g) => g.items.length > 0);
