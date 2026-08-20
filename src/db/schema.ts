@@ -521,6 +521,35 @@ export const apiKeys = pgTable(
 );
 
 /** Outbound webhooks for workspace events. */
+/**
+ * Short-lived OAuth authorization codes for the "Connect" flow.
+ *
+ * Stored (hashed, never plaintext) rather than signed-and-stateless because an
+ * authorization code MUST be single-use: it travels in a URL, so it can land in
+ * browser history, a Referer header or a proxy log. `usedAt` is what makes a
+ * replay a no-op — a stateless token could be redeemed twice and mint a second
+ * API key.
+ */
+export const oauthCodes = pgTable(
+  "oauth_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    codeHash: text("code_hash").notNull().unique(),
+    clientId: text("client_id").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    // Who approved the connection — becomes the API key's `createdBy`, so the
+    // audit trail says a person authorised this, not "the integration".
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("oauth_codes_expires_idx").on(t.expiresAt)],
+);
+
 export const webhooks = pgTable(
   "webhooks",
   {

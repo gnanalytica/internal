@@ -330,6 +330,47 @@ curl -X PATCH https://your-app/api/v1/pages/<id> \
   -d '{ "title": "Rollout plan", "content": "# Rollout plan\n\n- [x] kickoff\n- [ ] launch" }'
 ```
 
+## Connecting an app (OAuth)
+
+A registered integration can connect itself instead of a human copying an API
+key and a webhook secret between two settings screens — the step most often
+skipped or mistyped, and the one whose failure is silent.
+
+Authorization-code flow, confidential client. Clients are configured via env
+(`OAUTH_CLIENT_STANDUP_ID` / `_SECRET` / `_REDIRECT_URIS`); there is no dynamic
+registration. With those unset the OAuth routes accept nothing at all.
+
+1. Send the admin to
+   `GET /oauth/authorize?client_id=…&redirect_uri=…&state=…&response_type=code`.
+   They approve on a consent screen. Only workspace **admins** can approve.
+2. We redirect to `redirect_uri?code=…&state=…`. The code is single-use and
+   expires in 2 minutes.
+3. `POST /api/oauth/token` with `grant_type=authorization_code`, `code`,
+   `client_id`, `client_secret`, `redirect_uri` →
+
+```json
+{ "access_token": "int_…", "token_type": "Bearer",
+  "workspace": { "id": "…", "name": "…", "slug": "…" } }
+```
+
+The access token IS an ordinary workspace API key: same auth, same scoping, and
+revoking it from Settings → API cuts access immediately. It is attributed to the
+person who approved, so the key list shows who authorised the connection.
+
+An unknown `client_id` or an unregistered `redirect_uri` renders an error on our
+side and is **never** redirected back — redirecting an unvalidated callback would
+make this an open redirector and leak the code.
+
+Then call `POST /api/v1/webhooks` with the new key to register delivery, and the
+connection is complete with nothing pasted by hand.
+
+| Method   | Path                          | Purpose                                       |
+| -------- | ----------------------------- | --------------------------------------------- |
+| `GET`    | `/oauth/authorize`            | Consent screen (browser; admin only)          |
+| `POST`   | `/api/oauth/token`            | Exchange a code for a workspace API key       |
+| `GET`    | `/webhooks`                   | List webhooks (secrets never returned)        |
+| `POST`   | `/webhooks`                   | Register a webhook; idempotent on `url`       |
+
 ## Webhooks
 
 Register endpoints in **Settings → API & MCP → Webhooks**. The workspace POSTs a
