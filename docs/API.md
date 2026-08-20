@@ -172,8 +172,9 @@ curl -X POST https://your-app/api/v1/issues \
 `type`: see `ISSUE_TYPES` in `src/lib/constants.ts` (default `engineering`)
 
 Accepted fields: `title` (required), `description`, `projectId`, `status`,
-`priority`, `type`, `assigneeId`, `assigneeEmail`, `labels`, `estimate`,
-`startDate`, `dueDate`, `externalSource`, `externalId`, `externalUrl`.
+`priority`, `type`, `assigneeId`, `assigneeEmail`, `creatorEmail`, `labels`,
+`estimate`, `startDate`, `dueDate`, `externalSource`, `externalId`,
+`externalUrl`.
 
 ### Assigning by email
 
@@ -190,6 +191,25 @@ not break because our directory is missing someone. Use `GET /users` to check
 first if you need to warn them.
 
 `assigneeId` wins if both are supplied.
+
+### Attributing the author
+
+An integration authenticates with ONE key, so by default every issue it files
+is authored by that key's member. When the issues actually originate from
+different people, send `creatorEmail` and we resolve it the same way:
+
+```json
+{
+  "title": "Ship the invoice export",
+  "creatorEmail": "sandeep@gnanalytica.com",
+  "assigneeEmail": "raunak@gnanalytica.com"
+}
+```
+
+These are two different people and both matter: `creatorEmail` is who raised or
+approved the work, `assigneeEmail` is who has to do it. An unrecognised address
+falls back to the key's own member rather than failing — attribution is worth
+less than the issue landing.
 
 ### Idempotent creates
 

@@ -150,13 +150,12 @@ async function setAssignees(
  * — the caller has usually just had a human approve this item, and filing it
  * must not fail because our directory is missing someone.
  */
-export async function resolveAssigneeId(
+export async function resolveMemberIdByEmail(
   workspaceId: string,
-  input: { assigneeId?: string | null; assigneeEmail?: string | null },
+  email: string | null | undefined,
 ): Promise<string | null> {
-  if (input.assigneeId) return input.assigneeId;
-  const email = input.assigneeEmail?.trim().toLowerCase();
-  if (!email) return null;
+  const wanted = email?.trim().toLowerCase();
+  if (!wanted) return null;
   const [row] = await db
     .select({ id: users.id })
     .from(workspaceMembers)
@@ -164,11 +163,19 @@ export async function resolveAssigneeId(
     .where(
       and(
         eq(workspaceMembers.workspaceId, workspaceId),
-        eq(sql`lower(${users.email})`, email),
+        eq(sql`lower(${users.email})`, wanted),
       ),
     )
     .limit(1);
   return row?.id ?? null;
+}
+
+export async function resolveAssigneeId(
+  workspaceId: string,
+  input: { assigneeId?: string | null; assigneeEmail?: string | null },
+): Promise<string | null> {
+  if (input.assigneeId) return input.assigneeId;
+  return resolveMemberIdByEmail(workspaceId, input.assigneeEmail);
 }
 
 /** The issue already filed for this (workspace, source, external id), if any. */
@@ -205,6 +212,7 @@ export async function apiCreateIssue(
     priority?: string;
     assigneeId?: string | null;
     assigneeEmail?: string | null;
+    creatorEmail?: string | null;
     assigneeIds?: string[];
     cycleId?: string | null;
     milestoneId?: string | null;
@@ -241,6 +249,16 @@ export async function apiCreateIssue(
   // uuid take exactly the same downstream path.
   const resolvedAssigneeId = await resolveAssigneeId(workspaceId, input);
 
+  // Who FILED this, as distinct from who has to do it. An integration acts
+  // under one API key, so without this every issue it files is authored by the
+  // key's own member and the real author is lost — "created by Standup AI" for
+  // hundreds of issues raised by different people. `creatorEmail` restores the
+  // human. Falls back to the key's member when the address is absent or belongs
+  // to nobody here, for the same reason assignee does: the caller has usually
+  // just had a human approve this, and filing must not fail over attribution.
+  const resolvedCreatorId =
+    (await resolveMemberIdByEmail(workspaceId, input.creatorEmail)) ?? userId;
+
   const refs = {
     projectId: toRef(input.projectId),
     cycleId: toRef(input.cycleId),
@@ -276,7 +294,7 @@ export async function apiCreateIssue(
     startDate: toDate(input.startDate),
     dueDate: toDate(input.dueDate),
     description: input.description ? textToDoc(input.description) : null,
-    creatorId: userId,
+    creatorId: resolvedCreatorId,
     sortKey: `a${Date.now()}`,
     externalSource: source,
     externalId,
