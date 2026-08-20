@@ -16,6 +16,9 @@ export const GET = withApiAuth(async (req, auth) => {
     type: url.searchParams.get("type"),
     cycleId: url.searchParams.get("cycle"),
     milestoneId: url.searchParams.get("milestone"),
+    // "What changed since I last looked" — lets a syncing client poll once per
+    // pass instead of once per open issue.
+    updatedSince: url.searchParams.get("updatedSince"),
   });
   return ok({
     data: items.map(issueDto),
@@ -25,7 +28,9 @@ export const GET = withApiAuth(async (req, auth) => {
 
 export const POST = withApiAuth(async (req, auth) => {
   const body = await readJson<Parameters<typeof apiCreateIssue>[2]>(req);
-  const id = await apiCreateIssue(auth.workspaceId, auth.userId, body);
+  const { id, created } = await apiCreateIssue(auth.workspaceId, auth.userId, body);
   const issue = await getIssue(auth.workspaceId, id);
-  return ok({ data: issue ? issueDto(issue) : { id } }, 201);
+  // 201 for a new issue, 200 when an `externalId` matched one we already had —
+  // so an idempotent retry is distinguishable from a fresh create.
+  return ok({ data: issue ? issueDto(issue) : { id } }, created ? 201 : 200);
 });

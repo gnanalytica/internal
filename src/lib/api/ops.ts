@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, ilike, inArray, isNull, max, notInArray, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, max, notInArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -21,6 +21,7 @@ import {
   projects,
   tickets,
   users,
+  workspaceMembers,
 } from "@/db/schema";
 import {
   isIssueType,
@@ -28,6 +29,7 @@ import {
   isPriority,
   isStatus,
 } from "@/lib/constants";
+import { ApiInputError, isUniqueViolation } from "@/lib/api/errors";
 import { apiInvalidate } from "@/lib/api/invalidate";
 import { dispatchWebhook } from "@/lib/api/webhooks";
 import { docToText, markdownToDoc } from "@/lib/markdown";
@@ -134,6 +136,64 @@ async function setAssignees(
     .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, issueId)));
 }
 
+/**
+ * Resolve who to assign to. `assigneeId` wins; otherwise match `assigneeEmail`.
+ *
+ * Integrations know people by address, not by our uuids, so requiring
+ * `assigneeId` meant every API-filed issue landed unassigned.
+ *
+ * Joined through `workspaceMembers`, NEVER the global `users` table alone:
+ * `users.email` is globally unique, so matching users directly would let a key
+ * for workspace A assign an issue to a member of workspace B.
+ *
+ * An unrecognised address resolves to `null` (unassigned) rather than throwing
+ * — the caller has usually just had a human approve this item, and filing it
+ * must not fail because our directory is missing someone.
+ */
+export async function resolveAssigneeId(
+  workspaceId: string,
+  input: { assigneeId?: string | null; assigneeEmail?: string | null },
+): Promise<string | null> {
+  if (input.assigneeId) return input.assigneeId;
+  const email = input.assigneeEmail?.trim().toLowerCase();
+  if (!email) return null;
+  const [row] = await db
+    .select({ id: users.id })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        eq(sql`lower(${users.email})`, email),
+      ),
+    )
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** The issue already filed for this (workspace, source, external id), if any. */
+async function findByExternalRef(
+  workspaceId: string,
+  source: string,
+  externalId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: issues.id })
+    .from(issues)
+    .where(
+      and(
+        eq(issues.workspaceId, workspaceId),
+        eq(issues.externalSource, source),
+        eq(issues.externalId, externalId),
+      ),
+    )
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** Attempts for the number-allocation race in `apiCreateIssue`. */
+const NUMBER_ALLOCATION_ATTEMPTS = 4;
+
 export async function apiCreateIssue(
   workspaceId: string,
   userId: string | null,
@@ -144,6 +204,7 @@ export async function apiCreateIssue(
     status?: string;
     priority?: string;
     assigneeId?: string | null;
+    assigneeEmail?: string | null;
     assigneeIds?: string[];
     cycleId?: string | null;
     milestoneId?: string | null;
@@ -154,14 +215,31 @@ export async function apiCreateIssue(
     startDate?: string | null;
     dueDate?: string | null;
     description?: string;
+    externalSource?: string | null;
+    externalId?: string | null;
+    externalUrl?: string | null;
   },
-): Promise<string> {
+): Promise<{ id: string; created: boolean }> {
   const title = input.title?.trim();
-  if (!title) throw new Error("`title` is required.");
+  if (!title) throw new ApiInputError("`title` is required.");
+
+  // Idempotency. A caller that retries a create after a timed-out but
+  // successful first attempt must not end up with two issues for one record,
+  // so an existing issue with the same (workspace, source, id) wins.
+  const source = input.externalSource?.trim() || null;
+  const externalId = input.externalId?.trim() || null;
+  if (source && externalId) {
+    const existing = await findByExternalRef(workspaceId, source, externalId);
+    if (existing) return { id: existing, created: false };
+  }
   if (input.type && !isIssueType(input.type))
     throw new Error(
       "`type` must be one of: engineering, product, research, marketing, sales, ops, legal, finance, people, admin.",
     );
+
+  // Resolve `assigneeEmail` -> id before ref validation, so an address and a
+  // uuid take exactly the same downstream path.
+  const resolvedAssigneeId = await resolveAssigneeId(workspaceId, input);
 
   const refs = {
     projectId: toRef(input.projectId),
@@ -169,7 +247,7 @@ export async function apiCreateIssue(
     milestoneId: toRef(input.milestoneId),
     featureId: toRef(input.featureId),
     parentId: toRef(input.parentId),
-    assigneeId: toRef(input.assigneeId),
+    assigneeId: toRef(resolvedAssigneeId),
   };
 
   await Promise.all([
@@ -181,39 +259,66 @@ export async function apiCreateIssue(
     assertRef(workspaceId, "user", refs.assigneeId),
   ]);
 
-  const [{ value: maxNumber }] = await db
-    .select({ value: max(issues.number) })
-    .from(issues)
-    .where(
-      refs.projectId
-        ? and(eq(issues.workspaceId, workspaceId), eq(issues.projectId, refs.projectId))
-        : eq(issues.workspaceId, workspaceId),
-    );
+  const values = {
+    workspaceId,
+    projectId: refs.projectId,
+    cycleId: refs.cycleId,
+    milestoneId: refs.milestoneId,
+    featureId: refs.featureId,
+    parentId: refs.parentId,
+    title: title.slice(0, 500),
+    // Work isn't only engineering — this is the department lens on a task.
+    type: input.type && isIssueType(input.type) ? input.type : "engineering",
+    status: input.status && isStatus(input.status) ? input.status : "backlog",
+    priority: input.priority && isPriority(input.priority) ? input.priority : "none",
+    assigneeId: refs.assigneeId,
+    estimate: input.estimate ?? null,
+    startDate: toDate(input.startDate),
+    dueDate: toDate(input.dueDate),
+    description: input.description ? textToDoc(input.description) : null,
+    creatorId: userId,
+    sortKey: `a${Date.now()}`,
+    externalSource: source,
+    externalId,
+    externalUrl: input.externalUrl?.trim() || null,
+  };
 
-  const [created] = await db
-    .insert(issues)
-    .values({
-      workspaceId,
-      projectId: refs.projectId,
-      cycleId: refs.cycleId,
-      milestoneId: refs.milestoneId,
-      featureId: refs.featureId,
-      parentId: refs.parentId,
-      number: (maxNumber ?? 0) + 1,
-      title: title.slice(0, 500),
-      // Work isn't only engineering — this is the department lens on a task.
-      type: input.type && isIssueType(input.type) ? input.type : "engineering",
-      status: input.status && isStatus(input.status) ? input.status : "backlog",
-      priority: input.priority && isPriority(input.priority) ? input.priority : "none",
-      assigneeId: refs.assigneeId,
-      estimate: input.estimate ?? null,
-      startDate: toDate(input.startDate),
-      dueDate: toDate(input.dueDate),
-      description: input.description ? textToDoc(input.description) : null,
-      creatorId: userId,
-      sortKey: `a${Date.now()}`,
-    })
-    .returning();
+  // `number` is allocated read-then-write against a unique index on
+  // (project_id, number), so two concurrent creates in the same project read
+  // the same MAX and the second insert violates the index. That is not
+  // hypothetical — an integration filing a batch of approved items fires these
+  // concurrently. Re-read and retry on the unique violation; the window is a
+  // single round-trip so this converges immediately in practice.
+  //
+  // A unique violation can also come from the (workspace, source, id) index
+  // when two identical creates race the pre-check above. That one must NOT
+  // retry — the winner's row is the answer.
+  let created: typeof issues.$inferSelect | undefined;
+  for (let attempt = 0; attempt < NUMBER_ALLOCATION_ATTEMPTS; attempt++) {
+    const [{ value: maxNumber }] = await db
+      .select({ value: max(issues.number) })
+      .from(issues)
+      .where(
+        refs.projectId
+          ? and(eq(issues.workspaceId, workspaceId), eq(issues.projectId, refs.projectId))
+          : eq(issues.workspaceId, workspaceId),
+      );
+    try {
+      [created] = await db
+        .insert(issues)
+        .values({ ...values, number: (maxNumber ?? 0) + 1 })
+        .returning();
+      break;
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      if (source && externalId) {
+        const winner = await findByExternalRef(workspaceId, source, externalId);
+        if (winner) return { id: winner, created: false };
+      }
+      if (attempt === NUMBER_ALLOCATION_ATTEMPTS - 1) throw err;
+    }
+  }
+  if (!created) throw new Error("Issue insert produced no row.");
 
   // `assigneeIds` wins when both are sent; `assigneeId` stays for single-owner
   // callers and becomes the primary.
@@ -243,7 +348,7 @@ export async function apiCreateIssue(
     priority: created.priority,
   });
 
-  return created.id;
+  return { id: created.id, created: true };
 }
 
 export async function apiUpdateIssue(
@@ -274,6 +379,13 @@ export async function apiUpdateIssue(
   if (typeof patch.priority === "string" && isPriority(patch.priority))
     values.priority = patch.priority;
   if ("assigneeId" in patch) values.assigneeId = toRef(patch.assigneeId);
+  // Same reasoning as create: integrations reassign by address, not by uuid.
+  // Only consulted when `assigneeId` was not sent, so an explicit id still wins
+  // and an explicit `assigneeId: null` still unassigns.
+  else if ("assigneeEmail" in patch)
+    values.assigneeId = await resolveAssigneeId(workspaceId, {
+      assigneeEmail: patch.assigneeEmail as string | null,
+    });
   if ("projectId" in patch) values.projectId = toRef(patch.projectId);
   if ("cycleId" in patch) values.cycleId = toRef(patch.cycleId);
   if ("milestoneId" in patch) values.milestoneId = toRef(patch.milestoneId);

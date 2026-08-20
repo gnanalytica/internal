@@ -193,6 +193,14 @@ export const issues = pgTable(
     estimate: integer("estimate"),
     githubUrl: text("github_url"),
     githubNumber: integer("github_number"),
+    // Provenance for issues created by an integration rather than a human.
+    // The (workspace, source, id) triple is unique, which is what makes
+    // `POST /api/v1/issues` idempotent: a retried create after a timed-out but
+    // successful first attempt returns the original issue instead of a
+    // duplicate. `externalUrl` links back to the record in the source system.
+    externalSource: text("external_source"), // e.g. "standup-ai"
+    externalId: text("external_id"), // the source system's own record id
+    externalUrl: text("external_url"), // deep link back to the source
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -200,6 +208,10 @@ export const issues = pgTable(
     index("issues_workspace_idx").on(t.workspaceId),
     index("issues_status_idx").on(t.workspaceId, t.status),
     uniqueIndex("issues_project_number_idx").on(t.projectId, t.number),
+    // Integrations poll for "what changed since I last looked". Without this
+    // they fall back to one GET per open issue per pass.
+    index("issues_ws_updated_idx").on(t.workspaceId, t.updatedAt),
+    uniqueIndex("issues_external_idx").on(t.workspaceId, t.externalSource, t.externalId),
   ],
 );
 

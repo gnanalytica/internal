@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -560,6 +560,7 @@ export async function getIssuesPage(
     type?: string | null;
     cycleId?: string | null;
     milestoneId?: string | null;
+    updatedSince?: string | null;
   },
 ): Promise<{ items: IssueWithRelations[]; nextCursor: import("@/lib/api/pagination").Cursor | null }> {
   "use cache";
@@ -573,6 +574,13 @@ export async function getIssuesPage(
   if (opts.type) conds.push(eq(issues.type, opts.type));
   if (opts.cycleId) conds.push(eq(issues.cycleId, opts.cycleId));
   if (opts.milestoneId) conds.push(eq(issues.milestoneId, opts.milestoneId));
+  // Ordering stays createdAt-desc so the existing cursor keeps its meaning;
+  // this is purely an extra filter. An unparseable value is ignored rather
+  // than silently matching everything since the epoch.
+  if (opts.updatedSince) {
+    const since = new Date(opts.updatedSince);
+    if (!Number.isNaN(since.getTime())) conds.push(gte(issues.updatedAt, since));
+  }
   if (opts.cursor) {
     const at = new Date(opts.cursor.createdAt);
     conds.push(

@@ -1,4 +1,5 @@
 import { authenticateApiKey, type ApiAuth } from "./auth";
+import { ApiInputError } from "./errors";
 
 export function ok(data: unknown, status = 200): Response {
   return Response.json(data, { status });
@@ -29,8 +30,13 @@ export function withApiAuth<P>(
       const params = (ctx?.params ? await ctx.params : ({} as P)) as P;
       return await fn(req, auth, params);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Internal error";
-      return apiError(message, 400);
+      // Only errors we raised deliberately carry a caller-safe message. Anything
+      // else is a server fault: log it, and return a generic 500 so we neither
+      // leak internals (constraint text names tables and indexes) nor mislabel
+      // our own outage as the caller's bad input.
+      if (err instanceof ApiInputError) return apiError(err.message, err.status);
+      console.error("[api] unhandled error", err);
+      return apiError("Internal error.", 500);
     }
   };
 }

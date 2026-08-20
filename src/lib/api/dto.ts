@@ -42,6 +42,30 @@ export function issueDto(i: IssueWithRelations) {
     createdAt: i.createdAt,
     updatedAt: i.updatedAt,
     url: BASE ? `${BASE}/issues/${i.id}` : `/issues/${i.id}`,
+    // Provenance for integration-created issues; all null for human-created ones.
+    externalSource: i.externalSource ?? null,
+    externalId: i.externalId ?? null,
+    externalUrl: i.externalUrl ?? null,
+  };
+}
+
+export function userDto(u: {
+  id: string;
+  name: string;
+  email: string;
+  avatarColor?: string | null;
+  role?: string | null;
+  title?: string | null;
+  entity?: string | null;
+}) {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    avatarColor: u.avatarColor ?? null,
+    role: u.role ?? null,
+    title: u.title ?? null,
+    entity: u.entity ?? null,
   };
 }
 

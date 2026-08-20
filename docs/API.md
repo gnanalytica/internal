@@ -38,9 +38,9 @@ A `null` cursor means there are no more results. Other list endpoints
 | Method   | Path                          | Description                                   |
 | -------- | ----------------------------- | --------------------------------------------- |
 | `GET`    | `/me`                         | Workspace, the member this key acts as, and the key |
-| `GET`    | `/users`                      | List workspace members (resolve names to ids) |
-| `GET`    | `/issues`                     | List tasks (`?status=&project=&assignee=&type=&cycle=&milestone=&limit=`) |
-| `POST`   | `/issues`                     | Create a task (any department)                |
+| `GET`    | `/users`                      | List workspace members (`?email=` to resolve one) |
+| `GET`    | `/issues`                     | List tasks (`?status=&project=&assignee=&type=&cycle=&milestone=&updatedSince=&limit=`) |
+| `POST`   | `/issues`                     | Create a task (any department); idempotent on `externalId` |
 | `GET`    | `/issues/{id}`                | Get a task in full (assignees, sub-tasks, comments, relations, linked docs, attachments) |
 | `PATCH`  | `/issues/{id}`                | Update an issue                               |
 | `DELETE` | `/issues/{id}`                | Delete an issue                               |
@@ -169,6 +169,59 @@ curl -X POST https://your-app/api/v1/issues \
 
 `status`: `backlog | todo | in_progress | in_review | done | canceled`
 `priority`: `urgent | high | medium | low | none`
+`type`: see `ISSUE_TYPES` in `src/lib/constants.ts` (default `engineering`)
+
+Accepted fields: `title` (required), `description`, `projectId`, `status`,
+`priority`, `type`, `assigneeId`, `assigneeEmail`, `labels`, `estimate`,
+`startDate`, `dueDate`, `externalSource`, `externalId`, `externalUrl`.
+
+### Assigning by email
+
+Integrations rarely know our user uuids. Send `assigneeEmail` instead of
+`assigneeId` and we resolve it against the members of the key's workspace:
+
+```json
+{ "title": "Ship the invoice export", "assigneeEmail": "raunak@gnanalytica.com" }
+```
+
+An address we do not recognise **files the issue unassigned** rather than
+failing — creating an issue is usually a human decision on your side and must
+not break because our directory is missing someone. Use `GET /users` to check
+first if you need to warn them.
+
+`assigneeId` wins if both are supplied.
+
+### Idempotent creates
+
+Pass `externalSource` + `externalId` to make `POST /issues` safe to retry:
+
+```json
+{
+  "title": "Ship the invoice export",
+  "externalSource": "standup-ai",
+  "externalId": "b3f1c8e2",
+  "externalUrl": "https://standup.gnanalytica.com/tasks/b3f1c8e2"
+}
+```
+
+Passing the same pair twice returns the **original** issue and fires no second
+`issue.created`. A new issue returns **201**; a match returns **200**, so you can
+tell a create from a de-duplicated retry. `externalUrl` is surfaced on the issue
+so a reader can get back to the source record.
+
+Both are per-workspace: `(workspace, externalSource, externalId)` is unique.
+
+### Polling for changes
+
+`GET /issues?updatedSince=<ISO-8601>` returns only issues touched at or after
+that instant, so a syncing client makes **one** request per pass instead of one
+per tracked issue. Combine it with the cursor to page:
+
+```
+GET /api/v1/issues?updatedSince=2026-08-17T09:00:00Z&limit=200
+```
+
+Results stay ordered newest-created-first; `updatedSince` is a filter, not a sort.
 
 `PATCH /issues/{id}` accepts the same fields — reassign, move between
 departments, reschedule, or attach to a cycle, milestone, feature or parent
@@ -275,15 +328,51 @@ Events: `issue.created`, `issue.updated`, `issue.deleted`, `issue.commented`,
 `project.created`, `page.created`, `page.updated`, `page.deleted` (or subscribe
 to all).
 
-Each request carries `X-Internal-Event` and a signature header:
+Each request carries `X-Internal-Event`, a per-delivery id, and a signature:
 
 ```
+X-Internal-Event:     issue.updated
+X-Internal-Delivery:  <uuid>
 X-Internal-Signature: sha256=<hmac>
 ```
 
-Verify it by computing `HMAC_SHA256(secret, rawBody)` (hex) and comparing — the
-secret is shown once when you create the webhook. Deliveries time out after 5s;
-the last status is shown in the dashboard.
+Verify the signature by computing `HMAC_SHA256(secret, rawBody)` (hex) and
+comparing — the secret is shown once when you create the webhook.
+
+**Dedupe on `X-Internal-Delivery`.** It is stable across retries of the same
+delivery, so it identifies "this event, again" precisely. Do not synthesise a key
+from the body: two distinct events can share one in the same millisecond.
+
+Deliveries time out after 5s and are retried up to **3 times** (backoff ~1s then
+~4s) on a transport failure or a `5xx`. A `4xx` is never retried — we read it as
+"you understood and rejected this". Retries run after the originating request has
+completed, so they never delay the user action that produced the event. The last
+status is shown in the dashboard.
+
+> `issue.created` fires for **API-created** issues too. If your integration
+> creates issues here, do not subscribe to `issue.created` (or `*`) or you will
+> receive an echo of your own writes.
+
+### List workspace members
+
+```bash
+curl https://your-app/api/v1/users \
+  -H "Authorization: Bearer int_xxx"
+```
+
+```json
+{
+  "data": [
+    { "id": "…", "name": "Raunak", "email": "raunak@gnanalytica.com",
+      "role": "admin", "title": "Full-stack Engineer", "entity": "India",
+      "avatarColor": "#6366f1" }
+  ],
+  "count": 1
+}
+```
+
+Only members of the key's workspace are returned. `?email=` filters
+case-insensitively and is the intended way to map a person to an `assigneeId`.
 
 ## MCP
 
