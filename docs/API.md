@@ -370,6 +370,7 @@ connection is complete with nothing pasted by hand.
 | `POST`   | `/api/oauth/token`            | Exchange a code for a workspace API key       |
 | `GET`    | `/webhooks`                   | List webhooks (secrets never returned)        |
 | `POST`   | `/webhooks`                   | Register a webhook; idempotent on `url`       |
+| `DELETE` | `/webhooks/{id}`              | Remove a webhook (so an app can disconnect cleanly) |
 
 ## Webhooks
 
