@@ -43,7 +43,7 @@ function textToDoc(text: string): unknown {
 const toDate = (v: unknown): Date | null => {
   if (v == null || v === "") return null;
   const d = new Date(String(v));
-  if (Number.isNaN(d.getTime())) throw new Error("Expected an ISO date.");
+  if (Number.isNaN(d.getTime())) throw new ApiInputError("Expected an ISO date.");
   return d;
 };
 
@@ -84,7 +84,7 @@ async function assertRef(
     .from(REFERENCES[kind])
     .where(where)
     .limit(1);
-  if (!row) throw new Error(`\`${kind}Id\`: ${kind} not found in this workspace.`);
+  if (!row) throw new ApiInputError(`\`${kind}Id\`: ${kind} not found in this workspace.`);
 }
 
 /** Replace an issue's labels, rejecting ids from another workspace. */
@@ -100,7 +100,7 @@ async function setIssueLabels(
       .from(labels)
       .where(and(eq(labels.workspaceId, workspaceId), inArray(labels.id, ids)));
     if (found.length !== ids.length)
-      throw new Error("`labelIds`: one or more labels are not in this workspace.");
+      throw new ApiInputError("`labelIds`: one or more labels are not in this workspace.");
   }
   await db.delete(issueLabels).where(eq(issueLabels.issueId, issueId));
   if (ids.length > 0)
@@ -241,7 +241,7 @@ export async function apiCreateIssue(
     if (existing) return { id: existing, created: false };
   }
   if (input.type && !isIssueType(input.type))
-    throw new Error(
+    throw new ApiInputError(
       "`type` must be one of: engineering, product, research, marketing, sales, ops, legal, finance, people, admin.",
     );
 
@@ -375,11 +375,11 @@ export async function apiUpdateIssue(
   patch: Record<string, unknown>,
 ): Promise<boolean> {
   if (typeof patch.type === "string" && !isIssueType(patch.type))
-    throw new Error(
+    throw new ApiInputError(
       "`type` must be one of: engineering, product, research, marketing, sales, ops, legal, finance, people, admin.",
     );
   if (patch.parentId && patch.parentId === id)
-    throw new Error("`parentId`: an issue cannot be its own parent.");
+    throw new ApiInputError("`parentId`: an issue cannot be its own parent.");
 
   await Promise.all([
     assertRef(workspaceId, "project", toRef(patch.projectId)),
@@ -454,13 +454,13 @@ export async function apiCreateComment(
   body: string,
 ): Promise<string> {
   const text = body?.trim();
-  if (!text) throw new Error("`body` is required.");
+  if (!text) throw new ApiInputError("`body` is required.");
   const [issue] = await db
     .select({ id: issues.id })
     .from(issues)
     .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, issueId)))
     .limit(1);
-  if (!issue) throw new Error("Issue not found.");
+  if (!issue) throw new ApiInputError("Issue not found.", 404);
   const [created] = await db
     .insert(comments)
     .values({ workspaceId, issueId, authorId: userId, body: text })
@@ -484,7 +484,7 @@ export async function apiCreateProject(
   input: { name: string; key?: string; description?: string },
 ): Promise<string> {
   const name = input.name?.trim();
-  if (!name) throw new Error("`name` is required.");
+  if (!name) throw new ApiInputError("`name` is required.");
   const base =
     (input.key?.trim() || name.replace(/[^A-Za-z0-9]/g, "").slice(0, 4) || "PRJ")
       .toUpperCase()
@@ -537,7 +537,7 @@ export async function apiCreatePage(
       .from(pages)
       .where(and(eq(pages.workspaceId, workspaceId), eq(pages.id, input.parentId)))
       .limit(1);
-    if (!parent) throw new Error("Parent page not found.");
+    if (!parent) throw new ApiInputError("Parent page not found.", 404);
     scope = parent.projectId;
   }
 
@@ -790,10 +790,10 @@ export async function apiCreateMilestone(
   },
 ): Promise<string> {
   const name = input.name?.trim();
-  if (!name) throw new Error("`name` is required.");
-  if (!input.projectId) throw new Error("`projectId` is required for a milestone.");
+  if (!name) throw new ApiInputError("`name` is required.");
+  if (!input.projectId) throw new ApiInputError("`projectId` is required for a milestone.");
   if (input.status && !isMilestoneStatus(input.status))
-    throw new Error(
+    throw new ApiInputError(
       "`status` must be one of: planned, on_track, at_risk, off_track, achieved, missed.",
     );
   await assertRef(workspaceId, "project", input.projectId);
@@ -829,9 +829,9 @@ export async function apiCreateFeature(
   },
 ): Promise<string> {
   const title = input.title?.trim();
-  if (!title) throw new Error("`title` is required.");
+  if (!title) throw new ApiInputError("`title` is required.");
   if (input.status && !FEATURE_STATUSES.includes(input.status))
-    throw new Error(`\`status\` must be one of: ${FEATURE_STATUSES.join(", ")}.`);
+    throw new ApiInputError(`\`status\` must be one of: ${FEATURE_STATUSES.join(", ")}.`);
 
   await Promise.all([
     assertRef(workspaceId, "project", toRef(input.projectId)),
@@ -867,13 +867,13 @@ export async function apiCreateCycle(
   },
 ): Promise<string> {
   const name = input.name?.trim();
-  if (!name) throw new Error("`name` is required.");
-  if (!input.projectId) throw new Error("`projectId` is required for a cycle.");
+  if (!name) throw new ApiInputError("`name` is required.");
+  if (!input.projectId) throw new ApiInputError("`projectId` is required for a cycle.");
   const startDate = toDate(input.startDate);
   const endDate = toDate(input.endDate);
   if (!startDate || !endDate)
-    throw new Error("`startDate` and `endDate` are required for a cycle.");
-  if (endDate < startDate) throw new Error("`endDate` must be on or after `startDate`.");
+    throw new ApiInputError("`startDate` and `endDate` are required for a cycle.");
+  if (endDate < startDate) throw new ApiInputError("`endDate` must be on or after `startDate`.");
   await assertRef(workspaceId, "project", input.projectId);
 
   // Cycle numbers run per project, like the app's own cycle creation.
@@ -904,7 +904,7 @@ export async function apiCreateLabel(
   input: { name?: string; color?: string },
 ): Promise<string> {
   const name = input.name?.trim();
-  if (!name) throw new Error("`name` is required.");
+  if (!name) throw new ApiInputError("`name` is required.");
   const [created] = await db
     .insert(labels)
     .values({
