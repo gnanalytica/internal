@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getCurrentUser, getMyWorkspaces } from "@/lib/data";
 import { findClient, redirectUriAllowed } from "@/lib/api/oauth";
 
@@ -116,12 +118,12 @@ export default async function AuthorizePage({
           >
             Approve and connect
           </button>
-          <a
+          <Link
             href="/"
             className="rounded-md px-4 py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
           >
             Cancel
-          </a>
+          </Link>
         </div>
         {admined.length === 1 ? (
           <p className="text-xs text-neutral-500">
