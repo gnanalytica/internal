@@ -1,4 +1,4 @@
-# Acme — a combined Notion + Linear workspace
+# Internal — a combined Notion + Linear workspace
 
 A self-built, Vercel-friendly internal tool that fuses **Notion-style docs** with
 **Linear-style issue tracking** in one workspace. Built from scratch (no Huly/Plane)

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 
@@ -17,8 +17,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Acme — Docs & Tasks",
+  // Keep this in step with `short_name`/`name` in src/app/manifest.ts — the tab
+  // title and the installed app's name should read as the same product.
+  title: "Internal — Docs & Tasks",
   description: "A combined Notion + Linear workspace.",
+};
+
+// Colors the title bar of the installed desktop/mobile app, following the same
+// light/dark choice the pre-paint script below applies.
+// See: node_modules/next/dist/docs/01-app/03-api-reference/04-functions/generate-viewport.md
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({

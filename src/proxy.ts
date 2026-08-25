@@ -35,7 +35,13 @@ export const config = {
   //
   // NOTE: `/oauth/authorize` is deliberately NOT excluded — that one IS a
   // browser page and must send an anonymous visitor to sign in first.
+  //
+  // The PWA manifest and its icons are excluded because the browser fetches
+  // them WITHOUT credentials (no `crossorigin="use-credentials"` on the link),
+  // so a session redirect hands the installer an HTML sign-in page instead of
+  // the manifest and the app silently stops being installable. They carry only
+  // the app name and logo — the same things the sign-in page shows anonymously.
   matcher: [
-    "/((?!api/auth|api/oauth|api/v1|auth|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/auth|api/oauth|api/v1|auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-|icon.png|apple-icon).*)",
   ],
 };

@@ -50,12 +50,13 @@ For the Play Store, use `--profile production` (builds an `.aab`) then
 Generated programmatically (no design tool needed) into `assets/`:
 
 ```bash
-node scripts/make-icons.mjs   # writes icon.png, adaptive-icon.png, splash-icon.png, favicon.png
+node ../scripts/make-icons.mjs   # writes icon.png, adaptive-icon.png, splash-icon.png, favicon.png
 ```
 
 `app.json` wires `icon`, `android.adaptiveIcon` (white "i" on brand `#5e6ad2`),
 and an `expo-splash-screen` plugin splash. Tweak the colors/mark in
-`scripts/make-icons.mjs` and re-run to rebrand.
+`../scripts/make-icons.mjs` and re-run to rebrand. That one generator also
+emits the web app's PWA icons, so a rebrand stays in sync across platforms.
 
 ## Sign-in / OAuth
 
