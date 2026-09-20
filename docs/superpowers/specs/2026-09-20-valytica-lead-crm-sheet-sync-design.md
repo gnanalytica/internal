@@ -218,7 +218,7 @@ Per-contact **outreach state**, Internal-owned, on `crm_contacts`: `outreach_sta
 | Source | Mechanism | v1? |
 |---|---|---|
 | **Manual log** | "Log interaction" on every person/company page and in the list row: channel, direction, one line, optional paste of the message. | yes |
-| **WhatsApp** | There is no API for a personal number, and the playbook is "Founder WhatsApp to …". v1: a **Send on WhatsApp** button that opens `https://wa.me/<E.164>?text=<dossier WhatsApp Opener, URL-encoded>` and, on click, logs an outbound `whatsapp` interaction with the opener as body and moves status to `contacted`. Replies are pasted (one text box, timestamped). Later: WhatsApp Business Cloud API on a dedicated business number gives full two-way logging and templates, at the cost of a second number and Meta template approval (§9.4). | yes (deep link) |
+| **WhatsApp** | **Deferred (decision 2026-09-20: skip for now).** No `wa.me` deep link, no Business Cloud API. A WhatsApp conversation is recorded through the manual log (channel `whatsapp`, direction, one line, optional paste) like any other channel, and the dossier's `WhatsApp Opener` is shown with a Copy button only. Revisit once outreach is running; the two options (deep-link-and-log from the founder's number, or a Business Cloud API number with template approval) are unchanged. | manual log only |
 | **LinkedIn** | No messaging API. Same pattern: **Open profile** + log with the `Email / LinkedIn Angle` prefilled for copy. Later: the Valytica Capture extension pattern (a content script the founder clicks on a LinkedIn thread that posts the visible conversation to Internal) — the extension repo already has the auth and submit plumbing. | yes (log) / later (extension) |
 | **Email (Gmail)** | Per-user Google OAuth on Internal (scopes `gmail.readonly` + `gmail.compose`, `calendar.readonly` + `calendar.events`), tokens encrypted at rest on `users`. Cron every 15 min: `messages.list` with `q = (from:a OR to:a OR from:b …) newer_than:2d` over the addresses of contacts in `outreach_status ≠ not_planned` (a bounded set, tens not thousands), store id, thread id, subject, snippet, direction; full body fetched on demand. **Compose from Internal**: a "Draft email" action creates a Gmail *draft* (never sends) prefilled from the dossier angle, opens it in Gmail, and logs the interaction when the sent copy appears in the thread. | yes |
 | **Calendar** | `events.list` for the next 14 days and past 7; match attendee emails to contacts → `meeting` interaction (`meeting_booked`), shown on the person page and in the daily brief with the dossier as prep. A "Book a call" action creates the event with the contact as attendee and a Meet link. | yes |
@@ -242,7 +242,7 @@ Extend the existing 07:00 digest cron with a Valytica section: meetings today wi
 3. **Person page** (`/people/<uuid>`; `person_id` shown as the display id, never a sequential id in the URL):
    - Header: name, `P#####`, IBBI number, RVO, city/state, firm link, priority/band/score chips, outreach status control, **hard "Do not contact" banner when the name or any alias appears in Exclusions** (send buttons hidden, not just disabled).
    - *Overview*: `Valytica Angle`, `Primary Wedge`, `Primary Trigger`, `Pain Point Hypothesis`, `Next Action`, score breakdown with the seven factors, `Score Reason`, `Score Gaps / Unknowns`, research completeness.
-   - *Playbook*: `One-Line Pitch`, `WhatsApp Opener`, `Call Opener`, `Email / LinkedIn Angle`, `Demo Sequence` (rendered as numbered steps), `Content Asset To Share` resolved to a real link via the content library (§7). Buttons: Send on WhatsApp, Draft email, Open LinkedIn, Book a call, Log call.
+   - *Playbook*: `One-Line Pitch`, `WhatsApp Opener`, `Call Opener`, `Email / LinkedIn Angle`, `Demo Sequence` (rendered as numbered steps), `Content Asset To Share` resolved to a real link via the content library (§7). Buttons: Copy opener, Draft email, Open LinkedIn, Book a call, Log interaction.
    - *Evidence*: bank / lender relationships, association roles, IOV rows, sources with URLs, `enrichment_sources`, `Competitor / Risk Note`, `FACT:` / `HYPOTHESIS:` lines kept verbatim.
    - *Network*: linked company, Referral Map rows that name this person, Lender Contacts on their verified panels, association officers in their branch.
    - *Timeline*: interactions + tasks + sheet changes, newest first, channel-filterable.
@@ -261,7 +261,7 @@ Marketing keeps `campaigns` and `content_items` and gains three things the sheet
 
 1. **Personas** (from `GTM Personas`): the reference panel, and a `persona` chip on each prospect (from `Deep Dive.Persona / GTM Role`, normalised to the persona list). Segments = persona × state × band.
 2. **Content library**: `content_items` become the resolver for the dossiers' `Content Asset To Share` and `Custom Story / Content Idea` strings. Each dossier asset name is matched to a content item (fuzzy, with a confirm step); unresolved assets appear as "content to make" in the calendar, which is the marketing backlog the sheet already implies (the 45-second videos, the "Category B: can every field prove itself" asset, the Proprify-aware challenge).
-3. **Campaigns as sequences**: a campaign targets a segment; "Send" per contact uses the same WhatsApp / email actions as the person page, logs the interaction with `campaign_id`, and the campaign's `reach / replies / conversions` are computed from interactions rather than typed. Channel attribution ("which channel produced replies") is then real.
+3. **Campaigns as sequences**: a campaign targets a segment; "Send" per contact uses the same email and log actions as the person page, logs the interaction with `campaign_id`, and the campaign's `reach / replies / conversions` are computed from interactions rather than typed. Channel attribution ("which channel produced replies") is then real.
 
 `Source Inventory` renders as a read-only panel on the marketing page so nobody re-runs a sweep the sheet says is closed.
 
@@ -293,7 +293,7 @@ e. The column-shift rows in §1.5 item 1 need a human to fix in the sheet; Inter
 - The writable column set in §4.3: confirm, trim or extend.
 
 ### 9.4 WhatsApp
-- v1 deep-link-and-log from the founder's number (recommended), or stand up WhatsApp Business Cloud API on a dedicated business number now (cost, second number, Meta template approval, but real two-way logging).
+**Decided 2026-09-20: skipped for now.** Manual logging only (§5.1); no deep link and no Business Cloud API in any phase until revisited.
 
 ### 9.5 Data residency
 The workbook holds personal data of ~5.6k professionals from public registers (IBBI, bank panels). Internal's Neon region and Vercel region should be checked before the mirror goes live; if the Neon project is outside India, decide whether the full mirror or a South-India-only projection is acceptable, or move the database. The interaction layer (email snippets, meeting summaries) is more sensitive than the register data and should be bounded (snippet + link, not full bodies) as designed.
@@ -307,7 +307,7 @@ The workbook holds personal data of ~5.6k professionals from public registers (I
 | 0 | SA access, env, a `pnpm sheet:probe` script that prints tabs, header rows, formula-column map and row counts; mapping file with header tests | 9.1.1 | ½ day |
 | 1 | `sheet_rows` mirror + cron pull + change detection + sync runs; People/Companies projections; reconcile migration; delete the JSON loaders; sync panel | Phase 0, 9.1.3 | 2–3 days |
 | 2 | Prospects workspace: priority board, all-people search, person + company pages (overview, playbook, evidence, network, details with write-through), directories, research queue, exclusions enforcement, data-quality panel | Phase 1, 9.2, 9.3 | 3–4 days |
-| 3 | Interaction layer: `interactions`, manual log, WhatsApp / LinkedIn deep links with prefilled openers, outreach status, Gmail + Calendar OAuth ingestion, draft-email and book-a-call actions, timeline, daily brief, Slack posts | Phase 2, 9.1.2, 9.4 | 2–3 days |
+| 3 | Interaction layer: `interactions`, manual log (all channels, WhatsApp included), LinkedIn open-and-log with the angle prefilled for copy, outreach status, Gmail + Calendar OAuth ingestion, draft-email and book-a-call actions, timeline, daily brief, Slack posts | Phase 2, 9.1.2 | 2–3 days |
 | 4 | Standup AI customer-call mode → meeting summaries and action items on the timeline; standup mentions; MCP tools; API endpoints and webhook events | Phase 3, 9.1.4 | 2–3 days (Internal side) + connector work in Standup AI |
 | 5 | Marketing: personas, content library resolving dossier assets, campaigns as sequences with computed attribution, Source Inventory panel | Phase 3 | 2 days |
 
