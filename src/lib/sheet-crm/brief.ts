@@ -16,6 +16,17 @@ export type Brief = { text: string; items: number };
 const DAY = 864e5;
 
 export async function buildOutreachBrief(workspaceId: string, baseUrl: string, now = new Date()): Promise<Brief> {
+  try {
+    return await outreachBrief(workspaceId, baseUrl, now);
+  } catch (err) {
+    // The daily digest sends to everyone; one workspace whose schema is not
+    // pushed yet must not cost the others their mail.
+    console.warn("[outreach-brief] skipped", err instanceof Error ? err.message : err);
+    return { text: "", items: 0 };
+  }
+}
+
+async function outreachBrief(workspaceId: string, baseUrl: string, now: Date): Promise<Brief> {
   const lines: string[] = [];
   let items = 0;
   const startOfDay = new Date(now);

@@ -28,6 +28,8 @@ export type ProspectsData = {
   writes: CellWrite[];
   directories: { lenders: SheetRow[]; lenderContacts: SheetRow[]; officers: SheetRow[]; rvos: SheetRow[]; sources: SheetRow[]; personas: SheetRow[] };
   configured: boolean;
+  /** False until `pnpm db:push` has run: the sync tables do not exist yet. */
+  schemaReady: boolean;
   sheetUrl: string | null;
 };
 
@@ -47,6 +49,16 @@ export function ProspectsView({ heading, data, dealsHref }: { heading: string; d
           </>
         }
       />
+      {!data.schemaReady && (
+        <div className="border-b bg-amber-500/10 px-4 py-2 text-sm">
+          <strong>Not set up yet.</strong> The sync tables do not exist in this database. Run <code className="rounded bg-muted px-1">pnpm db:push</code>, then press Sync now under the Sync tab. Nothing is lost; there is simply nothing to show until then.
+        </div>
+      )}
+      {data.schemaReady && !data.configured && (
+        <div className="border-b bg-amber-500/10 px-4 py-2 text-sm">
+          <strong>Sheet sync is not configured on this deployment.</strong> Set <code className="rounded bg-muted px-1">GOOGLE_SA_EMAIL</code>, <code className="rounded bg-muted px-1">GOOGLE_SA_PRIVATE_KEY</code> and <code className="rounded bg-muted px-1">VALYTICA_CRM_SHEET_ID</code>, then redeploy.
+        </div>
+      )}
       {funnel.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-1.5 text-xs">
           <span className="text-muted-foreground">Funnel</span>
