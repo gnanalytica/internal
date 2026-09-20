@@ -31,6 +31,10 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
   ],
+  // The app shell is a fixed-height frame that scrolls inside itself, so when
+  // the on-screen keyboard opens the layout has to shrink rather than slide
+  // under it — otherwise the field being typed into is the one covered up.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

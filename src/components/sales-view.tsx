@@ -9,7 +9,8 @@ import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Labelled, ScrollTabsList } from "@/components/responsive";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import {
   attachCrmPage,
   createAccount,
@@ -43,7 +44,7 @@ import type {
 } from "@/lib/types";
 
 const fieldCls =
-  "h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
+  "h-9 min-w-0 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 sm:h-8";
 
 export function SalesView({
   heading,
@@ -137,7 +138,7 @@ export function SalesView({
         breadcrumb={[{ label: heading }]}
         actions={
           <>
-            <span className="text-xs text-muted-foreground">
+            <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:inline">
               Open {formatMoney(openValue)} · Won {formatMoney(wonValue)}
             </span>
             <Button size="sm" className="gap-1.5" onClick={openNew}>
@@ -154,12 +155,12 @@ export function SalesView({
         defaultValue="tasks"
         className="flex min-h-0 flex-1 flex-col"
       >
-        <TabsList className="mx-4 mt-2 self-start">
+        <ScrollTabsList>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline{count(initialDeals.length)}</TabsTrigger>
           <TabsTrigger value="accounts">Accounts{count(initialAccounts.length)}</TabsTrigger>
           <TabsTrigger value="contacts">Contacts{count(initialContacts.length)}</TabsTrigger>
-        </TabsList>
+        </ScrollTabsList>
 
         <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
           <DepartmentTasks
@@ -176,7 +177,7 @@ export function SalesView({
             <Empty label="No deals yet. Create your first deal to start the pipeline." />
           ) : (
             <>
-              <div className="px-4 pt-3">
+              <div className="px-3 pt-3 sm:px-4">
                 <ChartCard title="Pipeline by stage" hint={`${initialDeals.length} deals`}>
                   <ColumnChart data={stageValue} format={(n) => formatMoney(n)} />
                 </ChartCard>
@@ -194,7 +195,7 @@ export function SalesView({
           )}
         </TabsContent>
 
-        <TabsContent value="accounts" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="accounts" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           <SectionHeader
             title="Accounts"
             count={`${accounts.length} of ${initialAccounts.length}`}
@@ -217,7 +218,7 @@ export function SalesView({
           </div>
         </TabsContent>
 
-        <TabsContent value="contacts" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="contacts" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           <SectionHeader
             title="Contacts"
             count={`${contacts.length} of ${initialContacts.length}`}
@@ -328,7 +329,7 @@ function FilterBar({
         value={value.q}
         onChange={(e) => onChange({ ...value, q: e.target.value })}
         placeholder={placeholder}
-        className={fieldCls + " w-64"}
+        className={fieldCls + " w-full sm:w-64"}
         aria-label={placeholder}
       />
       <div className="flex flex-wrap items-center gap-1">
@@ -381,21 +382,24 @@ function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: ()
   const upd = (patch: Parameters<typeof updateAccount>[1]) =>
     start(async () => { await updateAccount(account.id, patch); onChanged(); });
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2">
+    <div className="grid grid-cols-2 gap-2 rounded-md border bg-background p-2 lg:flex lg:flex-wrap lg:items-center">
       <input
         defaultValue={account.name}
         onBlur={(e) => e.target.value !== account.name && upd({ name: e.target.value })}
-        className={fieldCls + " min-w-40 flex-1 font-medium"}
+        className={fieldCls + " col-span-2 font-medium lg:min-w-40 lg:flex-1"}
       />
       <select defaultValue={account.type} onChange={(e) => upd({ type: e.target.value })} className={fieldCls}>
         {ACCOUNT_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
       </select>
-      <input
-        defaultValue={account.industry ?? ""}
-        placeholder="Industry"
-        onBlur={(e) => e.target.value !== (account.industry ?? "") && upd({ industry: e.target.value || null })}
-        className={fieldCls + " w-32"}
-      />
+      <Labelled label="Industry" className="lg:w-32">
+        <input
+          defaultValue={account.industry ?? ""}
+          placeholder="Industry"
+          aria-label="Industry"
+          onBlur={(e) => e.target.value !== (account.industry ?? "") && upd({ industry: e.target.value || null })}
+          className={fieldCls + " w-full lg:w-32"}
+        />
+      </Labelled>
       <ChannelPicker value={account.channel} onChange={(channel) => upd({ channel })} />
       <select defaultValue={account.entity} onChange={(e) => upd({ entity: e.target.value })} className={fieldCls}>
         {ENTITIES.map((en) => <option key={en.id} value={en.id}>{en.label}</option>)}
@@ -404,21 +408,24 @@ function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: ()
         defaultValue={account.website ?? ""}
         placeholder="https://"
         onBlur={(e) => e.target.value !== (account.website ?? "") && upd({ website: e.target.value || null })}
-        className={fieldCls + " w-40"}
+        className={fieldCls + " col-span-2 lg:col-span-1 lg:w-40"}
       />
-      <DeckLink kind="account" id={account.id} pageId={account.pageId} />
-      <Link
-        href={`/accounts/${account.id}`}
-        className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
-      >
-        Open <ArrowUpRight className="size-3.5" />
-      </Link>
-      <button
-        onClick={() => start(async () => { await deleteAccount(account.id); onChanged(); })}
-        className="text-xs text-muted-foreground hover:text-destructive"
-      >
-        Delete
-      </button>
+      <div className="col-span-2 flex items-center gap-3 lg:contents">
+        <DeckLink kind="account" id={account.id} pageId={account.pageId} />
+        <Link
+          href={`/accounts/${account.id}`}
+          className="tap-target inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
+        >
+          Open <ArrowUpRight className="size-3.5" />
+        </Link>
+        <button
+          type="button"
+          onClick={() => start(async () => { await deleteAccount(account.id); onChanged(); })}
+          className="tap-target ml-auto text-xs text-muted-foreground hover:text-destructive lg:ml-0"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }
@@ -438,7 +445,7 @@ function ContactRow({
   const upd = (patch: Parameters<typeof updateContact>[1]) =>
     start(async () => { await updateContact(contact.id, patch); onChanged(); });
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2">
+    <div className="grid grid-cols-2 gap-2 rounded-md border bg-background p-2 lg:flex lg:flex-wrap lg:items-center">
       {contact.leadScore != null && (
         <span
           className="shrink-0 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
@@ -450,24 +457,27 @@ function ContactRow({
       <input
         defaultValue={contact.name}
         onBlur={(e) => e.target.value !== contact.name && upd({ name: e.target.value })}
-        className={fieldCls + " min-w-32 flex-1 font-medium"}
+        className={fieldCls + " font-medium lg:min-w-32 lg:flex-1"}
       />
       <input
         defaultValue={contact.email ?? ""}
         placeholder="email"
         onBlur={(e) => e.target.value !== (contact.email ?? "") && upd({ email: e.target.value || null })}
-        className={fieldCls + " w-40 min-w-0"}
+        className={fieldCls + " lg:w-40"}
       />
-      <input
-        defaultValue={contact.title ?? ""}
-        placeholder="Title"
-        onBlur={(e) => e.target.value !== (contact.title ?? "") && upd({ title: e.target.value || null })}
-        className={fieldCls + " w-40 min-w-0"}
-      />
+      <Labelled label="Title" className="lg:w-40">
+        <input
+          defaultValue={contact.title ?? ""}
+          placeholder="Title"
+          aria-label="Title"
+          onBlur={(e) => e.target.value !== (contact.title ?? "") && upd({ title: e.target.value || null })}
+          className={fieldCls + " w-full lg:w-40"}
+        />
+      </Labelled>
       <select
         defaultValue={contact.accountId ?? ""}
         onChange={(e) => upd({ accountId: e.target.value || null })}
-        className={fieldCls + " w-40 min-w-0"}
+        className={fieldCls + " lg:w-40"}
         aria-label="Account"
       >
         <option value="">No account</option>
@@ -484,7 +494,7 @@ function ContactRow({
       <select
         defaultValue={contact.referredById ?? ""}
         onChange={(e) => upd({ referredById: e.target.value || null })}
-        className={fieldCls + " w-36 min-w-0"}
+        className={fieldCls + " lg:w-36"}
         aria-label="Referred by"
         title="Referred by"
       >
@@ -493,13 +503,16 @@ function ContactRow({
           .filter((c) => c.id !== contact.id)
           .map((c) => <option key={c.id} value={c.id}>↩ {c.name}</option>)}
       </select>
-      <DeckLink kind="contact" id={contact.id} pageId={contact.pageId} />
-      <button
-        onClick={() => start(async () => { await deleteContact(contact.id); onChanged(); })}
-        className="text-xs text-muted-foreground hover:text-destructive"
-      >
-        Delete
-      </button>
+      <div className="col-span-2 flex items-center gap-3 lg:contents">
+        <DeckLink kind="contact" id={contact.id} pageId={contact.pageId} />
+        <button
+          type="button"
+          onClick={() => start(async () => { await deleteContact(contact.id); onChanged(); })}
+          className="tap-target ml-auto text-xs text-muted-foreground hover:text-destructive lg:ml-0"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }

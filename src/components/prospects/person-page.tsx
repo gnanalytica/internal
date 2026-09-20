@@ -11,7 +11,8 @@ import { SheetField, SheetFieldGrid } from "@/components/prospects/sheet-fields"
 import { BAND_COLORS, PRIORITY_COLORS, Pill, StatusPill } from "@/components/prospects/status-pill";
 import { Button } from "@/components/ui/button";
 import { bookCall, draftEmail } from "@/lib/google/actions";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollTabsList } from "@/components/responsive";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { PEOPLE_GROUPS } from "@/lib/sheet-crm/fields";
 import { DEEP_DIVE_DOSSIERS, PEOPLE, PROSPECT_INTELLIGENCE, RESEARCH_QUEUE } from "@/lib/sheet-crm/mapping";
 import type { PersonView } from "@/lib/sheet-crm/queries";
@@ -35,11 +36,11 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2.5">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-3 py-2.5 sm:px-4">
         <Link href={backHref} className="text-muted-foreground hover:text-foreground" aria-label="Back">
           <ArrowLeft className="size-4" />
         </Link>
-        <h1 className="text-sm font-semibold">{contact.name}</h1>
+        <h1 className="min-w-0 text-sm font-semibold">{contact.name}</h1>
         {pid && <span className="font-mono text-xs text-muted-foreground">{pid}</span>}
         {contact.priority && <Pill color={PRIORITY_COLORS[contact.priority]}>Priority {contact.priority}</Pill>}
         {contact.scoreBand && <Pill color={BAND_COLORS[contact.scoreBand.toUpperCase()]}>Band {contact.scoreBand}{contact.opportunityScore != null ? ` · ${contact.opportunityScore}` : ""}</Pill>}
@@ -50,14 +51,14 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
             <Building2 className="size-3.5" /> {contact.account.name}
           </Link>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <StatusPill status={contact.outreachStatus} contactId={contact.id} onChanged={refresh} readOnly={Boolean(excluded)} />
         </div>
       </header>
 
       {excluded && (
-        <div className="flex items-center gap-2 border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          <Ban className="size-4" />
+        <div className="flex items-start gap-2 border-b bg-destructive/10 px-3 py-2 text-sm text-destructive sm:items-center sm:px-4">
+          <Ban className="mt-0.5 size-4 shrink-0 sm:mt-0" />
           <span>
             <strong>Do not contact.</strong> Listed on the Exclusions tab as “{excluded.name}” — {excluded.action}
             {excluded.reason ? ` (${excluded.reason})` : ""}. Send actions are hidden.
@@ -65,28 +66,28 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-3 py-2 text-xs sm:px-4">
         {contact.phone && (
           <span className="flex items-center gap-1"><Phone className="size-3.5 text-muted-foreground" />{contact.phone}
-            <button onClick={() => copy(contact.phoneE164 ?? contact.phone!, "Phone")} aria-label="Copy phone"><Copy className="size-3 text-muted-foreground hover:text-foreground" /></button>
+            <button type="button" className="tap-target -m-1 grid place-items-center p-1" onClick={() => copy(contact.phoneE164 ?? contact.phone!, "Phone")} aria-label="Copy phone"><Copy className="size-3.5 text-muted-foreground hover:text-foreground" /></button>
           </span>
         )}
         {contact.email && (
           <span className="flex items-center gap-1"><Mail className="size-3.5 text-muted-foreground" />{contact.email}
-            <button onClick={() => copy(contact.email!, "Email")} aria-label="Copy email"><Copy className="size-3 text-muted-foreground hover:text-foreground" /></button>
+            <button type="button" className="tap-target -m-1 grid place-items-center p-1" onClick={() => copy(contact.email!, "Email")} aria-label="Copy email"><Copy className="size-3.5 text-muted-foreground hover:text-foreground" /></button>
           </span>
         )}
         {contact.bestFirstChannel && <Pill color="#6366f1" title="Best First Channel">{contact.bestFirstChannel}</Pill>}
         {contact.lastContactedAt && <span className="text-muted-foreground">Last contact {formatDate(contact.lastContactedAt)}{contact.lastChannel ? ` via ${contact.lastChannel}` : ""}</span>}
         {!excluded && (
-          <div className="ml-auto flex flex-wrap gap-1.5">
+          <div className="flex w-full flex-wrap gap-1.5 sm:ml-auto sm:w-auto">
             {d?.["WhatsApp Opener"] && (
-              <Button size="sm" variant="outline" onClick={() => { copy(d["WhatsApp Opener"], "WhatsApp opener"); setLogPrefill(d["WhatsApp Opener"]); }}>
+              <Button size="sm" variant="outline" className="h-9 sm:h-7" onClick={() => { copy(d["WhatsApp Opener"], "WhatsApp opener"); setLogPrefill(d["WhatsApp Opener"]); }}>
                 Copy WhatsApp opener
               </Button>
             )}
             {contact.email && (google.connected ? (
-              <Button size="sm" variant="outline" disabled={busy} onClick={() => start(async () => {
+              <Button size="sm" variant="outline" className="h-9 sm:h-7" disabled={busy} onClick={() => start(async () => {
                 try {
                   const r = await draftEmail({ contactId: contact.id, subject: `Valytica — ${d?.["One-Line Pitch"]?.slice(0, 60) ?? contact.name}`, body: d?.["Email / LinkedIn Angle"] ?? "" });
                   window.open(r.url, "_blank");
@@ -95,13 +96,13 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
                 Draft in Gmail
               </Button>
             ) : (
-              <Button size="sm" variant="outline" render={<a href={`mailto:${contact.email}?subject=${encodeURIComponent("Valytica")}&body=${encodeURIComponent(d?.["Email / LinkedIn Angle"] ?? "")}`} />}>
+              <Button size="sm" variant="outline" className="h-9 sm:h-7" nativeButton={false} render={<a href={`mailto:${contact.email}?subject=${encodeURIComponent("Valytica")}&body=${encodeURIComponent(d?.["Email / LinkedIn Angle"] ?? "")}`} />}>
                 Draft email
               </Button>
             ))}
             {google.connected && <BookCall contactId={contact.id} />}
             {(people?.linkedin || p?.LinkedIn) && (
-              <Button size="sm" variant="outline" render={<a href={people?.linkedin || p?.LinkedIn} target="_blank" rel="noreferrer" />}>
+              <Button size="sm" variant="outline" className="h-9 sm:h-7" nativeButton={false} render={<a href={people?.linkedin || p?.LinkedIn} target="_blank" rel="noreferrer" />}>
                 Open LinkedIn <ExternalLink className="size-3.5" />
               </Button>
             )}
@@ -110,16 +111,16 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
       </div>
 
       <Tabs defaultValue={p || d ? "overview" : "details"} className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="mx-4 mt-2 self-start">
+        <ScrollTabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="playbook">Playbook</TabsTrigger>
           <TabsTrigger value="evidence">Evidence</TabsTrigger>
           <TabsTrigger value="network">Network</TabsTrigger>
           <TabsTrigger value="timeline">Timeline{view.interactions.length ? ` (${view.interactions.length})` : ""}</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
-        </TabsList>
+        </ScrollTabsList>
 
-        <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           {!p && !d ? (
             <p className="text-sm text-muted-foreground">No research row for this person yet. Master facts are under Details.</p>
           ) : (
@@ -193,7 +194,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
           )}
         </TabsContent>
 
-        <TabsContent value="playbook" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="playbook" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           {!d ? (
             <p className="text-sm text-muted-foreground">No dossier for this person yet.</p>
           ) : (
@@ -208,7 +209,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
                   <div key={h} className="mb-3">
                     <SheetField spec={DEEP_DIVE_DOSSIERS} rowKey={dossier!.rowKey} header={h} value={d[h] ?? ""} onWritten={refresh} />
                     {!excluded && d[h] && (
-                      <button className="mt-1 text-xs text-brand hover:underline" onClick={() => copy(d[h], h)}>Copy</button>
+                      <button type="button" className="tap-target mt-1 text-xs text-brand hover:underline" onClick={() => copy(d[h], h)}>Copy</button>
                     )}
                   </div>
                 ))}
@@ -230,7 +231,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
           )}
         </TabsContent>
 
-        <TabsContent value="evidence" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="evidence" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Bank / lender relationships">
               <Field label="Verified Current Bank / Lender Relationships" value={p?.["Verified Current Bank / Lender Relationships"] ?? people?.empanelled_with} />
@@ -263,7 +264,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
           </div>
         </TabsContent>
 
-        <TabsContent value="network" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="network" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Warm paths">
               <Field label="Warm Referral Path" value={p?.["Warm Referral Path"]} />
@@ -311,7 +312,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
           </div>
         </TabsContent>
 
-        <TabsContent value="timeline" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="timeline" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <Timeline items={view.interactions} activities={view.activities} />
@@ -331,7 +332,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
           </div>
         </TabsContent>
 
-        <TabsContent value="details" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="details" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           {people && pid ? (
             <SheetFieldGrid spec={PEOPLE} rowKey={pid} record={people} groups={PEOPLE_GROUPS} onWritten={refresh} />
           ) : (
@@ -345,7 +346,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
 
 export function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-md border bg-background p-3">
+    <section className="rounded-md border bg-background p-3 sm:p-3.5">
       <h2 className="mb-2 text-sm font-semibold">{title}</h2>
       {children}
     </section>
@@ -376,14 +377,14 @@ function BookCall({ contactId }: { contactId: string }) {
   const [when, setWhen] = useState("");
   const [minutes, setMinutes] = useState(30);
   const [busy, start] = useTransition();
-  if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Book a call</Button>;
+  if (!open) return <Button size="sm" variant="outline" className="h-9 sm:h-7" onClick={() => setOpen(true)}>Book a call</Button>;
   return (
-    <span className="flex items-center gap-1.5 rounded-md border bg-background p-1">
-      <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="h-7 rounded border px-1 text-xs" aria-label="When" />
-      <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="h-7 rounded border px-1 text-xs" aria-label="Duration">
+    <span className="flex w-full flex-wrap items-center gap-1.5 rounded-md border bg-background p-1 sm:w-auto sm:flex-nowrap">
+      <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="h-9 min-w-0 flex-1 rounded border px-1 text-xs sm:h-7 sm:flex-none" aria-label="When" />
+      <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="h-9 rounded border px-1 text-xs sm:h-7" aria-label="Duration">
         {[15, 30, 45, 60].map((m) => <option key={m} value={m}>{m} min</option>)}
       </select>
-      <Button size="sm" disabled={busy || !when} onClick={() => start(async () => {
+      <Button size="sm" className="h-9 sm:h-7" disabled={busy || !when} onClick={() => start(async () => {
         try {
           const r = await bookCall({ contactId, startIso: new Date(when).toISOString(), minutes });
           toast.success("Booked with a Meet link; invite sent");
@@ -392,7 +393,7 @@ function BookCall({ contactId }: { contactId: string }) {
           router.refresh();
         } catch (e) { toast.error(e instanceof Error ? e.message : "Could not book"); }
       })}>Book</Button>
-      <button className="px-1 text-xs text-muted-foreground" onClick={() => setOpen(false)}>Cancel</button>
+      <button type="button" className="tap-target px-2 text-xs text-muted-foreground" onClick={() => setOpen(false)}>Cancel</button>
     </span>
   );
 }

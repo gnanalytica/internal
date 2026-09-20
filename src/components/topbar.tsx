@@ -49,7 +49,9 @@ export function Topbar({
           </Fragment>
         ))}
       </nav>
-      <div className="ml-auto flex items-center gap-1.5">{actions}</div>
+      {/* `min-w-0` so a long status line truncates inside the actions slot,
+          instead of pushing the breadcrumb off the left of a phone screen. */}
+      <div className="ml-auto flex min-w-0 items-center gap-1.5">{actions}</div>
     </header>
   );
 }

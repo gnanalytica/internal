@@ -842,3 +842,32 @@ a.entity-ref {
   color: inherit;
 }
 
+
+/* ---- iOS form-zoom guard ----
+   Safari on iOS zooms the whole page when a focused TEXT control's font-size is
+   under 16px, and never zooms back out — so every tap into a filter or a sheet
+   field left the layout scrolled sideways. This has to beat `.text-sm`, which
+   lives in @layer utilities, so it is deliberately UNLAYERED: unlayered CSS
+   outranks layered CSS whatever the specificity. It is scoped to touch pointers
+   at phone widths so the dense desktop chrome is untouched.
+
+   `select` is deliberately NOT in this list. iOS opens a native picker for a
+   select rather than zooming, so the rule buys nothing there — and it costs:
+   it inflated the 11px outreach-status pill, which is a select, into a control
+   twice the height of the row it sits in. */
+@media (max-width: 640px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* A control has to be big enough to hit. WCAG 2.5.8 asks for 24px; touch
+   guidance asks for more. Applied at phone widths only — the desktop rows are
+   deliberately dense and are driven by a mouse. */
+@media (pointer: coarse) {
+  .tap-target {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+  }
+}

@@ -9,7 +9,8 @@ import { ChartCard, Donut, Legend, type Slice } from "@/components/charts";
 import { DepartmentTasks } from "@/components/department-tasks";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Labelled, ScrollTabsList } from "@/components/responsive";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import {
   attachCrmPage,
   createCampaign,
@@ -36,7 +37,7 @@ import type {
 } from "@/lib/types";
 
 const fieldCls =
-  "h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
+  "h-9 min-w-0 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 sm:h-8";
 
 export function MarketingView({
   heading,
@@ -88,15 +89,15 @@ export function MarketingView({
       />
 
       <Tabs defaultValue="tasks" className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="mx-4 mt-2 self-start">
+        <ScrollTabsList>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="assets">Assets to make{assets.filter((a) => !a.match).length ? ` (${assets.filter((a) => !a.match).length})` : ""}</TabsTrigger>
           <TabsTrigger value="personas">Personas ({personas.length})</TabsTrigger>
-        </TabsList>
+        </ScrollTabsList>
 
-        <TabsContent value="assets" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="assets" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           <p className="mb-3 text-xs text-muted-foreground">
             Every asset the Deep Dive dossiers promise to share, and the content-calendar item it resolves to. An unresolved asset is content to make; add it to the calendar with the same title and it links up on the next load.
           </p>
@@ -105,19 +106,20 @@ export function MarketingView({
           ) : (
             <ul className="divide-y rounded-md border bg-background text-sm">
               {assets.map((a) => (
-                <li key={a.asset} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                <li key={a.asset} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
                   <span className={a.match ? "" : "font-medium"}>{a.asset}</span>
                   {a.match ? (
                     <span className="text-xs text-emerald-600">→ {a.match.title} · {a.match.status}{a.match.url ? " · linked" : ""}</span>
                   ) : (
                     <button
-                      className="text-xs text-brand hover:underline"
+                      type="button"
+                      className="tap-target text-xs text-brand hover:underline"
                       onClick={() => start(async () => { await createContent({ projectId: scopeProjectId, title: a.asset }); refresh(); })}
                     >
                       Add to calendar
                     </button>
                   )}
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto">
                     for {a.people.slice(0, 4).map((p, i) => (
                       <span key={p.name}>{i > 0 && ", "}{p.id ? <Link href={`/people/${p.id}`} className="hover:underline">{p.name}</Link> : p.name}</span>
                     ))}{a.people.length > 4 ? ` +${a.people.length - 4}` : ""}
@@ -128,11 +130,11 @@ export function MarketingView({
           )}
         </TabsContent>
 
-        <TabsContent value="personas" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="personas" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           {personas.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">GTM Personas come from the lead sheet; nothing synced yet.</div>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {personas.map((r) => (
                 <section key={r.id} className="rounded-md border bg-background p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
@@ -160,10 +162,10 @@ export function MarketingView({
           />
         </TabsContent>
 
-        <TabsContent value="campaigns" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="campaigns" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           {totalBudget > 0 && (
             <ChartCard title="Budget by channel" hint={formatMoney(totalBudget)} className="mb-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <Donut
                   data={budgetByChannel}
                   center={
@@ -205,7 +207,7 @@ export function MarketingView({
           </div>
         </TabsContent>
 
-        <TabsContent value="content" className="min-h-0 flex-1 overflow-auto p-4">
+        <TabsContent value="content" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           <div className="mb-3 flex items-center gap-2">
             <h2 className="text-sm font-semibold">Content calendar</h2>
             <Button
@@ -221,7 +223,7 @@ export function MarketingView({
             {CONTENT_STATUSES.map((s) => {
               const items = initialContent.filter((c) => c.status === s.id);
               return (
-                <div key={s.id} className="flex w-64 shrink-0 flex-col">
+                <div key={s.id} className="flex w-[17rem] max-w-[85vw] shrink-0 flex-col sm:w-64 sm:max-w-none">
                   <div className="mb-2 flex items-center gap-2 px-1">
                     <span className="size-2.5 rounded-full" style={{ backgroundColor: s.color }} />
                     <span className="text-sm font-medium">{s.label}</span>
@@ -279,14 +281,14 @@ function CampaignRow({
   const upd = (patch: Parameters<typeof updateCampaign>[1]) =>
     start(async () => { await updateCampaign(campaign.id, patch); onChanged(); });
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2">
+    <div className="grid grid-cols-2 gap-2 rounded-md border bg-background p-2 lg:flex lg:flex-wrap lg:items-center">
       <input
         defaultValue={campaign.name}
         onBlur={(e) => e.target.value !== campaign.name && upd({ name: e.target.value })}
-        className={fieldCls + " min-w-40 flex-1 font-medium"}
+        className={fieldCls + " col-span-2 font-medium lg:min-w-40 lg:flex-1"}
       />
       {showProject && campaign.project && (
-        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        <span className="col-span-2 flex items-center gap-1 text-[11px] text-muted-foreground lg:col-span-1">
           <span className="size-2 rounded-full" style={{ backgroundColor: campaign.project.color }} />
           {campaign.project.name}
         </span>
@@ -297,41 +299,10 @@ function CampaignRow({
       <select defaultValue={campaign.status} onChange={(e) => upd({ status: e.target.value })} className={fieldCls}>
         {CAMPAIGN_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
       </select>
-      <input
-        type="number"
-        defaultValue={campaign.budget}
-        onBlur={(e) => Number(e.target.value) !== campaign.budget && upd({ budget: Number(e.target.value) || 0 })}
-        className={fieldCls + " w-24"}
-        placeholder="Budget"
-        title="Budget"
-      />
-      <input
-        type="number"
-        defaultValue={campaign.reach}
-        onBlur={(e) => Number(e.target.value) !== campaign.reach && upd({ reach: Number(e.target.value) || 0 })}
-        className={fieldCls + " w-20"}
-        placeholder="Reach"
-        title="Reach"
-      />
-      <input
-        type="number"
-        defaultValue={campaign.replies}
-        onBlur={(e) => Number(e.target.value) !== campaign.replies && upd({ replies: Number(e.target.value) || 0 })}
-        className={fieldCls + " w-20"}
-        placeholder="Replies"
-        title="Replies"
-      />
-      <input
-        type="number"
-        defaultValue={campaign.conversions}
-        onBlur={(e) =>
-          Number(e.target.value) !== campaign.conversions &&
-          upd({ conversions: Number(e.target.value) || 0 })
-        }
-        className={fieldCls + " w-20"}
-        placeholder="Conv."
-        title="Conversions"
-      />
+      <Num label="Budget" width="lg:w-24" value={campaign.budget} onCommit={(budget) => upd({ budget })} />
+      <Num label="Reach" width="lg:w-20" value={campaign.reach} onCommit={(reach) => upd({ reach })} />
+      <Num label="Replies" width="lg:w-20" value={campaign.replies} onCommit={(replies) => upd({ replies })} />
+      <Num label="Conversions" width="lg:w-20" value={campaign.conversions} onCommit={(conversions) => upd({ conversions })} />
       <input
         type="date"
         defaultValue={dateInputValue(campaign.startDate)}
@@ -341,14 +312,48 @@ function CampaignRow({
       <select defaultValue={campaign.entity} onChange={(e) => upd({ entity: e.target.value })} className={fieldCls}>
         {ENTITIES.map((en) => <option key={en.id} value={en.id}>{en.label}</option>)}
       </select>
-      <BriefLink id={campaign.id} pageId={campaign.pageId} />
-      <button
-        onClick={() => start(async () => { await deleteCampaign(campaign.id); onChanged(); })}
-        className="text-xs text-muted-foreground hover:text-destructive"
-      >
-        Delete
-      </button>
+      <div className="col-span-2 flex items-center gap-3 lg:col-span-1 lg:contents">
+        <BriefLink id={campaign.id} pageId={campaign.pageId} />
+        <button
+          type="button"
+          onClick={() => start(async () => { await deleteCampaign(campaign.id); onChanged(); })}
+          className="tap-target ml-auto text-xs text-muted-foreground hover:text-destructive lg:ml-0"
+        >
+          Delete
+        </button>
+      </div>
     </div>
+  );
+}
+
+/**
+ * A campaign metric. Named on a phone by `Labelled`; on a laptop it is the same
+ * bare fixed-width input in the row it always was.
+ */
+function Num({
+  label,
+  width,
+  value,
+  onCommit,
+}: {
+  label: string;
+  width: string;
+  value: number;
+  onCommit: (n: number) => void;
+}) {
+  return (
+    <Labelled label={label} className={width}>
+      <input
+        type="number"
+        inputMode="numeric"
+        defaultValue={value}
+        onBlur={(e) => Number(e.target.value) !== value && onCommit(Number(e.target.value) || 0)}
+        className={fieldCls + " w-full " + width}
+        placeholder={label}
+        title={label}
+        aria-label={label}
+      />
+    </Labelled>
   );
 }
 
