@@ -17,7 +17,7 @@ const fieldCls = "h-8 rounded-md border bg-background px-2 text-sm focus:outline
 const channelMeta = (id: string) => INTERACTION_CHANNELS.find((c) => c.id === id) ?? { id, label: id, color: "#94a3b8" };
 
 /** Log a WhatsApp exchange, a call, a LinkedIn message, a meeting or a note. */
-export function LogInteractionForm({ contactId, accountId, prefill }: { contactId?: string; accountId?: string; prefill?: { body?: string } }) {
+export function LogInteractionForm({ contactId, accountId, prefill, campaigns = [] }: { contactId?: string; accountId?: string; prefill?: { body?: string }; campaigns?: { id: string; name: string }[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [channel, setChannel] = useState("whatsapp");
@@ -26,11 +26,12 @@ export function LogInteractionForm({ contactId, accountId, prefill }: { contactI
   const [subject, setSubject] = useState("");
   const [when, setWhen] = useState("");
   const [held, setHeld] = useState(false);
+  const [campaignId, setCampaignId] = useState("");
 
   function submit() {
     if (!body.trim() && !subject.trim()) return;
     start(async () => {
-      const r = await logInteraction({ contactId, accountId, channel, direction, body, subject, occurredAt: when || null, held });
+      const r = await logInteraction({ contactId, accountId, channel, direction, body, subject, occurredAt: when || null, held, campaignId: campaignId || null });
       setBody("");
       setSubject("");
       if (r.newStatus && isOutreachStatus(r.newStatus)) toast.success(`Logged · status → ${OUTREACH_STATUS_MAP[r.newStatus].label}`);
@@ -59,6 +60,12 @@ export function LogInteractionForm({ contactId, accountId, prefill }: { contactI
           </label>
         )}
         <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={fieldCls} aria-label="When" />
+        {campaigns.length > 0 && (
+          <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)} className={fieldCls} aria-label="Campaign">
+            <option value="">No campaign</option>
+            {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
         <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject (optional)" className={fieldCls + " min-w-40 flex-1"} />
       </div>
       <textarea

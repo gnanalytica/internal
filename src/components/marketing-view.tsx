@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { FileText, Plus } from "lucide-react";
@@ -25,6 +26,7 @@ import {
   ENTITIES,
 } from "@/lib/departments";
 import { dateInputValue, formatDate, formatMoney } from "@/lib/matrix-format";
+import type { CampaignOutcome, ContentAssetRow, SheetRow } from "@/lib/sheet-crm/queries";
 import type {
   IssueWithRelations,
   CampaignWithRelations,
@@ -43,6 +45,9 @@ export function MarketingView({
   initialCampaigns,
   initialContent,
   issues,
+  personas = [],
+  assets = [],
+  outcomes = {},
 }: {
   heading: string;
   scopeProjectId: string | null;
@@ -52,6 +57,12 @@ export function MarketingView({
   initialContent: ContentItemWithCampaign[];
   issues: IssueWithRelations[];
   ctx: TaskContext;
+  /** GTM Personas from the lead sheet. */
+  personas?: SheetRow[];
+  /** Dossier "Content Asset To Share" strings resolved against the content calendar. */
+  assets?: ContentAssetRow[];
+  /** Per-campaign reach / replies / meetings computed from logged interactions. */
+  outcomes?: Record<string, CampaignOutcome>;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -81,7 +92,63 @@ export function MarketingView({
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
+          <TabsTrigger value="assets">Assets to make{assets.filter((a) => !a.match).length ? ` (${assets.filter((a) => !a.match).length})` : ""}</TabsTrigger>
+          <TabsTrigger value="personas">Personas ({personas.length})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="assets" className="min-h-0 flex-1 overflow-auto p-4">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Every asset the Deep Dive dossiers promise to share, and the content-calendar item it resolves to. An unresolved asset is content to make; add it to the calendar with the same title and it links up on the next load.
+          </p>
+          {assets.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">No dossier names a content asset yet (or the sheet is not synced).</div>
+          ) : (
+            <ul className="divide-y rounded-md border bg-background text-sm">
+              {assets.map((a) => (
+                <li key={a.asset} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                  <span className={a.match ? "" : "font-medium"}>{a.asset}</span>
+                  {a.match ? (
+                    <span className="text-xs text-emerald-600">→ {a.match.title} · {a.match.status}{a.match.url ? " · linked" : ""}</span>
+                  ) : (
+                    <button
+                      className="text-xs text-brand hover:underline"
+                      onClick={() => start(async () => { await createContent({ projectId: scopeProjectId, title: a.asset }); refresh(); })}
+                    >
+                      Add to calendar
+                    </button>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    for {a.people.slice(0, 4).map((p, i) => (
+                      <span key={p.name}>{i > 0 && ", "}{p.id ? <Link href={`/people/${p.id}`} className="hover:underline">{p.name}</Link> : p.name}</span>
+                    ))}{a.people.length > 4 ? ` +${a.people.length - 4}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
+
+        <TabsContent value="personas" className="min-h-0 flex-1 overflow-auto p-4">
+          {personas.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">GTM Personas come from the lead sheet; nothing synced yet.</div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {personas.map((r) => (
+                <section key={r.id} className="rounded-md border bg-background p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold">{r.data.Persona}</h3>
+                    <span className="rounded-full border px-2 text-[11px]">{r.data["GTM Role"]}</span>
+                    {r.data.Priority && <span className="rounded-full border px-2 text-[11px]">Priority {r.data.Priority}</span>}
+                    <span className="text-xs text-muted-foreground">{r.data["Buyer/User/Influencer"]}</span>
+                  </div>
+                  {(["Why It Matters", "What We Want", "Best Hook", "Content / Demo To Show", "What To Avoid", "Research Criteria"] as const).map((h) => r.data[h] ? (
+                    <div key={h} className="mt-2"><div className="text-[11px] text-muted-foreground">{h}</div><div>{r.data[h]}</div></div>
+                  ) : null)}
+                </section>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
           <DepartmentTasks
@@ -123,7 +190,14 @@ export function MarketingView({
           </div>
           <div className="space-y-1.5">
             {initialCampaigns.map((c) => (
-              <CampaignRow key={c.id} campaign={c} showProject={!scopeProjectId} onChanged={refresh} />
+              <div key={c.id}>
+                <CampaignRow campaign={c} showProject={!scopeProjectId} onChanged={refresh} />
+                {outcomes[c.id] && (
+                  <div className="px-2 pt-1 text-[11px] text-muted-foreground">
+                    Logged: {outcomes[c.id].sent} sent · {outcomes[c.id].replies} replies · {outcomes[c.id].meetings} meetings · {outcomes[c.id].people} people
+                  </div>
+                )}
+              </div>
             ))}
             {initialCampaigns.length === 0 && (
               <div className="py-6 text-center text-sm text-muted-foreground">No campaigns yet.</div>

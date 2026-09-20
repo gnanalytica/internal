@@ -17,6 +17,8 @@ export const WEBHOOK_EVENTS = [
   "page.created",
   "page.updated",
   "page.deleted",
+  "person.updated",
+  "interaction.created",
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

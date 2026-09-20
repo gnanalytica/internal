@@ -93,6 +93,11 @@ from one person.
 `create_campaign`, `list_invoices`, `create_invoice`, `list_expenses`,
 `create_expense`, `list_activities`, `log_activity`
 
+**Prospects (the Valytica lead sheet)** — `search_people`, `get_person`,
+`update_person` (outreach state + write-through to sheet cells),
+`log_interaction`, `list_interactions`, `list_companies`, `get_company`,
+`sync_sheet`, `list_sheet_sync_runs`
+
 **Editing anything else** — `update_record` and `delete_record` take a
 `resource` (`projects`, `milestones`, `features`, `cycles`, `labels`, `deals`,
 `accounts`, `contacts`, `campaigns`, `invoices`, `expenses`, `tickets`) plus the

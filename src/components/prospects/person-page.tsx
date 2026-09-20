@@ -23,7 +23,7 @@ function copy(text: string, what: string) {
   void navigator.clipboard.writeText(text).then(() => toast.success(`${what} copied`));
 }
 
-export function PersonPage({ view, backHref, google }: { view: PersonView; backHref: string; google: { connected: boolean } }) {
+export function PersonPage({ view, backHref, google, campaigns = [] }: { view: PersonView; backHref: string; google: { connected: boolean }; campaigns?: { id: string; name: string }[] }) {
   const router = useRouter();
   const { contact, people, prospect, dossier, queue, excluded } = view;
   const pid = contact.externalId;
@@ -317,7 +317,7 @@ export function PersonPage({ view, backHref, google }: { view: PersonView; backH
               <Timeline items={view.interactions} activities={view.activities} />
             </div>
             <div className="space-y-3">
-              {!excluded && <LogInteractionForm contactId={contact.id} prefill={logPrefill ? { body: logPrefill } : undefined} />}
+              {!excluded && <LogInteractionForm contactId={contact.id} prefill={logPrefill ? { body: logPrefill } : undefined} campaigns={campaigns} />}
               {view.writes.length > 0 && (
                 <Card title="Sheet writes from Internal">
                   <ul className="space-y-1 text-xs">

@@ -6,6 +6,7 @@ import { refresh, updateTag } from "next/cache";
 import { db } from "@/db";
 import { crmAccounts, crmContacts, interactions } from "@/db/schema";
 import { wsTags } from "@/lib/cache-tags";
+import { dispatchWebhook } from "@/lib/api/webhooks";
 import { getCurrentUser, getWorkspace } from "@/lib/data";
 import { isSheetSyncConfigured } from "./google-auth";
 import { isTabId, type TabId } from "./mapping";
@@ -48,6 +49,7 @@ export async function updateSheetCells(input: {
   const me = await getCurrentUser(ws.id);
   if (!isTabId(input.tab)) throw new Error("Unknown tab.");
   const results = await writeSheetCells({ workspaceId: ws.id, tab: input.tab as TabId, rowKey: input.rowKey, updates: input.updates, actorId: me.id });
+  await dispatchWebhook(ws.id, "person.updated", { tab: input.tab, rowKey: input.rowKey, sheetWrites: results });
   invalidate(ws.id);
   return results;
 }
@@ -72,6 +74,7 @@ export async function setOutreachStatus(input: { contactId?: string; accountId?:
       .returning({ externalSource: crmAccounts.externalSource, externalId: crmAccounts.externalId });
     if (a?.externalSource === SHEET_SOURCE && a.externalId) await mirrorOutreachState(ws.id, { tab: "companies", rowKey: a.externalId }, { outreachStatus: input.status }, me.id);
   }
+  await dispatchWebhook(ws.id, "person.updated", { id: input.contactId ?? input.accountId, outreachStatus: input.status });
   invalidate(ws.id);
 }
 
@@ -115,6 +118,7 @@ export async function logInteraction(input: {
     .returning({ id: interactions.id });
 
   const newStatus = await applyInteractionToStatus(ws.id, { contactId: input.contactId ?? null, accountId: input.accountId ?? null }, input.channel, direction, occurredAt, me.id, input.held);
+  await dispatchWebhook(ws.id, "interaction.created", { id: row.id, contactId: input.contactId ?? null, accountId: input.accountId ?? null, channel: input.channel, direction, source: "manual", newStatus });
   invalidate(ws.id);
   return { id: row.id, newStatus };
 }

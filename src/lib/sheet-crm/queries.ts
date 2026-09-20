@@ -5,7 +5,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { db } from "@/db";
-import { crmAccounts, crmActivities, crmContacts, interactions, sheetCellWrites, sheetRows, sheetSyncRuns } from "@/db/schema";
+import { contentItems, crmAccounts, crmActivities, crmContacts, interactions, sheetCellWrites, sheetRows, sheetSyncRuns } from "@/db/schema";
 import { wsTags } from "@/lib/cache-tags";
 import type { CrmAccount, CrmContact, Member } from "@/lib/types";
 import type { TabId } from "./mapping";
@@ -535,4 +535,77 @@ export async function getDataQualityIssues(workspaceId: string): Promise<{ issue
   if (gone.n) counts.removed_rows = gone.n;
 
   return { issues, counts };
+}
+
+// ---- Marketing: dossier content assets ↔ content library, campaign outcomes ----
+
+export type ContentAssetRow = {
+  asset: string;
+  people: { id: string; name: string; personId: string | null }[];
+  match: { id: string; title: string; url: string | null; status: string } | null;
+};
+
+const assetKey = (s: string) => s.toLowerCase().replace(/^\s*\d+\s*-?\s*(second|sec)\s*(video)?:?\s*/i, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+
+/**
+ * Every "Content Asset To Share" the dossiers name, who it is for, and the
+ * content-calendar item it resolves to (by title containment either way).
+ * Unresolved assets are the marketing backlog the sheet already implies.
+ */
+export async function getContentAssets(workspaceId: string): Promise<ContentAssetRow[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "sheet", "campaigns", "crm"));
+  cacheLife("minutes");
+  const [dossiers, items] = await Promise.all([
+    getSheetTabRows(workspaceId, "deep_dive_dossiers"),
+    db.select({ id: contentItems.id, title: contentItems.title, url: contentItems.url, status: contentItems.status }).from(contentItems).where(eq(contentItems.workspaceId, workspaceId)),
+  ]);
+  const pids = dossiers.map((d) => d.personId).filter((p): p is string => Boolean(p));
+  const contacts = pids.length
+    ? await db.select({ id: crmContacts.id, name: crmContacts.name, externalId: crmContacts.externalId }).from(crmContacts).where(and(eq(crmContacts.workspaceId, workspaceId), eq(crmContacts.externalSource, SHEET_SOURCE), inArray(crmContacts.externalId, pids)))
+    : [];
+  const byPid = new Map(contacts.map((c) => [c.externalId!, c]));
+  const groups = new Map<string, ContentAssetRow>();
+  for (const d of dossiers) {
+    const raw = (d.data["Content Asset To Share"] ?? "").trim();
+    if (!raw) continue;
+    for (const part of raw.split(/\n|;/).map((s) => s.trim()).filter(Boolean)) {
+      const key = assetKey(part);
+      if (!key) continue;
+      let g = groups.get(key);
+      if (!g) {
+        const m = items.find((it) => {
+          const t = assetKey(it.title);
+          return t.length > 8 && (key.includes(t) || t.includes(key));
+        });
+        g = { asset: part, people: [], match: m ? { id: m.id, title: m.title, url: m.url, status: m.status } : null };
+        groups.set(key, g);
+      }
+      const c = d.personId ? byPid.get(d.personId) : undefined;
+      const person = c ? { id: c.id, name: c.name, personId: c.externalId } : { id: "", name: d.data.Name ?? d.rowKey, personId: d.personId };
+      if (!g.people.some((p) => p.name === person.name)) g.people.push(person);
+    }
+  }
+  return [...groups.values()].sort((a, b) => Number(Boolean(a.match)) - Number(Boolean(b.match)) || b.people.length - a.people.length);
+}
+
+export type CampaignOutcome = { sent: number; replies: number; meetings: number; people: number };
+
+/** Reach / replies / meetings per campaign, computed from logged interactions rather than typed in. */
+export async function getCampaignOutcomes(workspaceId: string): Promise<Record<string, CampaignOutcome>> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "interactions"));
+  cacheLife("minutes");
+  const rows = await db
+    .select({
+      campaignId: interactions.campaignId,
+      sent: sql<number>`count(*) filter (where ${interactions.direction} = 'out')::int`,
+      replies: sql<number>`count(*) filter (where ${interactions.direction} = 'in')::int`,
+      meetings: sql<number>`count(*) filter (where ${interactions.channel} = 'meeting')::int`,
+      people: sql<number>`count(distinct ${interactions.contactId})::int`,
+    })
+    .from(interactions)
+    .where(and(eq(interactions.workspaceId, workspaceId), sql`${interactions.campaignId} is not null`))
+    .groupBy(interactions.campaignId);
+  return Object.fromEntries(rows.map((r) => [r.campaignId!, { sent: r.sent, replies: r.replies, meetings: r.meetings, people: r.people }]));
 }

@@ -115,6 +115,15 @@ A `null` cursor means there are no more results. Other list endpoints
 | `POST`   | `/accounts`                   | Create an account                             |
 | `GET`    | `/contacts`                   | List CRM contacts                             |
 | `POST`   | `/contacts`                   | Create a contact                              |
+| `GET`    | `/people`                     | People from the Valytica lead sheet (`?q=&state=&priority=&band=&status=&persona=&hasPhone=1&hasEmail=1&researched=1&limit=&offset=`) |
+| `GET`    | `/people/{id}`                | One person by contact id or sheet `P#####`: sheet rows, network, timeline |
+| `PATCH`  | `/people/{id}`                | Set `outreachStatus` / `nextActionAt`; write sheet cells via `sheet: { <tab>: { "<Header>": value } }` |
+| `GET`    | `/companies`                  | Companies from the lead sheet (`?q=`)         |
+| `GET`    | `/companies/{id}`             | One company by account id or sheet `C####`    |
+| `GET`    | `/interactions`               | Timeline entries (`?person=P#####&contact=&account=&since=&limit=`) |
+| `POST`   | `/interactions`               | Log an interaction; idempotent on `source` + `externalRef` (201 new, 200 replay) |
+| `GET`    | `/sheet-sync`                 | Recent sheet sync runs                        |
+| `POST`   | `/sheet-sync`                 | Pull the Google Sheet now                     |
 | `GET`    | `/campaigns`                  | List marketing campaigns (`?product=`)        |
 | `POST`   | `/campaigns`                  | Create a campaign                             |
 | `GET`    | `/invoices`                   | List invoices (`?product=`)                   |
@@ -387,7 +396,8 @@ JSON body to your URL on each subscribed event:
 ```
 
 Events: `issue.created`, `issue.updated`, `issue.deleted`, `issue.commented`,
-`project.created`, `page.created`, `page.updated`, `page.deleted` (or subscribe
+`project.created`, `page.created`, `page.updated`, `page.deleted`,
+`person.updated`, `interaction.created` (or subscribe
 to all).
 
 Each request carries `X-Internal-Event`, a per-delivery id, and a signature:

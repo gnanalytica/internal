@@ -10,6 +10,7 @@ import {
   getProjects,
   getWorkspace,
 } from "@/lib/data";
+import { getCampaignOutcomes, getContentAssets, getSheetTabRows } from "@/lib/sheet-crm/queries";
 import { getTaskContext } from "@/lib/task-context";
 
 export default async function ProjectMarketingPage({
@@ -24,11 +25,14 @@ export default async function ProjectMarketingPage({
   if (!isDepartmentEnabled(project.enabledDepartments, "marketing")) notFound();
 
   const ctx = await getTaskContext(ws.id);
-  const [issues, campaigns, content, projects] = await Promise.all([
+  const [issues, campaigns, content, projects, personas, assets, outcomes] = await Promise.all([
     getIssues(ws.id),
     getCampaigns(ws.id, id),
     getContentItems(ws.id, id),
     getProjects(ws.id),
+    getSheetTabRows(ws.id, "gtm_personas"),
+    getContentAssets(ws.id),
+    getCampaignOutcomes(ws.id),
   ]);
 
   return (
@@ -41,6 +45,9 @@ export default async function ProjectMarketingPage({
       initialCampaigns={campaigns}
       initialContent={content}
       issues={issues.filter((i) => i.projectId === id)}
+      personas={personas}
+      assets={assets}
+      outcomes={outcomes}
     />
   );
 }

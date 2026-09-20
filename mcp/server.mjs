@@ -380,6 +380,82 @@ tool(
 );
 
 tool("list_contacts", "List CRM contacts (people).", {}, () => api("/contacts"));
+
+// ---- Prospects (the Valytica lead sheet, mirrored) ----
+tool(
+  "search_people",
+  "Search the Valytica lead sheet (5,600+ valuers and bank-side contacts). `q` matches name, person id (P#####), IBBI number, email, phone, city or firm. Filters: state, priority (A-D), band (A/B/C/Watch), status (outreach: not_planned, planned, contacted, replied, meeting_booked, met, pilot, paying, lost, excluded), persona (valuer|institutional), hasPhone, hasEmail, researched.",
+  {
+    q: z.string().optional(),
+    state: z.string().optional(),
+    priority: z.string().optional(),
+    band: z.string().optional(),
+    status: z.string().optional(),
+    persona: z.enum(["valuer", "institutional"]).optional(),
+    hasPhone: z.boolean().optional(),
+    hasEmail: z.boolean().optional(),
+    researched: z.boolean().optional(),
+    limit: z.number().int().min(1).max(500).optional(),
+    offset: z.number().int().min(0).optional(),
+  },
+  (a) => {
+    const args = { ...a };
+    for (const k of ["hasPhone", "hasEmail", "researched"]) if (args[k] === true) args[k] = 1; else delete args[k];
+    return api(`/people${query(args, ["q", "state", "priority", "band", "status", "persona", "hasPhone", "hasEmail", "researched", "limit", "offset"])}`);
+  },
+);
+
+tool(
+  "get_person",
+  "Everything Internal knows about one person: the sheet's People row, Prospect Intelligence (score, angle, wedge, next action), Deep Dive dossier (openers, demo sequence), Research Queue row, IOV rows, referral paths, lender contacts on their panels, firm and colleagues, and the full interaction timeline. `id` is a contact uuid or a sheet person id like P00145.",
+  { id: z.string() },
+  (a) => api(`/people/${encodeURIComponent(a.id)}`),
+);
+
+tool(
+  "update_person",
+  "Update a person. `outreachStatus` / `nextActionAt` are Internal's outreach state (mirrored to the sheet). `sheet` writes cells straight into the Google Sheet, keyed by tab id then EXACT column header, e.g. {\"prospect_intelligence\": {\"Next Action\": \"…\"}, \"people\": {\"phone\": \"…\"}}. Only columns declared writable land; formula columns are refused; the response lists each cell's outcome.",
+  {
+    id: z.string(),
+    outreachStatus: z.string().optional(),
+    nextActionAt: z.string().nullable().optional(),
+    sheet: z.record(z.string(), z.record(z.string(), z.union([z.string(), z.number(), z.null()]))).optional(),
+  },
+  (a) => api(`/people/${encodeURIComponent(a.id)}`, { method: "PATCH", body: { outreachStatus: a.outreachStatus, nextActionAt: a.nextActionAt, sheet: a.sheet } }),
+);
+
+tool(
+  "log_interaction",
+  "Record what happened with a person or company: a WhatsApp / LinkedIn / email / call / meeting / note. Advances their outreach status forward (an outbound message → contacted, an inbound one → replied, a held meeting → met). Give `personId` (P#####) or `contactId`. Pass `externalRef` to make the call idempotent.",
+  {
+    personId: z.string().optional(),
+    contactId: z.string().optional(),
+    accountId: z.string().optional(),
+    channel: z.enum(["whatsapp", "linkedin", "email", "call", "meeting", "sms", "note", "task"]),
+    direction: z.enum(["out", "in", "none"]).optional(),
+    occurredAt: z.string().optional(),
+    subject: z.string().optional(),
+    summary: z.string().optional(),
+    body: z.string().optional(),
+    held: z.boolean().optional(),
+    externalRef: z.string().optional(),
+    externalUrl: z.string().optional(),
+  },
+  (a) => api("/interactions", { method: "POST", body: a }),
+);
+
+tool(
+  "list_interactions",
+  "A person's or company's timeline, newest first. `person` is a sheet id (P#####); `since` is an ISO date.",
+  { person: z.string().optional(), contact: z.string().optional(), account: z.string().optional(), since: z.string().optional(), limit: z.number().int().min(1).max(500).optional() },
+  (a) => api(`/interactions${query(a, ["person", "contact", "account", "since", "limit"])}`),
+);
+
+tool("list_companies", "Companies from the lead sheet. `q` matches name, city, state, website or company id (C####).", { q: z.string().optional() }, (a) => api(`/companies${query(a, ["q"])}`));
+tool("get_company", "One company with its sheet row, people and timeline. `id` is an account uuid or a sheet company id like C0011.", { id: z.string() }, (a) => api(`/companies/${encodeURIComponent(a.id)}`));
+
+tool("sync_sheet", "Pull the Google Sheet into Internal now (all tabs; only changed rows are written). Returns the run summary per tab.", {}, () => api("/sheet-sync", { method: "POST", body: {} }));
+tool("list_sheet_sync_runs", "Recent sheet sync runs with their per-tab summaries, drift and errors.", {}, () => api("/sheet-sync"));
 tool(
   "create_contact",
   "Create a CRM contact, optionally linked to an account.",
