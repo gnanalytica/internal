@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { PersonPage } from "@/components/prospects/person-page";
 import { getWorkspace } from "@/lib/data";
+import { googleStatus } from "@/lib/google/actions";
 import { getPersonView, resolveContactId } from "@/lib/sheet-crm/queries";
 
 /** A person: by contact uuid, or by the sheet's person_id (P#####). */
@@ -10,7 +11,7 @@ export default async function PersonRoute({ params }: { params: Promise<{ id: st
   const ws = await getWorkspace();
   const contactId = await resolveContactId(ws.id, id);
   if (!contactId) notFound();
-  const view = await getPersonView(ws.id, contactId);
+  const [view, google] = await Promise.all([getPersonView(ws.id, contactId), googleStatus()]);
   if (!view) notFound();
-  return <PersonPage view={view} backHref="/prospects" />;
+  return <PersonPage view={view} backHref="/prospects" google={{ connected: google.connected }} />;
 }

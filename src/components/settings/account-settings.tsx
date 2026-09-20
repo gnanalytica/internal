@@ -47,10 +47,12 @@ export function AccountSettings({
   name,
   email,
   providerIds,
+  children,
 }: {
   name: string;
   email: string;
   providerIds: string[];
+  children?: React.ReactNode;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<ProviderId | null>(null);
@@ -165,6 +167,8 @@ export function AccountSettings({
             Linking works when the providers share your verified email ({email}).
           </p>
         </div>
+
+        {children}
       </div>
     </div>
   );

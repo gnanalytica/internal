@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ArrowLeft, Ban, Building2, Copy, ExternalLink, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import { LogInteractionForm, Timeline } from "@/components/prospects/interaction
 import { SheetField, SheetFieldGrid } from "@/components/prospects/sheet-fields";
 import { BAND_COLORS, PRIORITY_COLORS, Pill, StatusPill } from "@/components/prospects/status-pill";
 import { Button } from "@/components/ui/button";
+import { bookCall, draftEmail } from "@/lib/google/actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PEOPLE_GROUPS } from "@/lib/sheet-crm/fields";
 import { DEEP_DIVE_DOSSIERS, PEOPLE, PROSPECT_INTELLIGENCE, RESEARCH_QUEUE } from "@/lib/sheet-crm/mapping";
@@ -22,13 +23,14 @@ function copy(text: string, what: string) {
   void navigator.clipboard.writeText(text).then(() => toast.success(`${what} copied`));
 }
 
-export function PersonPage({ view, backHref }: { view: PersonView; backHref: string }) {
+export function PersonPage({ view, backHref, google }: { view: PersonView; backHref: string; google: { connected: boolean } }) {
   const router = useRouter();
   const { contact, people, prospect, dossier, queue, excluded } = view;
   const pid = contact.externalId;
   const p = prospect?.data;
   const d = dossier?.data;
   const [logPrefill, setLogPrefill] = useState<string | undefined>();
+  const [busy, start] = useTransition();
   const refresh = () => router.refresh();
 
   return (
@@ -83,11 +85,21 @@ export function PersonPage({ view, backHref }: { view: PersonView; backHref: str
                 Copy WhatsApp opener
               </Button>
             )}
-            {contact.email && (
+            {contact.email && (google.connected ? (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => start(async () => {
+                try {
+                  const r = await draftEmail({ contactId: contact.id, subject: `Valytica — ${d?.["One-Line Pitch"]?.slice(0, 60) ?? contact.name}`, body: d?.["Email / LinkedIn Angle"] ?? "" });
+                  window.open(r.url, "_blank");
+                } catch (e) { toast.error(e instanceof Error ? e.message : "Could not create the draft"); }
+              })}>
+                Draft in Gmail
+              </Button>
+            ) : (
               <Button size="sm" variant="outline" render={<a href={`mailto:${contact.email}?subject=${encodeURIComponent("Valytica")}&body=${encodeURIComponent(d?.["Email / LinkedIn Angle"] ?? "")}`} />}>
                 Draft email
               </Button>
-            )}
+            ))}
+            {google.connected && <BookCall contactId={contact.id} />}
             {(people?.linkedin || p?.LinkedIn) && (
               <Button size="sm" variant="outline" render={<a href={people?.linkedin || p?.LinkedIn} target="_blank" rel="noreferrer" />}>
                 Open LinkedIn <ExternalLink className="size-3.5" />
@@ -355,5 +367,32 @@ export function Field({ label, value, links }: { label: string; value?: string |
         <div className="whitespace-pre-wrap text-sm">{value}</div>
       )}
     </div>
+  );
+}
+
+function BookCall({ contactId }: { contactId: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [when, setWhen] = useState("");
+  const [minutes, setMinutes] = useState(30);
+  const [busy, start] = useTransition();
+  if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Book a call</Button>;
+  return (
+    <span className="flex items-center gap-1.5 rounded-md border bg-background p-1">
+      <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="h-7 rounded border px-1 text-xs" aria-label="When" />
+      <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="h-7 rounded border px-1 text-xs" aria-label="Duration">
+        {[15, 30, 45, 60].map((m) => <option key={m} value={m}>{m} min</option>)}
+      </select>
+      <Button size="sm" disabled={busy || !when} onClick={() => start(async () => {
+        try {
+          const r = await bookCall({ contactId, startIso: new Date(when).toISOString(), minutes });
+          toast.success("Booked with a Meet link; invite sent");
+          window.open(r.url, "_blank");
+          setOpen(false);
+          router.refresh();
+        } catch (e) { toast.error(e instanceof Error ? e.message : "Could not book"); }
+      })}>Book</Button>
+      <button className="px-1 text-xs text-muted-foreground" onClick={() => setOpen(false)}>Cancel</button>
+    </span>
   );
 }

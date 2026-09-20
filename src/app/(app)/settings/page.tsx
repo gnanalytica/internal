@@ -1,4 +1,6 @@
 import { AccountSettings } from "@/components/settings/account-settings";
+import { GoogleCard } from "@/components/settings/google-card";
+import { googleStatus } from "@/lib/google/actions";
 import { auth } from "@/lib/auth/server";
 import { getCurrentUser, getWorkspace } from "@/lib/data";
 
@@ -15,7 +17,11 @@ export default async function SettingsPage() {
     .map((a) => a.providerId ?? a.provider)
     .filter((x): x is string => Boolean(x));
 
+  const google = await googleStatus();
+
   return (
-    <AccountSettings name={me.name} email={me.email} providerIds={providerIds} />
+    <AccountSettings name={me.name} email={me.email} providerIds={providerIds}>
+      <GoogleCard status={google} />
+    </AccountSettings>
   );
 }

@@ -3,6 +3,7 @@ import { and, eq, gte, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications, users, workspaceMembers, workspaces } from "@/db/schema";
 import { buildDigest, digestSubject, digestText } from "@/lib/digest";
+import { buildOutreachBrief } from "@/lib/sheet-crm/brief";
 import { appBaseUrl, isEmailConfigured, sendEmail } from "@/lib/email";
 
 /**
@@ -95,5 +96,30 @@ export async function GET(req: Request) {
     if (ok) sent += 1;
   }
 
-  return Response.json({ recipients: byUser.size, sent });
+  // The founder's outreach brief: one email per workspace admin, only when
+  // there is something in it. Admins only — it names prospects and replies.
+  let briefs = 0;
+  const admins = await db
+    .select({ workspaceId: workspaceMembers.workspaceId, workspaceName: workspaces.name, email: users.email })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+    .where(eq(workspaceMembers.role, "admin"));
+  const briefByWs = new Map<string, { text: string; items: number }>();
+  for (const a of admins) {
+    let brief = briefByWs.get(a.workspaceId);
+    if (!brief) {
+      brief = await buildOutreachBrief(a.workspaceId, baseUrl);
+      briefByWs.set(a.workspaceId, brief);
+    }
+    if (brief.items === 0) continue;
+    const ok = await sendEmail({
+      to: a.email,
+      subject: `${a.workspaceName} · outreach brief: ${brief.items} item${brief.items === 1 ? "" : "s"}`,
+      text: `${brief.text}\n\n${baseUrl}/prospects`,
+    });
+    if (ok) briefs += 1;
+  }
+
+  return Response.json({ recipients: byUser.size, sent, briefs });
 }
