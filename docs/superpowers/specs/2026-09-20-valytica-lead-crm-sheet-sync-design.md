@@ -406,6 +406,35 @@ Approved action items still go through `POST /api/v1/issues` with
 `externalId`, as today. The person's outreach status advances to `met`, the
 summary appears on their timeline, and Slack is notified.
 
+### Verified against the live workbook, 2026-09-20
+
+Read-only, through the `internal-sheets@gnanalytica-internal` service account.
+No cell was written.
+
+- **Structure.** All 14 tabs matched by header signature, with the right banner
+  offsets (header row 2 on Lender Landscape, Lender Contacts, Association
+  Officers, IOV Memberships). **No missing and no unknown headers on any tab**,
+  which is the check the Drive export could not give. README, Summary, Scoring
+  Model and Priority Dashboard are deliberately not mirrored.
+- **Sizes.** People 5,663 · Companies 350 · Lender Contacts 378 · IOV
+  Memberships 2,726 · Association Officers 128 · RVOs 14 · Source Inventory 26
+  · Prospect Intelligence 21 · Research Queue 27 · Deep Dive 24 · Referral Map
+  15 · GTM Personas 16 · Exclusions 3.
+- **Keying.** Zero People rows without a `person_id`, zero duplicates, zero
+  malformed; same for Companies. 405 distinct person ids referenced by
+  `linked_person_ids`, **all resolving**, no malformed tokens.
+- **Write path, rehearsed without writing.** Row location by id is exact:
+  P00001→row 2, P00145→146 "Paleti Surendra", P02058→2053, P05675→5661 "Rohit
+  Kumar", P05678→5664; a made-up id resolves to nothing. Ids are **not**
+  row-minus-one, so the lookup is doing real work.
+- **Formula-ness varies by row.** `canonical_entity_key`, `duplicate_flag` and
+  `match_rule` carry formulas in the first rows and static values further down.
+  The probe's per-column sample is therefore **diagnostic only**; the guard
+  that matters is `cellHasFormula` on the exact target cell before each write,
+  behind the mapping's own read-only declaration. Both gates held.
+- **Contactability.** 325 of 5,663 have a parseable phone, matching the
+  workbook's own summary exactly; 3,350 have an email.
+
 ### Sheet columns still to add (owner's call, both optional)
 
 - `outreach_status`, `last_contacted_at` at the end of **People** and **Companies** — Internal writes them (RAW / date); until they exist every mirror write logs `column_absent` and the state lives in Internal only.
