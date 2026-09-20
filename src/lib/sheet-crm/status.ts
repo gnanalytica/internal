@@ -5,7 +5,7 @@ import { crmAccounts, crmContacts } from "@/db/schema";
 import { notifySlack } from "@/lib/slack";
 import { advanceOutreachStatus, impliedOutreachStatus, isInteractionChannel, type InteractionDirection } from "./outreach";
 import { SHEET_SOURCE } from "./projection";
-import { mirrorOutreachState } from "./sync";
+import { mirrorInternalColumns } from "./sync";
 
 /** Shared by the manual log and the ingesters: advance status + last-contacted, mirror to the sheet. */
 export async function applyInteractionToStatus(
@@ -36,7 +36,7 @@ export async function applyInteractionToStatus(
           .set({ ...(newStatus ? { outreachStatus: newStatus } : {}), ...(last ? { lastContactedAt: last, lastChannel: channel } : {}) })
           .where(eq(crmContacts.id, scope.contactId));
         if (c.externalSource === SHEET_SOURCE && c.externalId)
-          await mirrorOutreachState(workspaceId, { tab: "people", rowKey: c.externalId }, { ...(newStatus ? { outreachStatus: newStatus } : {}), ...(last ? { lastContactedAt: last } : {}) }, actorId);
+          await mirrorInternalColumns(workspaceId, { tab: "people", rowKey: c.externalId }, { ...(newStatus ? { outreachStatus: newStatus } : {}), ...(last ? { lastContactedAt: last } : {}) }, actorId);
         if (newStatus === "replied" || newStatus === "meeting_booked" || newStatus === "met") {
           const [who] = await db.select({ name: crmContacts.name }).from(crmContacts).where(eq(crmContacts.id, scope.contactId)).limit(1);
           void notifySlack(workspaceId, `Valytica: ${who?.name ?? "a prospect"} → ${newStatus.replace("_", " ")} (${channel}).`);
@@ -58,7 +58,7 @@ export async function applyInteractionToStatus(
           .set({ ...(newStatus ? { outreachStatus: newStatus } : {}), ...(last ? { lastContactedAt: last } : {}) })
           .where(eq(crmAccounts.id, scope.accountId));
         if (a.externalSource === SHEET_SOURCE && a.externalId)
-          await mirrorOutreachState(workspaceId, { tab: "companies", rowKey: a.externalId }, { ...(newStatus ? { outreachStatus: newStatus } : {}), ...(last ? { lastContactedAt: last } : {}) }, actorId);
+          await mirrorInternalColumns(workspaceId, { tab: "companies", rowKey: a.externalId }, { ...(newStatus ? { outreachStatus: newStatus } : {}), ...(last ? { lastContactedAt: last } : {}) }, actorId);
       }
     }
   }

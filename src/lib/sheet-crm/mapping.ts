@@ -71,8 +71,16 @@ const col = (header: string, o: Omit<ColumnSpec, "header"> = {}): ColumnSpec => 
 const w = (header: string, kind?: CellKind): ColumnSpec => ({ header, writable: true, kind });
 const d = (header: string): ColumnSpec => ({ header, derived: true });
 
-/** Columns Internal owns and mirrors into the masters (added at our request). */
-export const INTERNAL_OWNED_COLUMNS = ["outreach_status", "last_contacted_at"] as const;
+/**
+ * Columns Internal owns and mirrors into the masters (added at our request).
+ *
+ * Each is `optional`, so none of them has to exist: until the sheet's owner
+ * adds the header, a write to it is refused as `column_absent` and kept as a
+ * pending write — the value still lives in Internal, and starts appearing in
+ * the sheet the day the column does. Adding a column to the workbook is the
+ * sheet owner's decision, never ours.
+ */
+export const INTERNAL_OWNED_COLUMNS = ["outreach_status", "last_contacted_at", "owner"] as const;
 
 export const PEOPLE: TabSpec = {
   id: "people",
@@ -131,6 +139,7 @@ export const PEOPLE: TabSpec = {
     d("match_rule"),
     col("outreach_status", { writable: true, optional: true }),
     col("last_contacted_at", { writable: true, optional: true, kind: "date" }),
+    col("owner", { writable: true, optional: true }),
   ],
 };
 
@@ -183,6 +192,7 @@ export const COMPANIES: TabSpec = {
     d("match_rule"),
     col("outreach_status", { writable: true, optional: true }),
     col("last_contacted_at", { writable: true, optional: true, kind: "date" }),
+    col("owner", { writable: true, optional: true }),
   ],
 };
 

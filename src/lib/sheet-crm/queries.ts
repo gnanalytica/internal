@@ -9,6 +9,7 @@ import { contentItems, crmAccounts, crmActivities, crmContacts, interactions, sh
 import { wsTags } from "@/lib/cache-tags";
 import type { CrmAccount, CrmContact, Member } from "@/lib/types";
 import type { TabId } from "./mapping";
+import { UNASSIGNED } from "./ownership";
 import { matchesExclusion, parseExclusions, SHEET_SOURCE, type ExclusionEntry, type SheetRecord } from "./projection";
 
 /**
@@ -157,7 +158,7 @@ export async function getExclusions(workspaceId: string): Promise<ExclusionEntry
 
 // ---- People (prospects) ----
 
-export type ProspectRow = CrmContact & { account: CrmAccount | null; excluded: ExclusionEntry | null };
+export type ProspectRow = CrmContact & { account: CrmAccount | null; owner: Member | null; excluded: ExclusionEntry | null };
 
 export type PeopleFilter = {
   q?: string;
@@ -170,6 +171,12 @@ export type PeopleFilter = {
   hasPhone?: boolean;
   hasEmail?: boolean;
   rvo?: string;
+  /**
+   * A workspace member's uuid, or the literal `"unassigned"`. "Mine" is not a
+   * value here — the caller passes their own id, so this stays a pure function
+   * of its arguments and the `"use cache"` result is not per-viewer.
+   */
+  owner?: string;
   /** Only rows with research (a Prospect Intelligence row). */
   researched?: boolean;
   /** Hide rows the sheet itself flagged as duplicates of another row. */
@@ -212,13 +219,15 @@ export async function getProspects(workspaceId: string, f: PeopleFilter = {}): P
     if (f.persona === "valuer") where.push(sql`${crmContacts.persona} is distinct from 'institutional'`);
     if (f.hasPhone) where.push(sql`${crmContacts.phoneE164} is not null`);
     if (f.hasEmail) where.push(sql`${crmContacts.email} is not null and ${crmContacts.email} <> ''`);
+    if (f.owner === UNASSIGNED) where.push(sql`${crmContacts.ownerId} is null`);
+    else if (f.owner) where.push(eq(crmContacts.ownerId, f.owner));
     if (f.researched) where.push(sql`${crmContacts.priority} is not null`);
     if (f.hideDuplicates) where.push(eq(crmContacts.sheetDuplicate, false));
     const cond = and(...where);
     const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(crmContacts).where(cond);
     const rows = await db.query.crmContacts.findMany({
       where: cond,
-      with: { account: true },
+      with: { account: true, owner: true },
       // Scored first, then priority A→D, then hotter lead_score, then name.
       orderBy: [
         sql`${crmContacts.opportunityScore} desc nulls last`,
@@ -262,6 +271,8 @@ export type ProspectStats = {
   withEmail: number;
   /** Rows the sheet flagged DUPLICATE. Shown, never hidden, unless filtered. */
   duplicates: number;
+  /** Researched people nobody has been made responsible for. */
+  unassigned: number;
 };
 
 export async function getProspectStats(workspaceId: string): Promise<ProspectStats> {
@@ -279,6 +290,7 @@ export async function getProspectStats(workspaceId: string): Promise<ProspectSta
         withPhone: sql<number>`count(*) filter (where ${crmContacts.phoneE164} is not null)::int`,
         withEmail: sql<number>`count(*) filter (where ${crmContacts.email} is not null and ${crmContacts.email} <> '')::int`,
         duplicates: sql<number>`count(*) filter (where ${crmContacts.sheetDuplicate})::int`,
+        unassigned: sql<number>`count(*) filter (where ${crmContacts.ownerId} is null and ${crmContacts.priority} is not null)::int`,
       })
       .from(crmContacts)
       .where(base);
@@ -288,7 +300,7 @@ export async function getProspectStats(workspaceId: string): Promise<ProspectSta
       .where(base)
       .groupBy(crmContacts.outreachStatus);
     return { ...agg, byStatus: Object.fromEntries(statuses.map((s) => [s.status, s.n])) };
-  }, { people: 0, institutional: 0, researched: 0, scored: 0, byStatus: {}, withPhone: 0, withEmail: 0, duplicates: 0 });
+  }, { people: 0, institutional: 0, researched: 0, scored: 0, byStatus: {}, withPhone: 0, withEmail: 0, duplicates: 0, unassigned: 0 });
 }
 
 export type Interaction = typeof interactions.$inferSelect & { actor: Member | null };

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import headers from "./fixtures/headers.json";
 import {
+  INTERNAL_OWNED_COLUMNS,
   TAB_SPECS,
   TAB_SPEC_BY_ID,
   a1,
@@ -46,6 +47,21 @@ describe("mapping ↔ the workbook's real header rows", () => {
   it("derived columns are never writable", () => {
     for (const spec of TAB_SPECS)
       for (const c of spec.columns) if (c.derived) expect(isWritableColumn(spec, c.header)).toBe(false);
+  });
+
+  it("every Internal-owned column is optional on both masters", () => {
+    // The sheet is somebody else's document. These columns are ours to write
+    // and theirs to create: declaring one non-optional would make the header
+    // check above fail against the live workbook, and — worse — `headerDrift`
+    // would report it as MISSING, i.e. as the sheet having lost a column it
+    // never had.
+    for (const spec of [TAB_SPEC_BY_ID.people, TAB_SPEC_BY_ID.companies])
+      for (const header of INTERNAL_OWNED_COLUMNS) {
+        const c = spec.columns.find((x) => x.header === header);
+        expect(c, `${spec.id} is missing the ${header} column`).toBeDefined();
+        expect(c!.optional, `${spec.id}.${header} must stay optional`).toBe(true);
+        expect(isWritableColumn(spec, header)).toBe(true);
+      }
   });
 
   it("formula columns the workbook documents are marked derived", () => {

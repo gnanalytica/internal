@@ -3,14 +3,14 @@ import "server-only";
 import { and, eq, gte } from "drizzle-orm";
 
 import { db } from "@/db";
-import { crmContacts, interactions } from "@/db/schema";
+import { crmContacts, interactions, users, workspaceMembers } from "@/db/schema";
 import { ApiInputError } from "@/lib/api/errors";
 import { dispatchWebhook } from "@/lib/api/webhooks";
 import { INTERACTION_SOURCES, isInteractionChannel, isOutreachStatus, type InteractionDirection } from "@/lib/sheet-crm/outreach";
 import { SHEET_SOURCE } from "@/lib/sheet-crm/projection";
 import type { PersonView, ProspectRow } from "@/lib/sheet-crm/queries";
 import { applyInteractionToStatus } from "@/lib/sheet-crm/status";
-import { mirrorOutreachState, writeSheetCells, type CellWriteResult } from "@/lib/sheet-crm/sync";
+import { mirrorInternalColumns, writeSheetCells, type CellWriteResult } from "@/lib/sheet-crm/sync";
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL || "";
 
@@ -40,6 +40,7 @@ export function personDto(c: ProspectRow | PersonView["contact"]) {
     lastChannel: c.lastChannel,
     nextActionAt: c.nextActionAt,
     account: c.account ? { id: c.account.id, name: c.account.name, companyId: c.account.externalId } : null,
+    owner: c.owner ? { id: c.owner.id, name: c.owner.name } : null,
     excluded: excluded ? { name: excluded.name, action: excluded.action } : null,
     url: BASE ? `${BASE}/people/${c.id}` : `/people/${c.id}`,
   };
@@ -89,6 +90,8 @@ export function interactionDto(i: typeof interactions.$inferSelect & { actor?: {
 export type PersonPatch = {
   outreachStatus?: string;
   nextActionAt?: string | null;
+  /** A workspace member's uuid, or null to unassign. */
+  ownerId?: string | null;
   /** Sheet cells, keyed by tab id then exact header. Only writable columns land. */
   sheet?: Partial<Record<"people" | "prospect_intelligence" | "deep_dive_dossiers" | "research_queue", Record<string, string | number | null>>>;
 };
@@ -106,10 +109,32 @@ export async function apiPatchPerson(workspaceId: string, userId: string | null,
     changed.outreachStatus = patch.outreachStatus;
   }
   if (patch.nextActionAt !== undefined) changed.nextActionAt = patch.nextActionAt ? new Date(patch.nextActionAt) : null;
+  let ownerName: string | null | undefined;
+  if (patch.ownerId !== undefined) {
+    if (patch.ownerId === null) {
+      changed.ownerId = null;
+      ownerName = null;
+    } else {
+      const [m] = await db
+        .select({ name: users.name })
+        .from(workspaceMembers)
+        .innerJoin(users, eq(workspaceMembers.userId, users.id))
+        .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, patch.ownerId)))
+        .limit(1);
+      if (!m) throw new ApiInputError("That ownerId is not a member of this workspace.");
+      changed.ownerId = patch.ownerId;
+      ownerName = m.name;
+    }
+  }
   if (Object.keys(changed).length) {
     await db.update(crmContacts).set(changed).where(eq(crmContacts.id, contactId));
-    if (changed.outreachStatus && c.externalSource === SHEET_SOURCE && c.externalId)
-      await mirrorOutreachState(workspaceId, { tab: "people", rowKey: c.externalId }, { outreachStatus: String(changed.outreachStatus) }, userId);
+    if (c.externalSource === SHEET_SOURCE && c.externalId) {
+      const mirror = {
+        ...(changed.outreachStatus ? { outreachStatus: String(changed.outreachStatus) } : {}),
+        ...(ownerName !== undefined ? { owner: ownerName } : {}),
+      };
+      if (Object.keys(mirror).length) await mirrorInternalColumns(workspaceId, { tab: "people", rowKey: c.externalId }, mirror, userId);
+    }
   }
   const writes: CellWriteResult[] = [];
   if (patch.sheet) {

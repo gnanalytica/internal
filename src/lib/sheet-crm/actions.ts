@@ -1,10 +1,10 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { refresh, updateTag } from "next/cache";
 
 import { db } from "@/db";
-import { crmAccounts, crmContacts, interactions } from "@/db/schema";
+import { crmAccounts, crmContacts, interactions, users, workspaceMembers } from "@/db/schema";
 import { wsTags } from "@/lib/cache-tags";
 import { dispatchWebhook } from "@/lib/api/webhooks";
 import { getCurrentUser, getWorkspace } from "@/lib/data";
@@ -13,7 +13,7 @@ import { isTabId, type TabId } from "./mapping";
 import { isInteractionChannel, isOutreachStatus, type InteractionDirection } from "./outreach";
 import { SHEET_SOURCE } from "./projection";
 import { applyInteractionToStatus } from "./status";
-import { mirrorOutreachState, pullSheet, writeSheetCells, type CellWriteResult } from "./sync";
+import { mirrorInternalColumns, pullSheet, writeSheetCells, type CellWriteResult } from "./sync";
 
 function invalidate(workspaceId: string) {
   for (const tag of wsTags(workspaceId, "sheet", "crm", "interactions")) updateTag(tag);
@@ -65,17 +65,84 @@ export async function setOutreachStatus(input: { contactId?: string; accountId?:
       .set({ outreachStatus: input.status, ...(input.nextActionAt !== undefined ? { nextActionAt: input.nextActionAt ? new Date(input.nextActionAt) : null } : {}) })
       .where(and(eq(crmContacts.id, input.contactId), eq(crmContacts.workspaceId, ws.id)))
       .returning({ externalSource: crmContacts.externalSource, externalId: crmContacts.externalId });
-    if (c?.externalSource === SHEET_SOURCE && c.externalId) await mirrorOutreachState(ws.id, { tab: "people", rowKey: c.externalId }, { outreachStatus: input.status }, me.id);
+    if (c?.externalSource === SHEET_SOURCE && c.externalId) await mirrorInternalColumns(ws.id, { tab: "people", rowKey: c.externalId }, { outreachStatus: input.status }, me.id);
   } else if (input.accountId) {
     const [a] = await db
       .update(crmAccounts)
       .set({ outreachStatus: input.status })
       .where(and(eq(crmAccounts.id, input.accountId), eq(crmAccounts.workspaceId, ws.id)))
       .returning({ externalSource: crmAccounts.externalSource, externalId: crmAccounts.externalId });
-    if (a?.externalSource === SHEET_SOURCE && a.externalId) await mirrorOutreachState(ws.id, { tab: "companies", rowKey: a.externalId }, { outreachStatus: input.status }, me.id);
+    if (a?.externalSource === SHEET_SOURCE && a.externalId) await mirrorInternalColumns(ws.id, { tab: "companies", rowKey: a.externalId }, { outreachStatus: input.status }, me.id);
   }
   await dispatchWebhook(ws.id, "person.updated", { id: input.contactId ?? input.accountId, outreachStatus: input.status });
   invalidate(ws.id);
+}
+
+/**
+ * Make somebody responsible for a prospect, or for a batch of them.
+ *
+ * One action serves the row picker and the bulk bar, because the batch case is
+ * the point: splitting a few hundred researched people between three valuers is
+ * the reason this exists, and doing it one popover at a time is not a workflow.
+ *
+ * The owner is a **workspace member**, checked here rather than trusted from
+ * the client — a uuid arrives from a form and could be any row in `users`,
+ * including somebody from another workspace.
+ */
+export async function setProspectOwner(input: {
+  contactIds?: string[];
+  accountIds?: string[];
+  ownerId: string | null;
+}): Promise<{ assigned: number }> {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const contactIds = (input.contactIds ?? []).filter(Boolean);
+  const accountIds = (input.accountIds ?? []).filter(Boolean);
+  if (!contactIds.length && !accountIds.length) return { assigned: 0 };
+
+  let ownerName: string | null = null;
+  if (input.ownerId) {
+    const [m] = await db
+      .select({ name: users.name })
+      .from(workspaceMembers)
+      .innerJoin(users, eq(workspaceMembers.userId, users.id))
+      .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.userId, input.ownerId)))
+      .limit(1);
+    if (!m) throw new Error("That person is not a member of this workspace.");
+    ownerName = m.name;
+  }
+
+  let assigned = 0;
+  if (contactIds.length) {
+    const rows = await db
+      .update(crmContacts)
+      .set({ ownerId: input.ownerId })
+      .where(and(inArray(crmContacts.id, contactIds), eq(crmContacts.workspaceId, ws.id)))
+      .returning({ id: crmContacts.id, externalSource: crmContacts.externalSource, externalId: crmContacts.externalId });
+    assigned += rows.length;
+    // Sequential on purpose: each mirror is a Sheets write against one row of
+    // one workbook, and a bulk assign would otherwise fire N of them at once.
+    for (const r of rows) {
+      if (r.externalSource === SHEET_SOURCE && r.externalId)
+        await mirrorInternalColumns(ws.id, { tab: "people", rowKey: r.externalId }, { owner: ownerName }, me.id);
+    }
+  }
+  if (accountIds.length) {
+    const rows = await db
+      .update(crmAccounts)
+      .set({ ownerId: input.ownerId })
+      .where(and(inArray(crmAccounts.id, accountIds), eq(crmAccounts.workspaceId, ws.id)))
+      .returning({ id: crmAccounts.id, externalSource: crmAccounts.externalSource, externalId: crmAccounts.externalId });
+    assigned += rows.length;
+    for (const r of rows) {
+      if (r.externalSource === SHEET_SOURCE && r.externalId)
+        await mirrorInternalColumns(ws.id, { tab: "companies", rowKey: r.externalId }, { owner: ownerName }, me.id);
+    }
+  }
+
+  for (const id of contactIds) await dispatchWebhook(ws.id, "person.updated", { id, ownerId: input.ownerId });
+  invalidate(ws.id);
+  return { assigned };
 }
 
 /**

@@ -138,13 +138,22 @@ export function AssigneePicker({
   onChange,
   compact,
   label = "Unassigned",
+  triggerLabel,
 }: {
   members: Member[];
-  value: string | null;
+  /**
+   * The current assignee, `null` for nobody — or `undefined` where there is no
+   * single current value to show, as when the picker acts on a batch of rows
+   * that may each have a different one. `undefined` ticks nothing.
+   */
+  value: string | null | undefined;
   onChange: (v: string | null) => void;
   compact?: boolean;
-  /** Empty-state label (e.g. "No owner"). */
+  /** The clear item's label, and the trigger's when nothing is assigned (e.g. "No owner"). */
   label?: string;
+  /** Overrides the trigger text only — the clear item keeps `label`, because
+      "pick somebody" and "assign to nobody" are two different sentences. */
+  triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const m = members.find((x) => x.id === value) ?? null;
@@ -162,7 +171,7 @@ export function AssigneePicker({
         ) : (
           <UnassignedDot />
         )}
-        {!compact && <span>{m ? m.name : label}</span>}
+        {!compact && <span>{m ? m.name : triggerLabel ?? label}</span>}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-0">
         <Command>
@@ -173,7 +182,7 @@ export function AssigneePicker({
               <CommandItem value="Unassigned" onSelect={() => pick(null)} className="gap-2">
                 <UnassignedDot />
                 <span className="flex-1">{label}</span>
-                {!value && <Check className="size-3.5 opacity-70" />}
+                {value === null && <Check className="size-3.5 opacity-70" />}
               </CommandItem>
               {members.map((mem) => (
                 <CommandItem

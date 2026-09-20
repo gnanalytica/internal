@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Ban, ExternalLink } from "lucide-react";
 
 import { LogInteractionForm, Timeline } from "@/components/prospects/interaction-log";
+import { ProspectOwnerPicker } from "@/components/prospects/owner-picker";
 import { Card, Field } from "@/components/prospects/person-page";
 import { SheetFieldGrid } from "@/components/prospects/sheet-fields";
 import { ScrollTabsList } from "@/components/responsive";
@@ -13,8 +14,9 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { COMPANY_GROUPS } from "@/lib/sheet-crm/fields";
 import { COMPANIES } from "@/lib/sheet-crm/mapping";
 import type { CompanyView } from "@/lib/sheet-crm/queries";
+import type { Member } from "@/lib/types";
 
-export function CompanyPage({ view, backHref }: { view: CompanyView; backHref: string }) {
+export function CompanyPage({ view, backHref, members = [] }: { view: CompanyView; backHref: string; members?: Member[] }) {
   const router = useRouter();
   const { account, record, excluded } = view;
   const cid = account.externalId;
@@ -33,7 +35,10 @@ export function CompanyPage({ view, backHref }: { view: CompanyView; backHref: s
             {account.website.replace(/^https?:\/\//, "")} <ExternalLink className="size-3" />
           </a>
         )}
-        <div className="ml-auto shrink-0"><StatusPill status={account.outreachStatus} accountId={account.id} onChanged={refresh} readOnly={Boolean(excluded)} /></div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ProspectOwnerPicker members={members} ownerId={account.ownerId} accountId={account.id} />
+          <StatusPill status={account.outreachStatus} accountId={account.id} onChanged={refresh} readOnly={Boolean(excluded)} />
+        </div>
       </header>
       {excluded && (
         <div className="flex items-start gap-2 border-b bg-destructive/10 px-3 py-2 text-sm text-destructive sm:items-center sm:px-4">

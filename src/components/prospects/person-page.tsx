@@ -7,6 +7,7 @@ import { ArrowLeft, Ban, Building2, Copy, ExternalLink, Mail, Phone } from "luci
 import { toast } from "sonner";
 
 import { LogInteractionForm, Timeline } from "@/components/prospects/interaction-log";
+import { ProspectOwnerPicker } from "@/components/prospects/owner-picker";
 import { SheetField, SheetFieldGrid } from "@/components/prospects/sheet-fields";
 import { BAND_COLORS, PRIORITY_COLORS, Pill, StatusPill } from "@/components/prospects/status-pill";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { PEOPLE_GROUPS } from "@/lib/sheet-crm/fields";
 import { DEEP_DIVE_DOSSIERS, PEOPLE, PROSPECT_INTELLIGENCE, RESEARCH_QUEUE } from "@/lib/sheet-crm/mapping";
 import type { PersonView } from "@/lib/sheet-crm/queries";
+import type { Member } from "@/lib/types";
 import { formatDate } from "@/lib/matrix-format";
 
 const SCORE_FACTORS = ["Active Practice /20", "Workflow Pain /20", "Valytica Fit /20", "Commercial Potential /15", "Reachability /10", "Influence /5", "Evidence Confidence /10"];
@@ -24,7 +26,7 @@ function copy(text: string, what: string) {
   void navigator.clipboard.writeText(text).then(() => toast.success(`${what} copied`));
 }
 
-export function PersonPage({ view, backHref, google, campaigns = [] }: { view: PersonView; backHref: string; google: { connected: boolean }; campaigns?: { id: string; name: string }[] }) {
+export function PersonPage({ view, backHref, google, members = [], campaigns = [] }: { view: PersonView; backHref: string; google: { connected: boolean }; members?: Member[]; campaigns?: { id: string; name: string }[] }) {
   const router = useRouter();
   const { contact, people, prospect, dossier, queue, excluded } = view;
   const pid = contact.externalId;
@@ -52,6 +54,7 @@ export function PersonPage({ view, backHref, google, campaigns = [] }: { view: P
           </Link>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ProspectOwnerPicker members={members} ownerId={contact.ownerId} contactId={contact.id} />
           <StatusPill status={contact.outreachStatus} contactId={contact.id} onChanged={refresh} readOnly={Boolean(excluded)} />
         </div>
       </header>
