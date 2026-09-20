@@ -1,20 +1,13 @@
 import { notFound } from "next/navigation";
 
-import { AccountDetail } from "@/components/account-detail";
-import { getAccount, getMembers, getWorkspace } from "@/lib/data";
+import { CompanyPage } from "@/components/prospects/company-page";
+import { getWorkspace } from "@/lib/data";
+import { getCompanyView } from "@/lib/sheet-crm/queries";
 
-export default async function AccountPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function AccountPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const [account, members] = await Promise.all([
-    getAccount(ws.id, id),
-    getMembers(ws.id),
-  ]);
-  if (!account) notFound();
-
-  return <AccountDetail account={account} members={members} />;
+  const view = await getCompanyView(ws.id, id);
+  if (!view) notFound();
+  return <CompanyPage view={view} backHref="/prospects" />;
 }

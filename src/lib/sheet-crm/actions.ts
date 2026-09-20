@@ -188,3 +188,11 @@ export async function deleteInteraction(id: string) {
   await db.delete(interactions).where(and(eq(interactions.id, id), eq(interactions.workspaceId, ws.id), eq(interactions.source, "manual")));
   invalidate(ws.id);
 }
+
+// ---- reads exposed as actions, so search terms never enter a URL ----
+
+export async function searchProspects(filter: import("./queries").PeopleFilter) {
+  const ws = await getWorkspace();
+  const { getProspects } = await import("./queries");
+  return getProspects(ws.id, filter);
+}

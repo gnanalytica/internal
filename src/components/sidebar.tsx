@@ -35,6 +35,7 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  Contact,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -196,6 +197,7 @@ export function Sidebar({
         <RailLink href="/my-issues" active={pathname === "/my-issues"} label="My Issues"><CircleUser className="size-4" /></RailLink>
         <RailLink href="/issues" active={pathname === "/issues"} label="Tasks"><CircleDot className="size-4" /></RailLink>
         <RailLink href="/projects" active={pathname.startsWith("/projects")} label="Projects"><Folder className="size-4" /></RailLink>
+        <RailLink href="/prospects" active={pathname.startsWith("/prospects") || pathname.startsWith("/people")} label="Prospects"><Contact className="size-4" /></RailLink>
         <RailLink href="/org" active={pathname === "/org"} label="Org"><Users className="size-4" /></RailLink>
       </aside>
     );
@@ -383,6 +385,12 @@ export function Sidebar({
           active={pathname === "/issues"}
           icon={<CircleDot className="size-4" />}
           label="Tasks"
+        />
+        <NavItem
+          href="/prospects"
+          active={pathname.startsWith("/prospects") || pathname.startsWith("/people")}
+          icon={<Contact className="size-4" />}
+          label="Prospects"
         />
         <NavItem
           href="/org"
