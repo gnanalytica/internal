@@ -15,7 +15,19 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
-  if (!res.ok) throw new Error(`Sheets API ${init.method ?? "GET"} ${path.split("?")[0]} → ${res.status}: ${(await res.text()).slice(0, 500)}`);
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 500);
+    // The two failures every first run hits, neither of which the raw body names.
+    if (res.status === 404) {
+      throw new Error(
+        `Sheets API 404 for spreadsheet ${path.split("?")[0].split("/")[0]}. Either VALYTICA_CRM_SHEET_ID is wrong, or the workbook has not been shared with ${process.env.GOOGLE_SA_EMAIL ?? "the service account"} as an Editor.`,
+      );
+    }
+    if (res.status === 403 && body.includes("has not been used in project")) {
+      throw new Error(`Sheets API is not enabled in this Google Cloud project. Enable "Google Sheets API" under APIs & Services → Library, then retry. (${body})`);
+    }
+    throw new Error(`Sheets API ${init.method ?? "GET"} ${path.split("?")[0]} → ${res.status}: ${body}`);
+  }
   return (await res.json()) as T;
 }
 

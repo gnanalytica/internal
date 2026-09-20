@@ -26,9 +26,29 @@ export function sheetId(): string {
   return id;
 }
 
+/**
+ * The service-account PEM, from an env var that people paste by hand.
+ *
+ * Every way of copying it out of the JSON key file produces something
+ * slightly different — the JSON value carries literal `\n` escapes, a
+ * dashboard paste keeps real newlines, and copying the raw JSON line brings
+ * the surrounding quotes with it. All three are accepted. Anything that is
+ * still not a PEM afterwards is named explicitly, because OpenSSL's own
+ * error for it ("DECODER routines::unsupported") says nothing useful.
+ */
 function privateKey(): string {
-  const raw = process.env.GOOGLE_SA_PRIVATE_KEY ?? "";
-  return raw.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+  let raw = (process.env.GOOGLE_SA_PRIVATE_KEY ?? "").trim();
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    raw = raw.slice(1, -1);
+  }
+  const key = raw.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim();
+  if (!key) throw new Error("GOOGLE_SA_PRIVATE_KEY is empty.");
+  if (!key.includes("-----BEGIN") || !key.includes("PRIVATE KEY-----")) {
+    throw new Error(
+      "GOOGLE_SA_PRIVATE_KEY does not look like a PEM. Copy the whole `private_key` value out of the service account's JSON key file, including the -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY----- lines.",
+    );
+  }
+  return key.endsWith("\n") ? key : `${key}\n`;
 }
 
 const b64url = (s: string | Buffer) => Buffer.from(s).toString("base64url");
@@ -46,9 +66,21 @@ export async function getAccessToken(): Promise<string> {
   const claims = b64url(
     JSON.stringify({ iss: email, scope: SCOPE, aud: TOKEN_URL, iat: now, exp: now + 3600 }),
   );
+  // Resolved before the try, so its own (specific) message is not swallowed
+  // by the generic one below.
+  const pem = privateKey();
   const signer = createSign("RSA-SHA256");
   signer.update(`${header}.${claims}`);
-  const signature = signer.sign(privateKey()).toString("base64url");
+  let signature: string;
+  try {
+    signature = signer.sign(pem).toString("base64url");
+  } catch (err) {
+    // OpenSSL says "DECODER routines::unsupported" for anything it cannot
+    // parse, which reads as a platform fault rather than a bad paste.
+    throw new Error(
+      `GOOGLE_SA_PRIVATE_KEY could not be parsed as an RSA private key (${err instanceof Error ? err.message : String(err)}). It is almost always a copy/paste problem: the value must be the service account JSON's \`private_key\`, with its BEGIN/END lines, and either real newlines or \\n escapes.`,
+    );
+  }
   const assertion = `${header}.${claims}.${signature}`;
 
   const res = await fetch(TOKEN_URL, {
