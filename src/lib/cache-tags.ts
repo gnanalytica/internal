@@ -22,6 +22,7 @@ export const CACHE_ENTITIES = [
   "features",
   "feedback",
   "finance", // invoices + expenses
+  "interactions",
   "issues",
   "labels",
   "members",
@@ -31,6 +32,7 @@ export const CACHE_ENTITIES = [
   "pages",
   "projects",
   "saved-views",
+  "sheet", // sheet_rows mirror + sync runs
   "status-updates",
   "tickets",
 ] as const;

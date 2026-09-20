@@ -41,7 +41,13 @@ export const config = {
   // so a session redirect hands the installer an HTML sign-in page instead of
   // the manifest and the app silently stops being installable. They carry only
   // the app name and logo — the same things the sign-in page shows anonymously.
+  //
+  // `api/cron` and `api/sheet-sync` are server-to-server: a cron invocation
+  // carries a bearer secret and no session cookie, so the session redirect
+  // would 307 it to the sign-in page and the schedule would be silently dead
+  // (the route's own secret check never runs). Each of those routes fails
+  // closed on its own secret instead.
   matcher: [
-    "/((?!api/auth|api/oauth|api/v1|auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-|icon.png|apple-icon).*)",
+    "/((?!api/auth|api/oauth|api/v1|api/cron|api/sheet-sync|auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-|icon.png|apple-icon).*)",
   ],
 };
