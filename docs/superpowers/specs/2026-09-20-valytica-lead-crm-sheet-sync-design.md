@@ -352,3 +352,61 @@ Phase 1 is safe to ship alone: it is read-mostly, changes nothing in the sheet, 
 ## Appendix B: enum domains observed (for filters; the sheet is not rewritten to these)
 
 `Priority` A/B/C/D · `Score Band` A/B/C/Watch · `is_south_india` Yes/No · `pnb_category` A/B/C · `duplicate_flag` UNIQUE/DUPLICATE · `match_rule` IBBI/NAME_ONLY (People), COMPANY_NAME/IBBI_ENTITY/EMAIL (Companies) · `iov_match_confidence` high/medium-ambiguous-name/low-state-mismatch · `research_confidence` High/Medium/Low · `relevance_to_valytica` Very High/High/Medium · `institution_type` Public Sector Bank/Private Bank/HFC/NBFC/ARC/District Central Co-operative Bank/Development FI/… · `office_level` Head Office/Corporate Office/Regional Office/Zonal Office/Circle Office/… · `whatsapp_available` Yes/No/Unknown (only Unknown observed).
+
+---
+
+## 11. Build status (2026-09-20, PR #141)
+
+Everything in §10 is built and passes `tsc`, `eslint --max-warnings=0`,
+`vitest` and `next build`. Nothing has run against the live sheet or the
+live database yet: the service account and `DATABASE_URL` were not available
+in the build session. What each piece does while its env is absent:
+
+| Piece | Without env |
+|---|---|
+| Sheet pull (`/api/cron/sheet-sync`, Sync now, `POST /api/v1/sheet-sync`) | 503 / "not configured" toast; nothing pretends to sync |
+| Write-through from a person / company / queue field | Kept in Internal, logged as `pending` in `sheet_cell_writes`, shown as "kept in Internal" |
+| Gmail / Calendar (`/api/cron/google-ingest`, Draft in Gmail, Book a call) | Settings card says "Not configured"; person page falls back to `mailto:` |
+| Founder brief | Runs inside the digest cron; needs `RESEND_API_KEY` + `EMAIL_FROM` like the digest |
+
+### Bring-up order
+
+1. `pnpm db:push` (three new tables, one new grant table, new columns on `crm_contacts` / `crm_accounts`, two unique indexes).
+2. Set `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY`, `VALYTICA_CRM_SHEET_ID`, `SHEET_SYNC_SECRET` on Vercel (Production + Preview) and in `.env.local`; share the workbook with the SA as Editor.
+3. `pnpm sheet:probe` — read-only. Every tab must print `✓` with its matched title and no `MISSING headers`. This is the check that the header signatures in `mapping.ts` match the live workbook (the Drive export they were derived from is not cell-faithful).
+4. Open **Prospects → Sync** and press *Sync now* (or `curl -X POST /api/v1/sheet-sync` with an API key). First run writes ~6,000 mirror rows and projects them; later runs write only changes.
+5. `pnpm db:reconcile-sheet` (dry run), then `--apply`: links the contacts the retired JSON loaders created to their `person_id`s, moving their activities and deals onto the synced rows.
+6. Optional: the Apps Script `onEdit` trigger (the snippet is in `src/app/api/sheet-sync/ping/route.ts`) for near-real-time pulls.
+7. Google OAuth client → `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_TOKEN_ENC_KEY`; then Settings → *Connect* under "Gmail & Calendar for prospects".
+8. Standup AI: create an API key in Settings → API & MCP and hand it over with the contract below.
+
+### Standup AI contract (their side)
+
+For a calendar event whose attendee resolves to a person (Standup AI can ask
+`GET /api/v1/people?q=<email>`), post the meeting outcome once `bot.done`
+fires:
+
+```
+POST /api/v1/interactions
+Authorization: Bearer int_…
+{
+  "personId": "P00145",              // or "contactId": "<uuid>"
+  "channel": "meeting", "held": true,
+  "source": "standup-ai",
+  "externalRef": "summary:2026-09-21__abc",   // idempotent: a retry returns 200
+  "occurredAt": "2026-09-21T10:30:00+05:30",
+  "subject": "Valytica × Paleti Surendra",
+  "summary": "<the canonical summary>",
+  "externalUrl": "https://standup.gnanalytica.com/…",
+  "meta": { "actionItems": [...], "decisions": [...], "participants": [...] }
+}
+```
+
+Approved action items still go through `POST /api/v1/issues` with
+`externalId`, as today. The person's outreach status advances to `met`, the
+summary appears on their timeline, and Slack is notified.
+
+### Sheet columns still to add (owner's call, both optional)
+
+- `outreach_status`, `last_contacted_at` at the end of **People** and **Companies** — Internal writes them (RAW / date); until they exist every mirror write logs `column_absent` and the state lives in Internal only.
+- `lender_contact_id` / `officer_id` on **Lender Contacts** / **Association Officers** — the mapping already keys on them when present, on the composite key otherwise.
