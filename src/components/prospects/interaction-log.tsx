@@ -12,7 +12,7 @@ import { INTERACTION_CHANNELS, LOGGABLE_CHANNELS, OUTREACH_STATUS_MAP, isOutreac
 import type { Interaction } from "@/lib/sheet-crm/queries";
 import { formatDate } from "@/lib/matrix-format";
 
-const fieldCls = "h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
+const fieldCls = "h-9 min-w-0 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 sm:h-8";
 
 const channelMeta = (id: string) => INTERACTION_CHANNELS.find((c) => c.id === id) ?? { id, label: id, color: "#94a3b8" };
 
@@ -42,7 +42,7 @@ export function LogInteractionForm({ contactId, accountId, prefill, campaigns = 
 
   return (
     <div className="space-y-2 rounded-md border bg-background p-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <select value={channel} onChange={(e) => setChannel(e.target.value)} className={fieldCls} aria-label="Channel">
           {LOGGABLE_CHANNELS.map((c) => (
             <option key={c} value={c}>{channelMeta(c).label}</option>
@@ -55,18 +55,18 @@ export function LogInteractionForm({ contactId, accountId, prefill, campaigns = 
           </select>
         )}
         {channel === "meeting" && (
-          <label className="flex items-center gap-1.5 text-xs">
-            <input type="checkbox" checked={held} onChange={(e) => setHeld(e.target.checked)} /> Held (not just booked)
+          <label className="col-span-2 flex items-center gap-1.5 text-xs sm:col-span-1">
+            <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={held} onChange={(e) => setHeld(e.target.checked)} /> Held (not just booked)
           </label>
         )}
-        <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={fieldCls} aria-label="When" />
+        <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={fieldCls + " col-span-2 sm:col-span-1"} aria-label="When" />
         {campaigns.length > 0 && (
-          <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)} className={fieldCls} aria-label="Campaign">
+          <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)} className={fieldCls + " col-span-2 sm:col-span-1"} aria-label="Campaign">
             <option value="">No campaign</option>
             {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         )}
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject (optional)" className={fieldCls + " min-w-40 flex-1"} />
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject (optional)" className={fieldCls + " col-span-2 sm:min-w-40 sm:flex-1"} />
       </div>
       <textarea
         value={body}
@@ -76,7 +76,7 @@ export function LogInteractionForm({ contactId, accountId, prefill, campaigns = 
         className="w-full rounded-md border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
       />
       <div className="flex justify-end">
-        <Button size="sm" disabled={pending || (!body.trim() && !subject.trim())} onClick={submit}>
+        <Button size="sm" className="h-9 w-full sm:h-8 sm:w-auto" disabled={pending || (!body.trim() && !subject.trim())} onClick={submit}>
           Log
         </Button>
       </div>
@@ -105,15 +105,15 @@ export function Timeline({ items, activities }: { items: Interaction[]; activiti
                 <span>{formatDate(r.a.createdAt)}</span>
                 {r.a.actor && <span className="flex items-center gap-1"><UserAvatar name={r.a.actor.name} color={r.a.actor.avatarColor} className="size-4 text-[8px]" />{r.a.actor.name}</span>}
               </div>
-              {r.a.body && <p className="mt-1 whitespace-pre-wrap">{r.a.body}</p>}
+              {r.a.body && <p className="mt-1 whitespace-pre-wrap break-words">{r.a.body}</p>}
             </li>
           );
         }
         const it = r.it;
         const m = channelMeta(it.channel);
         return (
-          <li key={r.id} className="rounded-md border bg-background p-2 text-sm">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <li key={r.id} className="relative rounded-md border bg-background p-2 pr-8 text-sm">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <span className="rounded-full border px-1.5 font-medium" style={{ color: m.color, borderColor: m.color + "55", backgroundColor: m.color + "15" }}>{m.label}</span>
               {it.direction !== "none" && <span>{it.direction === "out" ? "sent" : "received"}</span>}
               <span>{formatDate(it.occurredAt)}</span>
@@ -121,8 +121,12 @@ export function Timeline({ items, activities }: { items: Interaction[]; activiti
               {it.actor && <span className="flex items-center gap-1"><UserAvatar name={it.actor.name} color={it.actor.avatarColor} className="size-4 text-[8px]" />{it.actor.name}</span>}
               {it.externalUrl && <a href={it.externalUrl} target="_blank" rel="noreferrer" className="text-brand hover:underline">open</a>}
               {it.source === "manual" && (
+                // Absolutely placed: with `ml-auto` in a wrapping row it fell
+                // onto a line of its own the moment the meta wrapped, which on a
+                // phone is every row.
                 <button
-                  className="ml-auto text-muted-foreground hover:text-destructive"
+                  type="button"
+                  className="tap-target absolute right-1 top-1 grid place-items-center text-muted-foreground hover:text-destructive"
                   aria-label="Delete"
                   onClick={() => start(async () => { await deleteInteraction(it.id); router.refresh(); })}
                 >
@@ -130,9 +134,9 @@ export function Timeline({ items, activities }: { items: Interaction[]; activiti
                 </button>
               )}
             </div>
-            {it.subject && <div className="mt-1 font-medium">{it.subject}</div>}
-            {it.summary && <p className="mt-1 whitespace-pre-wrap text-foreground/90">{it.summary}</p>}
-            {it.body && <p className="mt-1 whitespace-pre-wrap text-foreground/80">{it.body}</p>}
+            {it.subject && <div className="mt-1 font-medium break-words">{it.subject}</div>}
+            {it.summary && <p className="mt-1 whitespace-pre-wrap break-words text-foreground/90">{it.summary}</p>}
+            {it.body && <p className="mt-1 whitespace-pre-wrap break-words text-foreground/80">{it.body}</p>}
           </li>
         );
       })}

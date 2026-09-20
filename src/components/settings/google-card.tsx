@@ -40,7 +40,7 @@ export function GoogleCard({ status }: { status: { configured: boolean; connecte
             </Button>
           </div>
         ) : (
-          <Button size="sm" variant="outline" render={<a href="/api/google/connect" />}>Connect</Button>
+          <Button size="sm" variant="outline" nativeButton={false} render={<a href="/api/google/connect" />}>Connect</Button>
         )}
       </div>
     </div>

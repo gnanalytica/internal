@@ -10,7 +10,7 @@ import { isDerivedColumn, isWritableColumn, type TabSpec } from "@/lib/sheet-crm
 import type { CellWriteResult } from "@/lib/sheet-crm/sync";
 
 const fieldCls =
-  "w-full rounded-md border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
+  "w-full rounded-md border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 sm:py-1";
 
 /**
  * One sheet cell as a field. Writable columns edit in place and write

@@ -384,7 +384,7 @@ tool("list_contacts", "List CRM contacts (people).", {}, () => api("/contacts"))
 // ---- Prospects (the Valytica lead sheet, mirrored) ----
 tool(
   "search_people",
-  "Search the Valytica lead sheet (5,600+ valuers and bank-side contacts). `q` matches name, person id (P#####), IBBI number, email, phone, city or firm. Filters: state, priority (A-D), band (A/B/C/Watch), status (outreach: not_planned, planned, contacted, replied, meeting_booked, met, pilot, paying, lost, excluded), persona (valuer|institutional), hasPhone, hasEmail, researched.",
+  "Search the Valytica lead sheet (5,600+ valuers and bank-side contacts). `q` matches name, person id (P#####), IBBI number, email, phone, city or firm. Filters: state, priority (A-D), band (A/B/C/Watch), status (outreach: not_planned, planned, contacted, replied, meeting_booked, met, pilot, paying, lost, excluded), persona (valuer|institutional), hasPhone, hasEmail, researched, owner (a workspace member's uuid, or \"unassigned\" for nobody).",
   {
     q: z.string().optional(),
     state: z.string().optional(),
@@ -395,13 +395,14 @@ tool(
     hasPhone: z.boolean().optional(),
     hasEmail: z.boolean().optional(),
     researched: z.boolean().optional(),
+    owner: z.string().optional(),
     limit: z.number().int().min(1).max(500).optional(),
     offset: z.number().int().min(0).optional(),
   },
   (a) => {
     const args = { ...a };
     for (const k of ["hasPhone", "hasEmail", "researched"]) if (args[k] === true) args[k] = 1; else delete args[k];
-    return api(`/people${query(args, ["q", "state", "priority", "band", "status", "persona", "hasPhone", "hasEmail", "researched", "limit", "offset"])}`);
+    return api(`/people${query(args, ["q", "state", "priority", "band", "status", "persona", "hasPhone", "hasEmail", "researched", "owner", "limit", "offset"])}`);
   },
 );
 
@@ -414,14 +415,15 @@ tool(
 
 tool(
   "update_person",
-  "Update a person. `outreachStatus` / `nextActionAt` are Internal's outreach state (mirrored to the sheet). `sheet` writes cells straight into the Google Sheet, keyed by tab id then EXACT column header, e.g. {\"prospect_intelligence\": {\"Next Action\": \"…\"}, \"people\": {\"phone\": \"…\"}}. Only columns declared writable land; formula columns are refused; the response lists each cell's outcome.",
+  "Update a person. `outreachStatus` / `nextActionAt` / `ownerId` are Internal's own state (mirrored to the sheet where the column exists). `ownerId` is the workspace member responsible for this prospect — a user uuid, or null to unassign. `sheet` writes cells straight into the Google Sheet, keyed by tab id then EXACT column header, e.g. {\"prospect_intelligence\": {\"Next Action\": \"…\"}, \"people\": {\"phone\": \"…\"}}. Only columns declared writable land; formula columns are refused; the response lists each cell's outcome.",
   {
     id: z.string(),
     outreachStatus: z.string().optional(),
     nextActionAt: z.string().nullable().optional(),
+    ownerId: z.string().nullable().optional(),
     sheet: z.record(z.string(), z.record(z.string(), z.union([z.string(), z.number(), z.null()]))).optional(),
   },
-  (a) => api(`/people/${encodeURIComponent(a.id)}`, { method: "PATCH", body: { outreachStatus: a.outreachStatus, nextActionAt: a.nextActionAt, sheet: a.sheet } }),
+  (a) => api(`/people/${encodeURIComponent(a.id)}`, { method: "PATCH", body: { outreachStatus: a.outreachStatus, nextActionAt: a.nextActionAt, ownerId: a.ownerId, sheet: a.sheet } }),
 );
 
 tool(

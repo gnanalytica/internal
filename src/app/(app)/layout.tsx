@@ -44,8 +44,12 @@ export default async function AppLayout({
   // Hide confidential projects (Finance, People & HR) from members' sidebar.
   const visibleProjects = isAdmin ? projects : projects.filter((p) => !p.confidential);
 
+  // `h-screen` is 100vh, which on a mobile browser includes the strip behind the
+  // collapsing URL bar — and with `overflow-hidden` that put the bottom of every
+  // screen out of reach. `dvh` is the visible viewport; the `supports` guard
+  // leaves the old value in place for anything that lacks it.
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background supports-[height:100dvh]:h-dvh">
       <AppShell
         workspaceName={ws.name}
         sidebar={

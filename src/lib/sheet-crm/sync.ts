@@ -678,19 +678,22 @@ export async function reprojectPerson(workspaceId: string, personId: string): Pr
  * Mirror Internal-owned outreach state into the masters' optional columns.
  * Silent when the columns do not exist yet (the owner has not added them).
  */
-export async function mirrorOutreachState(
+export async function mirrorInternalColumns(
   workspaceId: string,
   target: { tab: "people" | "companies"; rowKey: string },
-  state: { outreachStatus?: string; lastContactedAt?: Date | null },
+  state: { outreachStatus?: string; lastContactedAt?: Date | null; owner?: string | null },
   actorId: string | null,
 ): Promise<void> {
   const updates: Record<string, string | null> = {};
   if (state.outreachStatus !== undefined) updates.outreach_status = state.outreachStatus;
   if (state.lastContactedAt !== undefined) updates.last_contacted_at = state.lastContactedAt ? state.lastContactedAt.toISOString().slice(0, 10) : null;
+  // The owner's NAME, not their uuid: the sheet is read by people, and an
+  // Internal user id means nothing in it. Internal keeps the id.
+  if (state.owner !== undefined) updates.owner = state.owner ?? "";
   if (!Object.keys(updates).length) return;
   try {
     await writeSheetCells({ workspaceId, tab: target.tab, rowKey: target.rowKey, updates, actorId });
   } catch (err) {
-    console.error("[sheet-sync] mirrorOutreachState", err);
+    console.error("[sheet-sync] mirrorInternalColumns", err);
   }
 }

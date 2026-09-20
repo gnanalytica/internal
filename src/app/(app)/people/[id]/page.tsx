@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PersonPage } from "@/components/prospects/person-page";
-import { getCampaigns, getWorkspace } from "@/lib/data";
+import { getCampaigns, getMembers, getWorkspace } from "@/lib/data";
 import { googleStatus } from "@/lib/google/actions";
 import { getPersonView, resolveContactId } from "@/lib/sheet-crm/queries";
 
@@ -11,7 +11,7 @@ export default async function PersonRoute({ params }: { params: Promise<{ id: st
   const ws = await getWorkspace();
   const contactId = await resolveContactId(ws.id, id);
   if (!contactId) notFound();
-  const [view, google, campaigns] = await Promise.all([getPersonView(ws.id, contactId), googleStatus(), getCampaigns(ws.id)]);
+  const [view, google, campaigns, members] = await Promise.all([getPersonView(ws.id, contactId), googleStatus(), getCampaigns(ws.id), getMembers(ws.id)]);
   if (!view) notFound();
-  return <PersonPage view={view} backHref="/prospects" google={{ connected: google.connected }} campaigns={campaigns.map((c) => ({ id: c.id, name: c.name }))} />;
+  return <PersonPage view={view} backHref="/prospects" google={{ connected: google.connected }} members={members} campaigns={campaigns.map((c) => ({ id: c.id, name: c.name }))} />;
 }

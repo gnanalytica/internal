@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "./index";
 import { crmAccounts, crmActivities, crmContacts, deals, interactions, sheetRows, workspaces } from "./schema";
@@ -54,7 +54,7 @@ async function main() {
   const syncedByPid = new Map(synced.map((s) => [s.externalId!, s.id]));
 
   const legacy = await db
-    .select({ id: crmContacts.id, name: crmContacts.name, email: crmContacts.email, phone: crmContacts.phone, source: crmContacts.source, entity: crmContacts.entity })
+    .select({ id: crmContacts.id, name: crmContacts.name, email: crmContacts.email, phone: crmContacts.phone, source: crmContacts.source, entity: crmContacts.entity, channel: crmContacts.channel, ownerId: crmContacts.ownerId })
     .from(crmContacts)
     .where(and(eq(crmContacts.workspaceId, ws.id), isNull(crmContacts.externalSource)));
 
@@ -81,13 +81,31 @@ async function main() {
     if (syncedId && syncedId !== c.id) {
       // The sync already created the id-keyed row: move the legacy row's
       // history onto it and retire the legacy row.
+      //
+      // Two fields are carried across first, because deleting the legacy row
+      // would otherwise lose them. `channel` is hand-set CRM knowledge ("this
+      // lead came via an RVO") that the sheet does not hold and the projection
+      // cannot infer — on the real data it was set on 309 rows and the
+      // projection would have flattened every one to 'direct'. `ownerId` is
+      // who the lead belongs to. Both are copied only where the surviving row
+      // has nothing better, so a later sync still wins on everything the sheet
+      // is the source of truth for.
+      const carry: Record<string, unknown> = {};
+      if (c.channel && c.channel !== "direct") carry.channel = c.channel;
+      if (c.ownerId) carry.ownerId = c.ownerId;
       if (APPLY) {
+        if (Object.keys(carry).length) {
+          await db
+            .update(crmContacts)
+            .set(carry)
+            .where(and(eq(crmContacts.id, syncedId), or(eq(crmContacts.channel, "direct"), isNull(crmContacts.ownerId))));
+        }
         await db.update(crmActivities).set({ contactId: syncedId }).where(eq(crmActivities.contactId, c.id));
         await db.update(deals).set({ contactId: syncedId }).where(eq(deals.contactId, c.id));
         await db.update(interactions).set({ contactId: syncedId }).where(eq(interactions.contactId, c.id));
         await db.delete(crmContacts).where(eq(crmContacts.id, c.id));
       }
-      console.log(`merge    ${c.name} → ${pid} (into synced row)`);
+      console.log(`merge    ${c.name} → ${pid} (into synced row)${Object.keys(carry).length ? ` carrying ${Object.keys(carry).join("+")}` : ""}`);
     } else {
       if (APPLY) await db.update(crmContacts).set({ externalSource: SHEET_SOURCE, externalId: pid }).where(eq(crmContacts.id, c.id));
       console.log(`link     ${c.name} → ${pid}`);

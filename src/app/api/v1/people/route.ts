@@ -6,7 +6,8 @@ import { getProspects, type PeopleFilter } from "@/lib/sheet-crm/queries";
  * People from the Valytica lead sheet, with the outreach state Internal holds.
  * `?q=` searches name, person id, IBBI, email, phone, city, firm. Exact
  * filters: state, priority, band, status (outreach), persona=valuer|institutional,
- * hasPhone=1, hasEmail=1, researched=1. `?limit=` (≤500) and `?offset=`.
+ * hasPhone=1, hasEmail=1, researched=1, owner=<user uuid>|unassigned.
+ * `?limit=` (≤500) and `?offset=`.
  */
 export const GET = withApiAuth(async (req, auth) => {
   const sp = new URL(req.url).searchParams;
@@ -18,6 +19,7 @@ export const GET = withApiAuth(async (req, auth) => {
     band: sp.get("band") ?? undefined,
     status: sp.get("status") ?? undefined,
     rvo: sp.get("rvo") ?? undefined,
+    owner: sp.get("owner") ?? undefined,
     persona: (sp.get("persona") as PeopleFilter["persona"]) ?? undefined,
     hasPhone: sp.get("hasPhone") === "1" || undefined,
     hasEmail: sp.get("hasEmail") === "1" || undefined,

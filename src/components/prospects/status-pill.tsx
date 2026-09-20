@@ -32,7 +32,7 @@ export function StatusPill({
           onChanged?.();
         })
       }
-      className="h-6 rounded-full border px-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-ring/40"
+      className="h-7 max-w-full rounded-full border px-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-ring/40 sm:h-6"
       style={{ backgroundColor: meta.color + "22", color: meta.color, borderColor: meta.color + "55" }}
       aria-label="Outreach status"
     >
