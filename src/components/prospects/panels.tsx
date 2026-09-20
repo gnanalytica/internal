@@ -19,7 +19,52 @@ import { formatDate } from "@/lib/matrix-format";
 const fieldCls = "h-9 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 sm:h-8";
 
 /** A directory row: stacked on a phone, one line of columns from `sm`. */
-const rowCls = "grid gap-x-3 gap-y-0.5 border-t px-3 py-2 text-xs";
+const rowCls = "grid gap-x-3 gap-y-1.5 border-t px-3 py-2 text-xs sm:gap-y-0.5";
+
+/**
+ * One field of a directory row, named on a phone.
+ *
+ * Stacked, a lender contact was nine muted lines in a column — department,
+ * designation, method of contact and empanelment window are all free text and
+ * all render identically, so there was no way to tell which line was which.
+ * The desktop grid says it with column position; a phone has to say it in
+ * words. From `sm` the label is hidden and the columns carry the meaning again.
+ *
+ * An empty value renders nothing at all, rather than a label over a blank:
+ * these rows are routinely partial (a branch desk with no named contact), and
+ * a labelled hole reads as a bug in the sheet.
+ */
+function DirField({
+  label,
+  value,
+  sub,
+  subLabel,
+  className,
+}: {
+  label: string;
+  value?: string;
+  sub?: string;
+  subLabel?: string;
+  className?: string;
+}) {
+  if (!value && !sub) return null;
+  return (
+    <div className={className}>
+      {value ? (
+        <>
+          <span className="block text-[11px] text-muted-foreground sm:hidden">{label}</span>
+          <span className="block">{value}</span>
+        </>
+      ) : null}
+      {sub ? (
+        <>
+          <span className="mt-1 block text-[11px] text-muted-foreground sm:mt-0 sm:hidden">{subLabel ?? label}</span>
+          <span className="block text-muted-foreground">{sub}</span>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 // ---- Directories: the reference tabs, read-only ----
 
@@ -70,12 +115,12 @@ export function Directories({ lenders, lenderContacts, officers, rvos, sources, 
                 <ul>
                   {rows.map((r) => (
                     <li key={r.id} className={rowCls + " sm:grid-cols-6"}>
-                      <div>{r.data.office_level}<div className="text-muted-foreground">{r.data.department}</div></div>
-                      <div>{r.data.contact_person_name}<div className="text-muted-foreground">{r.data.designation}</div></div>
-                      <div className="text-muted-foreground">{[r.data.city, r.data.state].filter(Boolean).join(", ")}</div>
-                      <div className="break-all">{r.data.email}<div>{r.data.phone}</div></div>
-                      <div className="text-muted-foreground">{r.data.method_of_contact}<div>{r.data.empanelment_open_window}</div></div>
-                      <div className="text-muted-foreground">{r.data.approach_notes}</div>
+                      <DirField label="Office" value={r.data.office_level} sub={r.data.department} subLabel="Department" />
+                      <DirField label="Contact" value={r.data.contact_person_name} sub={r.data.designation} subLabel="Designation" />
+                      <DirField label="Where" value={[r.data.city, r.data.state].filter(Boolean).join(", ")} className="text-muted-foreground" />
+                      <DirField label="Email" value={r.data.email} sub={r.data.phone} subLabel="Phone" className="break-all" />
+                      <DirField label="How to approach" value={r.data.method_of_contact} sub={r.data.empanelment_open_window} subLabel="Empanelment window" />
+                      <DirField label="Notes" value={r.data.approach_notes} className="text-muted-foreground" />
                     </li>
                   ))}
                 </ul>
@@ -91,10 +136,10 @@ export function Directories({ lenders, lenderContacts, officers, rvos, sources, 
               <ul>
                 {rows.sort((a, b) => (a.data.state ?? "").localeCompare(b.data.state ?? "")).map((r) => (
                   <li key={r.id} className={rowCls + " sm:grid-cols-4"}>
-                    <div>{r.data.branch}<div className="text-muted-foreground">{[r.data.city, r.data.state].filter(Boolean).join(", ")}</div></div>
-                    <div className="font-medium">{r.data.person_name}<div className="font-normal text-muted-foreground">{r.data.designation}</div></div>
-                    <div className="break-all">{r.data.mobile}<div>{r.data.email}</div></div>
-                    <div className="text-muted-foreground">{r.data.notes}</div>
+                    <DirField label="Branch" value={r.data.branch} sub={[r.data.city, r.data.state].filter(Boolean).join(", ")} subLabel="Where" />
+                    <DirField label="Officer" value={r.data.person_name} sub={r.data.designation} subLabel="Designation" className="font-medium [&_span:last-child]:font-normal" />
+                    <DirField label="Mobile" value={r.data.mobile} sub={r.data.email} subLabel="Email" className="break-all" />
+                    <DirField label="Notes" value={r.data.notes} className="text-muted-foreground" />
                   </li>
                 ))}
               </ul>

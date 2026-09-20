@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 
 import { TabsList } from "@/components/ui/tabs";
@@ -26,10 +26,70 @@ export function ScrollTabsList({ className, children }: { className?: string; ch
  * A table that keeps its own horizontal scroll rather than widening the page.
  * Anything wider than the viewport goes in one of these — the page body itself
  * must never scroll sideways.
+ *
+ * A silently clipped table is the failure this exists to avoid being: the
+ * columns past the right edge were reachable by swiping and there was nothing
+ * on screen to say so. A fade at the live edge is the cue; it is drawn only
+ * while there is actually something to scroll to, so it never implies content
+ * that is not there. `aria-hidden`, because a screen reader is already reading
+ * the whole table — the fade is for eyes, and the region is focusable so a
+ * keyboard can scroll it too.
  */
 export function TableScroll({ className, children }: { className?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setEdges({ left: el.scrollLeft > 1, right: max > 1 && el.scrollLeft < max - 1 });
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    // The table's own width changes when rows load, not just when the box does.
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, [measure]);
+
   return (
-    <div className={cn("-mx-1 overflow-x-auto overscroll-x-contain px-1", className)}>{children}</div>
+    <div className={cn("relative", className)}>
+      <div
+        ref={ref}
+        onScroll={measure}
+        tabIndex={0}
+        className="-mx-1 overflow-x-auto overscroll-x-contain px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        {children}
+      </div>
+      {edges.left && <ScrollEdge side="left" />}
+      {edges.right && <ScrollEdge side="right" />}
+      {edges.right && (
+        // The fade alone is a white gradient over a white card — it softens the
+        // cut without proving anything is past it. On a phone, where sideways
+        // scrolling inside a page is not a thing people try, say it.
+        <p className="mt-1 text-[11px] text-muted-foreground sm:hidden">Swipe the table sideways for the rest of the columns</p>
+      )}
+    </div>
+  );
+}
+
+function ScrollEdge({ side }: { side: "left" | "right" }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-y-0 w-8",
+        side === "right"
+          ? "right-0 bg-gradient-to-l from-background to-transparent"
+          : "left-0 bg-gradient-to-r from-background to-transparent",
+      )}
+    />
   );
 }
 
