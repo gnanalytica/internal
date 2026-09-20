@@ -125,8 +125,13 @@ function parseTab(layout: TabLayout, values: unknown[][]): { rows: ParsedRow[]; 
       duplicateKeys.push(key);
       key = `${key}#${n}`;
     }
-    const personId = spec.personIdColumn ? (record[spec.personIdColumn] ?? "").trim() || null : null;
-    const companyId = spec.companyIdColumn ? (record[spec.companyIdColumn] ?? "").trim() || null : null;
+    // A GTM tab's id cell carries things like "N/A" for a deliberately
+    // unlinked row. Only a well-formed id becomes a foreign key; anything
+    // else leaves the row keyed by name and visibly unlinked.
+    const rawPid = spec.personIdColumn ? (record[spec.personIdColumn] ?? "").trim() : "";
+    const rawCid = spec.companyIdColumn ? (record[spec.companyIdColumn] ?? "").trim() : "";
+    const personId = /^P\d{5}$/.test(rawPid) ? rawPid : null;
+    const companyId = /^C\d{4}$/.test(rawCid) ? rawCid : null;
     rows.push({ key, weak: k.weak, record, hash: rowHash(headers.map((_, j) => raw[j])), personId, companyId });
   }
   return { rows, unkeyed, duplicateKeys };
@@ -432,6 +437,7 @@ async function projectPeople(
           researchStatus: p.researchStatus,
           bestFirstChannel: p.bestFirstChannel,
           persona: p.persona,
+          sheetDuplicate: p.sheetDuplicate,
           ...(p.outreachStatus ? { outreachStatus: p.outreachStatus } : {}),
           ...(p.lastContactedAt ? { lastContactedAt: p.lastContactedAt } : {}),
         })),
@@ -458,6 +464,7 @@ async function projectPeople(
           researchStatus: sql`excluded.research_status`,
           bestFirstChannel: sql`excluded.best_first_channel`,
           persona: sql`excluded.persona`,
+          sheetDuplicate: sql`excluded.sheet_duplicate`,
           outreachStatus: sql`coalesce(nullif(excluded.outreach_status, 'not_planned'), ${crmContacts.outreachStatus})`,
           lastContactedAt: sql`coalesce(excluded.last_contacted_at, ${crmContacts.lastContactedAt})`,
         },

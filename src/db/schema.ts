@@ -1103,8 +1103,11 @@ export const crmContacts = pgTable(
     scoreBand: text("score_band"),
     researchStatus: text("research_status"),
     bestFirstChannel: text("best_first_channel"),
-    // 'institutional' for bank-side People rows (specialisation starts with INSTITUTIONAL); else the GTM persona text.
+    // 'institutional' for bank-side People rows (a marker column starts with INSTITUTIONAL); else the GTM persona text.
     persona: text("persona"),
+    // The sheet's own duplicate_flag. Such a row is synced and shown like any
+    // other (the sheet is the source of truth); it is marked, never hidden.
+    sheetDuplicate: boolean("sheet_duplicate").notNull().default(false),
     // Internal-owned outreach state (see OUTREACH_STATUSES). Mirrored to the sheet when its column exists.
     outreachStatus: text("outreach_status").notNull().default("not_planned"),
     lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),

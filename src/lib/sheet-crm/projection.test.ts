@@ -44,6 +44,22 @@ describe("projectPerson", () => {
     const q = projectPerson(person({ ibbi_reg_no: "", rvo: "" }));
     expect(q.persona).toBeNull();
   });
+  it("reads the marker from associations_and_roles, which is where it actually is", () => {
+    // P05675 Rohit Kumar as the live sheet holds him: every other column blank.
+    const p = projectPerson(person({
+      person_id: "P05675", full_name: "Rohit Kumar", ibbi_reg_no: "", rvo: "", specialisation: "", sources: "", lead_score: "",
+      associations_and_roles: "INSTITUTIONAL — Bank recovery / SARFAESI workflow influencer; not a valuer",
+    }), { dossier: { "Persona / GTM Role": "Bank recovery / SARFAESI workflow influencer, Canara Hyderabad North" } });
+    // The dossier's persona text must NOT win over the marker, or he is counted as a valuer.
+    expect(p.persona).toBe("institutional");
+    expect(p.channel).toBe("lender");
+    expect(p.title).toBe("Bank recovery / SARFAESI workflow influencer; not a valuer");
+  });
+  it("carries the sheet's duplicate_flag", () => {
+    expect(projectPerson(person({ duplicate_flag: "DUPLICATE" })).sheetDuplicate).toBe(true);
+    expect(projectPerson(person({ duplicate_flag: "UNIQUE" })).sheetDuplicate).toBe(false);
+    expect(projectPerson(person()).sheetDuplicate).toBe(false);
+  });
   it("reads the owner's outreach columns when present", () => {
     const p = projectPerson(person({ outreach_status: "Contacted", last_contacted_at: "2026-09-21" }));
     expect(p.outreachStatus).toBe("contacted");

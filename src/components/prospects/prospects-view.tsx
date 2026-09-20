@@ -41,7 +41,7 @@ export function ProspectsView({ heading, data, dealsHref }: { heading: string; d
         actions={
           <>
             <span className="text-xs text-muted-foreground">
-              {stats.people.toLocaleString("en-IN")} people · {stats.researched} researched · {stats.scored} scored · {stats.withPhone} with phone
+              {stats.people.toLocaleString("en-IN")} people · {stats.researched} researched · {stats.scored} scored · {stats.withPhone} with phone{stats.duplicates ? ` · ${stats.duplicates} flagged duplicate` : ""}
             </span>
             {dealsHref && <Link href={dealsHref} className="text-xs text-brand hover:underline">Deals &amp; tasks →</Link>}
           </>
@@ -149,6 +149,7 @@ function PeopleTable({ initial, facets, base }: { initial: { rows: ProspectRow[]
         {base.researched === undefined && (
           <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={Boolean(filter.researched)} onChange={(e) => set({ researched: e.target.checked || undefined })} /> researched only</label>
         )}
+        <label className="flex items-center gap-1 text-xs" title="The sheet's own duplicate_flag"><input type="checkbox" checked={Boolean(filter.hideDuplicates)} onChange={(e) => set({ hideDuplicates: e.target.checked || undefined })} /> hide duplicates</label>
         <span className="ml-auto text-xs text-muted-foreground">{pending ? "searching…" : `${result.rows.length} of ${result.total.toLocaleString("en-IN")}`}</span>
       </div>
       {result.rows.length === 0 ? (
@@ -172,6 +173,7 @@ function PeopleTable({ initial, facets, base }: { initial: { rows: ProspectRow[]
                 <td className="px-3 py-1.5">
                   <Link href={`/people/${r.id}`} className="font-medium hover:underline">{r.name}</Link>
                   {r.excluded && <Ban className="ml-1 inline size-3.5 text-destructive" aria-label="On the Exclusions tab" />}
+                  {r.sheetDuplicate && <span className="ml-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-1.5 text-[10px] text-amber-700" title="The sheet flags this row as a duplicate of another">dup</span>}
                   <div className="text-xs text-muted-foreground">
                     <span className="font-mono">{r.externalId}</span>
                     {r.persona === "institutional" && <span className="ml-1">· institutional</span>}

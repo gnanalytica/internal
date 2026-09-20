@@ -122,6 +122,8 @@ export type PeopleFilter = {
   rvo?: string;
   /** Only rows with research (a Prospect Intelligence row). */
   researched?: boolean;
+  /** Hide rows the sheet itself flagged as duplicates of another row. */
+  hideDuplicates?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -160,6 +162,7 @@ export async function getProspects(workspaceId: string, f: PeopleFilter = {}): P
   if (f.hasPhone) where.push(sql`${crmContacts.phoneE164} is not null`);
   if (f.hasEmail) where.push(sql`${crmContacts.email} is not null and ${crmContacts.email} <> ''`);
   if (f.researched) where.push(sql`${crmContacts.priority} is not null`);
+  if (f.hideDuplicates) where.push(eq(crmContacts.sheetDuplicate, false));
   const cond = and(...where);
   const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(crmContacts).where(cond);
   const rows = await db.query.crmContacts.findMany({
@@ -203,6 +206,8 @@ export type ProspectStats = {
   byStatus: Record<string, number>;
   withPhone: number;
   withEmail: number;
+  /** Rows the sheet flagged DUPLICATE. Shown, never hidden, unless filtered. */
+  duplicates: number;
 };
 
 export async function getProspectStats(workspaceId: string): Promise<ProspectStats> {
@@ -218,6 +223,7 @@ export async function getProspectStats(workspaceId: string): Promise<ProspectSta
       scored: sql<number>`count(*) filter (where ${crmContacts.opportunityScore} is not null)::int`,
       withPhone: sql<number>`count(*) filter (where ${crmContacts.phoneE164} is not null)::int`,
       withEmail: sql<number>`count(*) filter (where ${crmContacts.email} is not null and ${crmContacts.email} <> '')::int`,
+      duplicates: sql<number>`count(*) filter (where ${crmContacts.sheetDuplicate})::int`,
     })
     .from(crmContacts)
     .where(base);
@@ -480,7 +486,16 @@ export async function getDataQualityIssues(workspaceId: string): Promise<{ issue
     for (const d of dups) push({ kind, title: label, detail: `${d.v}: ${d.keys.join(", ")}`, tab: "people", rowKey: d.keys[0], personId: d.keys[0] });
   }
 
-  // 2. duplicate_match_ids that is not an id.
+  // 2. The sheet's own duplicate_flag, which nothing in the sheet acts on.
+  const flagged = await db
+    .select({ rowKey: sheetRows.rowKey, name: sql<string>`${sheetRows.data}->>'full_name'`, match: sql<string>`${sheetRows.data}->>'duplicate_match_ids'` })
+    .from(sheetRows)
+    .where(and(live, eq(sheetRows.tab, "people"), sql`upper(coalesce(${sheetRows.data}->>'duplicate_flag','')) = 'DUPLICATE'`))
+    .limit(300);
+  for (const f of flagged)
+    push({ kind: "flagged_duplicate", title: "Flagged DUPLICATE in the sheet, not merged", detail: `${f.rowKey} ${f.name}${f.match ? ` — ${f.match.slice(0, 60)}` : ""}`, tab: "people", rowKey: f.rowKey, personId: f.rowKey });
+
+  // 3. duplicate_match_ids that is not an id.
   const badMatch = await db
     .select({ rowKey: sheetRows.rowKey, v: sql<string>`${sheetRows.data}->>'duplicate_match_ids'` })
     .from(sheetRows)

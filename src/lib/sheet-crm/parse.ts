@@ -26,10 +26,8 @@ export function firstOf(v: string | null | undefined): string | null {
  * for anything that is not a plausible Indian number (a bare local exchange
  * number, a toll-free code, prose). The displayed value stays as written.
  */
-export function toE164India(v: string | null | undefined): string | null {
-  if (!v) return null;
-  const first = v.split(/[;/,]| or | and /i)[0] ?? "";
-  const digits = first.replace(/\D/g, "");
+function oneNumber(token: string): string | null {
+  const digits = token.replace(/\D/g, "");
   if (!digits) return null;
   if (digits.length === 10 && /^[6-9]/.test(digits)) return `+91${digits}`;
   if (digits.length === 11 && digits.startsWith("0") && /^[6-9]/.test(digits[1])) return `+91${digits.slice(1)}`;
@@ -37,11 +35,37 @@ export function toE164India(v: string | null | undefined): string | null {
   return null;
 }
 
+/**
+ * Normalise an Indian phone to E.164 for matching and dialling. Returns null
+ * for anything that is not a plausible Indian MOBILE — a bare local exchange
+ * number, an STD landline, a toll-free code, prose. The displayed value stays
+ * as written; this is only for the dial and match paths.
+ *
+ * The whole string is tried first, so a number written with spaces
+ * (`+91 88797 64119`) survives; only if that fails is it split, so a cell
+ * holding a landline and then a mobile (`04552-251038, 9842111177`) or three
+ * numbers separated by spaces still yields a reachable number. Phone coverage
+ * is the scarcest thing in this dataset, so a cell we can parse is a lead we
+ * can reach.
+ */
+export function toE164India(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const whole = oneNumber(v);
+  if (whole) return whole;
+  for (const token of v.split(/[;,/\n]+|\s+|\bor\b|\band\b/i)) {
+    const n = oneNumber(token);
+    if (n) return n;
+  }
+  return null;
+}
+
 /** All phone numbers in a cell, E.164 where possible. */
 export function phonesIn(v: string | null | undefined): string[] {
   if (!v) return [];
   const out: string[] = [];
-  for (const part of v.split(/[;/,]|\bor\b|\band\b/i)) {
+  const whole = toE164India(v);
+  if (whole) out.push(whole);
+  for (const part of v.split(/[;,/\n]+|\s+|\bor\b|\band\b/i)) {
     const e = toE164India(part);
     if (e && !out.includes(e)) out.push(e);
   }
@@ -94,9 +118,31 @@ export function toBool(v: string | null | undefined): boolean | null {
   return null;
 }
 
-/** Institutional People rows: `specialisation` starts with INSTITUTIONAL (owner's convention, 2026-09-20). */
+/**
+ * The owner's convention for a bank-side People row (2026-09-20): a column
+ * that STARTS with `INSTITUTIONAL` and ends `not a valuer`, followed by the
+ * role. It was described as living in `specialisation` and actually landed in
+ * `associations_and_roles`, so both are read — the convention is the prefix,
+ * not the column. Blank IBBI / RVO fields are never used to infer this: plenty
+ * of genuine valuers have them blank too.
+ */
+export const INSTITUTIONAL_MARKER_COLUMNS = ["associations_and_roles", "specialisation"] as const;
+
 export function isInstitutionalSpecialisation(v: string | null | undefined): boolean {
   return /^\s*INSTITUTIONAL\b/.test(v ?? "");
+}
+
+export function isInstitutionalRow(record: Record<string, string>): boolean {
+  return INSTITUTIONAL_MARKER_COLUMNS.some((c) => isInstitutionalSpecialisation(record[c]));
+}
+
+/** The role text after the INSTITUTIONAL marker, for display. */
+export function institutionalRole(record: Record<string, string>): string | null {
+  for (const c of INSTITUTIONAL_MARKER_COLUMNS) {
+    const v = record[c] ?? "";
+    if (isInstitutionalSpecialisation(v)) return v.replace(/^\s*INSTITUTIONAL\s*[—–-]*\s*/, "").trim() || null;
+  }
+  return null;
 }
 
 /** The exact-name key the workbook uses: lower-case, letters and digits only. */

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   cellString,
+  institutionalRole,
   isBlankRow,
+  isInstitutionalRow,
   isInstitutionalSpecialisation,
   normalizedNameKey,
   parseSheetDate,
@@ -31,11 +33,24 @@ describe("phones", () => {
     expect(toE164India("+91-854-787-8978")).toBe("+918547878978");
     expect(toE164India("09912808720")).toBe("+919912808720");
   });
+  it("finds the mobile in a cell that also holds a landline or several numbers", () => {
+    // Real cells from the live sheet, where only the second number is reachable.
+    expect(toE164India("04552-251038, 9842111177")).toBe("+919842111177");
+    expect(toE164India("044-26620241, 09444114972")).toBe("+919444114972");
+    expect(toE164India("9812139188 9315447057 9255414430")).toBe("+919812139188");
+    // A number written with spaces must survive whole, not be split into pieces.
+    expect(toE164India("+91 88797 64119")).toBe("+918879764119");
+    expect(toE164India("+91 98765 43210")).toBe("+919876543210");
+  });
   it("refuses what is not a mobile-shaped Indian number", () => {
     expect(toE164India("274544")).toBeNull();
     expect(toE164India("1800-2334526")).toBeNull();
     expect(toE164India("0141-6618888")).toBeNull();
     expect(toE164India("No personal professional mobile verified")).toBeNull();
+    // A landline split into pieces must not be reassembled into a fake mobile.
+    expect(toE164India("0427 4056638")).toBeNull();
+    // An email in the phone column is not a phone.
+    expect(toE164India("pavanakumar.services@outlook.com; pavankumar.services@gmail.com")).toBeNull();
   });
   it("finds every number in a multi-value cell once", () => {
     expect(phonesIn("9912808720 / 7780766820")).toEqual(["+919912808720", "+917780766820"]);
@@ -70,6 +85,19 @@ describe("scalars", () => {
     expect(isInstitutionalSpecialisation("INSTITUTIONAL — Canara Bank Authorised Officer; not a valuer")).toBe(true);
     expect(isInstitutionalSpecialisation("Institutional valuations for banks")).toBe(false);
     expect(isInstitutionalSpecialisation("")).toBe(false);
+  });
+  it("the marker is read from either column, because it landed in associations_and_roles", () => {
+    // The live sheet, verified 2026-09-20: all four bank-side rows carry it here.
+    expect(isInstitutionalRow({ associations_and_roles: "INSTITUTIONAL — Bank recovery / SARFAESI workflow influencer; not a valuer" })).toBe(true);
+    expect(isInstitutionalRow({ specialisation: "INSTITUTIONAL — Ex-SBI banker; not a valuer" })).toBe(true);
+    // A genuine valuer whose text merely mentions institutional work is not one.
+    expect(isInstitutionalRow({ specialisation: "Land & Building; corporate/institutional valuation" })).toBe(false);
+    expect(isInstitutionalRow({})).toBe(false);
+  });
+  it("the role is what follows the marker", () => {
+    expect(institutionalRole({ associations_and_roles: "INSTITUTIONAL — Bank recovery / SARFAESI workflow influencer; not a valuer" }))
+      .toBe("Bank recovery / SARFAESI workflow influencer; not a valuer");
+    expect(institutionalRole({ specialisation: "Land & Building" })).toBeNull();
   });
   it("name key matches the workbook's normalisation", () => {
     expect(normalizedNameKey("A Ahmed Nawaz Mohiddin")).toBe("aahmednawazmohiddin");

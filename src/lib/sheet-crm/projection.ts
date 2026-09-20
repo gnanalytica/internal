@@ -1,6 +1,7 @@
 import {
   firstOf,
-  isInstitutionalSpecialisation,
+  institutionalRole,
+  isInstitutionalRow,
   normEnum,
   parseSheetDate,
   splitMulti,
@@ -42,6 +43,8 @@ export type PersonProjection = {
   /** Sheet-side outreach columns, when the owner has added them. */
   outreachStatus: string | null;
   lastContactedAt: Date | null;
+  /** The sheet flagged this row as a duplicate of another. Kept, never hidden. */
+  sheetDuplicate: boolean;
 };
 
 const blank = (v: string | undefined | null) => (v && v.trim() ? v.trim() : null);
@@ -56,7 +59,7 @@ export function projectPerson(
   people: SheetRecord,
   gtm: { prospect?: SheetRecord; dossier?: SheetRecord } = {},
 ): PersonProjection {
-  const institutional = isInstitutionalSpecialisation(people.specialisation);
+  const institutional = isInstitutionalRow(people);
   const p = gtm.prospect;
   const phoneRaw = blank(people.phone) ?? blank(p?.["Public Phone"]);
   const emailRaw = firstOf(people.email) ?? firstOf(p?.["Public Email"]);
@@ -70,7 +73,7 @@ export function projectPerson(
     email: emailRaw,
     phone: phoneRaw,
     phoneE164: toE164India(phoneRaw),
-    title: blank(people.specialisation) ?? blank(people.firm_name),
+    title: institutional ? institutionalRole(people) : blank(people.specialisation) ?? blank(people.firm_name),
     source: blank(people.sources),
     leadScore: toInt(people.lead_score),
     city: blank(people.city) ?? blank(p?.City),
@@ -87,6 +90,7 @@ export function projectPerson(
     channel: institutional ? "lender" : "direct",
     outreachStatus: normEnum(people.outreach_status),
     lastContactedAt: sheetTimestamp(people.last_contacted_at),
+    sheetDuplicate: (people.duplicate_flag ?? "").trim().toUpperCase() === "DUPLICATE",
   };
 }
 
