@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth/server";
 import { issueAttachmentsTag, wsTags } from "@/lib/cache-tags";
 import { countOpenByDepartment } from "@/lib/departments";
 import { featureProgress } from "@/lib/feature-progress";
+import { cursorBounds } from "@/lib/api/pagination";
 import { db } from "@/db";
 import {
   activity,
@@ -582,11 +583,17 @@ export async function getIssuesPage(
     if (!Number.isNaN(since.getTime())) conds.push(gte(issues.updatedAt, since));
   }
   if (opts.cursor) {
-    const at = new Date(opts.cursor.createdAt);
+    // The cursor's timestamp is an ISO string, so it carries MILLISECONDS, and
+    // `timestamptz` carries microseconds. `eq(createdAt, at)` therefore matched
+    // nothing on a tie and `lt(createdAt, at)` excluded it, so every row
+    // sharing the cursor row's millisecond and sorting after it was silently
+    // dropped. The cursor's millisecond is a RANGE, not a point.
+    // See cursorBounds() for why the column is also declared precision: 3.
+    const { at, next, id } = cursorBounds(opts.cursor);
     conds.push(
       or(
         lt(issues.createdAt, at),
-        and(eq(issues.createdAt, at), lt(issues.id, opts.cursor.id)),
+        and(gte(issues.createdAt, at), lt(issues.createdAt, next), lt(issues.id, id)),
       )!,
     );
   }
@@ -824,11 +831,17 @@ export async function getPagesPage(
 
   const conds = [eq(pages.workspaceId, workspaceId), isNull(pages.deletedAt)];
   if (opts.cursor) {
-    const at = new Date(opts.cursor.createdAt);
+    // The cursor's timestamp is an ISO string, so it carries MILLISECONDS, and
+    // `timestamptz` carries microseconds. `eq(createdAt, at)` therefore matched
+    // nothing on a tie and `lt(createdAt, at)` excluded it, so every row
+    // sharing the cursor row's millisecond and sorting after it was silently
+    // dropped. The cursor's millisecond is a RANGE, not a point.
+    // See cursorBounds() for why the column is also declared precision: 3.
+    const { at, next, id } = cursorBounds(opts.cursor);
     conds.push(
       or(
         lt(pages.createdAt, at),
-        and(eq(pages.createdAt, at), lt(pages.id, opts.cursor.id)),
+        and(gte(pages.createdAt, at), lt(pages.createdAt, next), lt(pages.id, id)),
       )!,
     );
   }

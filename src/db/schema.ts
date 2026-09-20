@@ -201,7 +201,9 @@ export const issues = pgTable(
     externalSource: text("external_source"), // e.g. "standup-ai"
     externalId: text("external_id"), // the source system's own record id
     externalUrl: text("external_url"), // deep link back to the source
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -275,7 +277,9 @@ export const pages = pgTable(
       onDelete: "set null",
     }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("pages_workspace_parent_idx").on(t.workspaceId, t.parentId)],
