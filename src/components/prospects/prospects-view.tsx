@@ -153,7 +153,7 @@ function ReachIcons({ r }: { r: ProspectRow }) {
   );
 }
 
-const checkboxCls = "size-4 shrink-0 accent-[var(--brand)]";
+const checkboxCls = "tap-box size-4 shrink-0 accent-[var(--brand)]";
 
 /**
  * Server-filtered people list. The search term goes through a server action,

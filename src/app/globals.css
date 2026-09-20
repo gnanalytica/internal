@@ -870,4 +870,12 @@ a.entity-ref {
     min-height: 2.25rem;
     min-width: 2.25rem;
   }
+  /* A 16px checkbox is under WCAG 2.5.8's floor and is the control a bulk
+     assign is made of, so it is the one a thumb misses most expensively.
+     Sized rather than padded: padding would leave the visible box at 16px and
+     the row would look like it had a stray gap. */
+  input[type="checkbox"].tap-box {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
 }
