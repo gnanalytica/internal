@@ -105,6 +105,13 @@ const PAIRS: [keep: string, drop: string][] = [
   ["P01768", "P01762"], // S Saravanakumar ← S SARAVANA KUMAR (Theni / Madurai)
   ["P01920", "P01912"], // Sundarraj R ← Sundar Raj R (both Namakkal)
   ["P03667", "P03666"], // Babudan Singh Tanwar ← Babu Dan Singh Tanwar (both Haryana)
+
+  // Reviewed 2026-09-21, third pass. Rejected on a first reading for naming
+  // different places, then reinstated once the addresses were read: both are
+  // West Godavari, ~30km apart (Tanuku / Ganapavaram). The "Hyderabad" that
+  // made it look like two people is the drop row's PNB ZONE sitting in `city`,
+  // which is why zoneCity below refuses to carry that column across.
+  ["P00223", "P00222"], // Vasudevaraju Dandu ← Vasudeva Raju Dandu
 ];
 
 /**
@@ -217,10 +224,19 @@ async function main() {
     const snap: Record<string, unknown> = { _deleted_row_number: dr + 1, _folded_into: keepPid };
     const changed: string[] = [];
 
+    // A bank-panel row's `city` is routinely the bank's ZONE rather than where
+    // the person is — 222 rows carry a city their own address contradicts. The
+    // tell is city === pnb_zone. Folding that onto the survivor would move a
+    // valuer in Tanuku to Hyderabad, so the column is dropped for this row.
+    const zoneCity =
+      cell(drow[headers.indexOf("city")]) !== "" &&
+      cell(drow[headers.indexOf("city")]).toLowerCase() === cell(drow[headers.indexOf("pnb_zone")]).toLowerCase();
+
     headers.forEach((h, c) => {
       const name = h.trim();
       if (name) snap[name] = cell(drow[c]);
       if (!name || NEVER_FOLD.has(name) || people.formulaCols.has(c)) return;
+      if (name === "city" && zoneCity) return;
       const kv = cell(krow[c]);
       const dv = cell(drow[c]);
       if (!dv) return;
