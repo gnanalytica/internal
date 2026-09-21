@@ -50,6 +50,26 @@ const PAIRS: [keep: string, drop: string][] = [
   ["P04432", "P05615"], // Ram Dunichand Tarachandani ← Ram D Tarachandani
   ["P04570", "P05625"], // Suresh Baliram Piplewar ← Suresh Piplewar
   ["P04726", "P05568"], // Bharat Bhushan Goyal ← Bharat Bhushan
+
+  // Reviewed 2026-09-21, after the first 24. Each was held back as uncertain
+  // until something decided it; the evidence is recorded here because none of
+  // it is recoverable from the two names alone.
+  ["P04569", "P05626"], // Surendra Bhaurao Gordey ← SB Girdey — the shared address
+                        // sbgordeygroup@rediffmail.com spells the keeper's surname,
+                        // so "Girdey" is a typo and SB is Surendra Bhaurao.
+  ["P01155", "P01523"], // Balasundaram … Thanaraj ← N T BALASUNDARAM — the address is
+                        // the panel row's name, and the panel phone's 04362 is the
+                        // Thanjavur STD code, matching the keeper rather than the
+                        // "Madurai" the panel row claims.
+  ["P01705", "P01622"], // Rasappan Ramasamy ← R RAMASAMY — R is Rasappan. The cities
+                        // disagree (Salem / Chennai, keeper's own address in Karur);
+                        // a valuer works across cities, so `city` is merged, not picked.
+  ["P03709", "P05585"], // Parveen Kumar Gupta ← Praveen Kumar — decided by the panel
+                        // row's own remarks, which carry "1A, Shiv Pratap Nagar, Mahesh
+                        // Nagar, Ambala Cantt, Haryana-133001": the keeper's address,
+                        // pincode included. Its "Punjab" is the PNB Chandigarh zone
+                        // rather than where the person is, and the PAN AFIPG4375B
+                        // carries the G of the Gupta the panel row drops.
 ];
 
 /**
@@ -66,16 +86,23 @@ const REJECTED = [
   ["P03725", "P00881"], // Rajeev Juneja / RAJEEV KUMAR T K (Ernakulam)
 ];
 
-/** Same email, genuinely ambiguous — a person decides these, not this script. */
-const UNCERTAIN = [
-  ["P01705", "P01622"], // Rasappan Ramasamy (Salem) / R RAMASAMY (Chennai)
-  ["P01155", "P01523"], // Balasundaram … Thanaraj (Thanjavur) / N T BALASUNDARAM (Madurai)
-  ["P03709", "P05585"], // Parveen Kumar Gupta / Praveen Kumar
-  ["P04569", "P05626"], // Surendra Bhaurao Gordey / SB Girdey
-];
+/**
+ * Same email, genuinely ambiguous — a person decides these, not this script.
+ * Empty since 2026-09-21: all four were read through and moved into PAIRS. A
+ * pair belongs here whenever the names alone do not settle it, because
+ * deciding one costs a few minutes of reading and deleting the wrong row costs
+ * a prospect.
+ */
+const UNCERTAIN: [string, string][] = [];
 
-/** Semicolon lists: the union, not the keeper's copy. Losing a source or a bank panel is the point of not deleting blindly. */
-const LIST_COLUMNS = new Set(["sources", "empanelled_with", "enrichment_sources", "other_asset_classes", "company_names", "associations_and_roles"]);
+/**
+ * Semicolon lists: the union, not the keeper's copy. Losing a source or a bank
+ * panel is the point of not deleting blindly — and `city` is here because a
+ * valuer is routinely empanelled across several, so the two rows disagreeing
+ * about it is information rather than a conflict to resolve by picking one.
+ * Every consumer filters city with `ilike '%…%'`, so a list still matches.
+ */
+const LIST_COLUMNS = new Set(["sources", "empanelled_with", "enrichment_sources", "other_asset_classes", "company_names", "associations_and_roles", "city"]);
 /** Identity of the surviving row — never taken from the row being deleted. */
 const NEVER_FOLD = new Set(["person_id", "full_name", "ibbi_reg_no", "ibbi_asset_class", "ibbi_reg_date", "data_quality_flag"]);
 
@@ -127,10 +154,17 @@ async function main() {
   const deleteAt: number[] = [];
   const missing: string[] = [];
   let folded = 0;
+  let already = 0;
 
   for (const [keepPid, dropPid] of PAIRS) {
     const kr = rowOf.get(keepPid);
     const dr = rowOf.get(dropPid);
+    // Merged on an earlier run — the panel row is gone and the keeper is not.
+    // That is the finished state, not a missing row, and re-running must say so.
+    if (dr === undefined && kr !== undefined) {
+      already++;
+      continue;
+    }
     if (kr === undefined || dr === undefined) {
       missing.push(`${keepPid}←${dropPid}`);
       continue;
@@ -160,7 +194,8 @@ async function main() {
   }
 
   console.log(
-    `\n${APPLY ? "→" : "would"} fold ${folded}/${PAIRS.length} pairs (${writes.length} cells) and delete ${deleteAt.length} rows` +
+    `\n${APPLY ? "→" : "would"} fold ${folded} pair(s) (${writes.length} cells) and delete ${deleteAt.length} rows` +
+      (already ? `\n   ${already} of ${PAIRS.length} already merged on an earlier run` : "") +
       `\n   left alone: ${REJECTED.length} different-people pairs, ${UNCERTAIN.length} uncertain`,
   );
   if (missing.length) console.log(`   ✗ not found in the sheet: ${missing.join(", ")}`);
