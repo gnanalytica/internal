@@ -70,6 +70,41 @@ const PAIRS: [keep: string, drop: string][] = [
                         // pincode included. Its "Punjab" is the PNB Chandigarh zone
                         // rather than where the person is, and the PAN AFIPG4375B
                         // carries the G of the Gupta the panel row drops.
+
+  // Reviewed 2026-09-21. A class neither the sheet's `duplicate_flag` nor the
+  // email pass can see: the formula compares IBBI, email and phone and never
+  // the name, and these pairs share only a name — one full IBBI row against a
+  // bare harvest row carrying a name and a location. Corroborated first:
+  ["P00778", "P00763"], // Jayadevi P R ← JAYADEVI PR — same address, "Swathikam
+                        // House, Thevakkal Vadakode P O" / "SWATHIKAN, VADACODE P.O., THEVAKKAL".
+  ["P03935", "P03930"], // Khojema Teen Wala ← KHOJEMA TEENWALA — both trade as
+                        // Global ("GLOBAL ARCHITECT" / globalmds165@gmail.com).
+  ["P00364", "P00368"], // H R Krishnegowda ← HR KRISHNEGOWDA (Bangalore/Bengaluru)
+  ["P00393", "P00402"], // K S Nagarajaiah ← KS NAGARAJAIAH (Bangalore/Bengaluru)
+  ["P00394", "P00403"], // K S Venkatakrishnan ← KS VENKATAKRISHNAN (Bangalore/Bengaluru)
+  ["P00413", "P00401"], // Krishna Murthy T ← KRISHNAMURTHY T (Bangalore/Bengaluru)
+  ["P02048", "P02043"], // Bheemrao Jaligama ← BHEEM RAO JALIGAMA (both Hyderabad)
+  ["P02052", "P02045"], // Burugu Jagan Mohan ← BURUGU JAGANMOHAN (both Hyderabad)
+  ["P01747", "P02649"], // S P Vee Vengadaraagavan ← S P VEE VENGADA RAAGAVAN
+
+  // Name only, with a bare counterpart holding no IBBI, email or address to
+  // contradict it. Weaker evidence than anything above — accepted because the
+  // fold carries the bare row's few fields onto the keeper first, so the cost
+  // of being wrong here is a location string, not a prospect's record.
+  ["P00011", "P02291"], // Anilkumar Valluri ← ANIL KUMAR VALLURI
+  ["P00165", "P02620"], // Ramakrishna Gorti ← RAMA KRISHNA GORTI
+  ["P00719", "P02332"], // BIJOY VD ← BIJOY .V.D — neither has an IBBI number, so
+                        // the keeper is the row with an address rather than the registered one.
+  ["P01265", "P02388"], // Geetha Rani ← GEETHARANI
+  ["P01625", "P02608"], // R S Vinothkumar ← R.S.VINOTH KUMAR
+  ["P01743", "P02646"], // S Kasi Viswanathan ← S KASIVISWANATHAN
+  ["P01757", "P02651"], // S Rajakumar ← S RAJA KUMAR
+  ["P00470", "P00480"], // N K Rajkumar ← NK RAJKUMAR (Tumkur / Bengaluru)
+  ["P00534", "P00525"], // Raghu C R ← RAGHU CR (Tumkur / Bengaluru)
+  ["P00644", "P00639"], // Thippeswamy C A ← THIPPESWAMY CA (Sira Taluk / Bengaluru)
+  ["P01768", "P01762"], // S Saravanakumar ← S SARAVANA KUMAR (Theni / Madurai)
+  ["P01920", "P01912"], // Sundarraj R ← Sundar Raj R (both Namakkal)
+  ["P03667", "P03666"], // Babudan Singh Tanwar ← Babu Dan Singh Tanwar (both Haryana)
 ];
 
 /**
@@ -109,10 +144,18 @@ const NEVER_FOLD = new Set(["person_id", "full_name", "ibbi_reg_no", "ibbi_asset
 const cell = (v: unknown) => String(v ?? "").trim();
 const parts = (v: string) => v.split(";").map((s) => s.trim()).filter(Boolean);
 
+/**
+ * Two spellings of one city are not two cities. Only genuine aliases belong
+ * here: Tumkur and Bengaluru are different places and both must survive, which
+ * is the whole reason `city` is a list column.
+ */
+const SAME_PLACE: Record<string, string> = { bengaluru: "bangalore" };
+const canon = (s: string) => SAME_PLACE[s.toLowerCase()] ?? s.toLowerCase();
+
 function unionList(keep: string, drop: string): string | null {
   const have = parts(keep);
-  const seen = new Set(have.map((s) => s.toLowerCase()));
-  const added = parts(drop).filter((s) => !seen.has(s.toLowerCase()));
+  const seen = new Set(have.map(canon));
+  const added = parts(drop).filter((s) => !seen.has(canon(s)));
   return added.length ? [...have, ...added].join("; ") : null;
 }
 
