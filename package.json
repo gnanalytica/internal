@@ -23,7 +23,10 @@
     "sheet:probe": "tsx scripts/sheet-probe.ts",
     "sheet:add-owner": "tsx scripts/add-owner-column.ts",
     "sheet:backfill-owner": "tsx scripts/backfill-owner-column.ts",
-    "db:reconcile-sheet": "tsx src/db/reconcile-sheet-contacts.ts"
+    "db:reconcile-sheet": "tsx src/db/reconcile-sheet-contacts.ts",
+    "sheet:merge-dupes": "tsx scripts/merge-duplicate-people.ts",
+    "sheet:fix-dup-formulas": "tsx scripts/fix-duplicate-formulas.ts",
+    "sheet:add-directory-ids": "tsx scripts/add-directory-ids.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

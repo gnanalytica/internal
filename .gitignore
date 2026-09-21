@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sheet row snapshots taken before a destructive cleanup — personal data, never committed.
+tmp/
