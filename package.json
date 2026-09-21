@@ -22,6 +22,7 @@
     "db:reset": "tsx --env-file=.env.local src/db/reset.ts",
     "sheet:probe": "tsx scripts/sheet-probe.ts",
     "sheet:add-owner": "tsx scripts/add-owner-column.ts",
+    "sheet:backfill-owner": "tsx scripts/backfill-owner-column.ts",
     "db:reconcile-sheet": "tsx src/db/reconcile-sheet-contacts.ts"
   },
   "dependencies": {
