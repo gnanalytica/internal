@@ -78,7 +78,7 @@ export function projectPerson(people: SheetRecord): PersonProjection {
     email: emailRaw,
     phone: phoneRaw,
     phoneE164: toE164India(phoneRaw),
-    title: institutional ? institutionalRole(people) : blank(people.specialisation) ?? blank(people.firm_name),
+    title: institutional ? institutionalRole(people) : blank(people.specialisation),
     source: blank(people.sources),
     leadScore: toInt(people.lead_score),
     city: blank(people.city),
