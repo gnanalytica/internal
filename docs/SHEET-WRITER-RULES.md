@@ -187,6 +187,19 @@ pain                 the narrative, a few sentences
 is_institutional     Yes on a bank/association row that is not a valuer
 ```
 
+**`research_status` and `best_first_channel` are FREE TEXT, not vocabularies.**
+An earlier version of this file gave them enum values
+(`not_started | in_progress | done`, `whatsapp | email | call | referral | visit`).
+That was wrong: the app stores both as `text` and renders them as a plain pill,
+nothing filters or groups on them, and the 22 channel values already written are
+real guidance — "WhatsApp first, then short founder call", "Email first;
+association introduction only if available naturally". Flattening those to a
+keyword would lose the sequence for no consumer's benefit. Write a sentence.
+
+What the channel column must NOT hold is a pitch: three rows carried wedge text
+("Professional-defensibility layer for a senior Category A valuer…"), which
+belongs in `pain` or `remarks`.
+
 `is_institutional` matters more than it looks. The app used to decide this from
 an uppercase `INSTITUTIONAL` prefix on `associations_and_roles` or
 `specialisation`; that convention still works as a fallback, but the column is
@@ -200,7 +213,42 @@ URLs) — that content is **not** moving to People, because 53 columns populated
 for 26 of 5,611 people would be worse on the directory than it is on its own
 tab.
 
-## 11. Do not add columns or rename headers
+## 11. A column has a shape. Writing past it breaks the column, not the cell.
+
+92 cells across the two master tabs hold a value of the wrong shape, and they
+arrive in RUNS — 21 People rows and 4 Companies rows offend in two or more
+columns at once, which is what a write that started one column off looks like.
+The damage is that it is invisible: a paragraph in `data_quality_flag` still
+renders, and `iov_match_confidence` holding `High` where the vocabulary is
+lowercase `high` means every `COUNTIF(…,"high")` silently undercounts by 9.
+
+The shapes, and what went wrong in each:
+
+| Column | Shape | Found holding |
+|---|---|---|
+| `iov_match_confidence` | `high` / `medium-ambiguous-name` / `low-state-mismatch` | `High` on 9 rows |
+| `research_confidence` | `High` / `Medium` / `Low` | sales prose, URL lists (11 rows) |
+| `iov_approved_valuer` | `Yes` / `No` | a COP-validity sentence; `Land & Building` |
+| `website`, `linkedin` | a URL | paragraphs (25 rows), and URLs with no `https://` |
+| `data_quality_flag` | a short label | 136–476 char paragraphs (12 rows) |
+| `company_link_source` | a source label | a 168-char sentence |
+| `iov_asset_class` | an asset class | a membership number |
+| `iov_membership_no` | a number | an associations-and-roles string |
+
+**Check the column you are about to write is the column you mean**, especially
+when writing a run of adjacent cells: `sources`, `source_count`, `remarks`,
+`website` sit next to each other, and so do `sales_angle`,
+`research_confidence`, `enrichment_sources`. Four rows have `remarks` holding
+the single character `1`, which is a count that landed one column late.
+
+`pnpm sheet:audit-values` lists every offending cell.
+`pnpm sheet:repair-values --apply` fixes the ones whose right answer is provable
+from the cell itself — a case fold, a URL missing its scheme, prose moved to
+`remarks` (or to `enrichment_sources` when the value is nothing but URLs). It
+deliberately does **not** guess at a multi-column rotation; moving real research
+one column further from where it belongs is the defect, not the fix.
+
+## 12. Do not add columns or rename headers
 
 The sync identifies each tab by its header signature and refuses a tab it
 cannot recognise. Adding a column is the sheet owner's decision. Renaming one
@@ -220,3 +268,7 @@ silently detaches every mapping that reads it.
 6. Is this actually a firm?
 7. If this row is a bank officer or an association contact rather than a valuer,
    have I set `is_institutional`? Without it they are counted as a valuer.
+8. Is every value in a column that holds that SHAPE — a URL in `website`, a
+   short label in `data_quality_flag`, lowercase `high` in
+   `iov_match_confidence`? Run `pnpm sheet:audit-values` if you wrote a run of
+   adjacent cells.
