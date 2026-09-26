@@ -229,7 +229,7 @@ async function upsertTabRows(
   // Masters are large: compare by hash only. Small tabs keep their old data so
   // a research change can be described on the person's timeline.
   const existing = await db
-    .select({ id: sheetRows.id, rowKey: sheetRows.rowKey, rowHash: sheetRows.rowHash, deletedAt: sheetRows.deletedAt, data: isMaster ? sql<null>`null` : sheetRows.data })
+    .select({ id: sheetRows.id, rowKey: sheetRows.rowKey, rowHash: sheetRows.rowHash, deletedAt: sheetRows.deletedAt, personId: sheetRows.personId, companyId: sheetRows.companyId, data: isMaster ? sql<null>`null` : sheetRows.data })
     .from(sheetRows)
     .where(and(eq(sheetRows.workspaceId, workspaceId), eq(sheetRows.sheetId, spreadsheetId), eq(sheetRows.tab, tab)));
   const byKey = new Map(existing.map((e) => [e.rowKey, e]));
@@ -283,9 +283,54 @@ async function upsertTabRows(
   }
 
   const present = new Set(rows.map((r) => r.key));
-  const gone = existing.filter((e) => !present.has(e.rowKey) && !e.deletedAt).map((e) => e.id);
+  const goneRows = existing.filter((e) => !present.has(e.rowKey) && !e.deletedAt);
+  const gone = goneRows.map((e) => e.id);
   for (let i = 0; i < gone.length; i += BATCH) {
     await db.update(sheetRows).set({ deletedAt: now }).where(inArray(sheetRows.id, gone.slice(i, i + BATCH)));
+  }
+
+  // The projection has to go with the row. Marking `sheetRows.deletedAt` and
+  // stopping left the projected contact behind for good: 52 people who are not
+  // in the sheet any more were still in the app, three of them assigned to
+  // someone. The sheet is the source of truth, so a person who left it is not a
+  // contact — and `interactions`/`crm_activities` cascade, which is right here
+  // ONLY because a merge re-points that history onto the surviving contact
+  // first (see `scripts/merge-duplicate-people.ts`). Deleting a person the
+  // sheet no longer has, without a merge, is the sheet's decision to honour.
+  const gonePersonIds = goneRows.map((e) => e.personId).filter((v): v is string => Boolean(v));
+  let projectionsRemoved = 0;
+  for (let i = 0; i < gonePersonIds.length; i += BATCH) {
+    const slice = gonePersonIds.slice(i, i + BATCH);
+    const removed = await db
+      .delete(crmContacts)
+      .where(
+        and(
+          eq(crmContacts.workspaceId, workspaceId),
+          eq(crmContacts.externalSource, SHEET_SOURCE),
+          inArray(crmContacts.externalId, slice),
+        ),
+      )
+      .returning({ id: crmContacts.id });
+    projectionsRemoved += removed.length;
+  }
+
+  const goneCompanyIds = goneRows.map((e) => e.companyId).filter((v): v is string => Boolean(v));
+  for (let i = 0; i < goneCompanyIds.length; i += BATCH) {
+    const slice = goneCompanyIds.slice(i, i + BATCH);
+    const removed = await db
+      .delete(crmAccounts)
+      .where(
+        and(
+          eq(crmAccounts.workspaceId, workspaceId),
+          eq(crmAccounts.externalSource, SHEET_SOURCE),
+          inArray(crmAccounts.externalId, slice),
+        ),
+      )
+      .returning({ id: crmAccounts.id });
+    projectionsRemoved += removed.length;
+  }
+  if (projectionsRemoved > 0) {
+    console.log(`[sheet-sync] ${tab}: removed ${projectionsRemoved} projection(s) for deleted rows`);
   }
 
   // Research changes on a person become timeline entries (masters excluded:
