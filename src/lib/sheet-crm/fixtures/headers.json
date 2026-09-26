@@ -43,11 +43,17 @@
     "research_confidence",
     "enrichment_sources",
     "data_quality_flag",
-    "canonical_entity_key",
-    "normalized_name_key",
     "duplicate_flag",
-    "duplicate_match_ids",
-    "match_rule"
+    "research_status",
+    "priority",
+    "opportunity_score",
+    "score_band",
+    "persona",
+    "best_first_channel",
+    "next_action",
+    "why_now",
+    "pain",
+    "is_institutional"
   ],
   "companies": [
     "company_id",
@@ -85,11 +91,7 @@
     "sales_angle",
     "research_confidence",
     "enrichment_sources",
-    "canonical_entity_key",
-    "normalized_name_key",
-    "duplicate_flag",
-    "duplicate_match_ids",
-    "match_rule"
+    "duplicate_flag"
   ],
   "rvos": [
     "rvo_name",

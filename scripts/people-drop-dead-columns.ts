@@ -31,11 +31,21 @@ import { getAccessToken } from "../src/lib/sheet-crm/google-auth";
 import { listTabs, readRange } from "../src/lib/sheet-crm/sheets-api";
 
 const APPLY = process.argv.includes("--apply");
-const TAB = "People";
+/** `--tab=Companies` to clean the other master; People by default. */
+const TAB = (process.argv.find((a) => a.startsWith("--tab="))?.split("=")[1] ?? "People").trim();
 
 const DROP = ["canonical_entity_key", "normalized_name_key", "match_rule", "duplicate_match_ids"] as const;
-/** Checked by name after the deletion — these must survive. */
-const MUST_SURVIVE = ["person_id", "full_name", "duplicate_flag", "owner", "is_institutional", "persona"] as const;
+/**
+ * Checked by name after the deletion — these must survive. `duplicate_flag` is
+ * on both lists: People's drives `crmContacts.sheetDuplicate`, and Companies'
+ * drives nothing but is a duplicate signal a person reads while working in the
+ * sheet, so it stays on both for consistency.
+ */
+const MUST_SURVIVE_BY_TAB: Record<string, readonly string[]> = {
+  People: ["person_id", "full_name", "duplicate_flag", "owner", "is_institutional", "persona"],
+  Companies: ["company_id", "company_name", "linked_person_ids", "duplicate_flag", "owner"],
+};
+const MUST_SURVIVE = MUST_SURVIVE_BY_TAB[TAB] ?? [];
 
 const cell = (v: unknown) => (v ?? "").toString();
 
@@ -70,6 +80,7 @@ async function main() {
   const meta = tabs.find((t) => t.title === TAB);
   if (!meta) throw new Error("People tab not found.");
 
+  if (!MUST_SURVIVE.length) throw new Error(`No survivor list defined for "${TAB}". Refusing.`);
   const grid = await retry(() => readRange(spreadsheetId, `'${TAB}'!A1:BZ6000`));
   const headers = (grid[0] ?? []).map((h) => cell(h).trim());
 
@@ -81,7 +92,7 @@ async function main() {
     return;
   }
 
-  console.log(`People: ${headers.filter(Boolean).length} columns\n`);
+  console.log(`${TAB}: ${headers.filter(Boolean).length} columns\n`);
   console.log("dropping:");
   const indexes = present.map((d) => {
     const i = headers.indexOf(d);
@@ -98,7 +109,7 @@ async function main() {
     const now = after.indexOf(name);
     if (was < 0) {
       console.log(`  ${name.padEnd(20)} NOT PRESENT — refusing`);
-      throw new Error(`${name} is missing from People; refusing to delete anything.`);
+      throw new Error(`${name} is missing from ${TAB}; refusing to delete anything.`);
     }
     console.log(`  ${name.padEnd(20)} ${colLetter(was)} → ${colLetter(now)}`);
   }
@@ -111,7 +122,8 @@ async function main() {
   // The values are a machine's working-out, but they are keyed to real people;
   // keep a copy out of the repo before discarding them.
   mkdirSync("tmp", { recursive: true });
-  const pidCol = headers.indexOf("person_id");
+  const idHeader = MUST_SURVIVE[0];
+  const pidCol = headers.indexOf(idHeader);
   const snap = `tmp/people-dropped-columns-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
   writeFileSync(
     snap,
@@ -119,7 +131,7 @@ async function main() {
       grid
         .slice(1)
         .filter((r) => cell(r[pidCol]).trim())
-        .map((r) => Object.fromEntries([["person_id", cell(r[pidCol])], ...present.map((d) => [d, cell(r[headers.indexOf(d)])])])),
+        .map((r) => Object.fromEntries([[idHeader, cell(r[pidCol])], ...present.map((d) => [d, cell(r[headers.indexOf(d)])])])),
       null,
       2,
     ),
@@ -141,7 +153,7 @@ async function main() {
 
   const check = ((await retry(() => readRange(spreadsheetId, `'${TAB}'!A1:BZ1`)))[0] ?? []).map((h) => cell(h).trim());
   const live = check.filter(Boolean);
-  console.log(`\nverification — People now has ${live.length} columns`);
+  console.log(`\nverification — ${TAB} now has ${live.length} columns`);
   for (const d of present) {
     console.log(`  ${d.padEnd(22)} ${live.includes(d) ? "*** STILL PRESENT ***" : "gone"}`);
     if (live.includes(d)) process.exitCode = 1;
