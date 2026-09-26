@@ -44,13 +44,35 @@ const EXPECTED: Record<string, { name: string; formula: string }> = {
     name: "duplicate_match_ids",
     formula: `=ARRAYFORMULA(IF(A2:A="","",IF(AT2:AT="DUPLICATE","MATCH ON "&AV2:AV&" — MERGE REQUIRED","")))`,
   },
+  // Converted from hand-typed values on 2026-09-26 (people-derived-columns.ts).
+  // A writer that learned the sheet before then still fills these in, which is
+  // exactly the blocker this script exists to clear.
+  M: {
+    name: "is_south_india",
+    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(REGEXMATCH(LOWER(TRIM(K2:K)),"^(andhra pradesh|telangana|karnataka|tamil nadu|kerala|puducherry|pondicherry)$"),"Yes","No")))`,
+  },
+  R: {
+    name: "num_empanelments",
+    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(TRIM(Q2:Q)="",0,LEN(TRIM(Q2:Q))-LEN(SUBSTITUTE(TRIM(Q2:Q),";",""))+1)))`,
+  },
+  Y: {
+    name: "source_count",
+    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(TRIM(X2:X)="",0,LEN(TRIM(X2:X))-LEN(SUBSTITUTE(TRIM(X2:X),";",""))+1)))`,
+  },
   AV: {
     name: "match_rule",
     formula: `=ARRAYFORMULA(IF(A2:A="","",IF(AT2:AT<>"DUPLICATE","",IF(IF(C2:C<>"",COUNTIF(C2:C,C2:C)>1,FALSE),"IBBI",IF(IF(G2:G<>"",COUNTIF(G2:G,G2:G)>1,FALSE),"EMAIL",IF(IF(H2:H<>"",COUNTIF(H2:H,H2:H)>1,FALSE),"PHONE",""))))))`,
   },
 };
 
-const COLS = Object.keys(EXPECTED);
+/** Column letter -> zero-based index. */
+function colIndex(letter: string): number {
+  let n = 0;
+  for (const ch of letter) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+const COLS = Object.keys(EXPECTED).sort((a, b) => colIndex(a) - colIndex(b));
 const TAB = "People";
 const LAST_ROW = 6000;
 
@@ -66,7 +88,10 @@ async function readRow2Formulas(spreadsheetId: string): Promise<(string | null)[
     sheets?: { data?: { rowData?: { values?: { userEnteredValue?: { formulaValue?: string } }[] }[] }[] }[];
   };
   const values = j.sheets?.[0]?.data?.[0]?.rowData?.[0]?.values ?? [];
-  return COLS.map((_, i) => values[i]?.userEnteredValue?.formulaValue ?? null);
+  // The range spans M2:AV2, so a value's position is its column offset from M —
+  // not its position in COLS, which skips the 28 columns in between.
+  const base = colIndex(COLS[0]);
+  return COLS.map((c) => values[colIndex(c) - base]?.userEnteredValue?.formulaValue ?? null);
 }
 
 async function main() {
@@ -91,17 +116,35 @@ async function main() {
     process.exit(1);
   }
 
-  const first = COLS[0];
-  const last = COLS[COLS.length - 1];
-  const [grid, idCol] = await Promise.all([
-    readRange(spreadsheetId, `'${TAB}'!${first}3:${last}${LAST_ROW}`),
-    readRange(spreadsheetId, `'${TAB}'!A3:A${LAST_ROW}`),
-  ]);
+  // The formula columns are no longer one contiguous block (M, R and Y joined
+  // AR:AV), so read the full width once and index into it rather than issuing a
+  // range read per column — the sheet's per-minute read quota is shared with a
+  // live 15-minute cron.
+  // ONLY a column whose array has actually collapsed is scanned.
+  //
+  // This is the trap: `readRange` returns displayed values, and a healthy
+  // ARRAYFORMULA displays a value in every row — so scanning a working column
+  // reports all 5,600 spilled cells as blockers. It read correctly the first
+  // time only because every column was already #REF! and the rows below were
+  // genuinely empty. A blocked column shows `#REF!` in row 2; a healthy one
+  // does not, and has nothing to clear.
+  const row2 = (await readRange(spreadsheetId, `'${TAB}'!A2:${COLS[COLS.length - 1]}2`))[0] ?? [];
+  const blocked = COLS.filter((c) => (row2[colIndex(c)] ?? "").toString().startsWith("#REF!"));
+  console.log(
+    `\nblocked columns: ${blocked.length ? blocked.map((c) => `${c} (${EXPECTED[c].name})`).join(", ") : "none — every array is expanding"}`,
+  );
+  if (!blocked.length) {
+    console.log("Nothing to repair.");
+    return;
+  }
+
+  const grid = await readRange(spreadsheetId, `'${TAB}'!A3:${COLS[COLS.length - 1]}${LAST_ROW}`);
+  const idCol = grid.map((r) => [r[0]]);
 
   const blockers: { a1: string; row: number; personId: string; column: string; value: string }[] = [];
   grid.forEach((row, i) => {
-    COLS.forEach((c, ci) => {
-      const value = (row[ci] ?? "").toString();
+    blocked.forEach((c) => {
+      const value = (row[colIndex(c)] ?? "").toString();
       if (value.trim() === "") return;
       blockers.push({
         a1: `'${TAB}'!${c}${i + 3}`,
@@ -146,11 +189,11 @@ async function main() {
 
   // An array that still will not expand means a blocker outside the scanned
   // window, so confirm rather than assume.
-  const check = await readRange(spreadsheetId, `'${TAB}'!${first}3:${last}12`);
+  const check = await readRange(spreadsheetId, `'${TAB}'!A3:${COLS[COLS.length - 1]}12`);
   console.log("\nverification — rows 3-12 after the clear:");
-  COLS.forEach((c, ci) => {
-    const filled = check.filter((r) => ((r[ci] ?? "").toString().trim() !== "")).length;
-    const sample = ((check[0] ?? [])[ci] ?? "").toString().slice(0, 60);
+  blocked.forEach((c) => {
+    const filled = check.filter((r) => ((r[colIndex(c)] ?? "").toString().trim() !== "")).length;
+    const sample = ((check[0] ?? [])[colIndex(c)] ?? "").toString().slice(0, 60);
     console.log(`  ${c} ${EXPECTED[c].name.padEnd(20)} ${filled}/10 filled   ${JSON.stringify(sample)}`);
   });
   const stillRef = check.some((r) => r.some((v) => (v ?? "").toString().startsWith("#REF!")));
