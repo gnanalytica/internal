@@ -2444,14 +2444,6 @@ export async function askContext(
   return { sources, blocks };
 }
 
-export const ASK_SYSTEM =
-  "You answer questions about a team's workspace using ONLY the provided docs and issues. " +
-  "Be concise. If the context doesn't contain the answer, say so. Don't invent facts.";
-
-export function askPrompt(question: string, blocks: string[]): string {
-  return `Question: ${question}\n\nContext:\n\n${blocks.join("\n\n---\n\n").slice(0, 14000)}`;
-}
-
 // ---- Embedded issue views (live blocks inside docs) ----
 
 export type EmbedProject = { id: string; name: string; color: string };

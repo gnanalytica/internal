@@ -1,4 +1,5 @@
-import { ASK_SYSTEM, askContext, askPrompt } from "@/lib/actions";
+import { askContext } from "@/lib/actions";
+import { ASK_SYSTEM, askPrompt } from "@/lib/ask-prompt";
 import { streamClaude } from "@/lib/ai";
 
 /**
