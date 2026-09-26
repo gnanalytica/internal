@@ -18,12 +18,20 @@ import {
 } from "@/lib/departments";
 
 describe("DEPARTMENTS", () => {
-  it("lists the seven legacy departments plus the three opt-in surfaces", () => {
+  it("lists every department that has a surface behind it", () => {
     expect(DEPARTMENTS.map((d) => d.slug)).toEqual([
       "product", "engineering", "analytics", "marketing",
-      "sales", "customer-success", "finance",
-      "strategy", "roadmap", "growth",
+      "sales", "customer-success", "finance", "strategy",
     ]);
+  });
+
+  // `roadmap` and `growth` were offerable departments whose pages rendered
+  // "Roadmap for <project> will live here". Nothing ever enabled them, so
+  // nobody saw the placeholder — but a department a project CAN turn on and
+  // find empty is a trap, so the slug goes when the surface does.
+  it("offers no department without a surface", () => {
+    expect(DEPARTMENTS.map((d) => d.slug)).not.toContain("roadmap");
+    expect(DEPARTMENTS.map((d) => d.slug)).not.toContain("growth");
   });
 
   it("defaults (null) to the baseline — everything else is opt-in", () => {
@@ -86,7 +94,7 @@ describe("per-project department config", () => {
 
   it("isDepartmentEnabled respects defaultOn for the null default", () => {
     expect(isDepartmentEnabled(null, "strategy")).toBe(true);
-    expect(isDepartmentEnabled(null, "growth")).toBe(false);
+    expect(isDepartmentEnabled(null, "analytics")).toBe(false);
   });
 
   it("isDepartmentEnabled honors an explicit enabled array", () => {

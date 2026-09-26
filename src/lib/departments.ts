@@ -17,9 +17,7 @@ export type DepartmentSlug =
   | "sales"
   | "customer-success"
   | "finance"
-  | "strategy"
-  | "roadmap"
-  | "growth";
+  | "strategy";
 
 // Canonical product-org functions, in lifecycle order. Finance appears at two
 // scopes, like the other functions: this per-product department is one product's
@@ -90,14 +88,6 @@ export const DEPARTMENTS = [
   {
     slug: "strategy", label: "Strategy", icon: "🎯", color: "#7c3aed",
     tool: "Vision · FDV · economics", defaultOn: true,
-  },
-  {
-    slug: "roadmap", label: "Roadmap", icon: "🗺️", color: "#2563eb",
-    tool: "Milestones → issues", defaultOn: false,
-  },
-  {
-    slug: "growth", label: "Growth", icon: "🚀", color: "#db2777",
-    tool: "Segments · pipeline · campaigns", defaultOn: false,
   },
 ] as const;
 

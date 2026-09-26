@@ -17,18 +17,17 @@ import {
   Tag,
   LifeBuoy,
   LogOut,
-  Map,
   Megaphone,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   PenSquare,
-  Rocket,
   Search,
   Settings,
   Sparkles,
   Star,
+  Table2,
   Target,
   Timer,
   Trash2,
@@ -199,6 +198,7 @@ export function Sidebar({
         <RailLink href="/projects" active={pathname.startsWith("/projects")} label="Projects"><Folder className="size-4" /></RailLink>
         <RailLink href="/prospects" active={pathname.startsWith("/prospects") || pathname.startsWith("/people")} label="Prospects"><Contact className="size-4" /></RailLink>
         <RailLink href="/org" active={pathname === "/org"} label="Org"><Users className="size-4" /></RailLink>
+        <RailLink href="/databases" active={pathname.startsWith("/databases")} label="Databases"><Table2 className="size-4" /></RailLink>
       </aside>
     );
   }
@@ -397,6 +397,14 @@ export function Sidebar({
           active={pathname === "/org"}
           icon={<Users className="size-4" />}
           label="Org"
+        />
+        {/* Reachable only from one link inside a project and from the command
+            palette until now, which is no way to find a top-level surface. */}
+        <NavItem
+          href="/databases"
+          active={pathname.startsWith("/databases")}
+          icon={<Table2 className="size-4" />}
+          label="Databases"
         />
 
         {/* Favorites */}
@@ -619,8 +627,6 @@ function ProjectNavItem({
     "customer-success": <LifeBuoy className="size-3.5" />,
     finance: <Wallet className="size-3.5" />,
     strategy: <Target className="size-3.5" />,
-    roadmap: <Map className="size-3.5" />,
-    growth: <Rocket className="size-3.5" />,
   };
   const depts = [
     ...visibleDepartments(

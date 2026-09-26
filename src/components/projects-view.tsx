@@ -10,10 +10,8 @@ import {
   Folder,
   LifeBuoy,
   Loader2,
-  Map,
   Megaphone,
   Plus,
-  Rocket,
   Target,
   TrendingUp,
   Wallet,
@@ -44,8 +42,6 @@ const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   "customer-success": <LifeBuoy className="size-3.5" />,
   finance: <Wallet className="size-3.5" />,
   strategy: <Target className="size-3.5" />,
-  roadmap: <Map className="size-3.5" />,
-  growth: <Rocket className="size-3.5" />,
 };
 
 export function ProjectsView({

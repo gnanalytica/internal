@@ -33,13 +33,6 @@ export function ProjectTabs({
         ]
       : [
           { href: base, label: "Overview" },
-          // Legacy Strategy tab (the vision placeholder). Only for projects
-          // still on the default department set — once a project names its
-          // departments it has opted into the current model, and leaving
-          // Strategy out of that list means it should not appear at all.
-          ...(project.enabledDepartments == null
-            ? [{ href: `${base}/vision`, label: "Strategy" }]
-            : []),
           ...visibleDepartments(
             project.enabledDepartments,
             isAdmin ? "admin" : "member",
