@@ -18,10 +18,21 @@ const person = (over: Record<string, string> = {}) => ({
 });
 
 describe("projectPerson", () => {
-  it("takes contactability from People first, then Prospect Intelligence", () => {
-    const p = projectPerson(person(), {
-      prospect: { "Public Phone": "9912808720 / 7780766820", "Public Email": "s@x.com", Priority: "a", "Opportunity Score /100": "85", "Score Band": "A", "Research Status": "Deep dive complete", "Best First Channel": "WhatsApp first" },
-    });
+  // These six used to come from the Prospect Intelligence row passed alongside.
+  // They are People columns since the 2026-09-26 fold, so one row is the whole
+  // input — see the comment on projectPerson.
+  it("reads the GTM fields from People's own columns", () => {
+    const p = projectPerson(
+      person({
+        phone: "9912808720 / 7780766820",
+        email: "s@x.com",
+        priority: "a",
+        opportunity_score: "85",
+        score_band: "A",
+        research_status: "Deep dive complete",
+        best_first_channel: "WhatsApp first",
+      }),
+    );
     expect(p.externalId).toBe("P00145");
     expect(p.phone).toBe("9912808720 / 7780766820");
     expect(p.phoneE164).toBe("+919912808720");
@@ -29,13 +40,20 @@ describe("projectPerson", () => {
     expect(p.priority).toBe("A");
     expect(p.opportunityScore).toBe(85);
     expect(p.scoreBand).toBe("A");
+    expect(p.researchStatus).toBe("Deep dive complete");
+    expect(p.bestFirstChannel).toBe("WhatsApp first");
     expect(p.persona).toBeNull();
     expect(p.channel).toBe("direct");
   });
-  it("People's own phone wins over the prospect row", () => {
-    const p = projectPerson(person({ phone: "9674725053", email: "a@x.com; b@x.com" }), { prospect: { "Public Phone": "111" } });
+  it("takes the first address out of a semicolon email list", () => {
+    const p = projectPerson(person({ phone: "9674725053", email: "a@x.com; b@x.com" }));
     expect(p.phone).toBe("9674725053");
     expect(p.email).toBe("a@x.com");
+  });
+  it("is_institutional marks the row even with no marker text", () => {
+    const p = projectPerson(person({ is_institutional: "Yes", persona: "Bank officer" }));
+    expect(p.persona).toBe("institutional");
+    expect(p.channel).toBe("lender");
   });
   it("INSTITUTIONAL prefix makes the row institutional whatever else is blank", () => {
     const p = projectPerson(person({ ibbi_reg_no: "", rvo: "", specialisation: "INSTITUTIONAL — Canara Bank Authorised Officer; not a valuer" }));
@@ -49,8 +67,9 @@ describe("projectPerson", () => {
     const p = projectPerson(person({
       person_id: "P05675", full_name: "Rohit Kumar", ibbi_reg_no: "", rvo: "", specialisation: "", sources: "", lead_score: "",
       associations_and_roles: "INSTITUTIONAL — Bank recovery / SARFAESI workflow influencer; not a valuer",
-    }), { dossier: { "Persona / GTM Role": "Bank recovery / SARFAESI workflow influencer, Canara Hyderabad North" } });
-    // The dossier's persona text must NOT win over the marker, or he is counted as a valuer.
+      persona: "Bank recovery / SARFAESI workflow influencer, Canara Hyderabad North",
+    }));
+    // The persona text must NOT win over the marker, or he is counted as a valuer.
     expect(p.persona).toBe("institutional");
     expect(p.channel).toBe("lender");
     expect(p.title).toBe("Bank recovery / SARFAESI workflow influencer; not a valuer");

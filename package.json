@@ -28,9 +28,16 @@
     "sheet:fix-dup-formulas": "tsx scripts/fix-duplicate-formulas.ts",
     "sheet:add-directory-ids": "tsx scripts/add-directory-ids.ts",
     "sheet:fix-zone-cities": "tsx scripts/fix-zone-cities.ts",
-    "sheet:fix-formula-blockers": "tsx scripts/fix-formula-column-blockers.ts"
+    "sheet:fix-formula-blockers": "tsx scripts/fix-formula-column-blockers.ts",
+    "sheet:purge-orphan-contacts": "tsx scripts/purge-orphaned-contacts.ts",
+    "sheet:people-layout": "tsx scripts/people-sheet-layout.ts",
+    "sheet:people-derived": "tsx scripts/people-derived-columns.ts",
+    "sheet:tab-layout": "tsx scripts/sheet-tab-layout.ts",
+    "sheet:fold-gtm": "tsx scripts/people-fold-gtm.ts",
+    "sheet:drop-dead-columns": "tsx scripts/people-drop-dead-columns.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@base-ui/react": "^1.5.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

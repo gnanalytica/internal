@@ -4,13 +4,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 
+import { BottomNav } from "@/components/bottom-nav";
+
 export function AppShell({
   sidebar,
   workspaceName,
+  unreadCount,
   children,
 }: {
   sidebar: React.ReactNode;
   workspaceName: string;
+  unreadCount: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -82,6 +86,8 @@ export function AppShell({
         <main id="main" className="min-w-0 flex-1 overflow-hidden">
           {children}
         </main>
+
+        <BottomNav unreadCount={unreadCount} onMore={() => setOpen(true)} />
       </div>
     </>
   );

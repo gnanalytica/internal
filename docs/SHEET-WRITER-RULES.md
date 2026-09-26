@@ -36,13 +36,26 @@ valuers named S Rajakumar in Tamil Nadu is ordinary, not an error.
 
 ## 2. Never write to a formula column
 
-These five are a single `ARRAYFORMULA` living in row 2 and spilling down the
+These eight are a single `ARRAYFORMULA` living in row 2 and spilling down the
 whole column:
 
 ```
 canonical_entity_key   normalized_name_key   duplicate_flag
 duplicate_match_ids    match_rule
+source_count           num_empanelments      is_south_india
 ```
+
+**The last three became formulas on 2026-09-26 and used to be hand-typed**, so
+a writer that learned the sheet before that date will still be filling them in.
+Stop: they are computed from `sources`, `empanelled_with` and `state`
+respectively. Writing a number into one now breaks the column for all 5,600+
+rows, exactly as it would for the other five.
+
+They were converted because they were quietly wrong. Measured over 5,611 live
+rows, the stored value disagreed with its own derivation on 75, 67 and 1 rows —
+143 cells stating a count that did not match the list beside them, because a
+researcher enriched `sources` and left `source_count` alone. **Update the
+source column and the count now looks after itself.**
 
 Writing a value into **any** cell of one of these breaks the array for all
 5,600+ rows, not just the row you touched. They are computed. Leave them alone
@@ -168,7 +181,8 @@ silently detaches every mapping that reads it.
 
 1. Have I searched by IBBI number, then by every email in the list, then by
    phone, then by name **plus** a corroborating detail?
-2. Am I about to write into one of the five formula columns?
+2. Am I about to write into one of the eight formula columns? (`source_count`,
+   `num_empanelments` and `is_south_india` joined that list on 2026-09-26.)
 3. Is my `city` from the person's address, or from a bank's zone?
 4. Am I appending to the `;` lists, or overwriting them?
 5. Does this row carry at least one way to contact or verify the person?
