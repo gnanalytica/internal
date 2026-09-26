@@ -5,9 +5,9 @@ import { COMPANIES, PEOPLE, type TabSpec } from "./mapping";
  * A column not listed here still renders, under "Other".
  */
 export const PEOPLE_GROUPS: { title: string; headers: string[] }[] = [
-  { title: "Identity", headers: ["person_id", "full_name", "ibbi_reg_no", "ibbi_asset_class", "ibbi_reg_date", "rvo", "other_asset_classes"] },
-  { title: "Contact", headers: ["email", "phone", "whatsapp_available", "website", "linkedin", "address", "city", "state", "pincode", "is_south_india"] },
-  { title: "Practice", headers: ["firm_name", "company_names", "company_ibbi_reg_nos", "company_link_source", "firm_size", "years_practice", "specialisation", "associations_and_roles", "current_tooling_signal"] },
+  { title: "Identity", headers: ["person_id", "full_name", "ibbi_reg_no", "ibbi_reg_date", "rvo", "other_asset_classes"] },
+  { title: "Contact", headers: ["email", "phone", "website", "linkedin", "address", "city", "state", "pincode", "is_south_india"] },
+  { title: "Practice", headers: ["company_names", "company_ibbi_reg_nos", "company_link_source", "firm_size", "years_practice", "specialisation", "associations_and_roles", "current_tooling_signal"] },
   { title: "Panels & sources", headers: ["empanelled_with", "num_empanelments", "pnb_zone", "pnb_category", "pnb_constitution", "sources", "source_count", "enrichment_sources", "lead_score"] },
   { title: "IOV", headers: ["iov_membership_no", "iov_asset_class", "iov_approved_valuer", "iov_match_confidence"] },
   { title: "Go to market", headers: ["research_status", "priority", "opportunity_score", "score_band", "persona", "best_first_channel", "next_action", "why_now", "pain", "is_institutional"] },

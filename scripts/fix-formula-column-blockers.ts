@@ -32,27 +32,48 @@ const APPLY = process.argv.includes("--apply");
  * 2026-09-26 moved `duplicate_flag` from AT to AR, and a tool that hard-codes
  * letters is wrong the moment the sheet is tidied.
  */
-const EXPECTED: Record<string, { name: string; formula: string }> = {
+/**
+ * The expected row-2 formula for each computed column, written in terms of the
+ * SOURCE COLUMN NAMES and resolved to letters from the live header row.
+ *
+ * It used to hardcode the letters (`K2:K` for state, `Q2:Q` for
+ * `empanelled_with`). Deleting one column to the left of those shifts every one
+ * of them, Sheets rewrites the live formulas correctly, and this script then
+ * refused every column as "DIFFERS" — reporting a healthy sheet as broken at
+ * exactly the moment you want a repair tool you can trust. Deleting
+ * `ibbi_asset_class` (column D) on 2026-09-26 did that to all four at once.
+ */
+const EXPECTED: Record<string, { name: string; formula: (at: (header: string) => string) => string }> = {
   duplicate_flag: {
     name: "duplicate_flag",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",IF((IF(C2:C<>"",COUNTIF(C2:C,C2:C)>1,FALSE))+(IF(G2:G<>"",COUNTIF(G2:G,G2:G)>1,FALSE))+(IF(H2:H<>"",COUNTIF(H2:H,H2:H)>1,FALSE))>0,"DUPLICATE","UNIQUE")))`,
+    formula: (at) => {
+      const dup = (h: string) => `(IF(${at(h)}2:${at(h)}<>"",COUNTIF(${at(h)}2:${at(h)},${at(h)}2:${at(h)})>1,FALSE))`;
+      return `=ARRAYFORMULA(IF(${at("person_id")}2:${at("person_id")}="","",IF(${dup("ibbi_reg_no")}+${dup("email")}+${dup("phone")}>0,"DUPLICATE","UNIQUE")))`;
+    },
   },
   // Converted from hand-typed values on 2026-09-26 (people-derived-columns.ts).
   // A writer that learned the sheet before then still fills these in, which is
   // exactly the blocker this script exists to clear.
   is_south_india: {
     name: "is_south_india",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(REGEXMATCH(LOWER(TRIM(K2:K)),"^(andhra pradesh|telangana|karnataka|tamil nadu|kerala|puducherry|pondicherry)$"),"Yes","No")))`,
+    formula: (at) =>
+      `=ARRAYFORMULA(IF(${at("person_id")}2:${at("person_id")}="","",IF(REGEXMATCH(LOWER(TRIM(${at("state")}2:${at("state")})),"^(andhra pradesh|telangana|karnataka|tamil nadu|kerala|puducherry|pondicherry)$"),"Yes","No")))`,
   },
   num_empanelments: {
     name: "num_empanelments",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(TRIM(Q2:Q)="",0,LEN(TRIM(Q2:Q))-LEN(SUBSTITUTE(TRIM(Q2:Q),";",""))+1)))`,
+    formula: (at) => countList(at, "person_id", "empanelled_with"),
   },
   source_count: {
     name: "source_count",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(TRIM(X2:X)="",0,LEN(TRIM(X2:X))-LEN(SUBSTITUTE(TRIM(X2:X),";",""))+1)))`,
+    formula: (at) => countList(at, "person_id", "sources"),
   },
 };
+
+/** Entries in a `;` list: separators + 1, and 0 for an empty cell. */
+function countList(at: (header: string) => string, key: string, list: string): string {
+  const L = `${at(list)}2:${at(list)}`;
+  return `=ARRAYFORMULA(IF(${at(key)}2:${at(key)}="","",IF(TRIM(${L})="",0,LEN(TRIM(${L}))-LEN(SUBSTITUTE(TRIM(${L}),";",""))+1)))`;
+}
 
 /** Zero-based index -> column letter. */
 function letterOf(index0: number): string {
@@ -105,7 +126,9 @@ async function main() {
     console.error(`People has no column named: ${missingCols.join(", ")}. Refusing.`);
     process.exit(1);
   }
-  LETTER = Object.fromEntries(NAMES.map((n) => [n, letterOf(header.indexOf(n))]));
+  // Every header, not only the computed ones: the expected formulas name their
+  // source columns (state, empanelled_with, sources, ibbi_reg_no, email, phone).
+  LETTER = Object.fromEntries(header.map((h, i) => [h, letterOf(i)]).filter(([h]) => h));
   COLS = [...NAMES].sort((a, b) => header.indexOf(a) - header.indexOf(b));
   console.log(`columns: ${COLS.map((c) => `${c}=${LETTER[c]}`).join(", ")}\n`);
 
@@ -113,12 +136,18 @@ async function main() {
   let safe = true;
   console.log("row 2 formulas:");
   COLS.forEach((c, i) => {
-    const ok = live[i] === EXPECTED[c].formula;
+    const at = (header: string) => {
+      const letter = LETTER[header];
+      if (!letter) throw new Error(`People has no "${header}" column; the expected formulas cannot be built.`);
+      return letter;
+    };
+    const expected = EXPECTED[c].formula(at);
+    const ok = live[i] === expected;
     if (!ok) safe = false;
     console.log(`  ${LETTER[c].padEnd(3)} ${EXPECTED[c].name.padEnd(20)} ${ok ? "matches expected" : "DIFFERS — refusing"}`);
     if (!ok) {
       console.log(`     live:     ${live[i] ?? "(no formula)"}`);
-      console.log(`     expected: ${EXPECTED[c].formula}`);
+      console.log(`     expected: ${expected}`);
     }
   });
   if (!safe) {

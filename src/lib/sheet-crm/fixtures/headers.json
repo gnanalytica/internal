@@ -3,7 +3,6 @@
     "person_id",
     "full_name",
     "ibbi_reg_no",
-    "ibbi_asset_class",
     "ibbi_reg_date",
     "rvo",
     "email",
@@ -28,7 +27,6 @@
     "remarks",
     "website",
     "linkedin",
-    "firm_name",
     "firm_size",
     "years_practice",
     "specialisation",
@@ -37,7 +35,6 @@
     "iov_asset_class",
     "iov_approved_valuer",
     "iov_match_confidence",
-    "whatsapp_available",
     "current_tooling_signal",
     "sales_angle",
     "research_confidence",
@@ -90,8 +87,7 @@
     "current_tooling_signal",
     "sales_angle",
     "research_confidence",
-    "enrichment_sources",
-    "duplicate_flag"
+    "enrichment_sources"
   ],
   "rvos": [
     "rvo_name",
