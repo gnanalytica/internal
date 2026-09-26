@@ -12,7 +12,6 @@ import {
   getDataQualityIssues,
   getProspectFacets,
   getProspectStats,
-  getProspects,
   getRecentCellWrites,
   getResearchQueue,
   getSheetSyncRuns,
@@ -28,10 +27,9 @@ export function sheetUrl(): string | null {
 /** Everything the Prospects workspace renders, in one parallel fetch. */
 export async function loadProspectsData(workspaceId: string): Promise<ProspectsData> {
   const schemaReady = await sheetSchemaReady();
-  const [stats, facets, board, accounts, queue, quality, runs, writes, lenders, lenderContacts, officers, rvos, sources, personas, members, me] = await Promise.all([
+  const [stats, facets, accounts, queue, quality, runs, writes, lenders, lenderContacts, officers, rvos, sources, personas, members, me] = await Promise.all([
     getProspectStats(workspaceId),
     getProspectFacets(workspaceId),
-    getProspects(workspaceId, { researched: true, limit: 200 }),
     schemaReady
       ? db
           .select()
@@ -55,7 +53,6 @@ export async function loadProspectsData(workspaceId: string): Promise<ProspectsD
   return {
     stats,
     facets,
-    board,
     accounts,
     queue,
     quality,

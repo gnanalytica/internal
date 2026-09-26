@@ -273,6 +273,12 @@ export type ProspectStats = {
   duplicates: number;
   /** Researched people nobody has been made responsible for. */
   unassigned: number;
+  /** Reachable by at least one channel — the number that bounds any outreach plan. */
+  contactable: number;
+  /** Distributions for the overview. Counted in the DB, never derived from a fetched window. */
+  byState: { label: string; value: number }[];
+  byPriority: { label: string; value: number }[];
+  byBand: { label: string; value: number }[];
 };
 
 export async function getProspectStats(workspaceId: string): Promise<ProspectStats> {
@@ -291,16 +297,29 @@ export async function getProspectStats(workspaceId: string): Promise<ProspectSta
         withEmail: sql<number>`count(*) filter (where ${crmContacts.email} is not null and ${crmContacts.email} <> '')::int`,
         duplicates: sql<number>`count(*) filter (where ${crmContacts.sheetDuplicate})::int`,
         unassigned: sql<number>`count(*) filter (where ${crmContacts.ownerId} is null and ${crmContacts.priority} is not null)::int`,
+        contactable: sql<number>`count(*) filter (where ${crmContacts.phoneE164} is not null or (${crmContacts.email} is not null and ${crmContacts.email} <> ''))::int`,
       })
       .from(crmContacts)
       .where(base);
-    const statuses = await db
-      .select({ status: crmContacts.outreachStatus, n: sql<number>`count(*)::int` })
-      .from(crmContacts)
-      .where(base)
-      .groupBy(crmContacts.outreachStatus);
-    return { ...agg, byStatus: Object.fromEntries(statuses.map((s) => [s.status, s.n])) };
-  }, { people: 0, institutional: 0, researched: 0, scored: 0, byStatus: {}, withPhone: 0, withEmail: 0, duplicates: 0, unassigned: 0 });
+    // One grouped query per dimension rather than a window fetched and counted
+    // in JS — see the performance invariants: a counter belongs in the database.
+    const tally = async (col: AnyPgColumn) =>
+      (
+        await db
+          .select({ label: sql<string>`coalesce(nullif(btrim(${col}::text), ''), '—')`, value: sql<number>`count(*)::int` })
+          .from(crmContacts)
+          .where(base)
+          .groupBy(sql`1`)
+          .orderBy(sql`2 desc`)
+      ).map((r) => ({ label: r.label, value: r.value }));
+    const [statuses, byState, byPriority, byBand] = await Promise.all([
+      db.select({ status: crmContacts.outreachStatus, n: sql<number>`count(*)::int` }).from(crmContacts).where(base).groupBy(crmContacts.outreachStatus),
+      tally(crmContacts.state),
+      tally(crmContacts.priority),
+      tally(crmContacts.scoreBand),
+    ]);
+    return { ...agg, byStatus: Object.fromEntries(statuses.map((s) => [s.status, s.n])), byState, byPriority, byBand };
+  }, { people: 0, institutional: 0, researched: 0, scored: 0, byStatus: {}, withPhone: 0, withEmail: 0, duplicates: 0, unassigned: 0, contactable: 0, byState: [], byPriority: [], byBand: [] });
 }
 
 export type Interaction = typeof interactions.$inferSelect & { actor: Member | null };
