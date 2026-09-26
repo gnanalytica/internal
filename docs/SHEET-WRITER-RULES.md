@@ -169,7 +169,38 @@ A new person gets the next unused id.
 If you delete a person row, re-point anything in another tab that names its
 `person_id` first, or those rows become orphans.
 
-## 10. Do not add columns or rename headers
+## 10. The GTM columns on People (new, 2026-09-26)
+
+People gained ten columns so the app could stop reading a person's research
+status out of three other tabs:
+
+```
+research_status      not_started | in_progress | done
+priority             A | B | C | D | WATCH
+opportunity_score    0-100, per the Scoring Model tab
+score_band           per the Scoring Model tab
+persona              one of the GTM Personas tab's values
+best_first_channel   whatsapp | email | call | referral | visit
+next_action          the single next step, one line
+why_now              the trigger — why this person, this month
+pain                 the narrative, a few sentences
+is_institutional     Yes on a bank/association row that is not a valuer
+```
+
+`is_institutional` matters more than it looks. The app used to decide this from
+an uppercase `INSTITUTIONAL` prefix on `associations_and_roles` or
+`specialisation`; that convention still works as a fallback, but the column is
+the answer now. **A bank officer written in without it is counted as a valuer**
+in every number the product reports.
+
+The first six mirror what Prospect Intelligence and Deep Dive Dossiers hold for
+the ~26 researched people. Write them on the PERSON's row. Those three GTM tabs
+still exist and still carry the long-form research (openers, evidence, source
+URLs) — that content is **not** moving to People, because 53 columns populated
+for 26 of 5,611 people would be worse on the directory than it is on its own
+tab.
+
+## 11. Do not add columns or rename headers
 
 The sync identifies each tab by its header signature and refuses a tab it
 cannot recognise. Adding a column is the sheet owner's decision. Renaming one
@@ -187,3 +218,5 @@ silently detaches every mapping that reads it.
 4. Am I appending to the `;` lists, or overwriting them?
 5. Does this row carry at least one way to contact or verify the person?
 6. Is this actually a firm?
+7. If this row is a bank officer or an association contact rather than a valuer,
+   have I set `is_institutional`? Without it they are counted as a valuer.
