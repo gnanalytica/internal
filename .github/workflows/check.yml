@@ -1,0 +1,50 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A second push to a PR makes the first run's answer worthless, so don't pay
+# for it — but never cancel a run on main, which is the record of what shipped.
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # --frozen-lockfile is the point of running this at all: it fails when
+      # package.json and pnpm-lock.yaml disagree, which is the drift that
+      # otherwise only shows up as a failed deploy.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm exec tsc --noEmit
+
+      - run: pnpm lint
+
+      - run: pnpm test
+
+      # `tsc` does not catch Next's static-generation traps (a client hook
+      # without Suspense, a route that reads cookies under `use cache`). The
+      # build is the only thing that does.
+      - run: pnpm build
+        env:
+          # The build imports modules that read these at module scope. They are
+          # not secrets and nothing here talks to a real service: the job proves
+          # the app compiles, not that it runs.
+          DATABASE_URL: postgres://build:build@localhost:5432/build
+          NEON_AUTH_COOKIE_SECRET: build-only-not-a-real-secret-0000000000
