@@ -1,21 +1,3 @@
-/**
- * Pull the first JSON array out of a model response. Models sometimes wrap JSON
- * in prose or ```json fences, so we locate the outermost [ ... ] and parse it.
- * Returns [] on failure rather than throwing.
- */
-export function extractJsonArray<T = unknown>(text: string): T[] {
-  if (!text) return [];
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end <= start) return [];
-  try {
-    const parsed = JSON.parse(text.slice(start, end + 1));
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 /** Coerce a proposed issue from the model into a clean { title, description }. */
 export function normalizeProposedIssue(
   raw: unknown,

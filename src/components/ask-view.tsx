@@ -7,8 +7,7 @@ import { toast } from "sonner";
 
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
-import { askWorkspace } from "@/lib/actions";
-import type { AskResult } from "@/lib/types";
+import type { AskSource } from "@/lib/types";
 
 const SUGGESTIONS = [
   "What are we shipping this cycle?",
@@ -18,21 +17,59 @@ const SUGGESTIONS = [
 
 export function AskView({ enabled }: { enabled: boolean }) {
   const [question, setQuestion] = useState("");
-  const [result, setResult] = useState<AskResult | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState<AskSource[]>([]);
   const [loading, setLoading] = useState(false);
+  const [asked, setAsked] = useState(false);
 
-  function ask(q: string) {
+  async function ask(q: string) {
     const query = q.trim();
     if (!query) return;
     setQuestion(query);
     setLoading(true);
-    setResult(null);
-    askWorkspace(query)
-      .then(setResult)
-      .catch((err) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't answer that"),
-      )
-      .finally(() => setLoading(false));
+    setAsked(true);
+    setAnswer("");
+    setSources([]);
+
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question: query }),
+      });
+      if (!res.ok || !res.body) {
+        const msg = await res.json().catch(() => null);
+        throw new Error(msg?.error ?? "Couldn't answer that");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      // NDJSON arrives in arbitrary chunks, so a line can be split across two
+      // reads; keep the tail in the buffer until its newline shows up.
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const l of lines) {
+          if (!l.trim()) continue;
+          const ev = JSON.parse(l) as
+            | { type: "sources"; sources: AskSource[] }
+            | { type: "delta"; text: string }
+            | { type: "done" }
+            | { type: "error"; message: string };
+          if (ev.type === "sources") setSources(ev.sources);
+          else if (ev.type === "delta") setAnswer((a) => a + ev.text);
+          else if (ev.type === "error") throw new Error(ev.message);
+        }
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't answer that");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -74,7 +111,7 @@ export function AskView({ enabled }: { enabled: boolean }) {
             </Button>
           </form>
 
-          {!result && !loading && (
+          {!asked && !loading && (
             <div className="mt-4 flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
@@ -88,22 +125,25 @@ export function AskView({ enabled }: { enabled: boolean }) {
             </div>
           )}
 
-          {loading && (
+          {loading && !answer && (
             <div className="mt-6 text-sm text-muted-foreground">Reading your workspace…</div>
           )}
 
-          {result && (
+          {(answer || sources.length > 0) && (
             <div className="mt-6">
-              <div className="whitespace-pre-wrap rounded-xl border bg-muted/20 p-4 text-sm leading-relaxed">
-                {result.answer}
-              </div>
-              {result.sources.length > 0 && (
+              {answer && (
+                <div className="whitespace-pre-wrap rounded-xl border bg-muted/20 p-4 text-sm leading-relaxed">
+                  {answer}
+                  {loading && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-brand align-text-bottom" />}
+                </div>
+              )}
+              {sources.length > 0 && (
                 <div className="mt-3">
                   <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Sources
                   </h3>
                   <div className="space-y-0.5">
-                    {result.sources.map((s) => (
+                    {sources.map((s) => (
                       <Link
                         key={s.href}
                         href={s.href}
