@@ -32,7 +32,8 @@
     "sheet:purge-orphan-contacts": "tsx scripts/purge-orphaned-contacts.ts",
     "sheet:people-layout": "tsx scripts/people-sheet-layout.ts",
     "sheet:people-derived": "tsx scripts/people-derived-columns.ts",
-    "sheet:tab-layout": "tsx scripts/sheet-tab-layout.ts"
+    "sheet:tab-layout": "tsx scripts/sheet-tab-layout.ts",
+    "sheet:fold-gtm": "tsx scripts/people-fold-gtm.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

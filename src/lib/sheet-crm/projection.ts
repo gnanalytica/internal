@@ -55,17 +55,22 @@ const blank = (v: string | undefined | null) => (v && v.trim() ? v.trim() : null
  * People) are recognised by the INSTITUTIONAL prefix on `specialisation` — the
  * owner's convention — never by blank IBBI / RVO fields.
  */
-export function projectPerson(
-  people: SheetRecord,
-  gtm: { prospect?: SheetRecord; dossier?: SheetRecord } = {},
-): PersonProjection {
-  const institutional = isInstitutionalRow(people);
-  const p = gtm.prospect;
-  const phoneRaw = blank(people.phone) ?? blank(p?.["Public Phone"]);
-  const emailRaw = firstOf(people.email) ?? firstOf(p?.["Public Email"]);
-  const persona = institutional
-    ? "institutional"
-    : blank(gtm.dossier?.["Persona / GTM Role"]) ?? blank(p?.["Lead Role"]);
+export function projectPerson(people: SheetRecord): PersonProjection {
+  // One row in, one projection out. This used to take the matching Prospect
+  // Intelligence and Deep Dive Dossiers rows as well, because six of the fields
+  // below existed nowhere else — for 26 of 5,611 people. Those columns are on
+  // People now, so the `??` chains that reconciled two copies of a phone number
+  // are gone with them.
+  //
+  // `is_institutional` is the classifier; the uppercase INSTITUTIONAL marker on
+  // associations_and_roles / specialisation stays as a fallback, because it is
+  // still where the role TEXT lives for `institutionalRole`, and because a row
+  // the backfill has not reached must not silently become an ordinary valuer.
+  const institutional =
+    /^(yes|true)$/i.test((people.is_institutional ?? "").trim()) || isInstitutionalRow(people);
+  const phoneRaw = blank(people.phone);
+  const emailRaw = firstOf(people.email);
+  const persona = institutional ? "institutional" : blank(people.persona);
   return {
     externalSource: SHEET_SOURCE,
     externalId: people.person_id.trim(),
@@ -76,15 +81,15 @@ export function projectPerson(
     title: institutional ? institutionalRole(people) : blank(people.specialisation) ?? blank(people.firm_name),
     source: blank(people.sources),
     leadScore: toInt(people.lead_score),
-    city: blank(people.city) ?? blank(p?.City),
-    state: blank(people.state) ?? blank(p?.State),
-    ibbiRegNo: blank(people.ibbi_reg_no) ?? blank(p?.["IBBI Reg No"]),
+    city: blank(people.city),
+    state: blank(people.state),
+    ibbiRegNo: blank(people.ibbi_reg_no),
     rvo: blank(people.rvo),
-    priority: blank(p?.Priority)?.toUpperCase() ?? null,
-    opportunityScore: toInt(p?.["Opportunity Score /100"]),
-    scoreBand: blank(p?.["Score Band"])?.toUpperCase() ?? null,
-    researchStatus: blank(p?.["Research Status"]) ?? blank(gtm.dossier?.Status),
-    bestFirstChannel: blank(p?.["Best First Channel"]),
+    priority: blank(people.priority)?.toUpperCase() ?? null,
+    opportunityScore: toInt(people.opportunity_score),
+    scoreBand: blank(people.score_band)?.toUpperCase() ?? null,
+    researchStatus: blank(people.research_status),
+    bestFirstChannel: blank(people.best_first_channel),
     persona,
     entity: "India",
     channel: institutional ? "lender" : "direct",

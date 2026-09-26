@@ -198,7 +198,7 @@ export async function pullSheet(
     };
     if (parsedByTab.has("companies")) summary.accountsUpserted = await projectCompanies(workspaceId, await need("companies"));
     if (parsedByTab.has("people") || parsedByTab.has("prospect_intelligence") || parsedByTab.has("deep_dive_dossiers")) {
-      summary.contactsUpserted = await projectPeople(workspaceId, await need("people"), await need("prospect_intelligence"), await need("deep_dive_dossiers"), await need("companies"));
+      summary.contactsUpserted = await projectPeople(workspaceId, await need("people"), await need("companies"));
     }
 
     await db
@@ -432,12 +432,8 @@ async function projectCompanies(workspaceId: string, companies: ParsedRow[]): Pr
 async function projectPeople(
   workspaceId: string,
   people: ParsedRow[],
-  prospects: ParsedRow[],
-  dossiers: ParsedRow[],
   companies: ParsedRow[],
 ): Promise<number> {
-  const prospectByPid = new Map(prospects.filter((r) => r.personId).map((r) => [r.personId!, r.record]));
-  const dossierByPid = new Map(dossiers.filter((r) => r.personId).map((r) => [r.personId!, r.record]));
   // person_id → company_id from the id-based link on Companies.
   const companyOfPerson = new Map<string, string>();
   for (const c of companies) for (const pid of projectCompany(c.record).linkedPersonIds) if (!companyOfPerson.has(pid)) companyOfPerson.set(pid, c.key);
@@ -451,7 +447,7 @@ async function projectPeople(
   for (let i = 0; i < people.length; i += BATCH) {
     const chunk = people.slice(i, i + BATCH).map((r) => ({
       row: r,
-      p: projectPerson(r.record, { prospect: prospectByPid.get(r.key), dossier: dossierByPid.get(r.key) }),
+      p: projectPerson(r.record),
     }));
     if (!chunk.length) continue;
     await db
@@ -713,8 +709,6 @@ export async function reprojectPerson(workspaceId: string, personId: string): Pr
   await projectPeople(
     workspaceId,
     pick("people"),
-    pick("prospect_intelligence"),
-    pick("deep_dive_dossiers"),
     companies.map((c) => ({ key: c.key, weak: false, record: c.data, hash: "", personId: null, companyId: c.key })),
   );
 }
