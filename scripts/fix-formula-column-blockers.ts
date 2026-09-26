@@ -26,44 +26,40 @@ import { clearRanges, readRange } from "../src/lib/sheet-crm/sheets-api";
 
 const APPLY = process.argv.includes("--apply");
 
-/** Column letter -> the exact ARRAYFORMULA row 2 must hold for the repair to be safe. */
+/**
+ * Column NAME -> the exact ARRAYFORMULA row 2 must hold for the repair to be
+ * safe. Keyed by name, not by letter: dropping four retired columns on
+ * 2026-09-26 moved `duplicate_flag` from AT to AR, and a tool that hard-codes
+ * letters is wrong the moment the sheet is tidied.
+ */
 const EXPECTED: Record<string, { name: string; formula: string }> = {
-  AR: {
-    name: "canonical_entity_key",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(C2:C<>"","P|IBBI|"&UPPER(TRIM(C2:C)),IF(G2:G<>"","P|EMAIL|"&LOWER(TRIM(REGEXEXTRACT(G2:G,"^[^;]+"))),IF(H2:H<>"","P|PHONE|"&REGEXREPLACE(REGEXEXTRACT(H2:H,"^[^;]+"),"[^0-9]",""),IF(N2:N<>"","P|COMPANY|"&LOWER(REGEXREPLACE(REGEXEXTRACT(N2:N,"^[^;]+"),"[^A-Za-z0-9]","")),"P|NAME|"&LOWER(REGEXREPLACE(B2:B,"[^A-Za-z0-9]",""))))))))`,
-  },
-  AS: {
-    name: "normalized_name_key",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",LOWER(REGEXREPLACE(B2:B,"[^A-Za-z0-9]",""))))`,
-  },
-  AT: {
+  duplicate_flag: {
     name: "duplicate_flag",
     formula: `=ARRAYFORMULA(IF(A2:A="","",IF((IF(C2:C<>"",COUNTIF(C2:C,C2:C)>1,FALSE))+(IF(G2:G<>"",COUNTIF(G2:G,G2:G)>1,FALSE))+(IF(H2:H<>"",COUNTIF(H2:H,H2:H)>1,FALSE))>0,"DUPLICATE","UNIQUE")))`,
-  },
-  AU: {
-    name: "duplicate_match_ids",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(AT2:AT="DUPLICATE","MATCH ON "&AV2:AV&" — MERGE REQUIRED","")))`,
   },
   // Converted from hand-typed values on 2026-09-26 (people-derived-columns.ts).
   // A writer that learned the sheet before then still fills these in, which is
   // exactly the blocker this script exists to clear.
-  M: {
+  is_south_india: {
     name: "is_south_india",
     formula: `=ARRAYFORMULA(IF(A2:A="","",IF(REGEXMATCH(LOWER(TRIM(K2:K)),"^(andhra pradesh|telangana|karnataka|tamil nadu|kerala|puducherry|pondicherry)$"),"Yes","No")))`,
   },
-  R: {
+  num_empanelments: {
     name: "num_empanelments",
     formula: `=ARRAYFORMULA(IF(A2:A="","",IF(TRIM(Q2:Q)="",0,LEN(TRIM(Q2:Q))-LEN(SUBSTITUTE(TRIM(Q2:Q),";",""))+1)))`,
   },
-  Y: {
+  source_count: {
     name: "source_count",
     formula: `=ARRAYFORMULA(IF(A2:A="","",IF(TRIM(X2:X)="",0,LEN(TRIM(X2:X))-LEN(SUBSTITUTE(TRIM(X2:X),";",""))+1)))`,
   },
-  AV: {
-    name: "match_rule",
-    formula: `=ARRAYFORMULA(IF(A2:A="","",IF(AT2:AT<>"DUPLICATE","",IF(IF(C2:C<>"",COUNTIF(C2:C,C2:C)>1,FALSE),"IBBI",IF(IF(G2:G<>"",COUNTIF(G2:G,G2:G)>1,FALSE),"EMAIL",IF(IF(H2:H<>"",COUNTIF(H2:H,H2:H)>1,FALSE),"PHONE",""))))))`,
-  },
 };
+
+/** Zero-based index -> column letter. */
+function letterOf(index0: number): string {
+  let n = index0, out = "";
+  while (n >= 0) { out = String.fromCharCode(65 + (n % 26)) + out; n = Math.floor(n / 26) - 1; }
+  return out;
+}
 
 /** Column letter -> zero-based index. */
 function colIndex(letter: string): number {
@@ -72,13 +68,17 @@ function colIndex(letter: string): number {
   return n - 1;
 }
 
-const COLS = Object.keys(EXPECTED).sort((a, b) => colIndex(a) - colIndex(b));
+const NAMES = Object.keys(EXPECTED);
+
+/** Column name -> letter, read from the sheet at run time. */
+let LETTER: Record<string, string> = {};
+let COLS: string[] = [];
 const TAB = "People";
 const LAST_ROW = 6000;
 
 async function readRow2Formulas(spreadsheetId: string): Promise<(string | null)[]> {
   const token = await getAccessToken();
-  const range = `'${TAB}'!${COLS[0]}2:${COLS[COLS.length - 1]}2`;
+  const range = `'${TAB}'!${LETTER[COLS[0]]}2:${LETTER[COLS[COLS.length - 1]]}2`;
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&includeGridData=true&fields=sheets.data.rowData.values.userEnteredValue`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -90,13 +90,24 @@ async function readRow2Formulas(spreadsheetId: string): Promise<(string | null)[
   const values = j.sheets?.[0]?.data?.[0]?.rowData?.[0]?.values ?? [];
   // The range spans M2:AV2, so a value's position is its column offset from M —
   // not its position in COLS, which skips the 28 columns in between.
-  const base = colIndex(COLS[0]);
-  return COLS.map((c) => values[colIndex(c) - base]?.userEnteredValue?.formulaValue ?? null);
+  const base = colIndex(LETTER[COLS[0]]);
+  return COLS.map((c) => values[colIndex(LETTER[c]) - base]?.userEnteredValue?.formulaValue ?? null);
 }
 
 async function main() {
   const spreadsheetId = process.env.VALYTICA_CRM_SHEET_ID;
   if (!spreadsheetId) throw new Error("VALYTICA_CRM_SHEET_ID is not set");
+
+  // Resolve every target column's letter from the live header row.
+  const header = ((await readRange(spreadsheetId, `'${TAB}'!A1:BZ1`))[0] ?? []).map((h) => (h ?? "").toString().trim());
+  const missingCols = NAMES.filter((n) => !header.includes(n));
+  if (missingCols.length) {
+    console.error(`People has no column named: ${missingCols.join(", ")}. Refusing.`);
+    process.exit(1);
+  }
+  LETTER = Object.fromEntries(NAMES.map((n) => [n, letterOf(header.indexOf(n))]));
+  COLS = [...NAMES].sort((a, b) => header.indexOf(a) - header.indexOf(b));
+  console.log(`columns: ${COLS.map((c) => `${c}=${LETTER[c]}`).join(", ")}\n`);
 
   const live = await readRow2Formulas(spreadsheetId);
   let safe = true;
@@ -104,7 +115,7 @@ async function main() {
   COLS.forEach((c, i) => {
     const ok = live[i] === EXPECTED[c].formula;
     if (!ok) safe = false;
-    console.log(`  ${c} ${EXPECTED[c].name.padEnd(20)} ${ok ? "matches expected" : "DIFFERS — refusing"}`);
+    console.log(`  ${LETTER[c].padEnd(3)} ${EXPECTED[c].name.padEnd(20)} ${ok ? "matches expected" : "DIFFERS — refusing"}`);
     if (!ok) {
       console.log(`     live:     ${live[i] ?? "(no formula)"}`);
       console.log(`     expected: ${EXPECTED[c].formula}`);
@@ -128,26 +139,26 @@ async function main() {
   // time only because every column was already #REF! and the rows below were
   // genuinely empty. A blocked column shows `#REF!` in row 2; a healthy one
   // does not, and has nothing to clear.
-  const row2 = (await readRange(spreadsheetId, `'${TAB}'!A2:${COLS[COLS.length - 1]}2`))[0] ?? [];
-  const blocked = COLS.filter((c) => (row2[colIndex(c)] ?? "").toString().startsWith("#REF!"));
+  const row2 = (await readRange(spreadsheetId, `'${TAB}'!A2:${LETTER[COLS[COLS.length - 1]]}2`))[0] ?? [];
+  const blocked = COLS.filter((c) => (row2[colIndex(LETTER[c])] ?? "").toString().startsWith("#REF!"));
   console.log(
-    `\nblocked columns: ${blocked.length ? blocked.map((c) => `${c} (${EXPECTED[c].name})`).join(", ") : "none — every array is expanding"}`,
+    `\nblocked columns: ${blocked.length ? blocked.map((c) => `${LETTER[c]} (${EXPECTED[c].name})`).join(", ") : "none — every array is expanding"}`,
   );
   if (!blocked.length) {
     console.log("Nothing to repair.");
     return;
   }
 
-  const grid = await readRange(spreadsheetId, `'${TAB}'!A3:${COLS[COLS.length - 1]}${LAST_ROW}`);
+  const grid = await readRange(spreadsheetId, `'${TAB}'!A3:${LETTER[COLS[COLS.length - 1]]}${LAST_ROW}`);
   const idCol = grid.map((r) => [r[0]]);
 
   const blockers: { a1: string; row: number; personId: string; column: string; value: string }[] = [];
   grid.forEach((row, i) => {
     blocked.forEach((c) => {
-      const value = (row[colIndex(c)] ?? "").toString();
+      const value = (row[colIndex(LETTER[c])] ?? "").toString();
       if (value.trim() === "") return;
       blockers.push({
-        a1: `'${TAB}'!${c}${i + 3}`,
+        a1: `'${TAB}'!${LETTER[c]}${i + 3}`,
         row: i + 3,
         personId: ((idCol[i] ?? [])[0] ?? "").toString(),
         column: EXPECTED[c].name,
@@ -189,12 +200,12 @@ async function main() {
 
   // An array that still will not expand means a blocker outside the scanned
   // window, so confirm rather than assume.
-  const check = await readRange(spreadsheetId, `'${TAB}'!A3:${COLS[COLS.length - 1]}12`);
+  const check = await readRange(spreadsheetId, `'${TAB}'!A3:${LETTER[COLS[COLS.length - 1]]}12`);
   console.log("\nverification — rows 3-12 after the clear:");
   blocked.forEach((c) => {
-    const filled = check.filter((r) => ((r[colIndex(c)] ?? "").toString().trim() !== "")).length;
-    const sample = ((check[0] ?? [])[colIndex(c)] ?? "").toString().slice(0, 60);
-    console.log(`  ${c} ${EXPECTED[c].name.padEnd(20)} ${filled}/10 filled   ${JSON.stringify(sample)}`);
+    const filled = check.filter((r) => ((r[colIndex(LETTER[c])] ?? "").toString().trim() !== "")).length;
+    const sample = ((check[0] ?? [])[colIndex(LETTER[c])] ?? "").toString().slice(0, 60);
+    console.log(`  ${LETTER[c].padEnd(3)} ${EXPECTED[c].name.padEnd(20)} ${filled}/10 filled   ${JSON.stringify(sample)}`);
   });
   const stillRef = check.some((r) => r.some((v) => (v ?? "").toString().startsWith("#REF!")));
   if (stillRef) {

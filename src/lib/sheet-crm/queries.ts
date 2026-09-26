@@ -593,13 +593,10 @@ export async function getDataQualityIssues(workspaceId: string): Promise<{ issue
     for (const f of flagged)
       push({ kind: "flagged_duplicate", title: "Flagged DUPLICATE in the sheet, not merged", detail: `${f.rowKey} ${f.name}${f.match ? ` — ${f.match.slice(0, 60)}` : ""}`, tab: "people", rowKey: f.rowKey, personId: f.rowKey });
 
-    // 3. duplicate_match_ids that is not an id.
-    const badMatch = await db
-      .select({ rowKey: sheetRows.rowKey, v: sql<string>`${sheetRows.data}->>'duplicate_match_ids'` })
-      .from(sheetRows)
-      .where(and(live, inArray(sheetRows.tab, ["people", "companies"]), sql`nullif(${sheetRows.data}->>'duplicate_match_ids','') is not null and ${sheetRows.data}->>'duplicate_match_ids' !~ '^[PC][0-9]{4,5}'`))
-      .limit(50);
-    for (const b of badMatch) push({ kind: "match_ids_text", title: "duplicate_match_ids holds text, not an id", detail: `${b.rowKey}: ${b.v.slice(0, 80)}`, tab: b.rowKey.startsWith("C") ? "companies" : "people", rowKey: b.rowKey, personId: b.rowKey.startsWith("P") ? b.rowKey : null });
+    // `duplicate_match_ids` used to be checked here for holding text rather than
+    // an id — which its own ARRAYFORMULA guaranteed, since it emitted
+    // "MATCH ON <rule> — MERGE REQUIRED". The sheet manufactured a permanent
+    // complaint about itself on every flagged row. The column is gone.
 
     // 3. Blank city with an address present.
     const blankCity = await db

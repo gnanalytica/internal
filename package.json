@@ -33,7 +33,8 @@
     "sheet:people-layout": "tsx scripts/people-sheet-layout.ts",
     "sheet:people-derived": "tsx scripts/people-derived-columns.ts",
     "sheet:tab-layout": "tsx scripts/sheet-tab-layout.ts",
-    "sheet:fold-gtm": "tsx scripts/people-fold-gtm.ts"
+    "sheet:fold-gtm": "tsx scripts/people-fold-gtm.ts",
+    "sheet:drop-dead-columns": "tsx scripts/people-drop-dead-columns.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

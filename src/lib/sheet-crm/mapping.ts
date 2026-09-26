@@ -71,6 +71,7 @@ const col = (header: string, o: Omit<ColumnSpec, "header"> = {}): ColumnSpec => 
 const w = (header: string, kind?: CellKind): ColumnSpec => ({ header, writable: true, kind });
 const d = (header: string): ColumnSpec => ({ header, derived: true });
 
+
 /**
  * Columns Internal owns and mirrors into the masters (added at our request).
  *
@@ -85,7 +86,10 @@ export const INTERNAL_OWNED_COLUMNS = ["outreach_status", "last_contacted_at", "
 export const PEOPLE: TabSpec = {
   id: "people",
   expectedTitle: "People",
-  signature: ["person_id", "full_name", "ibbi_reg_no", "lead_score", "canonical_entity_key"],
+  // `canonical_entity_key` was a signature header until 2026-09-26. A signature
+  // entry must outlive every column cleanup, and that one was scratch space for
+  // a duplicate check nothing consumed.
+  signature: ["person_id", "full_name", "ibbi_reg_no", "lead_score"],
   keyColumns: ["person_id"],
   personIdColumn: "person_id",
   columns: [
@@ -146,7 +150,7 @@ export const PEOPLE: TabSpec = {
 export const COMPANIES: TabSpec = {
   id: "companies",
   expectedTitle: "Companies",
-  signature: ["company_id", "company_name", "linked_person_ids", "normalized_name_key"],
+  signature: ["company_id", "company_name", "linked_person_ids"],
   keyColumns: ["company_id"],
   companyIdColumn: "company_id",
   columns: [
