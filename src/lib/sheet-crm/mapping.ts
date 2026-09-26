@@ -46,6 +46,16 @@ export type TabSpec = {
   personIdColumn?: string;
   /** Company-id column, when the tab carries one. */
   companyIdColumn?: string;
+  /**
+   * Declared, but the tab does not exist in the workbook yet.
+   *
+   * `mapping.test.ts` checks every spec against a fixture captured FROM the
+   * live sheet, which a tab that has not been built cannot have. Certifying a
+   * pending spec against a fixture generated from the spec itself would make
+   * that test agree with whatever was declared, which is the one thing it
+   * exists to prevent.
+   */
+  pending?: true;
 };
 
 export const TAB_IDS = [
@@ -62,6 +72,7 @@ export const TAB_IDS = [
   "research_queue",
   "gtm_personas",
   "deep_dive_dossiers",
+  "prospect_research",
   "exclusions",
 ] as const;
 
@@ -455,6 +466,107 @@ export const DEEP_DIVE_DOSSIERS: TabSpec = {
   ],
 };
 
+/**
+ * ONE research tab, replacing Prospect Intelligence + Deep Dive Dossiers +
+ * Research Queue.
+ *
+ * Those three hold 84 columns describing 27 people, and 22 of the 27 appear in
+ * ALL THREE. Fourteen concepts are duplicated between the first two under
+ * different names — Pain Point Hypothesis / Pain Narrative, Valytica Angle /
+ * Valytica Wedge, Primary Trigger / Likely Trigger, Warm Referral Path /
+ * Relevant People & Warm Paths, Bank-Side Contact / Bank & Lender Contacts —
+ * and nothing reconciles them, so two of them disagreeing is invisible.
+ *
+ * What is NOT here is as deliberate as what is. Everything that is an attribute
+ * of a PERSON moved to People in #151 and is not repeated: research_status,
+ * priority, opportunity_score, score_band, persona, best_first_channel,
+ * next_action, why_now, pain, plus identity, city, state, phone and email. This
+ * tab holds only what a person's own row cannot — the long-form research and
+ * the scoring working-out. `Name` is here as a label so a human can read a row
+ * without a lookup; `Person ID` is the key and the only identity that counts.
+ *
+ * `Opportunity Score /100` and `Score Band` are `derived` because they are a
+ * formula over the seven sub-scores. On Prospect Intelligence the score was
+ * hand-typed beside its own inputs — the same defect class as `source_count`,
+ * which disagreed with the list next to it on 75 rows.
+ */
+export const PROSPECT_RESEARCH: TabSpec = {
+  id: "prospect_research",
+  expectedTitle: "Prospect Research",
+  signature: ["Person ID", "Valytica Wedge", "WhatsApp Opener", "Why Prioritized"],
+  keyColumns: ["Person ID"],
+  fallbackKeyColumns: ["Name"],
+  personIdColumn: "Person ID",
+  pending: true,
+  columns: [
+    col("Person ID"),
+    col("Name"),
+
+    // Evidence and relationships — what makes a claim about this person checkable.
+    w("Verified Bank Relationships"),
+    w("Relationship Evidence"),
+    w("Evidence / Proof"),
+    w("Association / Influence Role"),
+    w("Bank-Side Contacts"),
+    w("Warm Paths"),
+
+    // Positioning.
+    w("Workflow Signal"),
+    w("Likely Trigger"),
+    w("Valytica Wedge"),
+    w("One-Line Pitch"),
+    w("Competitor / Risk Note"),
+
+    // Openers. The channel itself lives on People; these are the words.
+    w("Opening Angle"),
+    w("WhatsApp Opener"),
+    w("Call Opener"),
+    w("Email / LinkedIn Angle"),
+    w("Demo Sequence"),
+    w("Content Asset To Share"),
+    w("Custom Story / Content Idea"),
+
+    // Scoring. The seven inputs are written; the total is computed from them.
+    w("Active Practice /20", "number"),
+    w("Workflow Pain /20", "number"),
+    w("Valytica Fit /20", "number"),
+    w("Commercial Potential /15", "number"),
+    w("Reachability /10", "number"),
+    w("Influence /5", "number"),
+    w("Evidence Confidence /10", "number"),
+    d("Opportunity Score /100"),
+    d("Score Band"),
+    w("Score Reason"),
+    w("Score Gaps / Unknowns"),
+    w("Research Completeness %"),
+    w("Score Last Reviewed", "date"),
+
+    /**
+     * Distinct from People's `next_action`, which the #151 fold filled from
+     * Research Queue's "Next Research Task" — i.e. the next thing to FIND OUT.
+     * This is the next thing to DO to the prospect, and it is what Prospect
+     * Intelligence and Deep Dive Dossiers both called "Next Action" on 22 and
+     * 27 rows. Two columns with one name meaning two things is the disease this
+     * merge is curing, so the name says which one it is.
+     */
+    w("Next Outreach Action"),
+
+    // Queue state — what is still owed on this person.
+    w("Why Prioritized"),
+    w("Missing Phone"),
+    w("Missing Current Bank Proof"),
+    w("Missing Association / Referral"),
+    w("Missing Firm / Tooling"),
+    w("Target Completion Order"),
+    w("Notes"),
+
+    // Provenance.
+    w("Source URLs"),
+    w("Last Researched", "date"),
+    w("Confidence"),
+  ],
+};
+
 export const EXCLUSIONS: TabSpec = {
   id: "exclusions",
   expectedTitle: "Exclusions",
@@ -477,6 +589,7 @@ export const TAB_SPECS: TabSpec[] = [
   PROSPECT_INTELLIGENCE,
   REFERRAL_MAP,
   RESEARCH_QUEUE,
+  PROSPECT_RESEARCH,
   GTM_PERSONAS,
   DEEP_DIVE_DOSSIERS,
   EXCLUSIONS,

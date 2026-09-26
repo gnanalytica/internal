@@ -38,7 +38,8 @@
     "sheet:audit-values": "tsx scripts/sheet-audit-misplaced-values.ts",
     "sheet:repair-values": "tsx scripts/sheet-repair-misplaced-values.ts",
     "sheet:unbound-summary": "tsx scripts/sheet-unbound-summary.ts",
-    "sheet:retire-firm-name": "tsx scripts/sheet-retire-firm-name.ts"
+    "sheet:retire-firm-name": "tsx scripts/sheet-retire-firm-name.ts",
+    "sheet:gtm-coverage": "tsx scripts/sheet-gtm-merge-coverage.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

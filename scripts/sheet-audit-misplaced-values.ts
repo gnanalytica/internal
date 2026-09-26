@@ -28,7 +28,15 @@ const L = (i: number) => {
 
 type Rule = { kind: "enum"; values: string[] } | { kind: "url" } | { kind: "number" } | { kind: "short"; max: number };
 
-/** Vocabularies are the observed live values, not an aspiration. */
+/**
+ * Vocabularies are the observed live values, not an aspiration.
+ *
+ * `best_first_channel` and `research_status` are deliberately absent. Both are
+ * free text (see rule 10 of SHEET-WRITER-RULES.md) — "WhatsApp first, then short
+ * founder call" is the useful answer, and an earlier version of this file
+ * asserted an enum for them and reported 19 healthy cells as broken on every
+ * run. An alarm is only worth having if it is not noisy.
+ */
 const PEOPLE_RULES: Record<string, Rule> = {
   ibbi_asset_class: { kind: "enum", values: ["Land and Building", "Land & Building"] },
   iov_approved_valuer: { kind: "enum", values: ["Yes", "No"] },
@@ -38,7 +46,6 @@ const PEOPLE_RULES: Record<string, Rule> = {
   is_institutional: { kind: "enum", values: ["Yes", "No"] },
   priority: { kind: "enum", values: ["A", "B", "C", "D", "WATCH"] },
   score_band: { kind: "enum", values: ["A", "B", "C", "D"] },
-  best_first_channel: { kind: "enum", values: ["whatsapp", "email", "call", "referral", "visit"] },
   website: { kind: "url" },
   linkedin: { kind: "url" },
   opportunity_score: { kind: "number" },
@@ -64,7 +71,10 @@ function offends(rule: Rule, v: string): string | null {
       return "not in the column's vocabulary";
     }
     case "url":
-      if (/^https?:\/\//i.test(v) || /^www\./i.test(v)) return null;
+      // A value that CONTAINS a URL is an annotated link, not a misplaced value:
+      // "possible but unconfirmed: https://… (profile reads …)" is honest
+      // research and flagging it forever teaches people to ignore this report.
+      if (/https?:\/\//i.test(v) || /^www\./i.test(v)) return null;
       return v.length > 40 ? "prose in a URL column" : "not a URL";
     case "number":
       return /^-?\d+(\.\d+)?$/.test(v) ? null : "not a number";

@@ -37,8 +37,18 @@ import { readRange, writeCells } from "../src/lib/sheet-crm/sheets-api";
 const APPLY = process.argv.includes("--apply");
 const TAB = "Summary";
 
-/** `People!A2:A5604` -> `People!A2:A`; a single-cell or cross-tab ref is untouched. */
-const unbound = (f: string) => f.replace(/('?[A-Za-z ]+'?!)(\$?[A-Z]{1,3})(\$?2):(\$?[A-Z]{1,3})\$?\d+/g, "$1$2$3:$4");
+/**
+ * `People!A2:A5604` -> `People!A2:A`, for a range starting at ANY row.
+ *
+ * An earlier version anchored the start row to 2, which silently skipped the
+ * three formulas over tabs that carry a title banner and so start at row 3:
+ * `'IOV Memberships'!H3:H2728` and two over `'Lender Contacts'!…380`. Both of
+ * those tabs sit EXACTLY on their bound today, so the next row appended to
+ * either would have gone uncounted — the same failure, one row away.
+ *
+ * A single-cell reference has no `:` and is untouched.
+ */
+const unbound = (f: string) => f.replace(/('?[A-Za-z ]+'?!)(\$?[A-Z]{1,3})(\$?\d+):(\$?[A-Z]{1,3})\$?\d+/g, "$1$2$3:$4");
 
 async function main() {
   const spreadsheetId = process.env.VALYTICA_CRM_SHEET_ID;
@@ -73,6 +83,11 @@ async function main() {
       const [, tab, letter] = m;
       const name = liveHeaders[tab]?.[colIndex(letter)] ?? "";
       seen.set(`${tab}!${letter}`, name || "*** NO HEADER ***");
+    }
+    for (const m of formula.matchAll(/'([^']+)'!\$?([A-Z]{1,3})\$?\d*/g)) {
+      const [, tab, letter] = m;
+      if (liveHeaders[tab]) continue;
+      seen.set(`${tab}!${letter}`, "(not a master tab — header not checked)");
     }
     return [...seen.entries()].map(([ref, name]) => `${ref}=${name}`).join("  ");
   };
