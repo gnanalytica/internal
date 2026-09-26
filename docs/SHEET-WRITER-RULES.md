@@ -48,6 +48,36 @@ Writing a value into **any** cell of one of these breaks the array for all
 5,600+ rows, not just the row you touched. They are computed. Leave them alone
 and let them recompute.
 
+**This has already happened once, and this is what it looks like.** On
+2026-09-26 nine cells across four rows held written-in values. Every one of the
+five columns had collapsed to a single cell reading
+
+```
+#REF! (Array result was not expanded because it would overwrite data in AT2038.)
+```
+
+and all 5,607 rows below it were blank. The duplicate detection the whole tab
+relies on had been dark for days, and nothing announced it — the sheet simply
+stopped answering the question. Note also that the message names only the
+*first* blocker, so the visible complaint understates the damage.
+
+**Where a duplicate finding actually goes: `remarks`.** The four values found
+were good research — one was a correct duplicate call, one a do-not-merge
+guardrail worth keeping. The mistake was purely the destination. These five
+column names describe exactly what a dedupe pass concludes, which is the trap:
+the column that sounds like the right home is the one that is computed. Write
+the finding as a sentence in `remarks`, name the other `person_id`, and say what
+the evidence was. A human reads `remarks`; nobody can act on a verdict that
+blanked the column it was written into.
+
+If two rows really are one person, `remarks` is where you say so — and then it
+is a human's call to merge them, not yours (rule 9).
+
+Repair, if it happens again: `pnpm sheet:fix-formula-blockers` finds the
+blocking cells and, with `--apply`, clears them so the arrays recompute. It
+refuses unless all five row-2 formulas are still intact, and snapshots whatever
+it is about to discard.
+
 ## 3. `city` is where the PERSON is — never a bank's zone
 
 403 rows have `city` exactly equal to `pnb_zone`, and on **218 of them the
@@ -63,6 +93,13 @@ Patna. One in Ambala, Haryana is filed under Punjab.
 
 `city` may hold a `;` list — a valuer really can be based in two places. Keep
 both. But two spellings of one place (Bangalore / Bengaluru) is one place.
+
+`city` is also not the whole address. One row was found holding
+`"D.No. 21/659, Beside Bank of Baroda, Seven Roads, Old RIMS Road, Kadapa
+516001, YSR District, Andhra Pradesh"` in `city` while `address` sat empty. The
+full address goes in `address`; `city` gets `Kadapa`, `pincode` gets `516001`,
+`state` gets `Andhra Pradesh`. Everything that groups, counts or maps by city
+reads that column literally, so one address in it becomes its own one-row city.
 
 ## 4. `email` and `phone` are semicolon lists
 
