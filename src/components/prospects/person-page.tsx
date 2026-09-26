@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, Ban, Building2, Copy, ExternalLink, Mail, Phone } from "lucide-react";
+import { ArrowLeft, Ban, BookOpen, Building2, Copy, ExternalLink, Mail, Phone, Search } from "lucide-react";
 import { toast } from "sonner";
 
+import { EmptyState } from "@/components/empty-state";
 import { LogInteractionForm, Timeline } from "@/components/prospects/interaction-log";
 import { ProspectOwnerPicker } from "@/components/prospects/owner-picker";
 import { SheetField, SheetFieldGrid } from "@/components/prospects/sheet-fields";
@@ -38,24 +39,35 @@ export function PersonPage({ view, backHref, google, members = [], campaigns = [
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-3 py-2.5 sm:px-4">
-        <Link href={backHref} className="text-muted-foreground hover:text-foreground" aria-label="Back">
-          <ArrowLeft className="size-4" />
-        </Link>
-        <h1 className="min-w-0 text-sm font-semibold">{contact.name}</h1>
-        {pid && <span className="font-mono text-xs text-muted-foreground">{pid}</span>}
-        {contact.priority && <Pill color={PRIORITY_COLORS[contact.priority]}>Priority {contact.priority}</Pill>}
-        {contact.scoreBand && <Pill color={BAND_COLORS[contact.scoreBand.toUpperCase()]}>Band {contact.scoreBand}{contact.opportunityScore != null ? ` · ${contact.opportunityScore}` : ""}</Pill>}
-        {contact.persona === "institutional" && <Pill color="#0ea5e9">Institutional</Pill>}
-        {(contact.city || contact.state) && <span className="text-xs text-muted-foreground">{[contact.city, contact.state].filter(Boolean).join(", ")}</span>}
-        {contact.account && (
-          <Link href={`/accounts/${contact.account.id}`} className="flex items-center gap-1 text-xs text-brand hover:underline">
-            <Building2 className="size-3.5" /> {contact.account.name}
+      {/* Two rows, not one wrapping pile: who this is and what you can set about
+          them stay on the first line at every width, and the descriptive chips
+          fall to a second line rather than pushing the controls off a phone. */}
+      <header className="border-b px-3 py-2.5 sm:px-4">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <Link href={backHref} className="shrink-0 text-muted-foreground hover:text-foreground" aria-label="Back">
+            <ArrowLeft className="size-4" />
           </Link>
-        )}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <ProspectOwnerPicker members={members} ownerId={contact.ownerId} contactId={contact.id} />
-          <StatusPill status={contact.outreachStatus} contactId={contact.id} onChanged={refresh} readOnly={Boolean(excluded)} />
+          <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{contact.name}</h1>
+          {/* On a phone the controls take their own line: the person's NAME is
+              what the screen is for, and an owner picker reading "Unassigned"
+              was truncating it to a dozen characters. One instance, wrapped —
+              not a second copy behind a breakpoint. */}
+          <div className="order-last flex w-full items-center gap-2 sm:order-none sm:ml-auto sm:w-auto">
+            <ProspectOwnerPicker members={members} ownerId={contact.ownerId} contactId={contact.id} />
+            <StatusPill status={contact.outreachStatus} contactId={contact.id} onChanged={refresh} readOnly={Boolean(excluded)} />
+          </div>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-6">
+          {pid && <span className="font-mono text-xs text-muted-foreground">{pid}</span>}
+          {contact.priority && <Pill color={PRIORITY_COLORS[contact.priority]}>Priority {contact.priority}</Pill>}
+          {contact.scoreBand && <Pill color={BAND_COLORS[contact.scoreBand.toUpperCase()]}>Band {contact.scoreBand}{contact.opportunityScore != null ? ` · ${contact.opportunityScore}` : ""}</Pill>}
+          {contact.persona === "institutional" && <Pill color="#0ea5e9">Institutional</Pill>}
+          {(contact.city || contact.state) && <span className="text-xs text-muted-foreground">{[contact.city, contact.state].filter(Boolean).join(", ")}</span>}
+          {contact.account && (
+            <Link href={`/accounts/${contact.account.id}`} className="flex items-center gap-1 text-xs text-brand hover:underline">
+              <Building2 className="size-3.5" /> {contact.account.name}
+            </Link>
+          )}
         </div>
       </header>
 
@@ -125,7 +137,7 @@ export function PersonPage({ view, backHref, google, members = [], campaigns = [
 
         <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           {!p && !d ? (
-            <p className="text-sm text-muted-foreground">No research row for this person yet. Master facts are under Details.</p>
+            <EmptyState icon={<Search className="size-5" />} title="Not researched yet" description="No Prospect Intelligence row for this person. Everything the sheet already knows about them is under Details." />
           ) : (
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="space-y-4 lg:col-span-2">
@@ -163,17 +175,18 @@ export function PersonPage({ view, backHref, google, members = [], campaigns = [
                 )}
               </div>
               <div className="space-y-4">
+                {/* No `right` slot on this card: the hero below already says the
+                    score, and printing it twice is the thing this pass is for. */}
                 {p && (
-                  <Card title={`Opportunity score${p["Opportunity Score /100"] ? ` · ${p["Opportunity Score /100"]} / 100` : ""}`}>
+                  <Card title="Opportunity score">
                     {p["Opportunity Score /100"] ? (
-                      <ul className="space-y-1 text-sm">
-                        {SCORE_FACTORS.map((f) => (
-                          <li key={f} className="flex items-center justify-between gap-2">
-                            <span className="text-muted-foreground">{f.replace(/ \/\d+$/, "")}</span>
-                            <span className="font-mono tabular-nums">{p[f] || "—"}<span className="text-muted-foreground">{f.match(/\/\d+$/)?.[0]}</span></span>
-                          </li>
-                        ))}
-                      </ul>
+                      <>
+                        <div className="mb-3 flex items-baseline gap-1.5">
+                          <span className="text-2xl font-semibold tabular-nums">{p["Opportunity Score /100"]}</span>
+                          <span className="text-xs text-muted-foreground">out of 100</span>
+                        </div>
+                        <ScoreBreakdown row={p} />
+                      </>
                     ) : (
                       <p className="text-sm text-muted-foreground">Not scored yet (researched before the scoring model existed).</p>
                     )}
@@ -199,7 +212,7 @@ export function PersonPage({ view, backHref, google, members = [], campaigns = [
 
         <TabsContent value="playbook" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
           {!d ? (
-            <p className="text-sm text-muted-foreground">No dossier for this person yet.</p>
+            <EmptyState icon={<BookOpen className="size-5" />} title="No playbook yet" description="A Deep Dive Dossier row gives this person a pitch, openers and a demo sequence." />
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               <Card title="Pitch">
@@ -347,12 +360,62 @@ export function PersonPage({ view, backHref, google, members = [], campaigns = [
   );
 }
 
-export function Card({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * A section on a detail page. The heading is deliberately recessive — small,
+ * uppercase, muted — and matches the Prospects overview's cards, because on a
+ * page of twenty sections a heading set at the same weight as the content is
+ * twenty things competing with the content. The label names the section; the
+ * values carry the weight.
+ */
+export function Card({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-md border bg-background p-3 sm:p-3.5">
-      <h2 className="mb-2 text-sm font-semibold">{title}</h2>
+    <section className="rounded-xl border bg-background p-3 sm:p-3.5">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+        {right && <span className="shrink-0 text-[11px] text-muted-foreground">{right}</span>}
+      </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * The opportunity score, as its factors rather than one number.
+ *
+ * Each factor carries its own ceiling in its name ("Reachability /10"), so this
+ * is magnitude against a known maximum — a meter, one hue, every row labelled
+ * with both the value and that ceiling. It replaces a column of bare numbers
+ * where the reader had to do the division to see which factor was weak.
+ */
+function ScoreBreakdown({ row }: { row: Record<string, string> }) {
+  const factors = SCORE_FACTORS.map((f) => {
+    const max = Number(f.match(/\/(\d+)$/)?.[1] ?? 0);
+    const raw = (row[f] ?? "").trim();
+    const value = raw === "" ? null : Number(raw);
+    return { label: f.replace(/ \/\d+$/, ""), max, value: Number.isFinite(value) ? value : null };
+  });
+  return (
+    <ul className="space-y-1.5">
+      {factors.map((f) => {
+        const share = f.value !== null && f.max > 0 ? Math.max(0, Math.min(1, f.value / f.max)) : 0;
+        return (
+          <li key={f.label} className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-0.5">
+            <span className="truncate text-xs">{f.label}</span>
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {f.value ?? "—"}
+              <span className="text-muted-foreground/70">/{f.max}</span>
+            </span>
+            <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-foreground/[0.08]">
+              <span
+                className="block h-full rounded-full bg-brand"
+                style={{ width: `${share * 100}%` }}
+                title={`${f.label}: ${f.value ?? "not scored"} of ${f.max}`}
+              />
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

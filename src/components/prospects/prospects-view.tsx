@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { AssigneePicker } from "@/components/pickers";
 import { ProspectOwnerPicker } from "@/components/prospects/owner-picker";
+import { ProspectsOverview } from "@/components/prospects/overview";
 import { Directories, DataQuality, ResearchQueue, SyncPanel } from "@/components/prospects/panels";
 import { FilterBar, ScrollTabsList, TableScroll } from "@/components/responsive";
 import { BAND_COLORS, Pill, PRIORITY_COLORS, StatusPill } from "@/components/prospects/status-pill";
@@ -26,7 +27,6 @@ const panelCls = "min-h-0 flex-1 overflow-auto p-3 sm:p-4";
 export type ProspectsData = {
   stats: ProspectStats;
   facets: { states: string[]; rvos: string[]; priorities: string[]; bands: string[] };
-  board: { rows: ProspectRow[]; total: number };
   accounts: CrmAccount[];
   queue: QueueItem[];
   quality: { issues: QualityIssue[]; counts: Record<string, number> };
@@ -45,19 +45,28 @@ export type ProspectsData = {
 
 export function ProspectsView({ heading, data, dealsHref }: { heading: string; data: ProspectsData; dealsHref?: string }) {
   const { stats } = data;
-  const funnel = OUTREACH_STATUSES.filter((s) => (stats.byStatus[s.id] ?? 0) > 0 && s.id !== "not_planned");
+  const [tab, setTab] = useState("overview");
+  // The People tab is remounted under a new base filter when the overview sends
+  // one, which is why this is a key rather than another effect inside the table.
+  const [peopleBase, setPeopleBase] = useState<PeopleFilter>({ limit: 100 });
+  const [peopleLabel, setPeopleLabel] = useState<string | null>(null);
+
+  const jump = (filter: PeopleFilter, label: string) => {
+    setPeopleBase(filter);
+    setPeopleLabel(label);
+    setTab("people");
+  };
+
   return (
     <div className="flex h-full flex-col">
       <Topbar
         breadcrumb={[{ label: heading }]}
         actions={
           <>
-            {/* The full line is the one a laptop has room for; a phone gets the
-                headline count and reads the rest from the stats strip below. */}
-            <span className="hidden truncate text-xs text-muted-foreground lg:inline">
-              {stats.people.toLocaleString("en-IN")} people · {stats.researched} researched · {stats.scored} scored · {stats.withPhone} with phone{stats.unassigned ? ` · ${stats.unassigned} unassigned` : ""}{stats.duplicates ? ` · ${stats.duplicates} flagged duplicate` : ""}
-            </span>
-            <span className="text-xs whitespace-nowrap text-muted-foreground lg:hidden">{stats.people.toLocaleString("en-IN")} people</span>
+            {/* One count, and it is the only one here: the rest of the numbers
+                live on the Overview tab, where each is a control rather than a
+                sentence repeated at three widths. */}
+            <span className="text-xs whitespace-nowrap text-muted-foreground">{stats.people.toLocaleString("en-IN")} people</span>
             {dealsHref && <Link href={dealsHref} className="whitespace-nowrap text-xs text-brand hover:underline">Deals →</Link>}
           </>
         }
@@ -72,18 +81,9 @@ export function ProspectsView({ heading, data, dealsHref }: { heading: string; d
           <strong>Sheet sync is not configured on this deployment.</strong> Set <code className="rounded bg-muted px-1">GOOGLE_SA_EMAIL</code>, <code className="rounded bg-muted px-1">GOOGLE_SA_PRIVATE_KEY</code> and <code className="rounded bg-muted px-1">VALYTICA_CRM_SHEET_ID</code>, then redeploy.
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-1.5 text-xs sm:px-4 lg:hidden">
-        <span className="text-muted-foreground">{stats.researched} researched · {stats.scored} scored · {stats.withPhone} with phone{stats.unassigned ? ` · ${stats.unassigned} unassigned` : ""}{stats.duplicates ? ` · ${stats.duplicates} dup` : ""}</span>
-      </div>
-      {funnel.length > 0 && (
-        <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto border-b px-3 py-1.5 text-xs sm:flex-wrap sm:px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <span className="shrink-0 text-muted-foreground">Funnel</span>
-          {funnel.map((s) => <Pill key={s.id} color={s.color}>{s.label} {stats.byStatus[s.id]}</Pill>)}
-        </div>
-      )}
-      <Tabs defaultValue="board" className="flex min-h-0 flex-1 flex-col">
+      <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
         <ScrollTabsList>
-          <TabsTrigger value="board">Board</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="companies">Companies ({data.accounts.length})</TabsTrigger>
           <TabsTrigger value="directories">Directories</TabsTrigger>
@@ -91,11 +91,41 @@ export function ProspectsView({ heading, data, dealsHref }: { heading: string; d
           <TabsTrigger value="quality">Quality{data.quality.issues.length ? ` (${data.quality.issues.length})` : ""}</TabsTrigger>
           <TabsTrigger value="sync">Sync</TabsTrigger>
         </ScrollTabsList>
-        <TabsContent value="board" className={panelCls}>
-          <PeopleTable initial={data.board} facets={data.facets} base={{ researched: true, limit: 200 }} members={data.members} currentUserId={data.currentUserId} />
+        <TabsContent value="overview" className={panelCls}>
+          <ProspectsOverview
+            stats={stats}
+            qualityCount={data.quality.issues.length}
+            queueCount={data.queue.length}
+            onJump={jump}
+            onTab={setTab}
+          />
         </TabsContent>
         <TabsContent value="people" className={panelCls}>
-          <PeopleTable initial={null} facets={data.facets} base={{ limit: 100 }} members={data.members} currentUserId={data.currentUserId} />
+          {peopleLabel && (
+            <div className="mb-2 flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">From the overview:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeopleBase({ limit: 100 });
+                  setPeopleLabel(null);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border bg-brand/10 px-2 py-0.5 font-medium text-brand transition-colors hover:bg-brand/20"
+              >
+                {peopleLabel}
+                <X className="size-3" aria-hidden />
+                <span className="sr-only">Clear this filter</span>
+              </button>
+            </div>
+          )}
+          <PeopleTable
+            key={JSON.stringify(peopleBase)}
+            initial={null}
+            facets={data.facets}
+            base={peopleBase}
+            members={data.members}
+            currentUserId={data.currentUserId}
+          />
         </TabsContent>
         <TabsContent value="companies" className={panelCls}>
           <CompaniesTable accounts={data.accounts} members={data.members} />

@@ -27,7 +27,8 @@
     "sheet:merge-dupes": "tsx scripts/merge-duplicate-people.ts",
     "sheet:fix-dup-formulas": "tsx scripts/fix-duplicate-formulas.ts",
     "sheet:add-directory-ids": "tsx scripts/add-directory-ids.ts",
-    "sheet:fix-zone-cities": "tsx scripts/fix-zone-cities.ts"
+    "sheet:fix-zone-cities": "tsx scripts/fix-zone-cities.ts",
+    "sheet:fix-formula-blockers": "tsx scripts/fix-formula-column-blockers.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

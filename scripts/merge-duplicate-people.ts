@@ -112,6 +112,13 @@ const PAIRS: [keep: string, drop: string][] = [
   // made it look like two people is the drop row's PNB ZONE sitting in `city`,
   // which is why zoneCity below refuses to carry that column across.
   ["P00223", "P00222"], // Vasudevaraju Dandu ← Vasudeva Raju Dandu
+
+  // Reviewed 2026-09-26. Found because a research pass wrote its own verdict
+  // into the five formula columns (see fix-formula-column-blockers.ts) and the
+  // restored `duplicate_flag` then flagged the pair independently. Same email,
+  // same mobile, same Kadapa address, same two panels; the survivor already
+  // carries a 2026-09-23 note confirming the IBBI register match.
+  ["P00054", "P05674"], // G Neelakanta Reddy ← Gouru Neelakanta Reddy
 ];
 
 /**
@@ -145,6 +152,41 @@ const UNCERTAIN: [string, string][] = [];
  * Every consumer filters city with `ilike '%…%'`, so a list still matches.
  */
 const LIST_COLUMNS = new Set(["sources", "empanelled_with", "enrichment_sources", "other_asset_classes", "company_names", "associations_and_roles", "city"]);
+/**
+ * A value only folds if it fits the column it is going into.
+ *
+ * The rows a research pass has touched are sometimes shifted by a column, so a
+ * full address turns up in `city`, prose in `website`, and source provenance in
+ * `source_count`. Folding by "the survivor is empty, so take theirs" then
+ * copies that misalignment onto the row that is being kept — permanently, since
+ * the row it came from is deleted in the same run. ~58 cells across the tab are
+ * off-type today (2026-09-26 audit), so this is narrow, but it lands precisely
+ * on the rows a duplicate pass is looking at.
+ *
+ * A refusal is logged, never silent: the value is real research and a human may
+ * want to place it by hand.
+ */
+const SHAPE: Record<string, (v: string) => boolean> = {
+  num_empanelments: (v) => /^\d+$/.test(v),
+  source_count: (v) => /^\d+$/.test(v),
+  lead_score: (v) => /^\d+$/.test(v),
+  pincode: (v) => /^\d{6}$/.test(v),
+  website: (v) => /^(https?:\/\/|www\.)/i.test(v) || (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(v) && !v.includes(" ")),
+  research_confidence: (v) => /^(high|medium|low|unknown)$/i.test(v),
+  whatsapp_available: (v) => /^(yes|no|unknown)$/i.test(v),
+  is_south_india: (v) => /^(yes|no|unknown)$/i.test(v),
+  // A city is a place name. The address belongs in `address`; a comma or any
+  // real length means this is one.
+  city: (v) => v.length < 40 && !v.includes(","),
+  state: (v) => v.length < 30,
+  // Short bank codes: `pnb_category` is one letter across 853 rows,
+  // `pnb_constitution` an Individual/Proprietorship token. `firm_size` and
+  // `specialisation` are deliberately NOT here — a researcher writes real prose
+  // in those two, so a length gate would refuse legitimate values.
+  pnb_category: (v) => v.length <= 12,
+  pnb_constitution: (v) => v.length <= 30,
+};
+
 /** Identity of the surviving row — never taken from the row being deleted. */
 const NEVER_FOLD = new Set(["person_id", "full_name", "ibbi_reg_no", "ibbi_asset_class", "ibbi_reg_date", "data_quality_flag"]);
 
@@ -223,6 +265,7 @@ async function main() {
     const drow = values[dr] ?? [];
     const snap: Record<string, unknown> = { _deleted_row_number: dr + 1, _folded_into: keepPid };
     const changed: string[] = [];
+    const refused: string[] = [];
 
     // A bank-panel row's `city` is routinely the bank's ZONE rather than where
     // the person is — 222 rows carry a city their own address contradicts. The
@@ -240,6 +283,10 @@ async function main() {
       const kv = cell(krow[c]);
       const dv = cell(drow[c]);
       if (!dv) return;
+      if (SHAPE[name] && !SHAPE[name](dv)) {
+        refused.push(`${name}=${JSON.stringify(dv.slice(0, 60))}`);
+        return;
+      }
       const next = LIST_COLUMNS.has(name) ? (kv ? unionList(kv, dv) : dv) : kv ? null : dv;
       if (next === null || next === kv) return;
       writes.push({ range: a1(people.title, kr, c), value: next });
@@ -250,6 +297,7 @@ async function main() {
     deleteAt.push(dr);
     if (changed.length) folded++;
     console.log(`  ${keepPid} ← ${dropPid} (row ${dr + 1})${changed.length ? `: ${changed.join(", ")}` : ": nothing to carry"}`);
+    for (const r of refused) console.log(`     not folded (wrong shape for its column): ${r}`);
   }
 
   console.log(

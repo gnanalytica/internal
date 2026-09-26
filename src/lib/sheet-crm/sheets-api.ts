@@ -118,6 +118,19 @@ export async function writeCells(
   });
 }
 
+/**
+ * Clear cells outright. Distinct from writing `""` through `values:batchUpdate`:
+ * an ARRAYFORMULA refuses to expand over a cell that holds anything, so repairing
+ * a blocked array needs the value gone, not blanked.
+ */
+export async function clearRanges(spreadsheetId: string, ranges: string[]): Promise<void> {
+  if (!ranges.length) return;
+  await call(`${spreadsheetId}/values:batchClear`, {
+    method: "POST",
+    body: JSON.stringify({ ranges }),
+  });
+}
+
 /** Append rows at the bottom of a tab (used only for owner-approved inserts). */
 export async function appendRows(spreadsheetId: string, title: string, rows: (string | number | null)[][]): Promise<void> {
   if (!rows.length) return;
