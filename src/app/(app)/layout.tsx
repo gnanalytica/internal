@@ -52,6 +52,7 @@ export default async function AppLayout({
     <div className="flex h-screen overflow-hidden bg-background supports-[height:100dvh]:h-dvh">
       <AppShell
         workspaceName={ws.name}
+        unreadCount={unreadCount}
         sidebar={
           <Sidebar
             workspace={ws}
