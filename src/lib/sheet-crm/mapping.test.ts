@@ -17,8 +17,23 @@ import {
 
 const FIXTURE = headers as Record<TabId, string[]>;
 
+/**
+ * A `pending` spec describes a tab that does not exist in the workbook yet, so
+ * there is no real header row to certify it against. The fixture is captured
+ * FROM the sheet on purpose — generating one from the spec would make these
+ * assertions agree with whatever was declared, which is the single thing they
+ * exist to catch. Certification happens when the tab is built.
+ */
+const LIVE_SPECS = TAB_SPECS.filter((s) => !s.pending);
+
 describe("mapping ↔ the workbook's real header rows", () => {
-  for (const spec of TAB_SPECS) {
+  it("every pending spec is pending because its tab is absent, not because a fixture is missing", () => {
+    for (const spec of TAB_SPECS.filter((s) => s.pending)) {
+      expect(FIXTURE[spec.id], `${spec.id} is marked pending but HAS a fixture — drop the flag`).toBeUndefined();
+    }
+  });
+
+  for (const spec of LIVE_SPECS) {
     it(`${spec.id}: every declared (non-optional) header exists in the sheet, in order`, () => {
       const real = FIXTURE[spec.id];
       expect(real, `fixture missing for ${spec.id}`).toBeDefined();
@@ -38,7 +53,10 @@ describe("mapping ↔ the workbook's real header rows", () => {
   }
 
   it("signatures are unique: no header row matches two specs", () => {
-    for (const spec of TAB_SPECS) {
+    for (const spec of LIVE_SPECS) {
+      // Every spec is a candidate matcher, pending ones included: a pending
+      // signature that collides with a live tab would misidentify it the moment
+      // the spec ships, which is exactly when nobody is looking for it.
       const matches = TAB_SPECS.filter((s) => detectHeaderRow([FIXTURE[spec.id]], s));
       expect(matches.map((m) => m.id)).toEqual([spec.id]);
     }

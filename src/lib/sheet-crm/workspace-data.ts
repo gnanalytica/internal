@@ -10,6 +10,7 @@ import { isSheetSyncConfigured } from "./google-auth";
 import { SHEET_SOURCE } from "./projection";
 import {
   getDataQualityIssues,
+  getMarketStats,
   getProspectFacets,
   getProspectStats,
   getRecentCellWrites,
@@ -27,8 +28,9 @@ export function sheetUrl(): string | null {
 /** Everything the Prospects workspace renders, in one parallel fetch. */
 export async function loadProspectsData(workspaceId: string): Promise<ProspectsData> {
   const schemaReady = await sheetSchemaReady();
-  const [stats, facets, accounts, queue, quality, runs, writes, lenders, lenderContacts, officers, rvos, sources, personas, members, me] = await Promise.all([
+  const [stats, market, facets, accounts, queue, quality, runs, writes, lenders, lenderContacts, officers, rvos, sources, personas, members, me] = await Promise.all([
     getProspectStats(workspaceId),
+    getMarketStats(workspaceId),
     getProspectFacets(workspaceId),
     schemaReady
       ? db
@@ -52,6 +54,7 @@ export async function loadProspectsData(workspaceId: string): Promise<ProspectsD
   ]);
   return {
     stats,
+    market,
     facets,
     accounts,
     queue,

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { ChartCard, Donut, type Slice } from "@/components/charts";
 import { PRIORITY_COLORS } from "@/components/prospects/status-pill";
 import { OUTREACH_STATUSES } from "@/lib/sheet-crm/outreach";
-import type { PeopleFilter, ProspectStats } from "@/lib/sheet-crm/queries";
+import type { MarketStats, PeopleFilter, ProspectStats } from "@/lib/sheet-crm/queries";
 
 /**
  * The prospects overview: what the workspace holds, how far along it is, and
@@ -27,12 +27,14 @@ import type { PeopleFilter, ProspectStats } from "@/lib/sheet-crm/queries";
  */
 export function ProspectsOverview({
   stats,
+  market,
   qualityCount,
   queueCount,
   onJump,
   onTab,
 }: {
   stats: ProspectStats;
+  market: MarketStats;
   qualityCount: number;
   queueCount: number;
   onJump: (filter: PeopleFilter, label: string) => void;
@@ -184,11 +186,96 @@ export function ProspectsOverview({
           </div>
         </ChartCard>
       </div>
+
+      {/*
+       * What the list is MADE OF, as opposed to how far along it is.
+       *
+       * This is the sheet's Summary tab, moved here and made complete. Summary
+       * asked COUNTIF for seven named banks and six RVOs, so the eighth bank was
+       * invisible and stayed invisible until somebody wrote another formula. The
+       * grouping is the query now, and this decides what to show — the `hint`
+       * carries the live count of values so the head of the list never implies
+       * it is the whole of it.
+       *
+       * Most of these are reference rather than filters, and they say so by not
+       * being buttons: `PeopleFilter` can express state and RVO, but not "on
+       * PNB's panel" or "appears in two sources", because `empanelled_with` and
+       * `source_count` are not on the projection. Widening it to serve one
+       * report would put columns in the mirror that nothing else reads.
+       */}
+      <section>
+        <SectionHeading>What the market looks like</SectionHeading>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+          <StatTile label="Firms" value={market.firms} sub={`${fmt(market.southIndiaFirms)} in South India`} />
+          <StatTile
+            label="South India"
+            value={market.southIndiaPeople}
+            sub={`${pct(market.southIndiaPeople)}% of the list`}
+            meter={pct(market.southIndiaPeople)}
+          />
+          <StatTile
+            label="IBBI-registered"
+            value={market.ibbiRegistered}
+            sub="the strongest qualification signal"
+            meter={pct(market.ibbiRegistered)}
+          />
+          <StatTile label="Linked to a firm" value={market.linkedToFirm} sub="firm deals are larger than seats" />
+        </div>
+
+        <div className="mt-2 grid gap-2 sm:mt-3 sm:gap-3 lg:grid-cols-2">
+          <ChartCard title="Top empanelments" hint={`${market.byInstitution.length} institutions in all`}>
+            {market.byInstitution.length ? (
+              <OrderedBars rows={topWithOther(market.byInstitution, 8)} total={stats.people} />
+            ) : (
+              <Empty>No panel memberships recorded yet.</Empty>
+            )}
+          </ChartCard>
+          <ChartCard title="Registered Valuer Organisation" hint={`${market.byRvo.length} RVOs in all`}>
+            {market.byRvo.length ? (
+              <OrderedBars
+                rows={topWithOther(market.byRvo, 8)}
+                total={stats.people}
+                onPick={(key, label) =>
+                  key === "__other__" ? onJump({ limit: 100 }, "All people") : onJump({ rvo: key, limit: 100 }, label)
+                }
+              />
+            ) : (
+              <Empty>No RVO recorded on any row yet.</Empty>
+            )}
+          </ChartCard>
+        </div>
+
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-xl border bg-background p-3 text-xs sm:mt-3 sm:grid-cols-3">
+          <Figure label="Appear in 2+ sources" value={market.multiSource} />
+          <Figure label="On 2+ panels" value={market.empanelledTwoPlus} />
+          <Figure label="On 3+ panels" value={market.empanelledThreePlus} />
+          <Figure label="Matched to the IOV roll" value={market.iovMatched} />
+          <Figure label="Firms with a named contact" value={market.firmsWithDecisionMaker} />
+          <Figure
+            label="Lender contacts"
+            value={market.lenderContacts}
+            sub={market.lenderContactsNamed ? `${fmt(market.lenderContactsNamed)} named` : undefined}
+          />
+        </dl>
+      </section>
     </div>
   );
 }
 
 const fmt = (n: number) => n.toLocaleString("en-IN");
+
+/** A reference figure: a number and what it means, with nothing to click. */
+function Figure({ label, value, sub }: { label: string; value: number; sub?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b border-dashed border-border/60 pb-1 last:border-0">
+      <dt className="truncate text-muted-foreground">{label}</dt>
+      <dd className="whitespace-nowrap font-mono tabular-nums">
+        {fmt(value)}
+        {sub && <span className="ml-1 text-[10px] text-muted-foreground/70">{sub}</span>}
+      </dd>
+    </div>
+  );
+}
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</h2>;
@@ -218,7 +305,12 @@ function OrderedBars({
 }: {
   rows: { key: string; label: string; value: number }[];
   total: number;
-  onPick: (key: string, label: string) => void;
+  /**
+   * Omitted where no filter can express the breakdown — `PeopleFilter` has no
+   * `institution`, because `empanelled_with` is not on the projection. A row
+   * that cannot act renders as a row, not as a button that swallows a click.
+   */
+  onPick?: (key: string, label: string) => void;
 }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
@@ -227,14 +319,10 @@ function OrderedBars({
         const share = total > 0 ? Math.round((r.value / total) * 100) : 0;
         // Light-to-dark across the ordered set; floor keeps the last row visible.
         const alpha = 0.3 + 0.55 * (1 - i / Math.max(1, rows.length - 1));
-        return (
-          <li key={r.key}>
-            <button
-              type="button"
-              onClick={() => onPick(r.key, r.label)}
-              className="group grid w-full grid-cols-[minmax(5.5rem,8rem)_1fr_auto] items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:grid-cols-[10rem_1fr_auto]"
-              title={`${r.label}: ${fmt(r.value)} (${share}%) — click to filter`}
-            >
+        const grid =
+          "grid w-full grid-cols-[minmax(5.5rem,8rem)_1fr_auto] items-center gap-2 rounded-md px-1 py-1 text-left sm:grid-cols-[10rem_1fr_auto]";
+        const cells = (
+          <>
               <span className="truncate text-xs">{r.label}</span>
               <span className="flex h-4 items-center">
                 <span
@@ -245,11 +333,28 @@ function OrderedBars({
                   }}
                 />
               </span>
-              <span className="whitespace-nowrap font-mono text-[11px] tabular-nums text-muted-foreground">
-                {fmt(r.value)}
-                <span className="ml-1 hidden text-muted-foreground/70 sm:inline">{share}%</span>
-              </span>
-            </button>
+            <span className="whitespace-nowrap font-mono text-[11px] tabular-nums text-muted-foreground">
+              {fmt(r.value)}
+              <span className="ml-1 hidden text-muted-foreground/70 sm:inline">{share}%</span>
+            </span>
+          </>
+        );
+        return (
+          <li key={r.key}>
+            {onPick ? (
+              <button
+                type="button"
+                onClick={() => onPick(r.key, r.label)}
+                className={`group ${grid} transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40`}
+                title={`${r.label}: ${fmt(r.value)} (${share}%) — click to filter`}
+              >
+                {cells}
+              </button>
+            ) : (
+              <div className={grid} title={`${r.label}: ${fmt(r.value)} (${share}%)`}>
+                {cells}
+              </div>
+            )}
           </li>
         );
       })}
@@ -271,12 +376,8 @@ function StatTile({
   meter?: number;
   onClick?: () => void;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-xl border bg-background p-3 text-left transition-colors hover:border-brand/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-    >
+  const body = (
+    <>
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-xl font-semibold tabular-nums sm:text-2xl">{fmt(value)}</div>
       {meter !== undefined && (
@@ -285,7 +386,20 @@ function StatTile({
         </div>
       )}
       {sub && <div className="mt-1 truncate text-[11px] text-muted-foreground">{sub}</div>}
+    </>
+  );
+  // A button with no handler is focusable and does nothing, which is worse than
+  // a plain figure: it promises an action the surface cannot perform.
+  return onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-xl border bg-background p-3 text-left transition-colors hover:border-brand/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+    >
+      {body}
     </button>
+  ) : (
+    <div className="rounded-xl border bg-background p-3 text-left">{body}</div>
   );
 }
 

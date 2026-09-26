@@ -15,6 +15,10 @@ const eslintConfig = defineConfig([
     // The Expo app and MCP server have their own toolchains.
     "mobile/**",
     "mcp/**",
+    // Snapshots and throwaway probe scripts. Gitignored, so nothing here ships —
+    // but eslint was still linting it, which meant one scratch file failed the
+    // zero-warning gate and the fix looked like a lint problem in the product.
+    "tmp/**",
   ]),
   {
     // Treat a leading underscore as "intentionally unused" (params kept for

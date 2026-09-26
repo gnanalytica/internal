@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { searchProspects, setProspectOwner } from "@/lib/sheet-crm/actions";
 import { OUTREACH_STATUSES } from "@/lib/sheet-crm/outreach";
 import { MINE, UNASSIGNED } from "@/lib/sheet-crm/ownership";
-import type { CellWrite, PeopleFilter, ProspectRow, ProspectStats, QualityIssue, QueueItem, SheetRow, SheetSyncRun } from "@/lib/sheet-crm/queries";
+import type { CellWrite, MarketStats, PeopleFilter, ProspectRow, ProspectStats, QualityIssue, QueueItem, SheetRow, SheetSyncRun } from "@/lib/sheet-crm/queries";
 import type { CrmAccount, Member } from "@/lib/types";
 import { formatDate } from "@/lib/matrix-format";
 
@@ -26,6 +26,8 @@ const panelCls = "min-h-0 flex-1 overflow-auto p-3 sm:p-4";
 
 export type ProspectsData = {
   stats: ProspectStats;
+  /** What the list is made of — the sheet's Summary tab, counted in the DB. */
+  market: MarketStats;
   facets: { states: string[]; rvos: string[]; priorities: string[]; bands: string[] };
   accounts: CrmAccount[];
   queue: QueueItem[];
@@ -94,6 +96,7 @@ export function ProspectsView({ heading, data, dealsHref }: { heading: string; d
         <TabsContent value="overview" className={panelCls}>
           <ProspectsOverview
             stats={stats}
+            market={data.market}
             qualityCount={data.quality.issues.length}
             queueCount={data.queue.length}
             onJump={jump}

@@ -34,7 +34,18 @@ const APPLY = process.argv.includes("--apply");
 /** `--tab=Companies` to clean the other master; People by default. */
 const TAB = (process.argv.find((a) => a.startsWith("--tab="))?.split("=")[1] ?? "People").trim();
 
-const DROP = ["canonical_entity_key", "normalized_name_key", "match_rule", "duplicate_match_ids"] as const;
+/**
+ * Default set: the dedupe scratch columns retired on 2026-09-26. Override with
+ * `--columns=a,b,c` for a different set — the 2026-09-27 round drops
+ * `ibbi_asset_class` (3,183 rows, ONE distinct value — "Land and Building" —
+ * so it cannot distinguish anybody), `whatsapp_available` (189 of its 203
+ * values are literally "Unknown") and `firm_name` (run
+ * `pnpm sheet:retire-firm-name` FIRST), and on Companies `duplicate_flag`
+ * (350 rows, all "UNIQUE", so it flags nothing and structurally cannot).
+ */
+const DEFAULT_DROP = ["canonical_entity_key", "normalized_name_key", "match_rule", "duplicate_match_ids"];
+const DROP = (process.argv.find((a) => a.startsWith("--columns="))?.split("=")[1]?.split(",").map((s) => s.trim()).filter(Boolean) ??
+  DEFAULT_DROP) as readonly string[];
 /**
  * Checked by name after the deletion — these must survive. `duplicate_flag` is
  * on both lists: People's drives `crmContacts.sheetDuplicate`, and Companies'
@@ -45,7 +56,10 @@ const MUST_SURVIVE_BY_TAB: Record<string, readonly string[]> = {
   People: ["person_id", "full_name", "duplicate_flag", "owner", "is_institutional", "persona"],
   Companies: ["company_id", "company_name", "linked_person_ids", "duplicate_flag", "owner"],
 };
-const MUST_SURVIVE = MUST_SURVIVE_BY_TAB[TAB] ?? [];
+// A column cannot be both dropped and asserted to survive: Companies'
+// duplicate_flag was a survivor in the previous round and is a target in this
+// one, and a stale list here would abort a legitimate deletion.
+const MUST_SURVIVE = (MUST_SURVIVE_BY_TAB[TAB] ?? []).filter((h) => !DROP.includes(h));
 
 const cell = (v: unknown) => (v ?? "").toString();
 
@@ -78,7 +92,7 @@ async function main() {
 
   const tabs = await retry(() => listTabs(spreadsheetId));
   const meta = tabs.find((t) => t.title === TAB);
-  if (!meta) throw new Error("People tab not found.");
+  if (!meta) throw new Error(`Tab "${TAB}" not found.`);
 
   if (!MUST_SURVIVE.length) throw new Error(`No survivor list defined for "${TAB}". Refusing.`);
   const grid = await retry(() => readRange(spreadsheetId, `'${TAB}'!A1:BZ6000`));
@@ -101,7 +115,7 @@ async function main() {
     return i;
   });
 
-  const after = headers.filter(Boolean).filter((h) => !present.includes(h as (typeof DROP)[number]));
+  const after = headers.filter(Boolean).filter((h) => !present.includes(h));
   console.log(`\n${headers.filter(Boolean).length} columns → ${after.length}`);
   console.log("\nsurvivors move to:");
   for (const name of MUST_SURVIVE) {

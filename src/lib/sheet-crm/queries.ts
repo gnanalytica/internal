@@ -322,6 +322,145 @@ export async function getProspectStats(workspaceId: string): Promise<ProspectSta
   }, { people: 0, institutional: 0, researched: 0, scored: 0, byStatus: {}, withPhone: 0, withEmail: 0, duplicates: 0, unassigned: 0, contactable: 0, byState: [], byPriority: [], byBand: [] });
 }
 
+/**
+ * The market-shape numbers: what the list is made of, rather than how far along
+ * it is.
+ *
+ * This replaces the sheet's Summary tab, and it is not a transcription of it.
+ * Summary asked `COUNTIF` for SEVEN named banks, SIX RVOs and SIX states — so
+ * the eighth bank, the seventh RVO and the twenty-eighth state were invisible,
+ * and could only be added by someone remembering to write another formula. Here
+ * the grouping IS the query, so every value is counted and the presentation
+ * decides what to show.
+ *
+ * It also does not repeat Summary's wildcards. `COUNTIF(…,"*Punjab National
+ * Bank*")` returned 1,163 where an exact tally returns 937, because
+ * `empanelled_with` carries about thirty PNB variants with a branch baked into
+ * the name — `Punjab National Bank (erstwhile United Bank of India panel)
+ * (Hooghly)` — plus values holding research notes and a few that are whole
+ * sentences naming several banks. The wildcard hid that for the seven names
+ * somebody thought to write; an exact tally shows it. Do NOT "fix" the
+ * fragmentation by stripping parentheticals: that would merge `Income Tax Dept
+ * (Tamil Nadu)` with `(Kerala)` and `(Karnataka-Goa)`, which are four genuinely
+ * different panels. It is a data cleanup with a reviewed mapping, not a
+ * transform.
+ *
+ * It reads `sheet_rows` rather than `crm_contacts` because the projection
+ * carries a deliberate subset — `empanelled_with`, `num_empanelments`,
+ * `source_count`, `is_south_india` and `company_names` are not on it, and
+ * widening the projection to serve one report would put five columns in the
+ * mirror that nothing else reads.
+ */
+export type MarketStats = {
+  firms: number;
+  southIndiaPeople: number;
+  southIndiaFirms: number;
+  ibbiRegistered: number;
+  multiSource: number;
+  empanelledTwoPlus: number;
+  empanelledThreePlus: number;
+  linkedToFirm: number;
+  flagged: number;
+  iovMatched: number;
+  firmsWithDecisionMaker: number;
+  lenderContacts: number;
+  lenderContactsNamed: number;
+  /** Ranked and complete — not a fixed list of names. */
+  byInstitution: { label: string; value: number }[];
+  byRvo: { label: string; value: number }[];
+  bySource: { label: string; value: number }[];
+};
+
+const EMPTY_MARKET: MarketStats = {
+  firms: 0, southIndiaPeople: 0, southIndiaFirms: 0, ibbiRegistered: 0, multiSource: 0,
+  empanelledTwoPlus: 0, empanelledThreePlus: 0, linkedToFirm: 0, flagged: 0, iovMatched: 0,
+  firmsWithDecisionMaker: 0, lenderContacts: 0, lenderContactsNamed: 0,
+  byInstitution: [], byRvo: [], bySource: [],
+};
+
+export async function getMarketStats(workspaceId: string): Promise<MarketStats> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "crm"));
+  cacheLife("minutes");
+  return orEmpty(async () => {
+    const live = (tab: string) =>
+      and(eq(sheetRows.workspaceId, workspaceId), eq(sheetRows.tab, tab), isNull(sheetRows.deletedAt));
+    /** Present and non-blank. A formula column mirrors as its displayed text. */
+    const set = (key: string) => sql`btrim(coalesce(${sheetRows.data}->>${key}, '')) <> ''`;
+    /** A count column only compares as a number when it actually is one. */
+    const atLeast = (key: string, n: number) =>
+      sql`btrim(coalesce(${sheetRows.data}->>${key}, '')) ~ '^[0-9]+$' and (${sheetRows.data}->>${key})::int >= ${n}`;
+    const yes = (key: string) => sql`lower(btrim(coalesce(${sheetRows.data}->>${key}, ''))) = 'yes'`;
+
+    /** One row per entry of a `;` list, so the tally covers every value. */
+    const tallyList = async (tab: string, key: string) =>
+      (
+        await db
+          .select({
+            label: sql<string>`btrim(entry)`,
+            value: sql<number>`count(*)::int`,
+          })
+          .from(sql`${sheetRows}, unnest(string_to_array(${sheetRows.data}->>${key}, ';')) as entry`)
+          .where(and(live(tab), sql`btrim(entry) <> ''`))
+          .groupBy(sql`1`)
+          .orderBy(sql`2 desc`)
+      ).map((r) => ({ label: r.label, value: r.value }));
+
+    const [people, companies, lenders, byInstitution, byRvo, bySource] = await Promise.all([
+      db
+        .select({
+          southIndia: sql<number>`count(*) filter (where ${yes("is_south_india")})::int`,
+          ibbi: sql<number>`count(*) filter (where ${set("ibbi_reg_no")})::int`,
+          multiSource: sql<number>`count(*) filter (where ${atLeast("source_count", 2)})::int`,
+          emp2: sql<number>`count(*) filter (where ${atLeast("num_empanelments", 2)})::int`,
+          emp3: sql<number>`count(*) filter (where ${atLeast("num_empanelments", 3)})::int`,
+          linked: sql<number>`count(*) filter (where ${set("company_names")})::int`,
+          flagged: sql<number>`count(*) filter (where ${set("data_quality_flag")})::int`,
+          iov: sql<number>`count(*) filter (where ${set("iov_membership_no")})::int`,
+        })
+        .from(sheetRows)
+        .where(live("people")),
+      db
+        .select({
+          firms: sql<number>`count(*)::int`,
+          southIndia: sql<number>`count(*) filter (where ${yes("is_south_india")})::int`,
+          withDecisionMaker: sql<number>`count(*) filter (where ${set("decision_makers")})::int`,
+        })
+        .from(sheetRows)
+        .where(live("companies")),
+      db
+        .select({
+          total: sql<number>`count(*)::int`,
+          named: sql<number>`count(*) filter (where ${set("contact_person_name")})::int`,
+        })
+        .from(sheetRows)
+        .where(live("lender_contacts")),
+      tallyList("people", "empanelled_with"),
+      tallyList("people", "rvo"),
+      tallyList("people", "sources"),
+    ]);
+
+    return {
+      firms: companies[0]?.firms ?? 0,
+      southIndiaPeople: people[0]?.southIndia ?? 0,
+      southIndiaFirms: companies[0]?.southIndia ?? 0,
+      ibbiRegistered: people[0]?.ibbi ?? 0,
+      multiSource: people[0]?.multiSource ?? 0,
+      empanelledTwoPlus: people[0]?.emp2 ?? 0,
+      empanelledThreePlus: people[0]?.emp3 ?? 0,
+      linkedToFirm: people[0]?.linked ?? 0,
+      flagged: people[0]?.flagged ?? 0,
+      iovMatched: people[0]?.iov ?? 0,
+      firmsWithDecisionMaker: companies[0]?.withDecisionMaker ?? 0,
+      lenderContacts: lenders[0]?.total ?? 0,
+      lenderContactsNamed: lenders[0]?.named ?? 0,
+      byInstitution,
+      byRvo,
+      bySource,
+    };
+  }, EMPTY_MARKET);
+}
+
 export type Interaction = typeof interactions.$inferSelect & { actor: Member | null };
 
 export async function getInteractions(

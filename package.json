@@ -34,7 +34,12 @@
     "sheet:people-derived": "tsx scripts/people-derived-columns.ts",
     "sheet:tab-layout": "tsx scripts/sheet-tab-layout.ts",
     "sheet:fold-gtm": "tsx scripts/people-fold-gtm.ts",
-    "sheet:drop-dead-columns": "tsx scripts/people-drop-dead-columns.ts"
+    "sheet:drop-dead-columns": "tsx scripts/people-drop-dead-columns.ts",
+    "sheet:audit-values": "tsx scripts/sheet-audit-misplaced-values.ts",
+    "sheet:repair-values": "tsx scripts/sheet-repair-misplaced-values.ts",
+    "sheet:unbound-summary": "tsx scripts/sheet-unbound-summary.ts",
+    "sheet:retire-firm-name": "tsx scripts/sheet-retire-firm-name.ts",
+    "sheet:gtm-coverage": "tsx scripts/sheet-gtm-merge-coverage.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
