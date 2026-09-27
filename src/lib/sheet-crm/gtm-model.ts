@@ -156,7 +156,7 @@ export const GTM_TABS: TabSpec[] = [
     rows: 200,
     colour: [0.16, 0.32, 0.55],
     columns: [
-      "body_id", "body_name", "acronym", "type", "parent_body", "member_count", "states_covered",
+      "body_id", "body_name", "acronym", "type", "parent_body", "member_count", "asset_classes", "states_covered",
       "website", "email", "phone", "primary_contact_id", "cpe_event_cadence",
       "partnership_stage", "our_angle", "owner", "next_action", "next_action_date",
       ...TOUCH,
@@ -212,6 +212,8 @@ export const GUIDE_ROWS: string[][] = [
   ["Lenders", "priority", "The prioritisation the research already did. panel_size_est is the objective version of the same judgement; where both exist, prefer the number."],
   ["Lenders", "relationship_stage", "Read with a valuer's empanelled_lenders: five panels we have never spoken to are five useless routes; one we have a pilot with is a live one."],
   ["RVOs & Associations", "member_count", "The leverage. One body can carry more valuers than a year of cold outreach."],
+  ["RVOs & Associations", "asset_classes", "Which asset class this body's members actually practise. It is the first qualifier on a channel: a body whose members do securities valuation is not our market however large it is."],
+  ["RVOs & Associations", "parent_body", "A body_id, or blank. Most of what the source called a parent was really a constitution and a city ('Independent (Section 8 co.), Pune') — that is not a parent and it lives in notes instead."],
   ["RVOs & Associations", "cpe_event_cadence", "The actual ask. Bodies must run continuing-education sessions and are short of speakers; a slot beats five hundred emails."],
   ["", "", ""],
   ["Channel", "It is the medium, not the intermediary", "A message the RVO secretary forwards for us is channel WhatsApp, route Body. There is deliberately no 'indirect' channel — that is what route_type is."],

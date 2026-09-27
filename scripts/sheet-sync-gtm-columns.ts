@@ -65,18 +65,20 @@ async function main() {
 
     const header = ((await readRange(spreadsheetId, `'${spec.title}'!A1:BZ1`))[0] ?? []).map(c).filter(Boolean);
 
-    // Guide carries rows by design; its columns are not being changed.
-    if (spec.title !== "Guide") {
+    const added = spec.columns.filter((h) => !header.includes(h));
+    const orphans = header.filter((h) => !spec.columns.includes(h));
+
+    // The header rewrite is the only unsafe part, so the guard belongs on it and
+    // not on the whole tab: a populated tab whose header already matches still
+    // wants its dropdowns and date formats re-applied.
+    if (added.length && spec.title !== "Guide") {
       const body = (await readRange(spreadsheetId, `'${spec.title}'!A2:BZ50`)).filter((r) => r.some((v) => c(v) !== ""));
       if (body.length) {
         throw new Error(
-          `${spec.title} already holds ${body.length}+ data row(s). This script rewrites the header row, which would shift those values out from under their headers. Add the columns by hand, or by an insert-at-position script.`,
+          `${spec.title} needs ${added.length} new column(s) (${added.join(", ")}) but already holds ${body.length}+ data row(s). Rewriting the header row would shift those values out from under their headers — add the columns with an insert-at-position script instead.`,
         );
       }
     }
-
-    const added = spec.columns.filter((h) => !header.includes(h));
-    const orphans = header.filter((h) => !spec.columns.includes(h));
     plan.push({ spec, meta, added, orphans });
 
     const bits = [

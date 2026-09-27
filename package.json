@@ -45,7 +45,8 @@
     "sheet:build-organisations": "tsx scripts/sheet-build-organisations.ts",
     "sheet:build-gtm-model": "tsx scripts/sheet-build-gtm-model.ts",
     "sheet:sync-gtm-columns": "tsx scripts/sheet-sync-gtm-columns.ts",
-    "sheet:migrate-lenders": "tsx scripts/sheet-migrate-lenders.ts"
+    "sheet:migrate-lenders": "tsx scripts/sheet-migrate-lenders.ts",
+    "sheet:migrate-bodies": "tsx scripts/sheet-migrate-bodies.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
