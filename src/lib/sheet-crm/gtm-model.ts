@@ -38,6 +38,7 @@ export const VOCAB = {
   decision_role: ["Decider", "Influencer", "Gatekeeper", "Unknown"],
   strength: ["Cold", "Warm", "Champion"],
   org_type: ["Lender", "RVO", "Association", "Firm", "Other"],
+  contact_kind: ["Person", "Desk"],
 
   /**
    * The MEDIUM, never the intermediary — a message the RVO secretary forwards
@@ -171,11 +172,11 @@ export const GTM_TABS: TabSpec[] = [
     rows: 2000,
     colour: [0.16, 0.32, 0.55],
     columns: [
-      "contact_id", "name", "org_id", "org_type", "title", "decision_role",
+      "contact_id", "name", "contact_kind", "org_id", "org_type", "title", "decision_role",
       "email", "phone", "linkedin", "city", "relationship_strength", "do_not_contact", "source", "notes",
     ],
     validate: {
-      org_type: "org_type", decision_role: "decision_role",
+      org_type: "org_type", contact_kind: "contact_kind", decision_role: "decision_role",
       relationship_strength: "strength", do_not_contact: "yes_no",
     },
   },
@@ -191,6 +192,7 @@ export const GTM_TABS: TabSpec[] = [
 /** Seeded so the dropdowns and the links have somewhere to be explained. */
 export const GUIDE_ROWS: string[][] = [
   ["Rule", "One row per real thing", "A row is one person, one firm, one institution. A firm is not a person; several people are not one row."],
+  ["Rule", "Contacts is a way IN, not only a person", "Deliberate exception to the rule above. A named officer and an institution's department desk ('Empanelment Cell', 'Grievance Redressal') are both how you reach that institution, and contact_kind says which. Dropping the desks to keep the tab pure would throw away a couple of hundred working addresses; keeping them unlabelled would let a department be mistaken for a human."],
   ["Rule", "Ids are permanent", "An id is never reused and never renumbered. Every link here is an id, and a renumber repoints it at somebody else."],
   ["Rule", "Id prefix names the tab", "V valuer, F firm, L lender, B body, C contact. It is what makes Contacts.org_id readable without a second lookup."],
   ["Rule", "Nouns hold no event history", "last_touch_date holds the MOST RECENT touch only. Accepted trade: no count of touches before a reply, no per-template comparison. A log nobody fills would be worse — an empty tab reads as 'we contacted nobody'."],
