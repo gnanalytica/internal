@@ -31,7 +31,7 @@ export const VOCAB = {
   constitution: ["Proprietorship", "Partnership", "LLP", "Private Limited", "Public Limited", "Other"],
   lender_type: ["Bank", "HFC", "NBFC", "ARC", "Co-operative bank", "Government", "Insurance", "Other"],
   ownership: ["PSU", "Private", "Foreign", "Co-operative", "Government"],
-  empanelment_open: ["Open", "Closed", "Periodic window", "Unknown"],
+  priority: ["Very High", "High", "Medium", "Low"],
   relationship_stage: ["None", "Intro made", "In talks", "Pilot", "Partner", "Declined"],
   partnership_stage: ["None", "Member", "Speaking slot", "Co-marketing", "Endorsed", "Declined"],
   body_type: ["RVO", "Association", "Institute"],
@@ -133,16 +133,20 @@ export const GTM_TABS: TabSpec[] = [
     rows: 500,
     colour: [0.16, 0.32, 0.55],
     columns: [
-      "lender_id", "lender_name", "lender_type", "ownership", "panel_size_est",
-      "empanelment_page_url", "empanelment_open", "valuation_volume_signal",
-      "relationship_stage", "primary_contact_id", "our_angle",
+      "lender_id", "lender_name", "lender_type", "ownership", "state", "panel_size_est", "priority",
+      // How to get on the panel, and when you may apply. Two different facts, and
+      // the window is free text on purpose: "Sharp window: 29.11.2025 to
+      // 06.12.2025 inclusive" does not survive being squeezed into an enum.
+      "empanelment_route", "empanelment_window", "empanelment_page_url",
+      "valuation_volume_signal", "relationship_stage", "primary_contact_id", "our_angle",
       "owner", "next_action", "next_action_date",
       ...TOUCH,
-      "source", "notes",
+      "do_not_contact", "source", "notes",
     ],
     validate: {
-      lender_type: "lender_type", ownership: "ownership", empanelment_open: "empanelment_open",
+      lender_type: "lender_type", ownership: "ownership", state: "state", priority: "priority",
       relationship_stage: "relationship_stage", last_touch_channel: "channel",
+      do_not_contact: "yes_no",
     },
     dates: ["next_action_date", "last_touch_date"],
   },
@@ -204,6 +208,8 @@ export const GUIDE_ROWS: string[][] = [
   ["Valuers", "signed_up / product_org_id", "The only columns that say whether any of this worked. Without them the sheet and the product never reconcile."],
   ["Lenders", "panel_size_est", "How many valuers this lender puts us in front of. It is why a lender is worth a row at all."],
   ["Lenders", "ownership", "PSU panel lists are public and large; private ones usually are not. It decides whether this is a research job or a relationship job."],
+  ["Lenders", "empanelment_route / empanelment_window", "How to get on the panel, and when you may apply. Two facts, not one. The window stays free text because a real one reads 'Sharp window: 29.11.2025 to 06.12.2025 inclusive' — an enum would throw the only part that matters away."],
+  ["Lenders", "priority", "The prioritisation the research already did. panel_size_est is the objective version of the same judgement; where both exist, prefer the number."],
   ["Lenders", "relationship_stage", "Read with a valuer's empanelled_lenders: five panels we have never spoken to are five useless routes; one we have a pilot with is a live one."],
   ["RVOs & Associations", "member_count", "The leverage. One body can carry more valuers than a year of cold outreach."],
   ["RVOs & Associations", "cpe_event_cadence", "The actual ask. Bodies must run continuing-education sessions and are short of speakers; a slot beats five hundred emails."],
