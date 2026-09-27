@@ -48,7 +48,8 @@
     "sheet:migrate-lenders": "tsx scripts/sheet-migrate-lenders.ts",
     "sheet:migrate-bodies": "tsx scripts/sheet-migrate-bodies.ts",
     "sheet:migrate-contacts": "tsx scripts/sheet-migrate-contacts.ts",
-    "sheet:migrate-valuers-firms": "tsx scripts/sheet-migrate-valuers-firms.ts"
+    "sheet:migrate-valuers-firms": "tsx scripts/sheet-migrate-valuers-firms.ts",
+    "sheet:merge-lender-dupes": "tsx scripts/sheet-merge-lender-dupes.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
