@@ -30,7 +30,7 @@ export type Issue = {
 export type Comment = { id: string; body: string; author: Ref | null; createdAt: string; reactions?: { emoji: string; count: number; mine: boolean }[] };
 export type Relation = { id: string; type: string; issueId: string; issue?: { id: string; identifier: string; title: string; status: string } | null };
 export type Attachment = { id: string; name: string; url: string; contentType: string | null; size: number; createdAt?: string };
-export type TimelineEvent = { id: string; kind: "activity" | "comment"; action?: string; body?: string; actor: Ref | null; createdAt: string; meta?: Record<string, unknown> };
+export type TimelineEvent = { id: string; kind: "activity" | "comment"; action?: string; body?: string; actor: Ref | null; createdAt: string; meta?: Record<string, unknown>; reactions?: { emoji: string; count: number; mine: boolean }[] };
 
 export type IssueDetail = Issue & {
   description: string | null;

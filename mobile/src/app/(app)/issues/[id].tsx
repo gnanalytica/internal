@@ -12,6 +12,7 @@ import { Markdown } from "@/components/markdown";
 import { Avatar, Badge, Button, Card, Divider, ErrorView, Field, Icon, IconButton, Input, Loading, PriorityIcon, Row, Screen, Section, StatusIcon, Text } from "@/components/ui";
 import { addComment, deleteComment, issueQuery, refreshIssue, timelineQuery, updateIssue, type IssueDetail } from "@/features/issues/api";
 import { uploadAttachment, deleteAttachment, setFavorite, setWatching } from "@/features/issues/attachments";
+import { Reactions } from "@/features/issues/reactions";
 import { AssigneesPicker, DatePicker, LabelsPicker, NumberPicker, PriorityPicker, ProjectPicker, StatusPicker, TypePicker } from "@/features/issues/pickers";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
@@ -289,7 +290,8 @@ function IssueBody({ issue, refreshing, onRefresh }: { issue: IssueDetail; refre
                           {ago(e.createdAt)}
                         </Text>
                       </View>
-                      <Markdown source={e.body} compact />
+                      <Markdown source={e.body ?? ""} compact />
+                      <Reactions issueId={issue.id} commentId={e.id} reactions={"reactions" in e ? (e.reactions ?? []) : []} />
                     </Card>
                   </Pressable>
                 ) : (

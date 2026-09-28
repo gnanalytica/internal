@@ -31,6 +31,8 @@ export function issueDto(i: IssueWithRelations) {
     startDate: i.startDate,
     dueDate: i.dueDate,
     assignee: i.assignee ? { id: i.assignee.id, name: i.assignee.name } : null,
+    // The full set, lead included. Empty when the loader didn't fetch it.
+    assignees: (i.assignees ?? []).map((a) => ({ id: a.id, name: a.name })),
     project: i.project
       ? { id: i.project.id, key: i.project.key, name: i.project.name }
       : null,
