@@ -172,6 +172,14 @@ export function parseNoteLines(v: string): { label: string; text: string }[] {
 }
 
 /** A record the team must not reach out to. Research writes this as the first line of research_notes. */
+/**
+ * The `disqualified` cell as a reason, or "" when the row is not disqualified.
+ * Tabs whose column was seeded with "No" mean exactly that, not a reason.
+ */
+export function disqualifyReason(v: string): string {
+  return /^(no|n|false|none|-|—)$/i.test(v.trim()) ? "" : v.trim();
+}
+
 export function isDoNotContact(researchNotes: string): boolean {
   return /^\s*DO NOT CONTACT\b/i.test(researchNotes);
 }
@@ -250,7 +258,7 @@ export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: 
       notes: t("notes"),
       scores: SCORE_COLUMNS.map((s) => cellNumber(g(s.key))),
       switchingBarrier: cellNumber(g("switching_barrier")),
-      disqualified: t("disqualified"),
+      disqualified: disqualifyReason(t("disqualified")),
       opportunityScore: cellNumber(g("opportunity_score")),
       band: bandKey(bandLabel),
       bandLabel,

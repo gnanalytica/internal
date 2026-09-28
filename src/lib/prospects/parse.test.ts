@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bandKey, displayDate, isDoNotContact, parseActivity, parseNoteLines, parseRecords, parseSheetDate, parseSources, parseWorkbook, recordsOf, splitList, stageIndex } from "./parse";
+import { bandKey, disqualifyReason, displayDate, isDoNotContact, parseActivity, parseNoteLines, parseRecords, parseSheetDate, parseSources, parseWorkbook, recordsOf, splitList, stageIndex } from "./parse";
 import { activityRow, nextActivityId, planRowWrite } from "./plan";
 
 const VALUER_HEADER = [
@@ -195,5 +195,15 @@ describe("activity ids and rows", () => {
       ["registration_no", "activity_id", "extra", "outcome"],
     );
     expect(row).toEqual(["IBBI/RV/1", "A-000001", "", "Connected"]);
+  });
+});
+
+describe("disqualifyReason", () => {
+  it("reads a seeded No (or blank) as not disqualified", () => {
+    for (const v of ["No", "no", " NO ", "", "-", "false"]) expect(disqualifyReason(v)).toBe("");
+  });
+  it("keeps a real reason", () => {
+    expect(disqualifyReason("Excluded by us")).toBe("Excluded by us");
+    expect(disqualifyReason(" Not practising L&B ")).toBe("Not practising L&B");
   });
 });
