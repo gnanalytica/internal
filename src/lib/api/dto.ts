@@ -125,6 +125,12 @@ export function projectDto(p: Project) {
     description: p.description,
     startDate: p.startDate,
     targetDate: p.targetDate,
+    kind: p.kind,
+    confidential: p.confidential,
+    ownerId: p.ownerId,
+    strategistId: p.strategistId,
+    tagline: p.tagline,
+    url: p.url,
   };
 }
 
