@@ -197,6 +197,7 @@ export function dealDto(d: DealWithRelations) {
     contact: ref(d.contact),
     ownerId: d.ownerId,
     createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
   };
 }
 
@@ -237,6 +238,11 @@ export function campaignDto(c: CampaignWithRelations) {
     endDate: c.endDate,
     project: ref(c.project),
     contentCount: c.contentCount,
+    reach: c.reach,
+    replies: c.replies,
+    conversions: c.conversions,
+    pageId: c.pageId,
+    ownerId: c.ownerId,
   };
 }
 
@@ -280,5 +286,9 @@ export function ticketDto(t: TicketWithRelations) {
     contact: ref(t.contact),
     assigneeId: t.assigneeId,
     createdAt: t.createdAt,
+    contactId: t.contactId,
+    issueId: t.issueId,
+    issue: t.issue ? { id: t.issue.id, number: t.issue.number, title: t.issue.title } : null,
+    updatedAt: t.updatedAt,
   };
 }

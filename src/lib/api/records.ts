@@ -176,7 +176,7 @@ export const RESOURCES = {
     table: campaigns,
     fields: {
       name: required("name"),
-      channel: oneOf(["email", "linkedin", "events", "content", "paid", "referral"]),
+      channel: oneOf(["email", "whatsapp", "linkedin", "events", "content", "paid", "referral"]),
       status: oneOf(["planned", "active", "done"]),
       budget: int,
       reach: int,
