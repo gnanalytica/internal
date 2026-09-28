@@ -1043,26 +1043,9 @@ export const crmAccounts = pgTable(
     pageId: uuid("page_id").references(() => pages.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     entity: text("entity").notNull().default("Global"), // India | Netherlands | Global
-    // Provenance for rows mirrored from an external system of record. For the
-    // Valytica lead sheet: externalSource = 'valytica-sheet', externalId = company_id.
-    externalSource: text("external_source"),
-    externalId: text("external_id"),
-    // Typed projections of sheet columns the list filters on. The full row is in sheet_rows.
-    city: text("city"),
-    state: text("state"),
-    ibbiEntityRegNo: text("ibbi_entity_reg_no"),
-    constitution: text("constitution"),
-    pnbCategory: text("pnb_category"),
-    researchConfidence: text("research_confidence"),
-    // Internal-owned outreach state (see OUTREACH_STATUSES). Mirrored to the sheet when its column exists.
-    outreachStatus: text("outreach_status").notNull().default("not_planned"),
-    lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    index("crm_accounts_ws_idx").on(t.workspaceId),
-    uniqueIndex("crm_accounts_external_idx").on(t.workspaceId, t.externalSource, t.externalId),
-  ],
+  (t) => [index("crm_accounts_ws_idx").on(t.workspaceId)],
 );
 
 /** Shared CRM layer: people at accounts (leads/prospects/customers). */
@@ -1093,37 +1076,9 @@ export const crmContacts = pgTable(
     pageId: uuid("page_id").references(() => pages.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     entity: text("entity").notNull().default("Global"),
-    // Provenance: externalSource = 'valytica-sheet', externalId = person_id (P#####).
-    externalSource: text("external_source"),
-    externalId: text("external_id"),
-    // Typed projections of sheet columns the prospect list filters and sorts on.
-    city: text("city"),
-    state: text("state"),
-    ibbiRegNo: text("ibbi_reg_no"),
-    rvo: text("rvo"),
-    phoneE164: text("phone_e164"),
-    priority: text("priority"), // A | B | C | D (Prospect Intelligence)
-    opportunityScore: integer("opportunity_score"),
-    scoreBand: text("score_band"),
-    researchStatus: text("research_status"),
-    bestFirstChannel: text("best_first_channel"),
-    // 'institutional' for bank-side People rows (a marker column starts with INSTITUTIONAL); else the GTM persona text.
-    persona: text("persona"),
-    // The sheet's own duplicate_flag. Such a row is synced and shown like any
-    // other (the sheet is the source of truth); it is marked, never hidden.
-    sheetDuplicate: boolean("sheet_duplicate").notNull().default(false),
-    // Internal-owned outreach state (see OUTREACH_STATUSES). Mirrored to the sheet when its column exists.
-    outreachStatus: text("outreach_status").notNull().default("not_planned"),
-    lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
-    lastChannel: text("last_channel"),
-    nextActionAt: timestamp("next_action_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    index("crm_contacts_ws_idx").on(t.workspaceId),
-    uniqueIndex("crm_contacts_external_idx").on(t.workspaceId, t.externalSource, t.externalId),
-    index("crm_contacts_ws_status_idx").on(t.workspaceId, t.outreachStatus),
-  ],
+  (t) => [index("crm_contacts_ws_idx").on(t.workspaceId)],
 );
 
 /** Sales pipeline: a deal/opportunity, scoped to one project. */
@@ -1335,150 +1290,6 @@ export const contentItemsRelations = relations(contentItems, ({ one }) => ({
     references: [campaigns.id],
   }),
   owner: one(users, { fields: [contentItems.ownerId], references: [users.id] }),
-}));
-
-/**
- * ---- Retired: the old lead-sheet mirror ----
- *
- * sheet_rows, sheet_cell_writes, sheet_sync_runs, interactions and
- * google_grants belonged to the old database copy of the lead sheet. No code
- * reads or writes them any more — Prospects now reads the prospects Google
- * Sheet directly (src/lib/prospects). They stay defined until the tables are
- * deliberately dropped, so a `db:push` does not delete their data by surprise.
- */
-export const sheetRows = pgTable(
-  "sheet_rows",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    sheetId: text("sheet_id").notNull(),
-    // Stable tab id from the old sheet mapping (never the display title).
-    tab: text("tab").notNull(),
-    rowKey: text("row_key").notNull(),
-    // True when the key came from a fallback (a name) rather than a permanent id.
-    weakKey: boolean("weak_key").notNull().default(false),
-    personId: text("person_id"),
-    companyId: text("company_id"),
-    // { "<exact header>": "<cell as shown>" } for every column, known or not.
-    data: jsonb("data").$type<Record<string, string>>().notNull(),
-    rowHash: text("row_hash").notNull(),
-    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
-    // A row that vanished from the sheet keeps its history; it is hidden, not deleted.
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  },
-  (t) => [
-    uniqueIndex("sheet_rows_key_idx").on(t.workspaceId, t.sheetId, t.tab, t.rowKey),
-    index("sheet_rows_person_idx").on(t.workspaceId, t.personId),
-    index("sheet_rows_company_idx").on(t.workspaceId, t.companyId),
-    index("sheet_rows_tab_idx").on(t.workspaceId, t.tab),
-  ],
-);
-
-export const sheetSyncRuns = pgTable(
-  "sheet_sync_runs",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    sheetId: text("sheet_id").notNull(),
-    trigger: text("trigger").notNull().default("cron"), // cron | manual | ping | api
-    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
-    finishedAt: timestamp("finished_at", { withTimezone: true }),
-    status: text("status").notNull().default("running"), // running | ok | failed
-    // Per-tab counts: { tabId: { title, rows, changed, added, removed, weakKeys, formulaColumns, drift } }
-    summary: jsonb("summary").$type<Record<string, unknown>>().notNull().default({}),
-    error: text("error"),
-  },
-  (t) => [index("sheet_sync_runs_ws_idx").on(t.workspaceId, t.startedAt)],
-);
-
-/** Audit of every write-through from Internal into a sheet cell. */
-export const sheetCellWrites = pgTable(
-  "sheet_cell_writes",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    tab: text("tab").notNull(),
-    rowKey: text("row_key").notNull(),
-    column: text("column").notNull(),
-    oldValue: text("old_value"),
-    newValue: text("new_value"),
-    // ok | pending | refused_formula | refused_readonly | conflict | row_not_found | failed
-    status: text("status").notNull(),
-    detail: text("detail"),
-    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
-    writtenAt: timestamp("written_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index("sheet_cell_writes_row_idx").on(t.workspaceId, t.tab, t.rowKey)],
-);
-
-/**
- * ---- Interactions: what happened with a person or company ----
- *
- * The sheet has no outreach history; this is it. One row per message, call,
- * meeting, calendar event, note or research change, from whichever source
- * produced it. Ingestion is idempotent on (source, external_ref).
- */
-export const interactions = pgTable(
-  "interactions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    contactId: uuid("contact_id").references(() => crmContacts.id, { onDelete: "cascade" }),
-    accountId: uuid("account_id").references(() => crmAccounts.id, { onDelete: "cascade" }),
-    campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
-    channel: text("channel").notNull(), // see INTERACTION_CHANNELS
-    direction: text("direction").notNull().default("none"), // out | in | none
-    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
-    subject: text("subject"),
-    body: text("body"),
-    summary: text("summary"),
-    source: text("source").notNull().default("manual"), // manual | gmail | gcal | standup-ai | slack | api | sheet-sync
-    externalRef: text("external_ref"),
-    externalUrl: text("external_url"),
-    // Free-form, bounded provenance (attendees, action items, cell changes).
-    meta: jsonb("meta").$type<Record<string, unknown>>(),
-    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    index("interactions_contact_idx").on(t.contactId, t.occurredAt),
-    index("interactions_account_idx").on(t.accountId, t.occurredAt),
-    index("interactions_ws_idx").on(t.workspaceId, t.occurredAt),
-    uniqueIndex("interactions_external_idx").on(t.workspaceId, t.source, t.externalRef),
-  ],
-);
-
-/** Per-user Google OAuth grant for Gmail + Calendar ingestion (Phase 3). Tokens are encrypted at rest. */
-export const googleGrants = pgTable(
-  "google_grants",
-  {
-    userId: uuid("user_id")
-      .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
-    email: text("email").notNull(),
-    scopes: text("scopes").notNull(),
-    refreshTokenEnc: text("refresh_token_enc").notNull(),
-    // Sync watermarks so each poll is bounded.
-    gmailHistoryId: text("gmail_history_id"),
-    gmailSyncedAt: timestamp("gmail_synced_at", { withTimezone: true }),
-    calendarSyncedAt: timestamp("calendar_synced_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-);
-
-export const interactionsRelations = relations(interactions, ({ one }) => ({
-  contact: one(crmContacts, { fields: [interactions.contactId], references: [crmContacts.id] }),
-  account: one(crmAccounts, { fields: [interactions.accountId], references: [crmAccounts.id] }),
-  campaign: one(campaigns, { fields: [interactions.campaignId], references: [campaigns.id] }),
-  actor: one(users, { fields: [interactions.actorId], references: [users.id] }),
 }));
 
 /**
