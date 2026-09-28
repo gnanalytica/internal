@@ -1,0 +1,41 @@
+name: Mobile check
+
+on:
+  pull_request:
+    paths: ["mobile/**", ".github/workflows/mobile-check.yml"]
+  push:
+    branches: [main]
+    paths: ["mobile/**", ".github/workflows/mobile-check.yml"]
+
+concurrency:
+  group: mobile-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+
+      # mobile/pnpm-workspace.yaml keeps this install inside mobile/.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm exec tsc --noEmit
+
+      # Bundling catches what tsc can't: a missing native module, a bad import
+      # path under Expo Router, an asset that isn't there.
+      - run: npx expo export --platform android --output-dir /tmp/expo-export
