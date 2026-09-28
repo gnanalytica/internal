@@ -2,6 +2,7 @@ import { accountDto } from "@/lib/api/dto";
 import { ok, readJson, withApiAuth } from "@/lib/api/http";
 import { apiCreateAccount } from "@/lib/api/crm-ops";
 import { getAccounts } from "@/lib/data";
+import { assertSales } from "@/lib/api/scope";
 
 export const GET = withApiAuth(async (_req, auth) => {
   const rows = await getAccounts(auth.workspaceId);
@@ -9,6 +10,7 @@ export const GET = withApiAuth(async (_req, auth) => {
 });
 
 export const POST = withApiAuth(async (req, auth) => {
+  assertSales(auth);
   const body = await readJson<Parameters<typeof apiCreateAccount>[2]>(req);
   const id = await apiCreateAccount(auth.workspaceId, auth.userId, body);
   const row = (await getAccounts(auth.workspaceId)).find((a) => a.id === id);

@@ -3,12 +3,13 @@ import { ok, readJson, withApiAuth } from "@/lib/api/http";
 import { apiCreatePage } from "@/lib/api/ops";
 import { encodeCursor, pageParams } from "@/lib/api/pagination";
 import { getPagesPage } from "@/lib/data";
+import { assertProjectVisible, visibleRows } from "@/lib/api/scope";
 
 export const GET = withApiAuth(async (req, auth) => {
   const { limit, cursor } = pageParams(req.url);
   const { items, nextCursor } = await getPagesPage(auth.workspaceId, { limit, cursor });
   return ok({
-    data: items.map(pageDto),
+    data: visibleRows(auth, items, (p) => p.projectId).map(pageDto),
     next_cursor: nextCursor ? encodeCursor(nextCursor) : null,
   });
 });
@@ -21,6 +22,7 @@ export const POST = withApiAuth(async (req, auth) => {
     parentId?: string | null;
     projectId?: string | null;
   }>(req);
+  assertProjectVisible(auth, body.projectId, "Project");
   const title = body.title ?? "Untitled";
   const id = await apiCreatePage(auth.workspaceId, auth.userId, {
     title,

@@ -1,9 +1,11 @@
 import { apiLinkIssuePage, apiUnlinkIssuePage } from "@/lib/api/collab-ops";
 import { apiError, notFound, ok, readJson, withApiAuth } from "@/lib/api/http";
+import { assertIssueVisible } from "@/lib/api/scope";
 
 type Params = { id: string };
 
 export const POST = withApiAuth<Params>(async (req, auth, { id }) => {
+  await assertIssueVisible(auth, id);
   const { pageId } = await readJson<{ pageId?: string }>(req);
   if (!pageId) return apiError("`pageId` is required.", 400);
   await apiLinkIssuePage(auth.workspaceId, id, pageId);
@@ -11,6 +13,7 @@ export const POST = withApiAuth<Params>(async (req, auth, { id }) => {
 });
 
 export const DELETE = withApiAuth<Params>(async (req, auth, { id }) => {
+  await assertIssueVisible(auth, id);
   const pageId = new URL(req.url).searchParams.get("pageId");
   if (!pageId) return apiError("`?pageId=` is required.", 400);
   const removed = await apiUnlinkIssuePage(auth.workspaceId, id, pageId);

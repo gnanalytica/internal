@@ -136,8 +136,8 @@ export function cycleDto(c: Cycle) {
   };
 }
 
-export function pageDto(p: Pick<Page, "id" | "title" | "icon">) {
-  return { id: p.id, title: p.title, icon: p.icon };
+export function pageDto(p: Pick<Page, "id" | "title" | "icon"> & Partial<Pick<Page, "projectId" | "parentId" | "updatedAt">>) {
+  return { id: p.id, title: p.title, icon: p.icon, projectId: p.projectId ?? null, parentId: p.parentId ?? null, updatedAt: p.updatedAt ?? null };
 }
 
 export function milestoneDto(m: MilestoneWithProgress) {

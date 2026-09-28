@@ -3,6 +3,7 @@ import { ok, readJson, withApiAuth } from "@/lib/api/http";
 import { apiCreateIssue } from "@/lib/api/ops";
 import { encodeCursor, pageParams } from "@/lib/api/pagination";
 import { getIssue, getIssuesPage } from "@/lib/data";
+import { assertProjectVisible, visibleRows } from "@/lib/api/scope";
 
 export const GET = withApiAuth(async (req, auth) => {
   const url = new URL(req.url);
@@ -21,13 +22,14 @@ export const GET = withApiAuth(async (req, auth) => {
     updatedSince: url.searchParams.get("updatedSince"),
   });
   return ok({
-    data: items.map(issueDto),
+    data: visibleRows(auth, items, (i) => i.projectId).map(issueDto),
     next_cursor: nextCursor ? encodeCursor(nextCursor) : null,
   });
 });
 
 export const POST = withApiAuth(async (req, auth) => {
   const body = await readJson<Parameters<typeof apiCreateIssue>[2]>(req);
+  assertProjectVisible(auth, (body as { projectId?: string | null }).projectId, "Project");
   const { id, created } = await apiCreateIssue(auth.workspaceId, auth.userId, body);
   const issue = await getIssue(auth.workspaceId, id);
   // 201 for a new issue, 200 when an `externalId` matched one we already had —

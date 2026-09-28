@@ -822,7 +822,7 @@ export async function getPagesPage(
   workspaceId: string,
   opts: { limit: number; cursor?: { createdAt: string; id: string } | null },
 ): Promise<{
-  items: Pick<Page, "id" | "title" | "icon">[];
+  items: Pick<Page, "id" | "title" | "icon" | "projectId" | "parentId" | "updatedAt">[];
   nextCursor: import("@/lib/api/pagination").Cursor | null;
 }> {
   "use cache";
@@ -850,6 +850,9 @@ export async function getPagesPage(
       id: pages.id,
       title: pages.title,
       icon: pages.icon,
+      projectId: pages.projectId,
+      parentId: pages.parentId,
+      updatedAt: pages.updatedAt,
       createdAt: pages.createdAt,
     })
     .from(pages)
@@ -861,7 +864,7 @@ export async function getPagesPage(
   const page = hasMore ? rows.slice(0, opts.limit) : rows;
   const last = hasMore ? page[page.length - 1] : null;
   return {
-    items: page.map((p) => ({ id: p.id, title: p.title, icon: p.icon })),
+    items: page.map((p) => ({ id: p.id, title: p.title, icon: p.icon, projectId: p.projectId, parentId: p.parentId, updatedAt: p.updatedAt })),
     nextCursor: last
       ? { createdAt: new Date(last.createdAt).toISOString(), id: last.id }
       : null,

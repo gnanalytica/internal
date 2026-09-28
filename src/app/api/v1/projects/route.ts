@@ -2,9 +2,10 @@ import { projectDto } from "@/lib/api/dto";
 import { ok, readJson, withApiAuth } from "@/lib/api/http";
 import { apiCreateProject } from "@/lib/api/ops";
 import { getProjects } from "@/lib/data";
+import { visibleRows } from "@/lib/api/scope";
 
 export const GET = withApiAuth(async (_req, auth) => {
-  const rows = await getProjects(auth.workspaceId);
+  const rows = visibleRows(auth, await getProjects(auth.workspaceId), (p) => p.id);
   return ok({ data: rows.map(projectDto), count: rows.length });
 });
 

@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { apiKeys, workspaceMembers } from "@/db/schema";
 import { hashKey } from "./keys";
+import { loadScope, type ApiScope } from "./scope";
 
 export type ApiAuth = {
   workspaceId: string;
@@ -18,6 +19,8 @@ export type ApiAuth = {
   isAdmin: boolean;
   /** "key" for a Settings-made integration key, "app" for a mobile sign-in. */
   kind: string;
+  /** What this caller may see — everything, unless a member signed in on their phone. */
+  scope: ApiScope;
 };
 
 /** Resolve the workspace from an `Authorization: Bearer <key>` (or `X-API-Key`)
@@ -61,5 +64,6 @@ export async function authenticateApiKey(req: Request): Promise<ApiAuth | null> 
     isAdmin = m.role === "admin";
   }
 
-  return { workspaceId: row.workspaceId, userId: row.createdBy, keyId: row.id, isAdmin, kind: row.kind };
+  const scope = await loadScope(row.workspaceId, row.createdBy, isAdmin);
+  return { workspaceId: row.workspaceId, userId: row.createdBy, keyId: row.id, isAdmin, kind: row.kind, scope };
 }

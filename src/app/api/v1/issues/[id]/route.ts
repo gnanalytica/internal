@@ -6,10 +6,12 @@ import {
   apiListIssueRelations,
 } from "@/lib/api/collab-ops";
 import { getIssue } from "@/lib/data";
+import { assertIssueVisible, assertProjectVisible } from "@/lib/api/scope";
 
 type Params = { id: string };
 
 export const GET = withApiAuth<Params>(async (_req, auth, { id }) => {
+  await assertIssueVisible(auth, id);
   const issue = await getIssue(auth.workspaceId, id);
   if (!issue) return notFound("Issue");
   const [comments, relations] = await Promise.all([
@@ -20,7 +22,9 @@ export const GET = withApiAuth<Params>(async (_req, auth, { id }) => {
 });
 
 export const PATCH = withApiAuth<Params>(async (req, auth, { id }) => {
+  await assertIssueVisible(auth, id);
   const body = await readJson(req);
+  assertProjectVisible(auth, (body as { projectId?: string | null }).projectId, "Project");
   const updated = await apiUpdateIssue(auth.workspaceId, id, body);
   if (!updated) return notFound("Issue");
   const issue = await getIssue(auth.workspaceId, id);
@@ -28,6 +32,7 @@ export const PATCH = withApiAuth<Params>(async (req, auth, { id }) => {
 });
 
 export const DELETE = withApiAuth<Params>(async (_req, auth, { id }) => {
+  await assertIssueVisible(auth, id);
   const deleted = await apiDeleteIssue(auth.workspaceId, id);
   return deleted ? ok({ deleted: true }) : notFound("Issue");
 });

@@ -7,10 +7,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { GitHubIcon, GoogleIcon } from "@/components/auth/provider-icons";
 import { authClient } from "@/lib/auth/client";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { cn } from "@/lib/utils";
 
-export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function AuthForm({ mode, next }: { mode: "sign-in" | "sign-up"; next?: string }) {
   const router = useRouter();
+  const destination = safeNextPath(next);
   const isSignUp = mode === "sign-up";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,7 +32,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       setPending(null);
       return;
     }
-    router.push("/issues");
+    router.push(destination);
     router.refresh();
   }
 
@@ -39,7 +41,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     setPending(provider);
     const res = await authClient.signIn.social({
       provider,
-      callbackURL: "/issues",
+      callbackURL: destination,
     });
     if (res?.error) {
       setError(res.error.message || `Could not continue with ${provider}.`);
@@ -151,7 +153,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       <p className="mt-6 text-center text-sm text-muted-foreground">
         {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
         <Link
-          href={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
+          href={`${isSignUp ? "/auth/sign-in" : "/auth/sign-up"}${next ? `?next=${encodeURIComponent(destination)}` : ""}`}
           className="font-medium text-brand hover:underline"
         >
           {isSignUp ? "Sign in" : "Sign up"}

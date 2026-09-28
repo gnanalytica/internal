@@ -34,6 +34,7 @@ import { apiInvalidate } from "@/lib/api/invalidate";
 import { dispatchWebhook } from "@/lib/api/webhooks";
 import { docToText, markdownToDoc } from "@/lib/markdown";
 import { shouldSnapshot, VERSION_RETENTION } from "@/lib/page-collab";
+import { canSeeProject, canSeeSales, UNRESTRICTED, type ApiScope } from "@/lib/api/scope";
 
 /** API clients send Markdown; the editor stores TipTap JSON. */
 function textToDoc(text: string): unknown {
@@ -687,6 +688,7 @@ export type ApiSearchHit = { type: string; id: string; title: string; url: strin
 export async function apiSearch(
   workspaceId: string,
   q: string,
+  scope: ApiScope = UNRESTRICTED,
 ): Promise<ApiSearchHit[]> {
   const term = `%${q.trim()}%`;
   if (!q.trim()) return [];
@@ -703,13 +705,13 @@ export async function apiSearch(
     featureRows,
   ] = await Promise.all([
     db
-      .select({ id: issues.id, title: issues.title })
+      .select({ id: issues.id, title: issues.title, projectId: issues.projectId })
       .from(issues)
       .where(and(eq(issues.workspaceId, workspaceId), ilike(issues.title, term)))
       .orderBy(desc(issues.createdAt))
       .limit(10),
     db
-      .select({ id: pages.id, title: pages.title })
+      .select({ id: pages.id, title: pages.title, projectId: pages.projectId })
       .from(pages)
       .where(
         and(
@@ -724,7 +726,7 @@ export async function apiSearch(
       .where(and(eq(projects.workspaceId, workspaceId), ilike(projects.name, term)))
       .limit(10),
     db
-      .select({ id: tickets.id, subject: tickets.subject })
+      .select({ id: tickets.id, subject: tickets.subject, projectId: tickets.projectId })
       .from(tickets)
       .where(and(eq(tickets.workspaceId, workspaceId), ilike(tickets.subject, term)))
       .limit(10),
@@ -751,29 +753,30 @@ export async function apiSearch(
       )
       .limit(10),
     db
-      .select({ id: milestones.id, name: milestones.name })
+      .select({ id: milestones.id, name: milestones.name, projectId: milestones.projectId })
       .from(milestones)
       .where(
         and(eq(milestones.workspaceId, workspaceId), ilike(milestones.name, term)),
       )
       .limit(10),
     db
-      .select({ id: features.id, title: features.title })
+      .select({ id: features.id, title: features.title, projectId: features.projectId })
       .from(features)
       .where(and(eq(features.workspaceId, workspaceId), ilike(features.title, term)))
       .limit(10),
   ]);
+  const see = (projectId: string | null | undefined) => canSeeProject(scope, projectId);
 
   return [
-    ...issueRows.map((r) => ({ type: "issue", id: r.id, title: r.title, url: `${base}/issues/${r.id}` })),
-    ...pageRows.map((r) => ({ type: "page", id: r.id, title: r.title || "Untitled", url: `${base}/pages/${r.id}` })),
-    ...projectRows.map((r) => ({ type: "project", id: r.id, title: r.name, url: `${base}/projects/${r.id}` })),
-    ...ticketRows.map((r) => ({ type: "ticket", id: r.id, title: r.subject, url: `${base}/tickets/${r.id}` })),
-    ...dealRows.map((r) => ({ type: "deal", id: r.id, title: r.name, url: `${base}/deals/${r.id}` })),
+    ...issueRows.filter((r) => see(r.projectId)).map((r) => ({ type: "issue", id: r.id, title: r.title, url: `${base}/issues/${r.id}` })),
+    ...pageRows.filter((r) => see(r.projectId)).map((r) => ({ type: "page", id: r.id, title: r.title || "Untitled", url: `${base}/pages/${r.id}` })),
+    ...projectRows.filter((r) => see(r.id)).map((r) => ({ type: "project", id: r.id, title: r.name, url: `${base}/projects/${r.id}` })),
+    ...ticketRows.filter((r) => see(r.projectId)).map((r) => ({ type: "ticket", id: r.id, title: r.subject, url: `${base}/tickets/${r.id}` })),
+    ...(canSeeSales(scope) ? dealRows : []).map((r) => ({ type: "deal", id: r.id, title: r.name, url: `${base}/deals/${r.id}` })),
     ...accountRows.map((r) => ({ type: "account", id: r.id, title: r.name, url: `${base}/accounts/${r.id}` })),
     ...contactRows.map((r) => ({ type: "contact", id: r.id, title: r.name, url: `${base}/contacts/${r.id}` })),
-    ...milestoneRows.map((r) => ({ type: "milestone", id: r.id, title: r.name, url: `${base}/milestones/${r.id}` })),
-    ...featureRows.map((r) => ({ type: "feature", id: r.id, title: r.title, url: `${base}/features/${r.id}` })),
+    ...milestoneRows.filter((r) => see(r.projectId)).map((r) => ({ type: "milestone", id: r.id, title: r.name, url: `${base}/milestones/${r.id}` })),
+    ...featureRows.filter((r) => see(r.projectId)).map((r) => ({ type: "feature", id: r.id, title: r.title, url: `${base}/features/${r.id}` })),
   ];
 }
 

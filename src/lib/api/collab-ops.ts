@@ -327,6 +327,7 @@ export async function apiListTrashedPages(workspaceId: string) {
       id: pages.id,
       title: pages.title,
       icon: pages.icon,
+      projectId: pages.projectId,
       deletedAt: pages.deletedAt,
     })
     .from(pages)
