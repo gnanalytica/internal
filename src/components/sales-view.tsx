@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { ArrowUpRight, FileText, Plus } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 
 import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
@@ -412,12 +411,6 @@ function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: ()
       />
       <div className="col-span-2 flex items-center gap-3 lg:contents">
         <DeckLink kind="account" id={account.id} pageId={account.pageId} />
-        <Link
-          href={`/accounts/${account.id}`}
-          className="tap-target inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          Open <ArrowUpRight className="size-3.5" />
-        </Link>
         <button
           type="button"
           onClick={() => start(async () => { await deleteAccount(account.id); onChanged(); })}

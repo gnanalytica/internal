@@ -2,8 +2,8 @@ import "server-only";
 
 import { cacheLife, cacheTag } from "next/cache";
 
-import { isGoogleConfigured } from "./google";
-import { listTabs, readTabs } from "@/lib/sheet-crm/sheets-api";
+import { isGoogleConfigured } from "./google-auth";
+import { listTabs, readTabs } from "./sheets-api";
 import { parseWorkbook, type ProspectsWorkbook } from "./parse";
 import { prospectsSheetId, TAB } from "./schema";
 

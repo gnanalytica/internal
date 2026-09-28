@@ -53,7 +53,7 @@ export function BottomNav({ unreadCount, onMore }: { unreadCount: number; onMore
       />
       <Item
         href="/prospects"
-        active={pathname.startsWith("/prospects") || pathname.startsWith("/people")}
+        active={pathname.startsWith("/prospects")}
         label="Prospects"
         icon={<Contact className="size-5" />}
       />

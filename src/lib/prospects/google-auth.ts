@@ -8,22 +8,15 @@ import { createSign } from "node:crypto";
  * a minute before it expires.
  *
  * Env: GOOGLE_SA_EMAIL, GOOGLE_SA_PRIVATE_KEY (PEM; `\n` escapes and CRLF are
- * both normalised), VALYTICA_CRM_SHEET_ID.
+ * both normalised).
  */
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
-export function isSheetSyncConfigured(): boolean {
-  return Boolean(
-    process.env.GOOGLE_SA_EMAIL && process.env.GOOGLE_SA_PRIVATE_KEY && process.env.VALYTICA_CRM_SHEET_ID,
-  );
-}
-
-export function sheetId(): string {
-  const id = process.env.VALYTICA_CRM_SHEET_ID;
-  if (!id) throw new Error("VALYTICA_CRM_SHEET_ID is not set.");
-  return id;
+/** The dashboard needs only the service account; the sheet ID has a built-in default. */
+export function isGoogleConfigured(): boolean {
+  return Boolean(process.env.GOOGLE_SA_EMAIL && process.env.GOOGLE_SA_PRIVATE_KEY);
 }
 
 /**

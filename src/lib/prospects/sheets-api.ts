@@ -2,9 +2,9 @@
 import { getAccessToken } from "./google-auth";
 
 /**
- * The four Sheets API calls the sync needs, over plain `fetch`. Every call
- * throws on a non-2xx so the sync run records the failure instead of
- * mistaking it for an empty tab.
+ * The Sheets API calls the prospects dashboard needs, over plain `fetch`.
+ * Every call throws on a non-2xx so a failure is reported instead of being
+ * mistaken for an empty tab.
  */
 
 const BASE = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -20,7 +20,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     // The two failures every first run hits, neither of which the raw body names.
     if (res.status === 404) {
       throw new Error(
-        `Sheets API 404 for spreadsheet ${path.split("?")[0].split("/")[0]}. Either VALYTICA_CRM_SHEET_ID is wrong, or the workbook has not been shared with ${process.env.GOOGLE_SA_EMAIL ?? "the service account"} as an Editor.`,
+        `Sheets API 404 for spreadsheet ${path.split("?")[0].split("/")[0]}. Either PROSPECTS_SHEET_ID is wrong, or the workbook has not been shared with ${process.env.GOOGLE_SA_EMAIL ?? "the service account"} as an Editor.`,
       );
     }
     if (res.status === 403 && body.includes("has not been used in project")) {
@@ -86,14 +86,6 @@ export async function formulaColumns(spreadsheetId: string, title: string, heade
   return set;
 }
 
-/** Whether ONE cell currently carries a formula. Checked before every write. */
-export async function cellHasFormula(spreadsheetId: string, a1Range: string): Promise<boolean> {
-  const json = await call<{ sheets?: { data?: { rowData?: { values?: { userEnteredValue?: { formulaValue?: string } }[] }[] }[] }[] }>(
-    `${spreadsheetId}?ranges=${encodeURIComponent(a1Range)}&includeGridData=true&fields=sheets.data.rowData.values.userEnteredValue.formulaValue`,
-  );
-  return Boolean(json.sheets?.[0]?.data?.[0]?.rowData?.[0]?.values?.[0]?.userEnteredValue?.formulaValue);
-}
-
 /** Read one range (e.g. a key column or the leading rows of a tab). */
 export async function readRange(spreadsheetId: string, a1Range: string): Promise<unknown[][]> {
   const json = await call<{ values?: unknown[][] }>(
@@ -118,20 +110,7 @@ export async function writeCells(
   });
 }
 
-/**
- * Clear cells outright. Distinct from writing `""` through `values:batchUpdate`:
- * an ARRAYFORMULA refuses to expand over a cell that holds anything, so repairing
- * a blocked array needs the value gone, not blanked.
- */
-export async function clearRanges(spreadsheetId: string, ranges: string[]): Promise<void> {
-  if (!ranges.length) return;
-  await call(`${spreadsheetId}/values:batchClear`, {
-    method: "POST",
-    body: JSON.stringify({ ranges }),
-  });
-}
-
-/** Append rows at the bottom of a tab (used only for owner-approved inserts). */
+/** Append rows at the bottom of a tab. */
 export async function appendRows(spreadsheetId: string, title: string, rows: (string | number | null)[][]): Promise<void> {
   if (!rows.length) return;
   await call(`${spreadsheetId}/values/${encodeURIComponent(quote(title))}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {

@@ -1338,13 +1338,13 @@ export const contentItemsRelations = relations(contentItems, ({ one }) => ({
 }));
 
 /**
- * ---- The Valytica lead sheet mirror ----
+ * ---- Retired: the old lead-sheet mirror ----
  *
- * The Google Sheet is the source of truth for who people are and what the
- * research says. `sheet_rows` holds every tab verbatim (one jsonb per row,
- * keyed by the sheet's own permanent ids, never by row number); the typed
- * columns on crm_contacts / crm_accounts are projections of it. See
- * docs/superpowers/specs/2026-09-20-valytica-lead-crm-sheet-sync-design.md.
+ * sheet_rows, sheet_cell_writes, sheet_sync_runs, interactions and
+ * google_grants belonged to the old database copy of the lead sheet. No code
+ * reads or writes them any more — Prospects now reads the prospects Google
+ * Sheet directly (src/lib/prospects). They stay defined until the tables are
+ * deliberately dropped, so a `db:push` does not delete their data by surprise.
  */
 export const sheetRows = pgTable(
   "sheet_rows",
@@ -1354,7 +1354,7 @@ export const sheetRows = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     sheetId: text("sheet_id").notNull(),
-    // Stable tab id from src/lib/sheet-crm/mapping.ts (never the display title).
+    // Stable tab id from the old sheet mapping (never the display title).
     tab: text("tab").notNull(),
     rowKey: text("row_key").notNull(),
     // True when the key came from a fallback (a name) rather than a permanent id.

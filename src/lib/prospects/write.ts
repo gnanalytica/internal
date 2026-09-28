@@ -1,6 +1,6 @@
 import "server-only";
 
-import { appendRows, formulaColumns, readRange, writeCells } from "@/lib/sheet-crm/sheets-api";
+import { appendRows, formulaColumns, readRange, writeCells } from "./sheets-api";
 import { activityRow, colLetter, nextActivityId, planRowWrite, quoteTab, type CellPatch, type NewActivity } from "./plan";
 import { ID_COLUMN, prospectsSheetId, TAB, type ProspectKind } from "./schema";
 
