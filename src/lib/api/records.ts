@@ -68,6 +68,21 @@ const ref: Coerce = (v) => {
   return String(v);
 };
 
+/** A nullable real number (metric targets carry decimals, unlike `int`). */
+const num: Coerce = (v) => {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) throw new Error("Expected a number.");
+  return n;
+};
+
+/** A colour the web can render: #rgb or #rrggbb. */
+const hexColor: Coerce = (v) => {
+  const s = String(v ?? "").trim();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s)) throw new Error("Expected a hex colour like #6366f1.");
+  return s.toLowerCase();
+};
+
 const bool: Coerce = (v) => {
   if (typeof v === "boolean") return v;
   if (v === "true") return true;
@@ -114,6 +129,7 @@ export const RESOURCES = {
       targetDate: date,
       ownerId: ref,
       strategistId: ref,
+      color: hexColor,
     },
   },
   deals: {
@@ -254,6 +270,8 @@ export const RESOURCES = {
       cadence: oneOf(["weekly", "monthly", "quarterly"]),
       isNorthStar: bool,
       projectId: ref,
+      target: num,
+      targetDirection: oneOf(["above", "below"]),
     },
   },
   feedback: {

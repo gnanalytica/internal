@@ -9,6 +9,7 @@ import {
   comments,
   contentItems,
   crmActivities,
+  cycles,
   deals,
   expenses,
   feedback,
@@ -108,7 +109,7 @@ export async function assertPageVisible(auth: ApiAuth, pageId: string): Promise<
 
 type ProjectLookup = (workspaceId: string, id: string) => Promise<string | null | undefined>;
 
-function byProjectColumn(table: typeof milestones | typeof features | typeof metrics | typeof feedback | typeof campaigns | typeof contentItems | typeof tickets | typeof projectStatusUpdates | typeof invoices | typeof expenses | typeof deals | typeof crmActivities): ProjectLookup {
+function byProjectColumn(table: typeof cycles | typeof milestones | typeof features | typeof metrics | typeof feedback | typeof campaigns | typeof contentItems | typeof tickets | typeof projectStatusUpdates | typeof invoices | typeof expenses | typeof deals | typeof crmActivities): ProjectLookup {
   return async (workspaceId, id) => {
     const t = table as unknown as typeof milestones;
     const [row] = await db
@@ -133,6 +134,7 @@ const POLICY: Partial<Record<ResourceName, { rule: "sales" | "finance" | "projec
   invoices: { rule: "finance", lookup: byProjectColumn(invoices) },
   expenses: { rule: "finance", lookup: byProjectColumn(expenses) },
   milestones: { rule: "project", lookup: byProjectColumn(milestones) },
+  cycles: { rule: "project", lookup: byProjectColumn(cycles) },
   features: { rule: "project", lookup: byProjectColumn(features) },
   metrics: { rule: "project", lookup: byProjectColumn(metrics) },
   feedback: { rule: "project", lookup: byProjectColumn(feedback) },
