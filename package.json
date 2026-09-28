@@ -49,7 +49,8 @@
     "sheet:migrate-bodies": "tsx scripts/sheet-migrate-bodies.ts",
     "sheet:migrate-contacts": "tsx scripts/sheet-migrate-contacts.ts",
     "sheet:migrate-valuers-firms": "tsx scripts/sheet-migrate-valuers-firms.ts",
-    "sheet:merge-lender-dupes": "tsx scripts/sheet-merge-lender-dupes.ts"
+    "sheet:merge-lender-dupes": "tsx scripts/sheet-merge-lender-dupes.ts",
+    "ibbi:fetch": "tsx scripts/fetch-ibbi-rvs.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
