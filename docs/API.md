@@ -125,6 +125,10 @@ A `null` cursor means there are no more results. Other list endpoints
 | `POST`   | `/tickets`                    | Create a ticket                               |
 | `GET`    | `/tickets/{id}`               | Get a ticket with its comment thread          |
 | `POST`   | `/tickets/{id}/comments`      | Reply on a ticket (`{ "body": "..." }`)       |
+| `POST`   | `/tickets/{id}/convert`       | Convert a ticket into a task (idempotent: 201 new, 200 already converted) |
+| `GET`    | `/projects/{id}/finance`      | A project's invoices, expenses and totals in its own currency (admins and the project's owner) |
+| `GET`    | `/projects/{id}/strategy`     | A project's strategy, auto values resolved, with its scores |
+| `POST`   | `/projects/{id}/strategy`     | Apply one strategy edit (`{ "op": "flipSignal", "id": "..." }`) |
 
 Every record type below also supports `PATCH /{resource}/{id}` and
 `DELETE /{resource}/{id}`: `projects`, `milestones`, `features`, `cycles`,

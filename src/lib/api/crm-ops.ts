@@ -31,6 +31,7 @@ export async function apiCreateDeal(
     name?: string;
     projectId?: string | null;
     accountId?: string | null;
+    contactId?: string | null;
     stage?: string;
     value?: number;
     entity?: string;
@@ -45,6 +46,7 @@ export async function apiCreateDeal(
       name: input.name.trim(),
       projectId: input.projectId ?? null,
       accountId: input.accountId ?? null,
+      contactId: input.contactId || null,
       stage: input.stage ?? "lead",
       value: input.value ?? 0,
       entity: input.entity ?? "Global",
@@ -82,7 +84,7 @@ export async function apiCreateAccount(
 export async function apiCreateContact(
   workspaceId: string,
   userId: string | null,
-  input: { name?: string; email?: string | null; title?: string | null; accountId?: string | null; entity?: string },
+  input: { name?: string; email?: string | null; title?: string | null; phone?: string | null; lifecycleStage?: string; accountId?: string | null; entity?: string },
 ): Promise<string> {
   if (!input.name?.trim()) throw new Error("`name` is required.");
   const [created] = await db
@@ -92,6 +94,10 @@ export async function apiCreateContact(
       name: input.name.trim(),
       email: input.email ?? null,
       title: input.title ?? null,
+      phone: input.phone || null,
+      ...(input.lifecycleStage && ["lead", "qualified", "customer"].includes(input.lifecycleStage)
+        ? { lifecycleStage: input.lifecycleStage }
+        : {}),
       accountId: input.accountId ?? null,
       entity: input.entity ?? "Global",
       ownerId: userId,
@@ -104,7 +110,7 @@ export async function apiCreateContact(
 export async function apiCreateCampaign(
   workspaceId: string,
   userId: string | null,
-  input: { name?: string; projectId?: string | null; channel?: string; status?: string; budget?: number; entity?: string },
+  input: { name?: string; projectId?: string | null; channel?: string; status?: string; budget?: number; entity?: string; startDate?: string | null; endDate?: string | null },
 ): Promise<string> {
   if (!input.name?.trim()) throw new Error("`name` is required.");
   const [created] = await db
@@ -117,6 +123,8 @@ export async function apiCreateCampaign(
       status: input.status ?? "planned",
       budget: input.budget ?? 0,
       entity: input.entity ?? "Global",
+      startDate: toDate(input.startDate),
+      endDate: toDate(input.endDate),
       ownerId: userId,
     })
     .returning({ id: campaigns.id });
@@ -127,7 +135,7 @@ export async function apiCreateCampaign(
 export async function apiCreateInvoice(
   workspaceId: string,
   userId: string | null,
-  input: { number?: string | null; projectId?: string | null; accountId?: string | null; status?: string; amount?: number; entity?: string; dueDate?: string | null },
+  input: { number?: string | null; projectId?: string | null; accountId?: string | null; status?: string; amount?: number; entity?: string; issueDate?: string | null; dueDate?: string | null },
 ): Promise<string> {
   const [created] = await db
     .insert(invoices)
@@ -139,6 +147,7 @@ export async function apiCreateInvoice(
       status: input.status ?? "draft",
       amount: input.amount ?? 0,
       entity: input.entity ?? "Global",
+      issueDate: toDate(input.issueDate),
       dueDate: toDate(input.dueDate),
       ownerId: userId,
     })
@@ -173,7 +182,7 @@ export async function apiCreateExpense(
 export async function apiCreateTicket(
   workspaceId: string,
   _userId: string | null,
-  input: { subject?: string; body?: string | null; projectId?: string | null; accountId?: string | null; status?: string; priority?: string; requesterEmail?: string | null; entity?: string },
+  input: { subject?: string; body?: string | null; projectId?: string | null; accountId?: string | null; contactId?: string | null; assigneeId?: string | null; status?: string; priority?: string; requesterEmail?: string | null; entity?: string },
 ): Promise<string> {
   if (!input.subject?.trim()) throw new Error("`subject` is required.");
   const [created] = await db
@@ -184,6 +193,8 @@ export async function apiCreateTicket(
       body: input.body ?? null,
       projectId: input.projectId ?? null,
       accountId: input.accountId ?? null,
+      contactId: input.contactId || null,
+      assigneeId: input.assigneeId || null,
       status: input.status ?? "open",
       priority: input.priority ?? "normal",
       requesterEmail: input.requesterEmail ?? null,
