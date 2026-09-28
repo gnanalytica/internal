@@ -1,4 +1,4 @@
-import { ok, readJson, withApiAuth } from "@/lib/api/http";
+import { ok, readJson, withAdminApiAuth, withApiAuth } from "@/lib/api/http";
 import { apiAddMember } from "@/lib/api/dept-ops";
 import { getMembersWithRole } from "@/lib/data";
 
@@ -34,7 +34,7 @@ export const GET = withApiAuth(async (req, auth) => {
 });
 
 /** Add someone to the workspace, creating the user when the email is new. */
-export const POST = withApiAuth(async (req, auth) => {
+export const POST = withAdminApiAuth(async (req, auth) => {
   const body = await readJson<Parameters<typeof apiAddMember>[1]>(req);
   const id = await apiAddMember(auth.workspaceId, body);
   return ok({ data: { id } }, 201);

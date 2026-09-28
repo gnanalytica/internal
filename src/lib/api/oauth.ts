@@ -10,6 +10,9 @@ import { oauthCodes } from "@/db/schema";
 // be unit-tested; re-exported here so callers have a single import site.
 export {
   findClient,
+  isValidCodeChallenge,
+  MOBILE_CLIENT_ID,
+  pkceMatches,
   redirectUriAllowed,
   registeredClients,
   secretMatches,
@@ -45,6 +48,7 @@ export async function issueCode(input: {
   redirectUri: string;
   workspaceId: string;
   userId: string | null;
+  codeChallenge?: string | null;
 }): Promise<string> {
   const code = crypto.randomBytes(32).toString("base64url");
   await db.insert(oauthCodes).values({
@@ -53,12 +57,13 @@ export async function issueCode(input: {
     redirectUri: input.redirectUri,
     workspaceId: input.workspaceId,
     userId: input.userId,
+    codeChallenge: input.codeChallenge ?? null,
     expiresAt: new Date(Date.now() + CODE_TTL_SECONDS * 1000),
   });
   return code;
 }
 
-export type RedeemedCode = { workspaceId: string; userId: string | null };
+export type RedeemedCode = { workspaceId: string; userId: string | null; codeChallenge: string | null };
 
 /**
  * Redeem a code exactly once.
@@ -93,7 +98,7 @@ export async function redeemCode(input: {
   // Expiry is checked AFTER the atomic claim so an expired code is still burned
   // rather than left redeemable.
   if (row.expiresAt.getTime() < Date.now()) return null;
-  return { workspaceId: row.workspaceId, userId: row.userId };
+  return { workspaceId: row.workspaceId, userId: row.userId, codeChallenge: row.codeChallenge };
 }
 
 /** Best-effort housekeeping: drop codes that can no longer be redeemed. */

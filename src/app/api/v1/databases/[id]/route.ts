@@ -11,7 +11,7 @@ export const GET = withApiAuth<Params>(async (_req, auth, { id }) => {
   return ok({ data: database });
 });
 
-const handlers = recordRoute("databases");
+const handlers = recordRoute("databases", ["DELETE"]);
 
 export const PATCH = handlers.PATCH;
 export const DELETE = handlers.DELETE;

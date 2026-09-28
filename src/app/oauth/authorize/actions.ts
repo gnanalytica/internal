@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser, getMyWorkspaces } from "@/lib/data";
-import { findClient, issueCode, purgeExpiredCodes, redirectUriAllowed } from "@/lib/api/oauth";
+import { findClient, isValidCodeChallenge, issueCode, purgeExpiredCodes, redirectUriAllowed } from "@/lib/api/oauth";
 
 /**
  * Approve a connection request and hand the client an authorization code.
@@ -18,6 +18,8 @@ export async function approveConnection(formData: FormData): Promise<void> {
   const redirectUri = String(formData.get("redirect_uri") ?? "");
   const state = String(formData.get("state") ?? "");
   const workspaceId = String(formData.get("workspace_id") ?? "");
+  const codeChallenge = String(formData.get("code_challenge") ?? "");
+  const challengeMethod = String(formData.get("code_challenge_method") ?? "");
 
   const client = findClient(clientId);
   if (!client || !redirectUriAllowed(client, redirectUri)) {
@@ -29,13 +31,17 @@ export async function approveConnection(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
   const mine = await getMyWorkspaces();
   const ws = mine.find((w) => w.id === workspaceId);
-  if (!ws || ws.role !== "admin") throw new Error("forbidden");
+  // Connecting an integration hands out admin rights, so only an admin may. The
+  // mobile app acts as the member themself, so any member may sign in to it.
+  if (!ws || (client.type === "confidential" && ws.role !== "admin")) throw new Error("forbidden");
+  if (client.type === "public" && !isValidCodeChallenge(codeChallenge, challengeMethod)) throw new Error("invalid_request");
 
   const code = await issueCode({
     clientId,
     redirectUri,
     workspaceId: ws.id,
     userId: me.id,
+    codeChallenge: client.type === "public" ? codeChallenge : null,
   });
 
   // Housekeeping on a path that already touches the table, so expired codes do

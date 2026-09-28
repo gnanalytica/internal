@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 
+import crypto from "node:crypto";
+
 import {
   findClient,
+  isValidCodeChallenge,
+  MOBILE_CLIENT_ID,
+  MOBILE_REDIRECT_URI,
+  pkceMatches,
   redirectUriAllowed,
   registeredClients,
   secretMatches,
 } from "./oauth-clients";
+
+const confidential = (env: NodeJS.ProcessEnv) => registeredClients(env).filter((c) => c.type === "confidential");
 
 const ENV = {
   OAUTH_CLIENT_STANDUP_ID: "standup-ai",
@@ -16,13 +24,13 @@ const ENV = {
 
 describe("registeredClients", () => {
   it("is empty until fully configured", () => {
-    expect(registeredClients({} as NodeJS.ProcessEnv)).toEqual([]);
+    expect(confidential({} as NodeJS.ProcessEnv)).toEqual([]);
     // A partial config must NOT half-open the flow.
     expect(
-      registeredClients({ OAUTH_CLIENT_STANDUP_ID: "x" } as unknown as NodeJS.ProcessEnv),
+      confidential({ OAUTH_CLIENT_STANDUP_ID: "x" } as unknown as NodeJS.ProcessEnv),
     ).toEqual([]);
     expect(
-      registeredClients({
+      confidential({
         OAUTH_CLIENT_STANDUP_ID: "x",
         OAUTH_CLIENT_STANDUP_SECRET: "y",
       } as unknown as NodeJS.ProcessEnv),
@@ -49,7 +57,7 @@ describe("findClient", () => {
 });
 
 describe("redirectUriAllowed", () => {
-  const client = registeredClients(ENV)[0];
+  const client = confidential(ENV)[0];
 
   it("accepts the registered callback", () => {
     expect(
@@ -107,5 +115,38 @@ describe("secretMatches", () => {
     // rather than turning a wrong password into a 500.
     expect(() => secretMatches("short", "a-much-longer-secret")).not.toThrow();
     expect(secretMatches("short", "a-much-longer-secret")).toBe(false);
+  });
+});
+
+describe("mobile app client", () => {
+  const verifier = crypto.randomBytes(48).toString("base64url");
+  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+
+  it("is always registered, public, and only returns to the app scheme", () => {
+    const c = findClient(MOBILE_CLIENT_ID, {} as NodeJS.ProcessEnv)!;
+    expect(c.type).toBe("public");
+    expect(c.secret).toBe("");
+    expect(redirectUriAllowed(c, MOBILE_REDIRECT_URI)).toBe(true);
+    expect(redirectUriAllowed(c, "internal://oauth/../evil")).toBe(false);
+    expect(redirectUriAllowed(c, "https://evil.test/oauth")).toBe(false);
+  });
+  it("accepts extra development callbacks only when configured", () => {
+    const env = { OAUTH_MOBILE_DEV_REDIRECT_URIS: "exp://192.168.1.4:8081/--/oauth" } as unknown as NodeJS.ProcessEnv;
+    expect(redirectUriAllowed(findClient(MOBILE_CLIENT_ID, env)!, "exp://192.168.1.4:8081/--/oauth")).toBe(true);
+    expect(redirectUriAllowed(findClient(MOBILE_CLIENT_ID, {} as NodeJS.ProcessEnv)!, "exp://192.168.1.4:8081/--/oauth")).toBe(false);
+  });
+  it("requires an S256 challenge of the right shape", () => {
+    expect(isValidCodeChallenge(challenge, "S256")).toBe(true);
+    expect(isValidCodeChallenge(challenge, "plain")).toBe(false);
+    expect(isValidCodeChallenge("short", "S256")).toBe(false);
+    expect(isValidCodeChallenge("", "")).toBe(false);
+  });
+  it("matches the verifier to its challenge and nothing else", () => {
+    expect(pkceMatches(challenge, verifier)).toBe(true);
+    expect(pkceMatches(challenge, verifier + "x")).toBe(false);
+    expect(pkceMatches(challenge, "")).toBe(false);
+    expect(pkceMatches(null, verifier)).toBe(false);
+    // A leaked challenge is not a verifier.
+    expect(pkceMatches(challenge, challenge)).toBe(false);
   });
 });

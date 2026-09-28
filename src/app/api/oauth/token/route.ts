@@ -4,14 +4,16 @@ import { db } from "@/db";
 import { apiKeys, workspaces } from "@/db/schema";
 import { apiError, ok } from "@/lib/api/http";
 import { generateApiKey } from "@/lib/api/keys";
-import { findClient, redeemCode, redirectUriAllowed, secretMatches } from "@/lib/api/oauth";
+import { findClient, pkceMatches, redeemCode, redirectUriAllowed, secretMatches } from "@/lib/api/oauth";
 
 /**
  * OAuth2 token endpoint — exchange an authorization code for a workspace API key.
  *
  * NOT behind `withApiAuth`: the caller has no key yet, that is the whole point.
- * The client authenticates with its own id + secret instead, which is why the
- * client must be confidential (a server, never a browser).
+ * A confidential client (a server) authenticates with its id + secret. The
+ * mobile app is a public client and cannot keep a secret, so it proves it is
+ * the same party that started the sign-in with PKCE instead, and its key is
+ * marked `app` so it acts with the member's own role rather than admin rights.
  *
  * The "access token" we return is an ordinary workspace API key, so everything
  * downstream — auth, scoping, revocation from the settings UI — is the exact
@@ -37,6 +39,7 @@ export async function POST(req: Request): Promise<Response> {
   const clientId = str("client_id");
   const clientSecret = str("client_secret");
   const redirectUri = str("redirect_uri");
+  const codeVerifier = str("code_verifier");
 
   if (grantType !== "authorization_code") return apiError("unsupported_grant_type", 400);
 
@@ -44,13 +47,17 @@ export async function POST(req: Request): Promise<Response> {
   // secret, unregistered redirect. Distinguishing them would let a caller probe
   // which client ids exist.
   const client = findClient(clientId);
-  if (!client || !secretMatches(client.secret, clientSecret)) {
+  if (!client || (client.type === "confidential" && !secretMatches(client.secret, clientSecret))) {
     return apiError("invalid_client", 401);
   }
   if (!redirectUriAllowed(client, redirectUri)) return apiError("invalid_client", 401);
 
   const redeemed = await redeemCode({ code, clientId, redirectUri });
   if (!redeemed) return apiError("invalid_grant", 400);
+  // The code is already burned, so a wrong verifier cannot be retried against it.
+  if (client.type === "public" && !pkceMatches(redeemed.codeChallenge, codeVerifier)) {
+    return apiError("invalid_grant", 400);
+  }
 
   const [ws] = await db
     .select({ id: workspaces.id, name: workspaces.name, slug: workspaces.slug })
@@ -68,6 +75,7 @@ export async function POST(req: Request): Promise<Response> {
     keyHash: hash,
     keyPrefix: prefix,
     createdBy: redeemed.userId,
+    kind: client.type === "public" ? "app" : "key",
   });
 
   return ok({

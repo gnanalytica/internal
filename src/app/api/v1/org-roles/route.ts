@@ -1,4 +1,4 @@
-import { ok, readJson, withApiAuth } from "@/lib/api/http";
+import { ok, readJson, withAdminApiAuth, withApiAuth } from "@/lib/api/http";
 import { apiCreateOrgRole } from "@/lib/api/dept-ops";
 import { getOrgRoles } from "@/lib/data";
 
@@ -7,7 +7,7 @@ export const GET = withApiAuth(async (_req, auth) => {
   return ok({ data: roots, count: roots.length });
 });
 
-export const POST = withApiAuth(async (req, auth) => {
+export const POST = withAdminApiAuth(async (req, auth) => {
   const body = await readJson<Parameters<typeof apiCreateOrgRole>[1]>(req);
   const id = await apiCreateOrgRole(auth.workspaceId, body);
   return ok({ data: { id } }, 201);

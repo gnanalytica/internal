@@ -518,6 +518,10 @@ export const apiKeys = pgTable(
     keyHash: text("key_hash").notNull().unique(),
     keyPrefix: text("key_prefix").notNull(),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    // "key": made by an admin in Settings for an integration — acts with admin
+    // rights, as keys always have. "app": minted when a person signs in to the
+    // mobile app — acts with that person's own, current workspace role.
+    kind: text("kind").notNull().default("key"),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -547,6 +551,8 @@ export const oauthCodes = pgTable(
     // Who approved the connection — becomes the API key's `createdBy`, so the
     // audit trail says a person authorised this, not "the integration".
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    // PKCE (S256) challenge, for public clients that cannot keep a secret.
+    codeChallenge: text("code_challenge"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

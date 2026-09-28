@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { webhooks } from "@/db/schema";
-import { notFound, ok, withApiAuth } from "@/lib/api/http";
+import { notFound, ok, withAdminApiAuth } from "@/lib/api/http";
 
 /**
  * Remove a webhook.
@@ -16,7 +16,7 @@ import { notFound, ok, withApiAuth } from "@/lib/api/http";
  * Scoped to the key's workspace, so a key cannot delete another workspace's
  * webhook by guessing an id.
  */
-export const DELETE = withApiAuth(async (_req, auth, params: { id: string }) => {
+export const DELETE = withAdminApiAuth(async (_req, auth, params: { id: string }) => {
   const { id } = params;
   const deleted = await db
     .delete(webhooks)
