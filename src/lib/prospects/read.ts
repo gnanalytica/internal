@@ -20,11 +20,11 @@ export async function loadWorkbook(): Promise<ProspectsWorkbook> {
   cacheLife("minutes");
 
   if (!isGoogleConfigured()) {
-    return { valuers: [], firms: [], rvos: [], activity: [], warnings: ["Google service account is not configured (GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY)."], readAt: new Date().toISOString() };
+    return { valuers: [], firms: [], rvos: [], panels: [], banks: [], activity: [], warnings: ["Google service account is not configured (GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY)."], readAt: new Date().toISOString() };
   }
   const id = prospectsSheetId();
   const present = new Set((await listTabs(id)).map((t) => t.title));
-  const wanted = [TAB.valuer, TAB.firm, TAB.rvo, TAB.activity].filter((t) => present.has(t));
+  const wanted = [TAB.valuer, TAB.firm, TAB.rvo, TAB.panel, TAB.bank, TAB.activity].filter((t) => present.has(t));
   const tabs = await readTabs(id, wanted);
   return parseWorkbook(tabs, new Date().toISOString());
 }

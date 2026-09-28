@@ -153,7 +153,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
   };
 
   const rows = data.rows[kind];
-  const everyone = useMemo(() => [...data.rows.valuer, ...data.rows.firm, ...data.rows.rvo], [data.rows]);
+  const everyone = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
   const showFull = Boolean(sel && full);
 
   return (

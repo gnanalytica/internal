@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getProspectDetail, logTouch, saveProspect } from "@/lib/prospects/actions";
 import type { ActivityEntry, ProspectRecord } from "@/lib/prospects/parse";
 import { displayDate, isDoNotContact, parseNoteLines } from "@/lib/prospects/parse";
-import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
+import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, UNSCORED_KINDS, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays, FACT_COUNT, factsKnown } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
 import { BandBadge, Bar, DueChip, MissingValue, StagePill } from "./bits";
@@ -156,8 +156,9 @@ const CHANNEL_KEYS = [
 function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   const [tab, setTab] = useState<(typeof CHANNEL_KEYS)[number]["key"]>("whatsapp");
   const [pending, start] = useTransition();
-  if (!WRITABLE[ctx.kind].has("draft_whatsapp")) return null;
-  const ch = CHANNEL_KEYS.find((c) => c.key === tab)!;
+  const channels = CHANNEL_KEYS.filter((c) => WRITABLE[ctx.kind].has(c.col));
+  if (!channels.length) return null;
+  const ch = channels.find((c) => c.key === tab) ?? channels[0];
   const text = r.drafts[tab];
   const phone = digits10(r.phone);
   const openHref =
@@ -195,14 +196,14 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
         <span className="text-[11px] text-muted-foreground">written by the research agents</span>
       </div>
       <div role="tablist" aria-label="Draft channel" className="flex gap-1">
-        {CHANNEL_KEYS.map((c) => (
+        {channels.map((c) => (
           <button
             key={c.key}
             type="button"
             role="tab"
-            aria-selected={c.key === tab}
+            aria-selected={c.key === ch.key}
             onClick={() => setTab(c.key)}
-            className={cn("h-7 rounded-full border px-3 text-xs font-medium", c.key === tab ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
+            className={cn("h-7 rounded-full border px-3 text-xs font-medium", c.key === ch.key ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
           >
             {c.label}
           </button>
@@ -284,7 +285,7 @@ function QuickActions({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compac
               Assign to me
             </button>
           ) : null}
-          {ctx.kind === "valuer" && (
+          {WRITABLE[ctx.kind].has("disqualified") && (
             <select
               aria-label="Disqualify"
               value=""
@@ -477,32 +478,49 @@ function ActivityList({ items, limit }: { items: ActivityEntry[]; limit?: number
 
 function Facts({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compact?: boolean }) {
   const lenders = r.lenders.join("; ");
+  const has = (col: string) => WRITABLE[ctx.kind].has(col);
   return (
     <div className={cn("grid gap-x-4 gap-y-3", compact ? "grid-cols-2" : "grid-cols-1")}>
+      {has("contact_person") && <EditField ctx={ctx} col="contact_person" label="Contact person" value={r.bank.contactPerson} missing="Not named yet" />}
+      {has("designation") && <EditField ctx={ctx} col="designation" label="Designation" value={r.bank.designation} missing="Not known" />}
       <EditField ctx={ctx} col="phone" label="Phone" value={r.phone} />
       {!compact && <EditField ctx={ctx} col="email" label="Email" value={r.email} />}
-      {ctx.kind === "valuer" && <EditField ctx={ctx} col="lenders_empanelled_with" label="Lenders empanelled with" value={lenders} type="textarea" />}
-      {ctx.kind === "valuer" && <EditField ctx={ctx} col="lb_cases_per_month" label="L&B cases / month" value={r.casesPerMonth === null ? "" : String(r.casesPerMonth)} type="number" />}
-      {ctx.kind === "valuer" && <EditField ctx={ctx} col="current_software" label="Current software" value={r.software} />}
-      {ctx.kind !== "rvo" && <EditField ctx={ctx} col="pitch_angle" label="Pitch angle" value={r.pitchAngle} type="select" options={PITCH_ANGLES} missing="Not picked yet" />}
-      {ctx.kind !== "rvo" && <EditField ctx={ctx} col="objections" label="Objection" value={r.objections} type="select" options={OBJECTIONS} missing="None recorded" />}
+      {has("lenders_empanelled_with") && <EditField ctx={ctx} col="lenders_empanelled_with" label="Lenders empanelled with" value={lenders} type="textarea" />}
+      {has("lb_cases_per_month") && <EditField ctx={ctx} col="lb_cases_per_month" label="L&B cases / month" value={r.casesPerMonth === null ? "" : String(r.casesPerMonth)} type="number" />}
+      {has("current_software") && <EditField ctx={ctx} col="current_software" label="Current software" value={r.software} />}
+      {has("pitch_angle") && <EditField ctx={ctx} col="pitch_angle" label="Pitch angle" value={r.pitchAngle} type="select" options={PITCH_ANGLES} missing="Not picked yet" />}
+      {has("objections") && <EditField ctx={ctx} col="objections" label="Objection" value={r.objections} type="select" options={OBJECTIONS} missing="None recorded" />}
       <EditField ctx={ctx} col="assigned" label="Assigned" value={r.assigned} missing="Nobody" />
-      {ctx.kind !== "firm" && <EditField ctx={ctx} col="outreach_route" label="Outreach route" value={r.outreachRoute} missing="Not planned" />}
-      {ctx.kind === "firm" && <EditField ctx={ctx} col="key_contact" label="Key contact" value={r.keyContact} missing="Not known" />}
-      {ctx.kind !== "rvo" && <EditField ctx={ctx} col="referred_by" label="Referred by" value={r.referredBy} missing="—" />}
-      {!compact && ctx.kind === "valuer" && <EditField ctx={ctx} col="city" label="City" value={r.city} />}
+      {has("outreach_route") && <EditField ctx={ctx} col="outreach_route" label="Outreach route" value={r.outreachRoute} missing="Not planned" />}
+      {has("key_contact") && <EditField ctx={ctx} col="key_contact" label="Key contact" value={r.keyContact} missing="Not known" />}
+      {has("referred_by") && <EditField ctx={ctx} col="referred_by" label="Referred by" value={r.referredBy} missing="—" />}
+      {!compact && has("city") && <EditField ctx={ctx} col="city" label="City" value={r.city} />}
     </div>
   );
 }
 
 function Registration({ r, kind }: { r: ProspectRecord; kind: ProspectKind }) {
   const rows: [string, string][] = [
-    ["Registration", r.id],
+    [kind === "panel" || kind === "bank" ? "ID" : "Registration", r.id],
     ["State", r.state],
     ["Address", r.address],
     ...(kind === "valuer" ? ([["RVO", r.rvo], ["Registered", r.registeredOn], ["Firm", r.firmRegNo ? `${r.firmRegNo}${r.firmStatus ? ` · firm is ${r.firmStatus}` : ""}` : "—"]] as [string, string][]) : []),
     ...(kind === "firm" ? ([["RVO", r.rvo], ["Directors / partners", r.people]] as [string, string][]) : []),
     ...(kind === "rvo" ? ([["Website", r.website], ["Chair / president", r.keyContact], ["CEO / MD", r.people]] as [string, string][]) : []),
+    ...(kind === "panel" ? ([["City", r.city], ["Practice", r.practice], ["IBBI", "Not on the IBBI register"]] as [string, string][]) : []),
+    ...(kind === "bank"
+      ? ([
+          ["Institution", r.bank.institution],
+          ["Type", r.bank.type],
+          ["Office", r.bank.office],
+          ["Department", r.bank.department],
+          ["City", r.city],
+          ["Empanelment", r.bank.empanelmentWindow],
+          ["Panel page", r.bank.empanelmentPage],
+          ["How to reach", r.bank.howToReach],
+          ["Website", r.website],
+        ] as [string, string][])
+      : []),
     ["Last contacted", r.lastContacted ? displayDate(r.lastContacted) : "Never"],
   ];
   return (
@@ -560,9 +578,9 @@ export function RecordPanel({ sel, today, me, onClose, onExpand, onLog, onChange
           <>
             <div className="flex flex-wrap items-center gap-2">
               <StatusSelect ctx={ctx} r={r} />
-              <BandBadge band={r.band} score={r.opportunityScore} />
+              {!UNSCORED_KINDS.has(sel.kind) && <BandBadge band={r.band} score={r.opportunityScore} />}
               <span className="flex-1" />
-              <FactsMeter r={r} />
+              {!UNSCORED_KINDS.has(sel.kind) && <FactsMeter r={r} />}
             </div>
             <DoNotContactBanner r={r} />
             <QuickActions ctx={ctx} r={r} compact />
@@ -626,10 +644,12 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">{r.name}</h2>
           </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <BandBadge band={r.band} score={r.opportunityScore} />
-            <FactsMeter r={r} />
-          </div>
+          {!UNSCORED_KINDS.has(sel.kind) && (
+            <div className="flex flex-col items-end gap-1.5">
+              <BandBadge band={r.band} score={r.opportunityScore} />
+              <FactsMeter r={r} />
+            </div>
+          )}
         </div>
         <DoNotContactBanner r={r} />
         <QuickActions ctx={ctx} r={r} />
@@ -658,7 +678,7 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
         <div className="grid gap-5 rounded-lg bg-muted/60 p-4 md:grid-cols-[240px_1fr_auto]">
           <div className="flex flex-col gap-1.5">
             <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Fill before moving on</span>
-            {coach.fields.map((f) => {
+            {coach.fields.filter((f) => !UNSCORED_KINDS.has(sel.kind) || WRITABLE[sel.kind].has(f)).map((f) => {
               const filled = fieldFilled(r, f);
               return (
                 <div key={f} className="flex justify-between text-xs">

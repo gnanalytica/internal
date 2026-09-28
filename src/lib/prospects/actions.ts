@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { getCurrentUser, getWorkspace } from "@/lib/data";
 import type { ActivityEntry, ProspectRecord } from "./parse";
-import { displayDate } from "./parse";
+import { displayDate, recordsOf } from "./parse";
 import { loadWorkbook, PROSPECTS_TAG } from "./read";
 import { CHANNELS, DIRECTIONS, OUTCOMES, PROSPECT_KINDS, RECORD_TYPE, STAGES, WRITABLE, type ProspectKind } from "./schema";
 import { todayIST } from "./stats";
@@ -45,7 +45,7 @@ export async function getProspectDetail(kind: ProspectKind, id: string): Promise
   await getWorkspace();
   const k = kindSchema.parse(kind);
   const wb = await loadWorkbook();
-  const list = k === "valuer" ? wb.valuers : k === "firm" ? wb.firms : wb.rvos;
+  const list = recordsOf(wb, k);
   const record = list.find((r) => r.id === id);
   if (!record) return null;
   const activity = wb.activity.filter((a) => a.registrationNo === id).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || b.id.localeCompare(a.id));

@@ -15,13 +15,15 @@ export function prospectsSheetUrl(): string {
   return `https://docs.google.com/spreadsheets/d/${prospectsSheetId()}/edit`;
 }
 
-export const PROSPECT_KINDS = ["valuer", "firm", "rvo"] as const;
+export const PROSPECT_KINDS = ["valuer", "firm", "rvo", "panel", "bank"] as const;
 export type ProspectKind = (typeof PROSPECT_KINDS)[number];
 
 export const TAB: Record<ProspectKind | "activity", string> = {
   valuer: "Registered Valuers",
   firm: "Valuer Firms",
   rvo: "RVOs",
+  panel: "Bank Panel Valuers",
+  bank: "Bank Contacts",
   activity: "Activity",
 };
 
@@ -29,16 +31,23 @@ export const ID_COLUMN: Record<ProspectKind, string> = {
   valuer: "registration_no",
   firm: "registration_no",
   rvo: "rvo_recognition_no",
+  panel: "valuer_id",
+  bank: "contact_id",
 };
 
 export const KIND_LABEL: Record<ProspectKind, { one: string; many: string }> = {
   valuer: { one: "Registered valuer", many: "Valuers" },
   firm: { one: "Valuer firm", many: "Firms" },
   rvo: { one: "RVO", many: "RVOs" },
+  panel: { one: "Bank panel valuer", many: "Panel valuers" },
+  bank: { one: "Bank contact", many: "Bank contacts" },
 };
 
+/** Tabs with no scoring or research-fact columns; the score band and facts meter don't apply. */
+export const UNSCORED_KINDS: ReadonlySet<ProspectKind> = new Set(["panel", "bank"]);
+
 /** Activity's record_type values, per kind. */
-export const RECORD_TYPE: Record<ProspectKind, string> = { valuer: "Valuer", firm: "Firm", rvo: "RVO" };
+export const RECORD_TYPE: Record<ProspectKind, string> = { valuer: "Valuer", firm: "Firm", rvo: "RVO", panel: "Panel valuer", bank: "Bank contact" };
 
 export const STAGES = ["Not contacted", "Contacted", "Discovery done", "Demo done", "Pilot running", "Won", "Lost"] as const;
 export type Stage = (typeof STAGES)[number];
@@ -169,6 +178,36 @@ export const WRITABLE: Record<ProspectKind, ReadonlySet<string>> = {
     "draft_whatsapp",
     "draft_call",
     "draft_meeting",
+    "notes",
+    "research_notes",
+  ]),
+  panel: new Set([
+    "status",
+    "city",
+    "phone",
+    "email",
+    "lenders_empanelled_with",
+    "assigned",
+    "outreach_route",
+    "last_contacted",
+    "next_step",
+    "next_step_date",
+    "draft_whatsapp",
+    "draft_call",
+    "notes",
+    "research_notes",
+    "disqualified",
+  ]),
+  bank: new Set([
+    "status",
+    "contact_person",
+    "designation",
+    "phone",
+    "email",
+    "assigned",
+    "last_contacted",
+    "next_step",
+    "next_step_date",
     "notes",
     "research_notes",
   ]),

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { logTouch } from "@/lib/prospects/actions";
 import { displayDate } from "@/lib/prospects/parse";
-import { CHANNELS, OBJECTIONS, OUTCOMES, PITCH_ANGLES, STAGES, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
+import { CHANNELS, OBJECTIONS, OUTCOMES, PITCH_ANGLES, STAGES, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
 
@@ -96,7 +96,7 @@ function LogForm({ target, today, onDone, onSaved }: { target: LogTarget; today:
   const days = FOLLOW_UPS.find((f) => f.label === follow)?.days ?? null;
   const nextDate = days === null ? null : addDays(today, days);
   const step = nextStep ?? defaultNextStep(outcome, target.nextStep);
-  const isFirmOrValuer = target.kind !== "rvo";
+  const tracksPitch = WRITABLE[target.kind].has("pitch_angle");
 
   const writes = useMemo(() => {
     const cols = ["status", "last_contacted", "notes"];
@@ -104,10 +104,10 @@ function LogForm({ target, today, onDone, onSaved }: { target: LogTarget; today:
     if (step) cols.push("next_step");
     if (target.kind === "valuer" && software) cols.push("current_software");
     if (target.kind === "valuer" && cases) cols.push("lb_cases_per_month");
-    if (isFirmOrValuer && objection) cols.push("objections");
-    if (isFirmOrValuer && pitch) cols.push("pitch_angle");
+    if (tracksPitch && objection) cols.push("objections");
+    if (tracksPitch && pitch) cols.push("pitch_angle");
     return cols;
-  }, [nextDate, step, software, cases, objection, pitch, target.kind, isFirmOrValuer]);
+  }, [nextDate, step, software, cases, objection, pitch, target.kind, tracksPitch]);
 
   const submit = () =>
     start(async () => {
@@ -126,8 +126,8 @@ function LogForm({ target, today, onDone, onSaved }: { target: LogTarget; today:
         fields: {
           ...(target.kind === "valuer" && software ? { current_software: software } : {}),
           ...(target.kind === "valuer" && cases ? { lb_cases_per_month: Number(cases) } : {}),
-          ...(isFirmOrValuer && objection ? { objections: objection } : {}),
-          ...(isFirmOrValuer && pitch ? { pitch_angle: pitch } : {}),
+          ...(tracksPitch && objection ? { objections: objection } : {}),
+          ...(tracksPitch && pitch ? { pitch_angle: pitch } : {}),
         },
       });
       if (res.ok) {
@@ -173,8 +173,8 @@ function LogForm({ target, today, onDone, onSaved }: { target: LogTarget; today:
             </div>
           </div>
         )}
-        {isFirmOrValuer && <Chips label="Main objection" col="objections" value={objection} options={OBJECTIONS} onChange={setObjection} />}
-        {isFirmOrValuer && <Chips label="Pitch that landed" col="pitch_angle" value={pitch} options={PITCH_ANGLES} onChange={setPitch} />}
+        {tracksPitch && <Chips label="Main objection" col="objections" value={objection} options={OBJECTIONS} onChange={setObjection} />}
+        {tracksPitch && <Chips label="Pitch that landed" col="pitch_angle" value={pitch} options={PITCH_ANGLES} onChange={setPitch} />}
         <Chips label="Next follow-up" col="next_step_date" value={follow} options={FOLLOW_UPS.map((f) => f.label)} onChange={(v) => setFollow(v || "No follow-up")} />
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">

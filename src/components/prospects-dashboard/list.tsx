@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { assignToMe, saveProspect } from "@/lib/prospects/actions";
 import { displayDate } from "@/lib/prospects/parse";
-import { STAGES, type ProspectKind } from "@/lib/prospects/schema";
+import { ID_COLUMN, STAGES, UNSCORED_KINDS, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
 import { FACT_COUNT, SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
 import { BandBadge, DueChip, StagePill } from "./bits";
@@ -14,8 +14,8 @@ import { applyFilters, FilterBar, type Filters } from "./pipeline";
 
 const PAGE = 100;
 
-function csv(rows: ProspectRow[]): string {
-  const head = ["registration_no", "name", "city", "state", "status", "band", "score", "assigned", "next_step", "next_step_date", "last_contacted", "lenders", "lb_cases_per_month", "current_software"];
+function csv(kind: ProspectKind, rows: ProspectRow[]): string {
+  const head = [ID_COLUMN[kind], "name", "city", "state", "status", "band", "score", "assigned", "next_step", "next_step_date", "last_contacted", "lenders", "lb_cases_per_month", "current_software"];
   const esc = (v: unknown) => {
     const s = v === null || v === undefined ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -29,6 +29,7 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
   const [limit, setLimit] = useState(PAGE);
   const [pending, start] = useTransition();
   const ctx = { person: me, today };
+  const col = { band: kind === "valuer", lenders: WRITABLE[kind].has("lenders_empanelled_with"), cases: WRITABLE[kind].has("lb_cases_per_month"), software: WRITABLE[kind].has("current_software"), facts: !UNSCORED_KINDS.has(kind) };
   const current = SAVED_VIEWS.find((v) => v.id === view) ?? SAVED_VIEWS[0];
   const shown = useMemo(() => {
     const base = applyFilters(rows, filters, me).filter((r) => current.test(r, ctx) && (stage === null || r.stage === stage));
@@ -136,7 +137,7 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
             size="xs"
             variant="outline"
             onClick={() => {
-              const url = URL.createObjectURL(new Blob([csv(shown)], { type: "text/csv" }));
+              const url = URL.createObjectURL(new Blob([csv(kind, shown)], { type: "text/csv" }));
               const a = document.createElement("a");
               a.href = url;
               a.download = `prospects-${view}.csv`;
@@ -158,12 +159,12 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
               <th className="py-2 pr-2 font-medium">Name</th>
               <th className="px-2 font-medium">City</th>
               <th className="px-2 font-medium">Status</th>
-              <th className="px-2 font-medium">Band</th>
-              <th className="px-2 text-right font-medium">Lenders</th>
-              <th className="px-2 text-right font-medium">Cases</th>
-              <th className="px-2 font-medium">Software</th>
+              {col.band && <th className="px-2 font-medium">Band</th>}
+              {col.lenders && <th className="px-2 text-right font-medium">Lenders</th>}
+              {col.cases && <th className="px-2 text-right font-medium">Cases</th>}
+              {col.software && <th className="px-2 font-medium">Software</th>}
               <th className="px-2 font-medium">Contact</th>
-              <th className="px-2 font-medium">Facts</th>
+              {col.facts && <th className="px-2 font-medium">Facts</th>}
               <th className="px-2 font-medium">Research</th>
               <th className="px-2 font-medium">Last touch</th>
               <th className="px-2 font-medium">Next step</th>
@@ -197,12 +198,14 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
                 <td className="px-2">
                   <StagePill stage={r.stage} />
                 </td>
-                <td className="px-2">
-                  <BandBadge band={r.band} score={r.score} />
-                </td>
-                <td className={cn("px-2 text-right font-mono tabular-nums", !r.lenders && "text-amber-700")}>{r.lenders || "?"}</td>
-                <td className={cn("px-2 text-right font-mono tabular-nums", r.cases === null && "text-amber-700")}>{r.cases ?? "?"}</td>
-                <td className={cn("max-w-36 truncate px-2", !r.software && "text-amber-700")}>{r.software || "unknown"}</td>
+                {col.band && (
+                  <td className="px-2">
+                    <BandBadge band={r.band} score={r.score} />
+                  </td>
+                )}
+                {col.lenders && <td className={cn("px-2 text-right font-mono tabular-nums", !r.lenders && "text-amber-700")}>{r.lenders || "?"}</td>}
+                {col.cases && <td className={cn("px-2 text-right font-mono tabular-nums", r.cases === null && "text-amber-700")}>{r.cases ?? "?"}</td>}
+                {col.software && <td className={cn("max-w-36 truncate px-2", !r.software && "text-amber-700")}>{r.software || "unknown"}</td>}
                 <td className="px-2">
                   <span className="flex gap-1 text-[11px]">
                     <span className={cn("rounded px-1", r.hasPhone ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950")} title={r.hasPhone ? "Has phone" : "No phone"}>
@@ -213,9 +216,11 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
                     </span>
                   </span>
                 </td>
-                <td className="px-2 font-mono text-[11px] tabular-nums">
-                  {r.facts}/{FACT_COUNT}
-                </td>
+                {col.facts && (
+                  <td className="px-2 font-mono text-[11px] tabular-nums">
+                    {r.facts}/{FACT_COUNT}
+                  </td>
+                )}
                 <td className="max-w-32 truncate px-2 text-[11px]">{r.researchStatus || <span className="text-muted-foreground">Not started</span>}</td>
                 <td className="px-2 font-mono text-[11px] text-muted-foreground">{r.lastContacted ? displayDate(r.lastContacted) : "—"}</td>
                 <td className="px-2">{r.nextStepDate ? <DueChip date={r.nextStepDate} today={today} /> : <span className="text-[11px] text-muted-foreground">—</span>}</td>

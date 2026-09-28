@@ -14,8 +14,8 @@ export default async function ProspectsPage({ searchParams }: { searchParams: Pr
   return (
     <ProspectsWorkspace
       data={{
-        rows: { valuer: scoped(wb.valuers), firm: scoped(wb.firms), rvo: scoped(wb.rvos) },
-        totals: { valuer: wb.valuers.length, firm: wb.firms.length, rvo: wb.rvos.length },
+        rows: { valuer: scoped(wb.valuers), firm: scoped(wb.firms), rvo: scoped(wb.rvos), panel: scoped(wb.panels), bank: scoped(wb.banks) },
+        totals: { valuer: wb.valuers.length, firm: wb.firms.length, rvo: wb.rvos.length, panel: wb.panels.length, bank: wb.banks.length },
         activity: wb.activity,
         today: todayIST(),
         readAt: wb.readAt,

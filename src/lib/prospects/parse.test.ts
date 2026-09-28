@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bandKey, displayDate, isDoNotContact, parseActivity, parseNoteLines, parseRecords, parseSheetDate, parseSources, parseWorkbook, splitList, stageIndex } from "./parse";
+import { bandKey, displayDate, isDoNotContact, parseActivity, parseNoteLines, parseRecords, parseSheetDate, parseSources, parseWorkbook, recordsOf, splitList, stageIndex } from "./parse";
 import { activityRow, nextActivityId, planRowWrite } from "./plan";
 
 const VALUER_HEADER = [
@@ -66,6 +66,35 @@ describe("research notes", () => {
   });
 });
 
+describe("bank tabs", () => {
+  it("names a bank contact by institution and person, keyed by contact_id", () => {
+    const warnings: string[] = [];
+    const [r] = parseRecords(
+      "bank",
+      [
+        ["contact_id", "institution", "institution_type", "office", "contact_person", "designation", "city", "state", "empanelment_window", "how_to_reach", "status"],
+        ["BC-0001", "Canara Bank", "Public Sector Bank", "Hyderabad North", "Rohit Kumar", "Authorised Officer", "Hyderabad", "Telangana", "Open", "Phone the branch", "Contacted"],
+      ],
+      warnings,
+    );
+    expect(warnings).toEqual([]);
+    expect(r.id).toBe("BC-0001");
+    expect(r.name).toBe("Canara Bank · Rohit Kumar");
+    expect(r.keyContact).toBe("Rohit Kumar");
+    expect(r.bank).toMatchObject({ institution: "Canara Bank", office: "Hyderabad North", designation: "Authorised Officer", empanelmentWindow: "Open", howToReach: "Phone the branch" });
+    expect(r.stage).toBe(1);
+  });
+  it("reads bank panel valuers by valuer_id and returns every kind from the workbook", () => {
+    const tabs = new Map<string, unknown[][]>([
+      ["Bank Panel Valuers", [["valuer_id", "name", "firm", "lenders_empanelled_with"], ["BPV-001", "Chella Manasa", "Sri Associates", "PNB; Canara Bank"]]],
+      ["Bank Contacts", [["contact_id", "institution"], ["BC-0001", "SBI"]]],
+    ]);
+    const wb = parseWorkbook(tabs, "2026-09-28T00:00:00Z");
+    expect(recordsOf(wb, "panel").map((r) => [r.id, r.practice, r.lenders])).toEqual([["BPV-001", "Sri Associates", ["PNB", "Canara Bank"]]]);
+    expect(recordsOf(wb, "bank")[0].name).toBe("SBI");
+  });
+});
+
 describe("parseRecords", () => {
   it("finds columns by header, skips rows without an ID, and flags duplicates", () => {
     const warnings: string[] = [];
@@ -103,7 +132,7 @@ describe("parseRecords", () => {
 
   it("reports missing tabs instead of showing an empty dashboard silently", () => {
     const wb = parseWorkbook(new Map(), "2026-09-28T00:00:00Z");
-    expect(wb.warnings.length).toBe(4);
+    expect(wb.warnings.length).toBe(6);
   });
 });
 

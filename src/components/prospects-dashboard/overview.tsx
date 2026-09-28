@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { assignToMe } from "@/lib/prospects/actions";
 import type { ActivityEntry } from "@/lib/prospects/parse";
-import { KIND_LABEL, type ProspectKind } from "@/lib/prospects/schema";
+import { KIND_LABEL, UNSCORED_KINDS, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
 import { buildOverview, type Period, type ProspectRow } from "@/lib/prospects/stats";
 import { BandBadge, Bar, Card, Empty, Segmented } from "./bits";
 
@@ -135,7 +135,7 @@ export function Overview({
             </p>
           </Card>
         )}
-        {kind !== "rvo" && (
+        {(kind === "valuer" || kind === "firm") && (
           <Card title="Pitch that books demos" aside="discovery → demo">
             {o.pitch.some((p) => p.discovered) ? (
               o.pitch.map((p) => (
@@ -151,16 +151,18 @@ export function Overview({
           </Card>
         )}
         <Card title="What we know" aside={`of ${o.total.toLocaleString("en-IN")}`}>
-          {o.coverage.map((c) => (
+          {o.coverage.filter((c) => !UNSCORED_KINDS.has(kind) || c.label === "Phone" || c.label === "Email" || (c.label === "Lenders" && WRITABLE[kind].has("lenders_empanelled_with"))).map((c) => (
             <div key={c.label} className="grid grid-cols-[120px_1fr_40px] items-center gap-2 text-xs">
               <span>{c.label}</span>
               <Bar value={c.pct} max={100} />
               <span className="text-right font-mono tabular-nums">{c.pct}%</span>
             </div>
           ))}
-          <Button size="xs" variant="ghost" className="self-start" onClick={() => onGotoList("gaps")}>
-            See rows missing facts →
-          </Button>
+          {!UNSCORED_KINDS.has(kind) && (
+            <Button size="xs" variant="ghost" className="self-start" onClick={() => onGotoList("gaps")}>
+              See rows missing facts →
+            </Button>
+          )}
         </Card>
       </div>
 

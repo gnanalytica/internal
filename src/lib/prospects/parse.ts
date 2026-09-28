@@ -1,6 +1,6 @@
 import { ID_COLUMN, SCORE_COLUMNS, STAGES, TAB, type ProspectKind } from "./schema";
 
-/** One row of Registered Valuers, Valuer Firms or RVOs, keyed by its registration number. */
+/** One row of any record tab, keyed by that tab's ID column (a registration number where there is one). */
 export type ProspectRecord = {
   kind: ProspectKind;
   id: string;
@@ -48,6 +48,10 @@ export type ProspectRecord = {
   pitchAngle: string;
   objections: string;
   referredBy: string;
+  /** Bank Panel Valuers: their practice. */
+  practice: string;
+  /** Bank Contacts: the office and how to get in. */
+  bank: { institution: string; type: string; office: string; department: string; contactPerson: string; designation: string; empanelmentPage: string; empanelmentWindow: string; howToReach: string };
 };
 
 export type ActivityEntry = {
@@ -71,6 +75,8 @@ export type ProspectsWorkbook = {
   valuers: ProspectRecord[];
   firms: ProspectRecord[];
   rvos: ProspectRecord[];
+  panels: ProspectRecord[];
+  banks: ProspectRecord[];
   activity: ActivityEntry[];
   /** Problems worth showing rather than hiding: a missing tab, a duplicate ID. */
   warnings: string[];
@@ -217,7 +223,7 @@ export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: 
     out.push({
       kind,
       id,
-      name: t("name"),
+      name: t("name") || [t("institution"), t("contact_person")].filter(Boolean).join(" · "),
       status,
       stage: stageIndex(status),
       state: t("state"),
@@ -230,7 +236,7 @@ export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: 
       registeredOn: t("date_of_registration"),
       firmRegNo: t("valuer_firm_registration_no"),
       firmStatus: t("firm_status"),
-      keyContact: t("key_contact") || t("chairperson_president"),
+      keyContact: t("key_contact") || t("chairperson_president") || t("contact_person"),
       people: t("directors_partners") || t("ceo_md"),
       lenders: splitList(t("lenders_empanelled_with")),
       software: t("current_software"),
@@ -257,6 +263,18 @@ export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: 
       pitchAngle: t("pitch_angle"),
       objections: t("objections"),
       referredBy: t("referred_by"),
+      practice: t("firm"),
+      bank: {
+        institution: t("institution"),
+        type: t("institution_type"),
+        office: t("office"),
+        department: t("department"),
+        contactPerson: t("contact_person"),
+        designation: t("designation"),
+        empanelmentPage: t("empanelment_page"),
+        empanelmentWindow: t("empanelment_window"),
+        howToReach: t("how_to_reach"),
+      },
     });
   }
   return out;
@@ -299,8 +317,15 @@ export function parseWorkbook(tabs: Map<string, unknown[][]>, readAt: string): P
     valuers: parseRecords("valuer", tabs.get(TAB.valuer) ?? [], warnings),
     firms: parseRecords("firm", tabs.get(TAB.firm) ?? [], warnings),
     rvos: parseRecords("rvo", tabs.get(TAB.rvo) ?? [], warnings),
+    panels: parseRecords("panel", tabs.get(TAB.panel) ?? [], warnings),
+    banks: parseRecords("bank", tabs.get(TAB.bank) ?? [], warnings),
     activity: parseActivity(tabs.get(TAB.activity) ?? [], warnings),
     warnings,
     readAt,
   };
+}
+
+/** The records of one kind. */
+export function recordsOf(wb: ProspectsWorkbook, kind: ProspectKind): ProspectRecord[] {
+  return { valuer: wb.valuers, firm: wb.firms, rvo: wb.rvos, panel: wb.panels, bank: wb.banks }[kind];
 }
