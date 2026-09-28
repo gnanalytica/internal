@@ -242,9 +242,9 @@ function QuickActions({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compac
   const [pending, start] = useTransition();
   const phone = digits10(r.phone);
   const firstName = ctx.me.split(/\s+/)[0];
-  const cls = "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium hover:bg-muted";
+  const cls = "inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-2 text-[13px] font-medium whitespace-nowrap hover:bg-muted sm:h-8 sm:justify-start sm:px-3";
   return (
-    <div className={cn("flex flex-wrap gap-1.5", compact && "grid grid-cols-4")}>
+    <div className={cn("grid grid-cols-4 gap-1.5", !compact && "sm:flex sm:flex-wrap")}>
       {phone ? (
         <a href={`tel:+91${phone}`} onClick={() => setTimeout(ctx.onLog, 400)} className={cls}>
           <Phone className="size-3.5" /> Call
@@ -277,11 +277,11 @@ function QuickActions({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compac
       </button>
       {!compact && (
         <>
-          <button type="button" disabled={pending} onClick={() => save(ctx, { next_step_date: addDays(ctx.today, 3) }, start)} className={cls}>
+          <button type="button" disabled={pending} onClick={() => save(ctx, { next_step_date: addDays(ctx.today, 3) }, start)} className={cn(cls, "col-span-2")}>
             Follow up in 3 days
           </button>
           {!r.assigned || r.assigned.toLowerCase() !== firstName.toLowerCase() ? (
-            <button type="button" disabled={pending} onClick={() => save(ctx, { assigned: firstName }, start)} className={cls}>
+            <button type="button" disabled={pending} onClick={() => save(ctx, { assigned: firstName }, start)} className={cn(cls, "col-span-2")}>
               Assign to me
             </button>
           ) : null}
@@ -291,7 +291,7 @@ function QuickActions({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compac
               value=""
               disabled={pending}
               onChange={(e) => e.target.value && save(ctx, { disqualified: e.target.value }, start)}
-              className="h-8 rounded-md border border-red-200 bg-background px-2 text-[13px] text-red-700 dark:border-red-900 dark:text-red-300"
+              className="col-span-4 h-9 rounded-md border border-red-200 bg-background px-2 text-[13px] text-red-700 sm:h-8 dark:border-red-900 dark:text-red-300"
             >
               <option value="">Disqualify…</option>
               {DISQUALIFY_REASONS.map((d) => (
@@ -633,19 +633,19 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
         <Button variant="outline" size="sm" onClick={onBack}>
           <ArrowLeft /> Back to {backLabel}
         </Button>
-        <span className="text-xs text-muted-foreground">Every change here is written to this row of the sheet.</span>
+        <span className="text-xs text-muted-foreground max-sm:hidden">Every change here is written to this row of the sheet.</span>
       </div>
-      <section className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="min-w-0 flex-1">
+      <section className="flex flex-col gap-4 rounded-xl border bg-card p-3 sm:p-5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
             <p className="text-xs text-muted-foreground">
               {KIND_LABEL[sel.kind].one} · <span className="font-mono">{r.id}</span>
               {r.city ? ` · ${r.city}` : ""}
             </p>
-            <h2 className="text-2xl font-semibold tracking-tight">{r.name}</h2>
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">{r.name}</h2>
           </div>
           {!UNSCORED_KINDS.has(sel.kind) && (
-            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1.5">
               <BandBadge band={r.band} score={r.opportunityScore} />
               <FactsMeter r={r} />
             </div>
@@ -653,7 +653,7 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
         </div>
         <DoNotContactBanner r={r} />
         <QuickActions ctx={ctx} r={r} />
-        <div role="tablist" aria-label="Stage" className="grid grid-cols-7 gap-1">
+        <div role="tablist" aria-label="Stage" className="no-scrollbar -mx-3 flex gap-1 overflow-x-auto px-3 sm:mx-0 sm:grid sm:grid-cols-7 sm:px-0">
           {STAGES.map((s, i) => {
             const current = i === r.stage;
             const done = i < r.stage && i < 5;
@@ -665,7 +665,7 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
                 aria-selected={i === pv}
                 onClick={() => setView(i)}
                 className={cn(
-                  "h-9 truncate px-3 text-xs font-semibold transition-colors [clip-path:polygon(0_0,calc(100%-10px)_0,100%_50%,calc(100%-10px)_100%,0_100%,10px_50%)] first:[clip-path:polygon(0_0,calc(100%-10px)_0,100%_50%,calc(100%-10px)_100%,0_100%)] last:[clip-path:polygon(0_0,100%_0,100%_100%,0_100%,10px_50%)]",
+                  "h-9 shrink-0 truncate px-3 text-xs font-semibold whitespace-nowrap transition-colors max-sm:min-w-28 [clip-path:polygon(0_0,calc(100%-10px)_0,100%_50%,calc(100%-10px)_100%,0_100%,10px_50%)] first:[clip-path:polygon(0_0,calc(100%-10px)_0,100%_50%,calc(100%-10px)_100%,0_100%)] last:[clip-path:polygon(0_0,100%_0,100%_100%,0_100%,10px_50%)]",
                   current ? "bg-brand text-brand-foreground" : done ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" : i === pv ? "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200" : "bg-muted text-muted-foreground",
                 )}
               >
@@ -675,7 +675,7 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
             );
           })}
         </div>
-        <div className="grid gap-5 rounded-lg bg-muted/60 p-4 md:grid-cols-[240px_1fr_auto]">
+        <div className="grid gap-4 rounded-lg bg-muted/60 p-3 sm:gap-5 sm:p-4 md:grid-cols-[240px_1fr_auto]">
           <div className="flex flex-col gap-1.5">
             <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Fill before moving on</span>
             {coach.fields.filter((f) => !UNSCORED_KINDS.has(sel.kind) || WRITABLE[sel.kind].has(f)).map((f) => {
@@ -712,21 +712,21 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
 
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
         <div className="flex flex-col gap-4">
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
             <h3 className="text-sm font-semibold">What we know</h3>
             <Facts ctx={ctx} r={r} />
           </section>
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
             <h3 className="text-sm font-semibold">Registration</h3>
             <Registration r={r} kind={sel.kind} />
           </section>
         </div>
         <div className="flex flex-col gap-4">
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
             <NextStep ctx={ctx} r={r} />
             <Drafts ctx={ctx} r={r} />
           </section>
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <h3 className="flex-1 text-sm font-semibold">Activity</h3>
               <Button size="sm" variant="outline" onClick={onLog}>
@@ -735,20 +735,20 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
             </div>
             <ActivityList items={detail.data.activity} />
           </section>
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
             <EditField ctx={ctx} col="notes" label="Notes (newest first)" value={r.notes} type="textarea" missing="No notes yet" display={<div className="text-[13px] leading-relaxed whitespace-pre-wrap">{r.notes}</div>} />
           </section>
         </div>
         <div className="flex flex-col gap-4">
           {sel.kind === "valuer" && (
-            <section className="rounded-xl border bg-card p-4">
+            <section className="rounded-xl border bg-card p-3 sm:p-4">
               <ScoreCard r={r} />
             </section>
           )}
-          <section className="rounded-xl border bg-card p-4">
+          <section className="rounded-xl border bg-card p-3 sm:p-4">
             <ResearchNotes ctx={ctx} r={r} limit={14} />
           </section>
-          <section className="rounded-xl border bg-card p-4">
+          <section className="rounded-xl border bg-card p-3 sm:p-4">
             <ResearchCard r={r} />
           </section>
           <StagePillLegend stage={r.stage} />

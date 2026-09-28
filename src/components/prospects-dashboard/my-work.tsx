@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ const QUICK: Quick[] = [
 export function MyWork({ rows, today, me, onOpen, onLog, onChanged }: { rows: ProspectRow[]; today: string; me: string; onOpen: (r: ProspectRow) => void; onLog: (r: ProspectRow) => void; onChanged: () => void }) {
   const tasks = useMemo(() => myTasks(rows, me, today), [rows, me, today]);
   const [selId, setSelId] = useState<string | null>(null);
+  const cardRef = useRef<HTMLElement>(null);
   const [done, setDone] = useState(0);
   const [tab, setTab] = useState<(typeof DRAFT_TABS)[number]["key"]>("whatsapp");
   const [pending, start] = useTransition();
@@ -97,7 +98,11 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged }: { rows: Pr
             <button
               key={`${t.row.kind}:${t.row.id}`}
               type="button"
-              onClick={() => setSelId(`${t.row.kind}:${t.row.id}`)}
+              onClick={() => {
+                setSelId(`${t.row.kind}:${t.row.id}`);
+                // Below lg the task card sits above the queue, so bring it back into view.
+                if (window.matchMedia("(max-width: 1023px)").matches) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
               className={cn("flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/50", on && "border-foreground ring-1 ring-foreground")}
             >
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -116,8 +121,8 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged }: { rows: Pr
       </section>
 
       {current && (
-        <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
-          <div className="flex flex-col gap-2 border-b p-4">
+        <section ref={cardRef} className="flex min-w-0 scroll-mt-3 flex-col overflow-hidden rounded-xl border bg-card max-lg:order-first">
+          <div className="flex flex-col gap-2 border-b p-3 sm:p-4">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-lg font-semibold">{current.row.name}</h3>
@@ -138,7 +143,7 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged }: { rows: Pr
               </div>
             )}
           </div>
-          <div className="flex flex-col gap-3 p-4">
+          <div className="flex flex-col gap-3 p-3 sm:p-4">
             <div className="flex items-center gap-1.5">
               {DRAFT_TABS.map((d) => (
                 <button key={d.key} type="button" aria-pressed={d.key === tab} onClick={() => setTab(d.key)} className={cn("h-7 rounded-full border px-3 text-xs font-medium", d.key === tab ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>
