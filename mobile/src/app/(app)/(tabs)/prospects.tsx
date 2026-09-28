@@ -1,10 +1,6 @@
-import { Empty, Screen } from "@/components/ui";
+import { ProspectsWorkspace } from "@/features/prospects/workspace";
 
-/** Replaced by the Prospects section (sheet-backed My work, list and records). */
+/** The sales team's calling tool: My work, List, Pipeline, Overview and Playbook, read from and written to the prospects sheet. */
 export default function Prospects() {
-  return (
-    <Screen>
-      <Empty icon="phone-call" title="Prospects" body="The prospects dashboard is being added to the app." />
-    </Screen>
-  );
+  return <ProspectsWorkspace />;
 }
