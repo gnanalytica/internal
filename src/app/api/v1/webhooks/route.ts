@@ -3,11 +3,11 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { webhooks } from "@/db/schema";
 import { ApiInputError } from "@/lib/api/errors";
-import { ok, withApiAuth } from "@/lib/api/http";
+import { ok, withAdminApiAuth } from "@/lib/api/http";
 import { newWebhookSecret, WEBHOOK_EVENTS, type WebhookEvent } from "@/lib/api/webhooks";
 
 /** Webhooks registered for the key's workspace. Secrets are never returned. */
-export const GET = withApiAuth(async (_req, auth) => {
+export const GET = withAdminApiAuth(async (_req, auth) => {
   const rows = await db
     .select({
       id: webhooks.id,
@@ -34,7 +34,7 @@ export const GET = withApiAuth(async (_req, auth) => {
  * that URL right now, and returning the old secret would mean storing a
  * plaintext secret we could hand back, which we deliberately do not do.
  */
-export const POST = withApiAuth(async (req, auth) => {
+export const POST = withAdminApiAuth(async (req, auth) => {
   let body: { url?: unknown; events?: unknown };
   try {
     body = (await req.json()) as typeof body;

@@ -1,10 +1,11 @@
-import { notFound, ok, readJson, withApiAuth } from "@/lib/api/http";
+import { notFound, ok, readJson, withAdminApiAuth, withApiAuth } from "@/lib/api/http";
 import {
   apiDeleteRecord,
   apiUpdateRecord,
   writableFields,
   type ResourceName,
 } from "@/lib/api/records";
+import { assertRecordWritable } from "@/lib/api/scope";
 
 type Params = { id: string };
 
@@ -13,15 +14,18 @@ type Params = { id: string };
  * Route files stay a two-line binding so adding a resource means adding a row
  * to the registry in `records.ts`, not another copy of this logic.
  */
-export function recordRoute(name: ResourceName) {
-  const PATCH = withApiAuth<Params>(async (req, auth, { id }) => {
+export function recordRoute(name: ResourceName, adminOnly: ("PATCH" | "DELETE")[] = []) {
+  const wrap = (m: "PATCH" | "DELETE") => (adminOnly.includes(m) ? withAdminApiAuth : withApiAuth);
+  const PATCH = wrap("PATCH")<Params>(async (req, auth, { id }) => {
+    await assertRecordWritable(auth, name, id);
     const patch = await readJson<Record<string, unknown>>(req);
     const updated = await apiUpdateRecord(name, auth.workspaceId, id, patch);
     if (!updated) return notFound(name);
     return ok({ data: { id }, updated: true, writable: writableFields(name) });
   });
 
-  const DELETE = withApiAuth<Params>(async (_req, auth, { id }) => {
+  const DELETE = wrap("DELETE")<Params>(async (_req, auth, { id }) => {
+    await assertRecordWritable(auth, name, id);
     const deleted = await apiDeleteRecord(name, auth.workspaceId, id);
     if (!deleted) return notFound(name);
     return ok({ data: { id }, deleted: true });

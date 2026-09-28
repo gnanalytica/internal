@@ -31,6 +31,8 @@ export function issueDto(i: IssueWithRelations) {
     startDate: i.startDate,
     dueDate: i.dueDate,
     assignee: i.assignee ? { id: i.assignee.id, name: i.assignee.name } : null,
+    // The full set, lead included. Empty when the loader didn't fetch it.
+    assignees: (i.assignees ?? []).map((a) => ({ id: a.id, name: a.name })),
     project: i.project
       ? { id: i.project.id, key: i.project.key, name: i.project.name }
       : null,
@@ -123,6 +125,12 @@ export function projectDto(p: Project) {
     description: p.description,
     startDate: p.startDate,
     targetDate: p.targetDate,
+    kind: p.kind,
+    confidential: p.confidential,
+    ownerId: p.ownerId,
+    strategistId: p.strategistId,
+    tagline: p.tagline,
+    url: p.url,
   };
 }
 
@@ -136,8 +144,8 @@ export function cycleDto(c: Cycle) {
   };
 }
 
-export function pageDto(p: Pick<Page, "id" | "title" | "icon">) {
-  return { id: p.id, title: p.title, icon: p.icon };
+export function pageDto(p: Pick<Page, "id" | "title" | "icon"> & Partial<Pick<Page, "projectId" | "parentId" | "updatedAt">>) {
+  return { id: p.id, title: p.title, icon: p.icon, projectId: p.projectId ?? null, parentId: p.parentId ?? null, updatedAt: p.updatedAt ?? null };
 }
 
 export function milestoneDto(m: MilestoneWithProgress) {
@@ -189,6 +197,7 @@ export function dealDto(d: DealWithRelations) {
     contact: ref(d.contact),
     ownerId: d.ownerId,
     createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
   };
 }
 
@@ -229,6 +238,11 @@ export function campaignDto(c: CampaignWithRelations) {
     endDate: c.endDate,
     project: ref(c.project),
     contentCount: c.contentCount,
+    reach: c.reach,
+    replies: c.replies,
+    conversions: c.conversions,
+    pageId: c.pageId,
+    ownerId: c.ownerId,
   };
 }
 
@@ -272,5 +286,9 @@ export function ticketDto(t: TicketWithRelations) {
     contact: ref(t.contact),
     assigneeId: t.assigneeId,
     createdAt: t.createdAt,
+    contactId: t.contactId,
+    issueId: t.issueId,
+    issue: t.issue ? { id: t.issue.id, number: t.issue.number, title: t.issue.title } : null,
+    updatedAt: t.updatedAt,
   };
 }

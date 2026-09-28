@@ -3,10 +3,19 @@ import { ok, readJson, withApiAuth } from "@/lib/api/http";
 import { apiCreateIssue } from "@/lib/api/ops";
 import { encodeCursor, pageParams } from "@/lib/api/pagination";
 import { getIssue, getIssuesPage } from "@/lib/data";
+import { assertProjectVisible, visibleRows } from "@/lib/api/scope";
+import { ApiInputError } from "@/lib/api/errors";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const GET = withApiAuth(async (req, auth) => {
   const url = new URL(req.url);
   const { limit, cursor } = pageParams(req.url);
+  const labelId = url.searchParams.get("label");
+  if (labelId && !UUID.test(labelId)) throw new ApiInputError("`label` must be a label id.");
+  // `mine=true` is the caller's own work: lead assignee or co-assignee.
+  const mine = url.searchParams.get("mine") === "true";
+  if (mine && !auth.userId) throw new ApiInputError("`mine` needs a key that acts as a member.");
   const { items, nextCursor } = await getIssuesPage(auth.workspaceId, {
     limit,
     cursor,
@@ -19,15 +28,19 @@ export const GET = withApiAuth(async (req, auth) => {
     // "What changed since I last looked" — lets a syncing client poll once per
     // pass instead of once per open issue.
     updatedSince: url.searchParams.get("updatedSince"),
+    priority: url.searchParams.get("priority"),
+    labelId,
+    involvedUserId: mine ? auth.userId : null,
   });
   return ok({
-    data: items.map(issueDto),
+    data: visibleRows(auth, items, (i) => i.projectId).map(issueDto),
     next_cursor: nextCursor ? encodeCursor(nextCursor) : null,
   });
 });
 
 export const POST = withApiAuth(async (req, auth) => {
   const body = await readJson<Parameters<typeof apiCreateIssue>[2]>(req);
+  assertProjectVisible(auth, (body as { projectId?: string | null }).projectId, "Project");
   const { id, created } = await apiCreateIssue(auth.workspaceId, auth.userId, body);
   const issue = await getIssue(auth.workspaceId, id);
   // 201 for a new issue, 200 when an `externalId` matched one we already had —

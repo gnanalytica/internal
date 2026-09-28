@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { getCurrentUser, getMyWorkspaces } from "@/lib/data";
-import { findClient, redirectUriAllowed } from "@/lib/api/oauth";
+import { findClient, isValidCodeChallenge, redirectUriAllowed } from "@/lib/api/oauth";
 
 import { approveConnection } from "./actions";
 
@@ -27,6 +27,8 @@ export default async function AuthorizePage({
   const redirectUri = one("redirect_uri");
   const state = one("state");
   const responseType = one("response_type") || "code";
+  const codeChallenge = one("code_challenge");
+  const challengeMethod = one("code_challenge_method");
 
   const client = findClient(clientId);
 
@@ -55,10 +57,65 @@ export default async function AuthorizePage({
     );
   }
 
+  if (client.type === "public" && !isValidCodeChallenge(codeChallenge, challengeMethod)) {
+    return (
+      <Shell title="This sign-in request isn’t valid">
+        <p className="text-sm text-neutral-500">
+          The app didn’t send the security check this sign-in needs. Nothing has
+          been shared. Close this page and sign in again from the app.
+        </p>
+      </Shell>
+    );
+  }
+
   // Redirects to sign-in when anonymous.
   const me = await getCurrentUser();
   const mine = await getMyWorkspaces();
   const admined = mine.filter((w) => w.role === "admin");
+
+  if (client.type === "public") {
+    return (
+      <Shell title="Sign in to the Internal app">
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          The Internal app on your phone is asking to sign in as <strong>{me.email}</strong>. It
+          will be able to see and change everything you can in the workspace — no more.
+        </p>
+        <p className="mt-3 text-xs text-neutral-500">
+          Signing out in the app ends this access. An admin can also end it from Settings → API.
+        </p>
+        <form action={approveConnection} className="mt-6 flex flex-col gap-3">
+          <input type="hidden" name="client_id" value={clientId} />
+          <input type="hidden" name="redirect_uri" value={redirectUri} />
+          <input type="hidden" name="state" value={state} />
+          <input type="hidden" name="code_challenge" value={codeChallenge} />
+          <input type="hidden" name="code_challenge_method" value={challengeMethod} />
+          {mine.length === 1 ? (
+            <input type="hidden" name="workspace_id" value={mine[0].id} />
+          ) : (
+            <label className="block text-sm">
+              <span className="mb-1 block text-neutral-500">Workspace</span>
+              <select
+                name="workspace_id"
+                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+              >
+                {mine.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button
+            type="submit"
+            className="rounded-md bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+          >
+            Continue to the app
+          </button>
+        </form>
+      </Shell>
+    );
+  }
 
   if (admined.length === 0) {
     return (

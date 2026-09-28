@@ -12,10 +12,22 @@ import crypto from "node:crypto";
 
 export type OAuthClient = {
   id: string;
+  /** Empty for a public client, which proves itself with PKCE instead. */
   secret: string;
   name: string;
   redirectUris: string[];
+  /**
+   * "confidential": a server that keeps a secret and connects a whole workspace
+   * (admins only; the key acts with admin rights).
+   * "public": the mobile app, which cannot keep a secret. Any member may sign
+   * in, PKCE is mandatory, and the key acts with that member's own role.
+   */
+  type: "confidential" | "public";
 };
+
+/** The mobile app. Public by nature: anything shipped in an APK can be read out of it. */
+export const MOBILE_CLIENT_ID = "internal-mobile";
+export const MOBILE_REDIRECT_URI = "internal://oauth";
 
 /**
  * Registered clients, from env:
@@ -35,8 +47,15 @@ export function registeredClients(env: NodeJS.ProcessEnv = process.env): OAuthCl
     .split(",")
     .map((u) => u.trim())
     .filter(Boolean);
-  if (!id || !secret || redirectUris.length === 0) return [];
-  return [{ id, secret, name: "Standup AI", redirectUris }];
+  const clients: OAuthClient[] = [];
+  if (id && secret && redirectUris.length > 0) clients.push({ id, secret, name: "Standup AI", redirectUris, type: "confidential" });
+  // Extra callbacks for development builds (Expo Go serves exp://<host>/--/oauth).
+  const devRedirects = (env.OAUTH_MOBILE_DEV_REDIRECT_URIS ?? "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  clients.push({ id: MOBILE_CLIENT_ID, secret: "", name: "Internal mobile app", redirectUris: [MOBILE_REDIRECT_URI, ...devRedirects], type: "public" });
+  return clients;
 }
 
 export function findClient(
@@ -72,4 +91,20 @@ export function secretMatches(expected: string, provided: string): boolean {
   const b = Buffer.from(provided, "utf8");
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+/**
+ * PKCE (RFC 7636, S256): the app sends sha256(verifier) with the authorization
+ * request and the verifier itself when it redeems the code, so a code
+ * intercepted on the way back to the phone is useless to anyone else.
+ * Only S256 is accepted — "plain" would put the secret in the first request.
+ */
+export function isValidCodeChallenge(challenge: string, method: string): boolean {
+  return method === "S256" && /^[A-Za-z0-9_-]{43}$/.test(challenge);
+}
+
+export function pkceMatches(challenge: string | null | undefined, verifier: string): boolean {
+  if (!challenge || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) return false;
+  const computed = crypto.createHash("sha256").update(verifier).digest("base64url");
+  return secretMatches(challenge, computed);
 }

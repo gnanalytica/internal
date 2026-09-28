@@ -41,6 +41,19 @@ export function withApiAuth<P>(
   };
 }
 
+/**
+ * `withApiAuth` for operations the web app reserves for workspace admins.
+ * Settings-made integration keys pass as they always have; a mobile-app key
+ * passes only while the member who signed in is an admin.
+ */
+export function withAdminApiAuth<P>(
+  fn: (req: Request, auth: ApiAuth, params: P) => Promise<Response> | Response,
+) {
+  return withApiAuth<P>((req, auth, params) =>
+    auth.isAdmin ? fn(req, auth, params) : apiError("Only workspace admins can do this.", 403),
+  );
+}
+
 /** Parse a JSON body, tolerating empty bodies. */
 export async function readJson<T = Record<string, unknown>>(
   req: Request,

@@ -68,14 +68,16 @@ A `null` cursor means there are no more results. Other list endpoints
 | `POST`   | `/labels`                     | Create a label                                |
 | `GET`    | `/pages`                      | List doc pages                                |
 | `POST`   | `/pages`                      | Create a doc page (Markdown body)             |
-| `GET`    | `/pages/{id}`                 | Get a page (with markdown)                    |
+| `GET`    | `/pages/{id}`                 | Get a page: markdown, parent, linked tasks, sub-pages, `markdownEditable` |
 | `PATCH`  | `/pages/{id}`                 | Update a page's title, icon or body           |
 | `DELETE` | `/pages/{id}`                 | Move a page + sub-pages to the trash          |
 | `GET`    | `/pages/{id}/comments`        | Read a doc's comment threads                  |
 | `POST`   | `/pages/{id}/comments`        | Comment on a doc                              |
-| `PATCH`  | `/page-comments/{id}`         | Edit, resolve or reopen (`{ "resolved": true }`) |
-| `DELETE` | `/page-comments/{id}`         | Delete a doc comment                          |
+| `PATCH`  | `/page-comments/{id}`         | Edit your own, resolve or reopen (`{ "resolved": true }`) |
+| `DELETE` | `/page-comments/{id}`         | Delete your own doc comment (and its replies) |
+| `POST`   | `/page-comments/{id}/reactions` | Toggle a reaction (`{ "emoji": "👍" }`)     |
 | `GET`    | `/pages/{id}/versions`        | List a doc's version history                  |
+| `GET`    | `/pages/{id}/versions/{versionId}` | One version as Markdown, for a preview   |
 | `POST`   | `/pages/{id}/versions`        | Restore a version (`{ "versionId": "..." }`)  |
 | `GET`    | `/trash`                      | List trashed pages                            |
 | `POST`   | `/trash/{id}`                 | Restore a trashed page                        |
@@ -99,13 +101,15 @@ A `null` cursor means there are no more results. Other list endpoints
 | `PATCH`  | `/users/{id}`                 | Update role or HR profile                     |
 | `DELETE` | `/users/{id}`                 | Remove someone from the workspace             |
 | `GET`    | `/databases`                  | List databases                                |
-| `POST`   | `/databases`                  | Create a database                             |
+| `POST`   | `/databases`                  | Create a database (`"template": "starter"` for Name + Status) |
 | `GET`    | `/databases/{id}`             | Get a database with fields and rows           |
-| `POST`   | `/databases/{id}/fields`      | Add a column                                  |
+| `POST`   | `/databases/{id}/fields`      | Add a column (any type, incl. relation/rollup) |
+| `PATCH`  | `/databases/{id}/fields/{fieldId}` | Rename, retype or change a column's options |
 | `DELETE` | `/databases/{id}/fields/{fieldId}` | Delete a column                          |
 | `POST`   | `/databases/{id}/rows`        | Add a row (body = cell values by field id)    |
 | `PATCH`  | `/databases/{id}/rows/{rowId}`| Update cells (merges)                         |
 | `DELETE` | `/databases/{id}/rows/{rowId}`| Delete a row                                  |
+| `POST`   | `/databases/{id}/rows/{rowId}/duplicate` | Duplicate a row                    |
 | `GET`    | `/notifications`              | Your notifications (`?unread=true`)           |
 | `POST`   | `/notifications`              | Mark one read, or all when `id` is omitted    |
 | `GET`    | `/search?q=`                  | Search issues, pages, projects, tickets, deals, accounts, contacts, milestones, features |
@@ -115,15 +119,6 @@ A `null` cursor means there are no more results. Other list endpoints
 | `POST`   | `/accounts`                   | Create an account                             |
 | `GET`    | `/contacts`                   | List CRM contacts                             |
 | `POST`   | `/contacts`                   | Create a contact                              |
-| `GET`    | `/people`                     | People from the Valytica lead sheet (`?q=&state=&priority=&band=&status=&persona=&hasPhone=1&hasEmail=1&researched=1&limit=&offset=`) |
-| `GET`    | `/people/{id}`                | One person by contact id or sheet `P#####`: sheet rows, network, timeline |
-| `PATCH`  | `/people/{id}`                | Set `outreachStatus` / `nextActionAt`; write sheet cells via `sheet: { <tab>: { "<Header>": value } }` |
-| `GET`    | `/companies`                  | Companies from the lead sheet (`?q=`)         |
-| `GET`    | `/companies/{id}`             | One company by account id or sheet `C####`    |
-| `GET`    | `/interactions`               | Timeline entries (`?person=P#####&contact=&account=&since=&limit=`) |
-| `POST`   | `/interactions`               | Log an interaction; idempotent on `source` + `externalRef` (201 new, 200 replay) |
-| `GET`    | `/sheet-sync`                 | Recent sheet sync runs                        |
-| `POST`   | `/sheet-sync`                 | Pull the Google Sheet now                     |
 | `GET`    | `/campaigns`                  | List marketing campaigns (`?product=`)        |
 | `POST`   | `/campaigns`                  | Create a campaign                             |
 | `GET`    | `/invoices`                   | List invoices (`?product=`)                   |
@@ -134,6 +129,10 @@ A `null` cursor means there are no more results. Other list endpoints
 | `POST`   | `/tickets`                    | Create a ticket                               |
 | `GET`    | `/tickets/{id}`               | Get a ticket with its comment thread          |
 | `POST`   | `/tickets/{id}/comments`      | Reply on a ticket (`{ "body": "..." }`)       |
+| `POST`   | `/tickets/{id}/convert`       | Convert a ticket into a task (idempotent: 201 new, 200 already converted) |
+| `GET`    | `/projects/{id}/finance`      | A project's invoices, expenses and totals in its own currency (admins and the project's owner) |
+| `GET`    | `/projects/{id}/strategy`     | A project's strategy, auto values resolved, with its scores |
+| `POST`   | `/projects/{id}/strategy`     | Apply one strategy edit (`{ "op": "flipSignal", "id": "..." }`) |
 
 Every record type below also supports `PATCH /{resource}/{id}` and
 `DELETE /{resource}/{id}`: `projects`, `milestones`, `features`, `cycles`,
@@ -333,6 +332,16 @@ send the complete document back. Each content edit snapshots the previous
 version (throttled to one per 10 minutes, newest 50 kept), so an agent rewrite
 is recoverable via `GET/POST /pages/{id}/versions`.
 
+Markdown can't hold everything the editor can (colours, callouts, toggles,
+columns, mentions, embeds, alignment). `GET /pages/{id}` says so with
+`markdownEditable: false`, and a Markdown body `PATCH` to such a page is
+refused with `422` rather than silently stripping that formatting. Send
+`"allowLossy": true` only when replacing it is what you mean.
+
+Send `knownUpdatedAt` — the `updatedAt` you read — and a page saved by someone
+else since (more than a second later) answers `409` with `conflict: true`
+instead of being overwritten.
+
 ```bash
 curl -X PATCH https://your-app/api/v1/pages/<id> \
   -H "Authorization: Bearer int_xxx" -H "content-type: application/json" \
@@ -396,9 +405,8 @@ JSON body to your URL on each subscribed event:
 ```
 
 Events: `issue.created`, `issue.updated`, `issue.deleted`, `issue.commented`,
-`project.created`, `page.created`, `page.updated`, `page.deleted`,
-`person.updated`, `interaction.created` (or subscribe
-to all).
+`project.created`, `page.created`, `page.updated`, `page.deleted` (or
+subscribe to all).
 
 Each request carries `X-Internal-Event`, a per-delivery id, and a signature:
 

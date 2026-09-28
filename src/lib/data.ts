@@ -32,6 +32,7 @@ import {
   databaseRows,
   databases,
   invoices,
+  issueAssignees,
   issueLabels,
   issuePageLinks,
   issueRelations,
@@ -562,6 +563,10 @@ export async function getIssuesPage(
     cycleId?: string | null;
     milestoneId?: string | null;
     updatedSince?: string | null;
+    priority?: string | null;
+    labelId?: string | null;
+    // Lead assignee OR a co-assignee — what "My issues" means.
+    involvedUserId?: string | null;
   },
 ): Promise<{ items: IssueWithRelations[]; nextCursor: import("@/lib/api/pagination").Cursor | null }> {
   "use cache";
@@ -575,6 +580,24 @@ export async function getIssuesPage(
   if (opts.type) conds.push(eq(issues.type, opts.type));
   if (opts.cycleId) conds.push(eq(issues.cycleId, opts.cycleId));
   if (opts.milestoneId) conds.push(eq(issues.milestoneId, opts.milestoneId));
+  if (opts.priority) conds.push(eq(issues.priority, opts.priority));
+  if (opts.labelId)
+    conds.push(
+      inArray(
+        issues.id,
+        db.select({ id: issueLabels.issueId }).from(issueLabels).where(eq(issueLabels.labelId, opts.labelId)),
+      ),
+    );
+  if (opts.involvedUserId)
+    conds.push(
+      or(
+        eq(issues.assigneeId, opts.involvedUserId),
+        inArray(
+          issues.id,
+          db.select({ id: issueAssignees.issueId }).from(issueAssignees).where(eq(issueAssignees.userId, opts.involvedUserId)),
+        ),
+      )!,
+    );
   // Ordering stays createdAt-desc so the existing cursor keeps its meaning;
   // this is purely an extra filter. An unparseable value is ignored rather
   // than silently matching everything since the epoch.
@@ -822,7 +845,7 @@ export async function getPagesPage(
   workspaceId: string,
   opts: { limit: number; cursor?: { createdAt: string; id: string } | null },
 ): Promise<{
-  items: Pick<Page, "id" | "title" | "icon">[];
+  items: Pick<Page, "id" | "title" | "icon" | "projectId" | "parentId" | "updatedAt">[];
   nextCursor: import("@/lib/api/pagination").Cursor | null;
 }> {
   "use cache";
@@ -850,6 +873,9 @@ export async function getPagesPage(
       id: pages.id,
       title: pages.title,
       icon: pages.icon,
+      projectId: pages.projectId,
+      parentId: pages.parentId,
+      updatedAt: pages.updatedAt,
       createdAt: pages.createdAt,
     })
     .from(pages)
@@ -861,7 +887,7 @@ export async function getPagesPage(
   const page = hasMore ? rows.slice(0, opts.limit) : rows;
   const last = hasMore ? page[page.length - 1] : null;
   return {
-    items: page.map((p) => ({ id: p.id, title: p.title, icon: p.icon })),
+    items: page.map((p) => ({ id: p.id, title: p.title, icon: p.icon, projectId: p.projectId, parentId: p.parentId, updatedAt: p.updatedAt })),
     nextCursor: last
       ? { createdAt: new Date(last.createdAt).toISOString(), id: last.id }
       : null,

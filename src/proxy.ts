@@ -1,10 +1,11 @@
 import { auth } from "@/lib/auth/server";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Next.js 16 middleware (proxy.ts). Redirects unauthenticated users to sign-in.
 // The middleware (and the underlying auth instance) is built lazily on the first
 // request so `next build` doesn't need the auth secrets to be present.
-export default function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   // Server Functions (actions) POST to the page route they live on. Don't run
   // the auth redirect on them: a 307 in response to an action surfaces in the
   // browser as the opaque "An unexpected response was received from the server"
@@ -16,7 +17,20 @@ export default function proxy(request: NextRequest) {
   if (request.method === "POST") {
     return NextResponse.next();
   }
-  return auth.middleware({ loginUrl: "/auth/sign-in" })(request);
+  const res = await auth.middleware({ loginUrl: "/auth/sign-in" })(request);
+  // Remember where the person was going, so signing in returns them there. The
+  // mobile app's sign-in depends on this: it opens /oauth/authorize, and must
+  // land back on it after the web sign-in, not on the task list.
+  const location = res.headers.get("location");
+  if (location && res.status >= 300 && res.status < 400) {
+    const target = new URL(location, request.url);
+    const next = request.nextUrl.pathname + request.nextUrl.search;
+    if (target.pathname === "/auth/sign-in" && !target.searchParams.has("next") && safeNextPath(next, "") !== "" && next !== "/") {
+      target.searchParams.set("next", next);
+      return NextResponse.redirect(target, res.status);
+    }
+  }
+  return res;
 }
 
 export const config = {

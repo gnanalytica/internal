@@ -26,11 +26,20 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
 
       # --frozen-lockfile is the point of running this at all: it fails when
       # package.json and pnpm-lock.yaml disagree, which is the drift that
       # otherwise only shows up as a failed deploy.
       - run: pnpm install --frozen-lockfile
+
+      # src/lib/prospects/mobile-parity.test.ts imports the app's copy of the
+      # prospects rules, and Vite reads mobile/tsconfig.json to transform it —
+      # which extends expo/tsconfig.base, so the app's packages must be there.
+      - run: pnpm install --frozen-lockfile
+        working-directory: mobile
 
       - run: pnpm exec tsc --noEmit
 

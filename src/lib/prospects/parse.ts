@@ -1,0 +1,339 @@
+import { ID_COLUMN, SCORE_COLUMNS, STAGES, TAB, type ProspectKind } from "./schema";
+
+/** One row of any record tab, keyed by that tab's ID column (a registration number where there is one). */
+export type ProspectRecord = {
+  kind: ProspectKind;
+  id: string;
+  name: string;
+  status: string;
+  /** Index into STAGES; a blank or unrecognised status counts as "Not contacted". */
+  stage: number;
+  state: string;
+  city: string;
+  address: string;
+  email: string;
+  phone: string;
+  website: string;
+  rvo: string;
+  registeredOn: string;
+  firmRegNo: string;
+  firmStatus: string;
+  keyContact: string;
+  people: string;
+  lenders: string[];
+  software: string;
+  casesPerMonth: number | null;
+  assigned: string;
+  outreachRoute: string;
+  /** ISO yyyy-mm-dd, or null. */
+  lastContacted: string | null;
+  nextStep: string;
+  nextStepDate: string | null;
+  drafts: { email: string; whatsapp: string; call: string; meeting: string };
+  notes: string;
+  scores: (number | null)[];
+  switchingBarrier: number | null;
+  disqualified: string;
+  opportunityScore: number | null;
+  /** A, B, C, Watch, Disqualified, Incomplete — or "" when the sheet has nothing. */
+  band: string;
+  bandLabel: string;
+  scoreReason: string;
+  scoreGaps: string;
+  researchStatus: string;
+  researchSources: { what: string; url: string }[];
+  /** Free-text findings with no column of their own, one "label: text" line each. */
+  researchNotes: string;
+  lastResearched: string | null;
+  pitchAngle: string;
+  objections: string;
+  referredBy: string;
+  /** Bank Panel Valuers: their practice. */
+  practice: string;
+  /** Bank Contacts: the office and how to get in. */
+  bank: { institution: string; type: string; office: string; department: string; contactPerson: string; designation: string; empanelmentPage: string; empanelmentWindow: string; howToReach: string };
+};
+
+export type ActivityEntry = {
+  id: string;
+  loggedAt: string;
+  /** ISO yyyy-mm-dd of loggedAt, for bucketing. */
+  date: string | null;
+  recordType: string;
+  registrationNo: string;
+  name: string;
+  by: string;
+  channel: string;
+  direction: string;
+  outcome: string;
+  durationMin: number | null;
+  statusAfter: string;
+  summary: string;
+};
+
+export type ProspectsWorkbook = {
+  valuers: ProspectRecord[];
+  firms: ProspectRecord[];
+  rvos: ProspectRecord[];
+  panels: ProspectRecord[];
+  banks: ProspectRecord[];
+  activity: ActivityEntry[];
+  /** Problems worth showing rather than hiding: a missing tab, a duplicate ID. */
+  warnings: string[];
+  readAt: string;
+};
+
+const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const pad = (n: number | string) => String(n).padStart(2, "0");
+
+/**
+ * A sheet date as ISO yyyy-mm-dd. Dashes are the sheet's own dd-mm-yyyy
+ * format; slashes are what an unformatted cell renders as in the workbook's
+ * en_US locale, i.e. m/d/yyyy; "30 Jun, 2018" is how IBBI writes dates.
+ */
+export function parseSheetDate(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (m) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${pad(m[1])}-${pad(m[2])}`;
+  m = s.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*,?\s+(\d{4})$/);
+  if (m && MONTHS[m[2].toLowerCase()]) return `${m[3]}-${pad(MONTHS[m[2].toLowerCase()])}-${pad(m[1])}`;
+  return null;
+}
+
+/** ISO yyyy-mm-dd → dd-mm-yyyy, the sheet's display format. */
+export function displayDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}-${m}-${y}`;
+}
+
+export function cellText(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  return String(v).trim();
+}
+
+export function cellNumber(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : Number(String(v).replace(/[,\s]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+export function stageIndex(status: string): number {
+  const i = STAGES.findIndex((s) => s.toLowerCase() === status.trim().toLowerCase());
+  return i < 0 ? 0 : i;
+}
+
+/** "A", "B", "C", "Watch", "Disqualified", "Incomplete 5/8" → a band key. */
+export function bandKey(label: string): string {
+  const s = label.trim();
+  if (!s) return "";
+  if (s.startsWith("Incomplete")) return "Incomplete";
+  return s;
+}
+
+/** `lenders_empanelled_with` is semicolon-separated. */
+export function splitList(v: string): string[] {
+  return v
+    .split(/[;\n]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+/** `research_sources`: one link per line, each "what: url". */
+export function parseSources(v: string): { what: string; url: string }[] {
+  return v
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (/^https?:\/\//i.test(line)) return { what: "", url: line };
+      const m = line.match(/^([^:]{1,40}):\s*(\S.*)$/);
+      return m ? { what: m[1].trim(), url: m[2].trim() } : { what: "", url: line };
+    });
+}
+
+/** `research_notes`: one fact per line, each "label: text"; a line without a label stays whole. */
+export function parseNoteLines(v: string): { label: string; text: string }[] {
+  return v
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (line.startsWith("- ")) return { label: "", text: line };
+      const m = line.match(/^([^:]{1,48}):\s+(\S.*)$/);
+      return m && !/^https?$/i.test(m[1]) ? { label: m[1].trim(), text: m[2].trim() } : { label: "", text: line };
+    });
+}
+
+/** A record the team must not reach out to. Research writes this as the first line of research_notes. */
+/**
+ * The `disqualified` cell as a reason, or "" when the row is not disqualified.
+ * Tabs whose column was seeded with "No" mean exactly that, not a reason.
+ */
+export function disqualifyReason(v: string): string {
+  return /^(no|n|false|none|-|—)$/i.test(v.trim()) ? "" : v.trim();
+}
+
+export function isDoNotContact(researchNotes: string): boolean {
+  return /^\s*DO NOT CONTACT\b/i.test(researchNotes);
+}
+
+type Row = unknown[];
+
+/** Header name → column index, for the first row of a tab. */
+export function headerIndex(header: Row): Map<string, number> {
+  const map = new Map<string, number>();
+  header.forEach((h, i) => {
+    const key = cellText(h);
+    if (key && !map.has(key)) map.set(key, i);
+  });
+  return map;
+}
+
+function getter(idx: Map<string, number>, row: Row) {
+  return (col: string): unknown => {
+    const i = idx.get(col);
+    return i === undefined ? undefined : row[i];
+  };
+}
+
+export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: string[]): ProspectRecord[] {
+  if (!matrix.length) {
+    warnings.push(`The "${TAB[kind]}" tab is missing or empty.`);
+    return [];
+  }
+  const idx = headerIndex(matrix[0]);
+  const idCol = ID_COLUMN[kind];
+  if (!idx.has(idCol)) {
+    warnings.push(`The "${TAB[kind]}" tab has no ${idCol} column, so none of its rows can be identified.`);
+    return [];
+  }
+  const seen = new Set<string>();
+  const out: ProspectRecord[] = [];
+  for (const row of matrix.slice(1)) {
+    const g = getter(idx, row);
+    const t = (c: string) => cellText(g(c));
+    const id = t(idCol);
+    if (!id) continue;
+    if (seen.has(id)) {
+      warnings.push(`${TAB[kind]}: ${id} appears on more than one row; only the first is shown and edits to it are refused.`);
+      continue;
+    }
+    seen.add(id);
+    const status = t("status");
+    const bandLabel = t("score_band");
+    out.push({
+      kind,
+      id,
+      name: t("name") || [t("institution"), t("contact_person")].filter(Boolean).join(" · "),
+      status,
+      stage: stageIndex(status),
+      state: t("state"),
+      city: t("city"),
+      address: t("address"),
+      email: t("email"),
+      phone: t("phone"),
+      website: t("website"),
+      rvo: t("rvo_enrolled"),
+      registeredOn: t("date_of_registration"),
+      firmRegNo: t("valuer_firm_registration_no"),
+      firmStatus: t("firm_status"),
+      keyContact: t("key_contact") || t("chairperson_president") || t("contact_person"),
+      people: t("directors_partners") || t("ceo_md"),
+      lenders: splitList(t("lenders_empanelled_with")),
+      software: t("current_software"),
+      casesPerMonth: cellNumber(g("lb_cases_per_month")),
+      assigned: t("assigned"),
+      outreachRoute: t("outreach_route"),
+      lastContacted: parseSheetDate(g("last_contacted")),
+      nextStep: t("next_step"),
+      nextStepDate: parseSheetDate(g("next_step_date")),
+      drafts: { email: t("draft_email"), whatsapp: t("draft_whatsapp"), call: t("draft_call"), meeting: t("draft_meeting") },
+      notes: t("notes"),
+      scores: SCORE_COLUMNS.map((s) => cellNumber(g(s.key))),
+      switchingBarrier: cellNumber(g("switching_barrier")),
+      disqualified: disqualifyReason(t("disqualified")),
+      opportunityScore: cellNumber(g("opportunity_score")),
+      band: bandKey(bandLabel),
+      bandLabel,
+      scoreReason: t("score_reason"),
+      scoreGaps: t("score_gaps"),
+      researchStatus: t("research_status"),
+      researchSources: parseSources(t("research_sources")),
+      researchNotes: t("research_notes"),
+      lastResearched: parseSheetDate(g("last_researched")),
+      pitchAngle: t("pitch_angle"),
+      objections: t("objections"),
+      referredBy: t("referred_by"),
+      practice: t("firm"),
+      bank: {
+        institution: t("institution"),
+        type: t("institution_type"),
+        office: t("office"),
+        department: t("department"),
+        contactPerson: t("contact_person"),
+        designation: t("designation"),
+        empanelmentPage: t("empanelment_page"),
+        empanelmentWindow: t("empanelment_window"),
+        howToReach: t("how_to_reach"),
+      },
+    });
+  }
+  return out;
+}
+
+export function parseActivity(matrix: unknown[][], warnings: string[]): ActivityEntry[] {
+  if (!matrix.length) {
+    warnings.push(`The "${TAB.activity}" tab is missing, so call and reply history cannot be shown.`);
+    return [];
+  }
+  const idx = headerIndex(matrix[0]);
+  const out: ActivityEntry[] = [];
+  for (const row of matrix.slice(1)) {
+    const g = getter(idx, row);
+    const t = (c: string) => cellText(g(c));
+    if (!t("registration_no") && !t("activity_id")) continue;
+    const loggedAt = t("logged_at");
+    out.push({
+      id: t("activity_id"),
+      loggedAt,
+      date: parseSheetDate(loggedAt),
+      recordType: t("record_type"),
+      registrationNo: t("registration_no"),
+      name: t("name"),
+      by: t("by"),
+      channel: t("channel"),
+      direction: t("direction"),
+      outcome: t("outcome"),
+      durationMin: cellNumber(g("duration_min")),
+      statusAfter: t("status_after"),
+      summary: t("summary"),
+    });
+  }
+  return out;
+}
+
+export function parseWorkbook(tabs: Map<string, unknown[][]>, readAt: string): ProspectsWorkbook {
+  const warnings: string[] = [];
+  return {
+    valuers: parseRecords("valuer", tabs.get(TAB.valuer) ?? [], warnings),
+    firms: parseRecords("firm", tabs.get(TAB.firm) ?? [], warnings),
+    rvos: parseRecords("rvo", tabs.get(TAB.rvo) ?? [], warnings),
+    panels: parseRecords("panel", tabs.get(TAB.panel) ?? [], warnings),
+    banks: parseRecords("bank", tabs.get(TAB.bank) ?? [], warnings),
+    activity: parseActivity(tabs.get(TAB.activity) ?? [], warnings),
+    warnings,
+    readAt,
+  };
+}
+
+/** The records of one kind. */
+export function recordsOf(wb: ProspectsWorkbook, kind: ProspectKind): ProspectRecord[] {
+  return { valuer: wb.valuers, firm: wb.firms, rvo: wb.rvos, panel: wb.panels, bank: wb.banks }[kind];
+}

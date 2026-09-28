@@ -2,10 +2,12 @@ import { ticketDto } from "@/lib/api/dto";
 import { notFound, ok, withApiAuth } from "@/lib/api/http";
 import { recordRoute } from "@/lib/api/record-route";
 import { getTicket, getTicketComments } from "@/lib/data";
+import { assertRecordAccess } from "@/lib/api/scope";
 
 type Params = { id: string };
 
 export const GET = withApiAuth<Params>(async (_req, auth, { id }) => {
+  await assertRecordAccess(auth, "tickets", id);
   const ticket = await getTicket(auth.workspaceId, id);
   if (!ticket) return notFound("Ticket");
   const comments = await getTicketComments(auth.workspaceId, id);

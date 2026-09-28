@@ -327,6 +327,7 @@ export async function apiListTrashedPages(workspaceId: string) {
       id: pages.id,
       title: pages.title,
       icon: pages.icon,
+      projectId: pages.projectId,
       deletedAt: pages.deletedAt,
     })
     .from(pages)
@@ -468,13 +469,24 @@ export async function apiListNotifications(
       title: notifications.title,
       body: notifications.body,
       issueId: notifications.issueId,
+      pageId: notifications.pageId,
+      projectId: notifications.projectId,
+      actorId: users.id,
+      actorName: users.name,
       read: notifications.read,
       createdAt: notifications.createdAt,
     })
     .from(notifications)
+    .leftJoin(users, eq(notifications.actorId, users.id))
     .where(and(...conds))
     .orderBy(desc(notifications.createdAt))
-    .limit(100);
+    .limit(100)
+    .then((rows) =>
+      rows.map(({ actorId, actorName, ...n }) => ({
+        ...n,
+        actor: actorId ? { id: actorId, name: actorName ?? "Someone" } : null,
+      })),
+    );
 }
 
 /** Mark one notification read, or all of this member's when no id is given. */
