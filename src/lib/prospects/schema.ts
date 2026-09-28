@@ -91,6 +91,7 @@ export const DISQUALIFY_REASONS = [
   "Works for a lender or competitor",
   "Asked not to be contacted",
   "Not practising L&B",
+  "Excluded by us",
 ] as const;
 
 export const SCORE_COLUMNS = [
@@ -145,6 +146,7 @@ export const WRITABLE: Record<ProspectKind, ReadonlySet<string>> = {
   ]),
   firm: new Set([
     "status",
+    "disqualified",
     "assigned",
     "key_contact",
     "last_contacted",
