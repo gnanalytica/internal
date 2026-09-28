@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useMemo, type ReactElement } from "react";
+import { useEffect, useMemo, type ReactElement } from "react";
 import { SectionList, View } from "react-native";
 
 import { Divider, Empty, ErrorView, Loading, StatusIcon, Text } from "@/components/ui";
@@ -9,10 +9,17 @@ import { useTheme } from "@/theme";
 import { issuesQuery, type Issue, type IssueFilters } from "./api";
 import { IssueRow } from "./issue-row";
 
-/** Issues grouped by status (the web's list view), paged from the API as you scroll. */
+/** Issues come 100 to a page, newest first; grouping by status needs them all, or a group's count is only what has loaded. */
+const MAX_PAGES = 10;
+
+/** Issues grouped by status (the web's list view). */
 export function IssueList({ filters, header, emptyTitle = "No issues here", emptyBody, hideDone }: { filters: IssueFilters; header?: ReactElement; emptyTitle?: string; emptyBody?: string; hideDone?: boolean }) {
   const { c, space } = useTheme();
   const q = useInfiniteQuery(issuesQuery(filters));
+  const pages = q.data?.pages.length ?? 0;
+  useEffect(() => {
+    if (q.hasNextPage && !q.isFetchingNextPage && !q.isError && pages < MAX_PAGES) void q.fetchNextPage();
+  }, [q, pages]);
   const sections = useMemo(() => {
     const all: Issue[] = q.data?.pages.flatMap((p) => p.data) ?? [];
     return STATUSES.filter((s) => !(hideDone && (s.id === "done" || s.id === "canceled")))
@@ -29,8 +36,6 @@ export function IssueList({ filters, header, emptyTitle = "No issues here", empt
       stickySectionHeadersEnabled
       refreshing={q.isRefetching && !q.isFetchingNextPage}
       onRefresh={() => void q.refetch()}
-      onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && void q.fetchNextPage()}
-      onEndReachedThreshold={0.5}
       ListHeaderComponent={header}
       ItemSeparatorComponent={() => <Divider inset={48} />}
       ListEmptyComponent={<Empty icon="check-circle" title={emptyTitle} body={emptyBody} />}

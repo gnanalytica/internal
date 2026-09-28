@@ -22,18 +22,29 @@ import { planFieldPatch, planNewField, renameOptionValue, type FieldContext } fr
 const after = (last: string | null): string => `${last ?? "a"}a`;
 
 export async function apiListDatabasesSummary(workspaceId: string) {
-  return db
-    .select({
-      id: databases.id,
-      name: databases.name,
-      icon: databases.icon,
-      createdAt: databases.createdAt,
-      fieldCount: sql<number>`(select count(*)::int from ${databaseFields} where ${databaseFields.databaseId} = ${databases.id})`,
-      rowCount: sql<number>`(select count(*)::int from ${databaseRows} where ${databaseRows.databaseId} = ${databases.id})`,
-    })
+  const list = await db
+    .select({ id: databases.id, name: databases.name, icon: databases.icon, createdAt: databases.createdAt })
     .from(databases)
     .where(eq(databases.workspaceId, workspaceId))
     .orderBy(asc(databases.name));
+  if (list.length === 0) return [];
+  // Counted as grouped queries: a correlated subquery built from Drizzle column
+  // interpolation renders unqualified names, which compare a table with itself.
+  const ids = list.map((d) => d.id);
+  const [fields, rows] = await Promise.all([
+    db
+      .select({ id: databaseFields.databaseId, n: sql<number>`count(*)::int` })
+      .from(databaseFields)
+      .where(inArray(databaseFields.databaseId, ids))
+      .groupBy(databaseFields.databaseId),
+    db
+      .select({ id: databaseRows.databaseId, n: sql<number>`count(*)::int` })
+      .from(databaseRows)
+      .where(inArray(databaseRows.databaseId, ids))
+      .groupBy(databaseRows.databaseId),
+  ]);
+  const count = (xs: { id: string; n: number }[], id: string) => xs.find((x) => x.id === id)?.n ?? 0;
+  return list.map((d) => ({ ...d, fieldCount: count(fields, d.id), rowCount: count(rows, d.id) }));
 }
 
 /** A new database with the web's starter schema: Name, Status and three empty rows. */

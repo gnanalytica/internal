@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { router, Stack } from "expo-router";
+import { useEffect } from "react";
 import { View } from "react-native";
 
 import { Button, Card, Divider, ErrorView, IconButton, Loading, Row, Screen, Section, StatusIcon, Text } from "@/components/ui";
@@ -16,6 +17,11 @@ export default function Home() {
   const me = useMe();
   const { c, space } = useTheme();
   const mine = useInfiniteQuery(issuesQuery({ mine: true }));
+  // The open count and "due now" need every page of my issues, not the first 100.
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = mine;
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
   const inbox = useQuery(notificationsQuery);
   const portfolio = useQuery(portfolioQuery);
   const bets = useQuery(betsQuery);
