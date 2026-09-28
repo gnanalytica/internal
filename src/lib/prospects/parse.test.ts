@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bandKey, displayDate, parseActivity, parseRecords, parseSheetDate, parseSources, parseWorkbook, splitList, stageIndex } from "./parse";
+import { bandKey, displayDate, isDoNotContact, parseActivity, parseNoteLines, parseRecords, parseSheetDate, parseSources, parseWorkbook, splitList, stageIndex } from "./parse";
 import { activityRow, nextActivityId, planRowWrite } from "./plan";
 
 const VALUER_HEADER = [
@@ -47,6 +47,22 @@ describe("cell helpers", () => {
       { what: "phone", url: "https://y.in/contact" },
       { what: "", url: "https://z.in" },
     ]);
+  });
+});
+
+describe("research notes", () => {
+  it("reads label: text lines, keeping bullets and header lines whole", () => {
+    expect(parseNoteLines("From the earlier lead research (Aug–Sep 2026):\nPNB panel: Category C, Hyderabad zone\n- FACT: solo proprietor\nSources: https://x.in")).toEqual([
+      { label: "", text: "From the earlier lead research (Aug–Sep 2026):" },
+      { label: "PNB panel", text: "Category C, Hyderabad zone" },
+      { label: "", text: "- FACT: solo proprietor" },
+      { label: "Sources", text: "https://x.in" },
+    ]);
+  });
+  it("spots a do-not-contact marker only when it leads the notes", () => {
+    expect(isDoNotContact("DO NOT CONTACT: on the exclusion list since 2026-09-19")).toBe(true);
+    expect(isDoNotContact("Pain: they said do not contact before March")).toBe(false);
+    expect(isDoNotContact("")).toBe(false);
   });
 });
 

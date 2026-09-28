@@ -136,6 +136,7 @@ export const WRITABLE: Record<ProspectKind, ReadonlySet<string>> = {
     "draft_call",
     "draft_meeting",
     "notes",
+    "research_notes",
     "disqualified",
     "research_status",
     "pitch_angle",
@@ -150,6 +151,7 @@ export const WRITABLE: Record<ProspectKind, ReadonlySet<string>> = {
     "next_step",
     "next_step_date",
     "notes",
+    "research_notes",
     "pitch_angle",
     "objections",
     "referred_by",
@@ -166,6 +168,7 @@ export const WRITABLE: Record<ProspectKind, ReadonlySet<string>> = {
     "draft_call",
     "draft_meeting",
     "notes",
+    "research_notes",
   ]),
 };
 

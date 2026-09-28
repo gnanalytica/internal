@@ -1,4 +1,4 @@
-import type { ActivityEntry, ProspectRecord } from "./parse";
+import { isDoNotContact, type ActivityEntry, type ProspectRecord } from "./parse";
 import { CHANNELS, ENGAGED_OUTCOMES, FOCUS_STATES, OBJECTIONS, PITCH_ANGLES, SPRINT_TARGETS, STAGES, type ProspectKind } from "./schema";
 
 /** The slice of a record the lists, board and timeline need — kept small because every row ships to the browser. */
@@ -24,6 +24,8 @@ export type ProspectRow = {
   pitchAngle: string;
   objections: string;
   facts: number;
+  /** Research marked this record do-not-contact; queues never suggest it. */
+  doNotContact: boolean;
 };
 
 export const FACT_COUNT = 8;
@@ -65,6 +67,7 @@ export function toRow(r: ProspectRecord): ProspectRow {
     pitchAngle: r.pitchAngle,
     objections: r.objections,
     facts: factsKnown(r),
+    doNotContact: isDoNotContact(r.researchNotes),
   };
 }
 
@@ -247,7 +250,7 @@ export function buildOverview(input: {
     objections,
     team,
     unassignedA: rows
-      .filter((r) => r.band === "A" && !r.assigned && r.stage === 0)
+      .filter((r) => r.band === "A" && !r.assigned && r.stage === 0 && !r.doNotContact)
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
       .slice(0, 6),
     hasActivity: input.activity.length > 0,
@@ -262,7 +265,7 @@ export function myTasks(rows: ProspectRow[], person: string, today: string): { r
     .sort((a, b) => (a.nextStepDate ?? "").localeCompare(b.nextStepDate ?? "") || (b.score ?? 0) - (a.score ?? 0))
     .map((row) => ({ row, reason: dueBucket(row.nextStepDate, today) as "overdue" | "today" }));
   const fresh = theirs
-    .filter((r) => r.stage === 0 && !r.nextStepDate && r.band === "A")
+    .filter((r) => r.stage === 0 && !r.nextStepDate && r.band === "A" && !r.doNotContact)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     .slice(0, 10)
     .map((row) => ({ row, reason: "new" as const }));
@@ -274,7 +277,7 @@ export type SavedView = { id: string; label: string; test: (r: ProspectRow, ctx:
 export const SAVED_VIEWS: SavedView[] = [
   { id: "all", label: "All", test: () => true, chips: [] },
   { id: "mine", label: "Mine", test: (r, c) => isAssignedTo(r.assigned, c.person), chips: ["Assigned to me"] },
-  { id: "a-new", label: "A-band, not contacted", test: (r) => r.band === "A" && r.stage === 0, chips: ["Band: A", "Status: Not contacted"] },
+  { id: "a-new", label: "A-band, not contacted", test: (r) => r.band === "A" && r.stage === 0 && !r.doNotContact, chips: ["Band: A", "Status: Not contacted"] },
   { id: "due", label: "Due this week", test: (r, c) => isOpen(r) && ["overdue", "today", "soon"].includes(dueBucket(r.nextStepDate, c.today)), chips: ["Next step: within 7 days"] },
   { id: "overdue", label: "Overdue", test: (r, c) => isOpen(r) && dueBucket(r.nextStepDate, c.today) === "overdue", chips: ["Next step: overdue"] },
   { id: "review", label: "Needs review", test: (r) => r.researchStatus === "Scored — needs review", chips: ["Research: Scored — needs review"] },

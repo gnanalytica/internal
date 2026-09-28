@@ -8,7 +8,7 @@ const TODAY = "2026-09-28";
 function row(p: Partial<ProspectRow> & { id: string }): ProspectRow {
   return {
     kind: "valuer", name: p.id, city: "", state: "Telangana", stage: 0, band: "", score: null, assigned: "", nextStep: "", nextStepDate: null,
-    lastContacted: null, lenders: 0, cases: null, software: "", hasPhone: false, hasEmail: true, researchStatus: "", pitchAngle: "", objections: "", facts: 1,
+    lastContacted: null, lenders: 0, cases: null, software: "", hasPhone: false, hasEmail: true, researchStatus: "", pitchAngle: "", objections: "", facts: 1, doNotContact: false,
     ...p,
   };
 }
@@ -120,5 +120,19 @@ describe("myTasks and saved views", () => {
     expect(rows.filter((r) => view("overdue").test(r, ctx)).map((r) => r.id)).toEqual(["late"]);
     expect(rows.filter((r) => view("due").test(r, ctx)).map((r) => r.id)).toEqual(["late", "now", "other"]);
     expect(rows.filter((r) => view("a-new").test(r, ctx)).map((r) => r.id)).toEqual(["fresh"]);
+  });
+});
+
+describe("do-not-contact", () => {
+  it("never suggests an excluded record, even when it is A-band and theirs", () => {
+    const rows = [
+      row({ id: "ok", band: "A", score: 70, assigned: "Sandeep" }),
+      row({ id: "dnc", band: "A", score: 90, assigned: "Sandeep", doNotContact: true }),
+      row({ id: "dnc-free", band: "A", score: 95, doNotContact: true }),
+    ];
+    expect(myTasks(rows, "Sandeep", TODAY).map((t) => t.row.id)).toEqual(["ok"]);
+    expect(buildOverview({ rows, activity: [], today: TODAY, period: "week", person: null, team: [] }).unassignedA.map((r) => r.id)).toEqual([]);
+    const aNew = SAVED_VIEWS.find((v) => v.id === "a-new")!;
+    expect(rows.filter((r) => aNew.test(r, { person: "Sandeep", today: TODAY })).map((r) => r.id)).toEqual(["ok"]);
   });
 });

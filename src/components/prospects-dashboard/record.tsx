@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getProspectDetail, logTouch, saveProspect } from "@/lib/prospects/actions";
 import type { ActivityEntry, ProspectRecord } from "@/lib/prospects/parse";
-import { displayDate } from "@/lib/prospects/parse";
+import { displayDate, isDoNotContact, parseNoteLines } from "@/lib/prospects/parse";
 import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays, FACT_COUNT, factsKnown } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
@@ -63,6 +63,7 @@ export function EditField({
   options,
   display,
   missing,
+  rows = 6,
 }: {
   ctx: Ctx;
   col: string;
@@ -72,6 +73,7 @@ export function EditField({
   options?: readonly string[];
   display?: React.ReactNode;
   missing?: string;
+  rows?: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -105,7 +107,7 @@ export function EditField({
       {editing ? (
         <div className="flex flex-col gap-1.5">
           {type === "textarea" ? (
-            <textarea id={inputId} value={draft} onChange={(e) => setDraft(e.target.value)} rows={6} className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" />
+            <textarea id={inputId} value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" />
           ) : type === "select" ? (
             <select id={inputId} value={draft} onChange={(e) => setDraft(e.target.value)} className="h-8 rounded-md border bg-background px-2 text-sm">
               <option value="">—</option>
@@ -381,6 +383,53 @@ function ScoreCard({ r }: { r: ProspectRecord }) {
   );
 }
 
+/** Shown on any record research has marked do-not-contact, above everything else. */
+function DoNotContactBanner({ r }: { r: ProspectRecord }) {
+  if (!isDoNotContact(r.researchNotes)) return null;
+  return (
+    <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-[13px] leading-snug font-medium text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+      {r.researchNotes.trim().split("\n")[0]}
+    </div>
+  );
+}
+
+function ResearchNotes({ ctx, r, limit }: { ctx: Ctx; r: ProspectRecord; limit: number }) {
+  const [all, setAll] = useState(false);
+  const lines = parseNoteLines(r.researchNotes);
+  const shown = all ? lines : lines.slice(0, limit);
+  return (
+    <EditField
+      ctx={ctx}
+      col="research_notes"
+      label="Research notes"
+      value={r.researchNotes}
+      type="textarea"
+      rows={16}
+      missing="Nothing yet — research adds findings here, one per line"
+      display={
+        <div className="flex flex-col gap-1.5 text-[13px] leading-snug">
+          {shown.map((l, i) =>
+            l.label ? (
+              <p key={i}>
+                <span className="font-medium text-muted-foreground">{l.label}:</span> {l.text}
+              </p>
+            ) : (
+              <p key={i} className={l.text.startsWith("- ") ? "pl-3" : "text-xs text-muted-foreground"}>
+                {l.text}
+              </p>
+            ),
+          )}
+          {lines.length > limit && (
+            <button type="button" className="self-start text-xs font-medium text-brand hover:underline" onClick={() => setAll((v) => !v)}>
+              {all ? "Show less" : `Show all ${lines.length} lines`}
+            </button>
+          )}
+        </div>
+      }
+    />
+  );
+}
+
 function ResearchCard({ r }: { r: ProspectRecord }) {
   return (
     <div className="flex flex-col gap-2">
@@ -515,6 +564,7 @@ export function RecordPanel({ sel, today, me, onClose, onExpand, onLog, onChange
               <span className="flex-1" />
               <FactsMeter r={r} />
             </div>
+            <DoNotContactBanner r={r} />
             <QuickActions ctx={ctx} r={r} compact />
           </>
         )}
@@ -524,6 +574,7 @@ export function RecordPanel({ sel, today, me, onClose, onExpand, onLog, onChange
         <div className={cn("flex flex-1 flex-col gap-5 overflow-y-auto p-4", detail.loading && "opacity-70")}>
           <NextStep ctx={ctx} r={r} />
           <Facts ctx={ctx} r={r} compact />
+          <ResearchNotes ctx={ctx} r={r} limit={6} />
           {r.scoreGaps && (
             <div className="rounded-md bg-amber-50 px-3 py-2 text-[13px] leading-snug dark:bg-amber-950">
               <strong>Research next:</strong> {r.scoreGaps}
@@ -580,6 +631,7 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
             <FactsMeter r={r} />
           </div>
         </div>
+        <DoNotContactBanner r={r} />
         <QuickActions ctx={ctx} r={r} />
         <div role="tablist" aria-label="Stage" className="grid grid-cols-7 gap-1">
           {STAGES.map((s, i) => {
@@ -673,6 +725,9 @@ export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged
               <ScoreCard r={r} />
             </section>
           )}
+          <section className="rounded-xl border bg-card p-4">
+            <ResearchNotes ctx={ctx} r={r} limit={14} />
+          </section>
           <section className="rounded-xl border bg-card p-4">
             <ResearchCard r={r} />
           </section>

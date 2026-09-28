@@ -42,6 +42,8 @@ export type ProspectRecord = {
   scoreGaps: string;
   researchStatus: string;
   researchSources: { what: string; url: string }[];
+  /** Free-text findings with no column of their own, one "label: text" line each. */
+  researchNotes: string;
   lastResearched: string | null;
   pitchAngle: string;
   objections: string;
@@ -150,6 +152,24 @@ export function parseSources(v: string): { what: string; url: string }[] {
     });
 }
 
+/** `research_notes`: one fact per line, each "label: text"; a line without a label stays whole. */
+export function parseNoteLines(v: string): { label: string; text: string }[] {
+  return v
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (line.startsWith("- ")) return { label: "", text: line };
+      const m = line.match(/^([^:]{1,48}):\s+(\S.*)$/);
+      return m && !/^https?$/i.test(m[1]) ? { label: m[1].trim(), text: m[2].trim() } : { label: "", text: line };
+    });
+}
+
+/** A record the team must not reach out to. Research writes this as the first line of research_notes. */
+export function isDoNotContact(researchNotes: string): boolean {
+  return /^\s*DO NOT CONTACT\b/i.test(researchNotes);
+}
+
 type Row = unknown[];
 
 /** Header name → column index, for the first row of a tab. */
@@ -232,6 +252,7 @@ export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: 
       scoreGaps: t("score_gaps"),
       researchStatus: t("research_status"),
       researchSources: parseSources(t("research_sources")),
+      researchNotes: t("research_notes"),
       lastResearched: parseSheetDate(g("last_researched")),
       pitchAngle: t("pitch_angle"),
       objections: t("objections"),
