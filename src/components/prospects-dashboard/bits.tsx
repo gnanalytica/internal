@@ -67,7 +67,7 @@ export function Bar({ value, max, className }: { value: number; max: number; cla
 
 export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: React.ReactNode }[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="tablist" aria-label={label} className="inline-flex rounded-lg bg-muted p-0.5">
+    <div role="tablist" aria-label={label} className="inline-flex shrink-0 rounded-lg bg-muted p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
@@ -89,7 +89,7 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 
 export function Card({ title, aside, children, className }: { title?: React.ReactNode; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4", className)}>
+    <section className={cn("flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4", className)}>
       {(title || aside) && (
         <div className="flex items-baseline gap-2">
           {title && <h3 className="flex-1 text-sm font-semibold">{title}</h3>}

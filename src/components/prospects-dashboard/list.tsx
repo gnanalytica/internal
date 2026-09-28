@@ -59,8 +59,8 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-xs text-muted-foreground">Views</span>
+      <div className="no-scrollbar -mx-3 flex items-center gap-1.5 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:px-0">
+        <span className="mr-1 text-xs text-muted-foreground max-sm:hidden">Views</span>
         {SAVED_VIEWS.map((v) => {
           const n = rows.filter((r) => v.test(r, ctx)).length;
           return (
@@ -73,7 +73,7 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
                 setLimit(PAGE);
                 setChecked(new Set());
               }}
-              className={cn("h-7 rounded-full border px-3 text-xs font-medium", v.id === view ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
+              className={cn("h-7 shrink-0 rounded-full border px-3 text-xs font-medium whitespace-nowrap", v.id === view ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
             >
               {v.label} <span className="font-mono opacity-70">{n.toLocaleString("en-IN")}</span>
             </button>
@@ -149,7 +149,39 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
           </Button>
         )}
       </div>
-      <div className="overflow-x-auto rounded-xl border bg-card">
+      <ul className="divide-y rounded-xl border bg-card md:hidden">
+        {allOnPage.map((r) => (
+          <li key={r.id} className={cn("flex items-start gap-3 px-3 py-2.5", checked.has(r.id) && "bg-muted/60")}>
+            <input
+              type="checkbox"
+              aria-label={`Select ${r.name}`}
+              checked={checked.has(r.id)}
+              onChange={() => {
+                const next = new Set(checked);
+                if (next.has(r.id)) next.delete(r.id);
+                else next.add(r.id);
+                setChecked(next);
+              }}
+              className="mt-1 size-4 shrink-0 accent-foreground"
+            />
+            <button type="button" onClick={() => onOpen(r)} className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+              <span className="flex items-baseline gap-2">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.name}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{r.assigned || "Unassigned"}</span>
+              </span>
+              <span className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                <StagePill stage={r.stage} />
+                {col.band && <BandBadge band={r.band} score={r.score} />}
+                <span className="truncate">{r.city || r.state || "—"}</span>
+                {r.nextStepDate && <DueChip date={r.nextStepDate} today={today} />}
+                {!r.hasPhone && <span className="text-amber-700 dark:text-amber-400">no phone</span>}
+              </span>
+            </button>
+          </li>
+        ))}
+        {shown.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">Nothing matches this view.</li>}
+      </ul>
+      <div className="overflow-x-auto rounded-xl border bg-card max-md:hidden">
         <table className="w-full min-w-[1080px] text-[13px]">
           <thead className="bg-muted/60 text-left text-[11px] text-muted-foreground">
             <tr>
@@ -236,7 +268,7 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
           Show {Math.min(PAGE, shown.length - limit)} more of {(shown.length - limit).toLocaleString("en-IN")}
         </Button>
       )}
-      <p className="text-xs text-muted-foreground">Amber means not researched yet. Click a name for the side panel.</p>
+      <p className="text-xs text-muted-foreground">Amber means not researched yet. Tap a name to open the record.</p>
     </div>
   );
 }

@@ -233,13 +233,13 @@ export function Overview({
         {o.unassignedA.length ? (
           <div className="flex flex-col">
             {o.unassignedA.map((r) => (
-              <div key={r.id} className="grid grid-cols-[1fr_120px_64px_1fr_110px] items-center gap-3 border-t py-2 text-[13px] first:border-t-0">
+              <div key={r.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t py-2 text-[13px] first:border-t-0 sm:grid-cols-[1fr_120px_64px_1fr_110px]">
                 <button type="button" className="truncate text-left font-medium hover:underline" onClick={() => onOpen(r)}>
                   {r.name}
                 </button>
-                <span className="truncate text-muted-foreground">{r.city || r.state}</span>
+                <span className="truncate text-muted-foreground max-sm:hidden">{r.city || r.state}</span>
                 <BandBadge band={r.band} score={r.score} />
-                <span className="truncate text-muted-foreground">{r.pitchAngle || "No pitch picked"}</span>
+                <span className="truncate text-muted-foreground max-sm:hidden">{r.pitchAngle || "No pitch picked"}</span>
                 <Button
                   size="xs"
                   variant="outline"

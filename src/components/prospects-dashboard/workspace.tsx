@@ -42,6 +42,9 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
+/** Labels short enough that the whole record-type switch fits a phone's width. */
+const SHORT_KIND: Record<ProspectKind, string> = { valuer: "Valuers", firm: "Firms", rvo: "RVOs", panel: "Panel", bank: "Banks" };
+
 /** "14:05" in India time — deterministic, so server and client render the same text. */
 function readTime(iso: string): string {
   const d = new Date(Date.parse(iso) + 5.5 * 3600_000);
@@ -159,37 +162,46 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
   return (
     <div className="flex h-full flex-col">
       <header className="shrink-0 border-b bg-background">
-        <div className="flex flex-wrap items-center gap-3 px-6 pt-4 pb-2">
-          <h1 className="text-xl font-semibold tracking-tight">Prospects</h1>
-          <Segmented
-            label="Record type"
-            value={kind}
-            onChange={setKind}
-            options={PROSPECT_KINDS.map((k) => ({
-              value: k,
-              label: (
-                <>
-                  {KIND_LABEL[k].many} <span className="font-mono text-[11px] text-muted-foreground">{data.rows[k].length.toLocaleString("en-IN")}</span>
-                </>
-              ),
-            }))}
-          />
-          {kind === "valuer" && (
+        {/* One wrapping row on a desktop; on a phone the title and actions share a line and the switches scroll sideways beneath them. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 pt-2 pb-1.5 sm:px-6 sm:pt-4 sm:pb-2">
+          <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Prospects</h1>
+          <div className="no-scrollbar -mx-3 flex basis-full gap-2 overflow-x-auto px-3 max-sm:order-last sm:mx-0 sm:basis-auto sm:flex-wrap sm:px-0">
             <Segmented
-              label="States"
-              value={data.scope}
-              onChange={setScope}
-              options={[
-                { value: "focus", label: "KA · AP · TS" },
-                { value: "all", label: `All India ${data.totals.valuer.toLocaleString("en-IN")}` },
-              ]}
+              label="Record type"
+              value={kind}
+              onChange={setKind}
+              options={PROSPECT_KINDS.map((k) => ({
+                value: k,
+                label: (
+                  <>
+                    <span className="max-sm:hidden">{KIND_LABEL[k].many}</span>
+                    <span className="sm:hidden">{SHORT_KIND[k]}</span> <span className="font-mono text-[11px] text-muted-foreground">{data.rows[k].length.toLocaleString("en-IN")}</span>
+                  </>
+                ),
+              }))}
             />
-          )}
+            {kind === "valuer" && (
+              <Segmented
+                label="States"
+                value={data.scope}
+                onChange={setScope}
+                options={[
+                  { value: "focus", label: "KA · AP · TS" },
+                  { value: "all", label: `All India ${data.totals.valuer.toLocaleString("en-IN")}` },
+                ]}
+              />
+            )}
+          </div>
           <span className="flex-1" />
-          <span className="text-xs text-muted-foreground" title="The dashboard re-reads the sheet at most a minute after any change; Refresh re-reads it now.">Read from the sheet at {readTime(data.readAt)}</span>
+          <span className="text-xs text-muted-foreground" title="The dashboard re-reads the sheet at most a minute after any change; Refresh re-reads it now.">
+            Read<span className="max-sm:hidden"> from the sheet at</span>{" "}
+            {readTime(data.readAt)}
+          </span>
           <Button
             size="sm"
             variant="ghost"
+            className="max-sm:size-8 max-sm:px-0"
+            aria-label="Refresh from the sheet"
             disabled={refreshing}
             onClick={() =>
               startRefresh(async () => {
@@ -198,13 +210,13 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
               })
             }
           >
-            <RefreshCw className={cn(refreshing && "animate-spin")} /> Refresh
+            <RefreshCw className={cn(refreshing && "animate-spin")} /> <span className="max-sm:hidden">Refresh</span>
           </Button>
-          <a href={data.sheetUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
-            Open sheet <ExternalLink className="size-3.5" />
+          <a href={data.sheetUrl} target="_blank" rel="noreferrer" aria-label="Open the sheet" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline max-sm:size-8 max-sm:justify-center">
+            <span className="max-sm:hidden">Open sheet</span> <ExternalLink className="size-3.5 max-sm:size-4" />
           </a>
         </div>
-        <nav role="tablist" aria-label="Prospects views" className="flex gap-1 px-5">
+        <nav role="tablist" aria-label="Prospects views" className="no-scrollbar flex gap-1 overflow-x-auto px-1 sm:px-5">
           {TABS.map((t) => {
             const active = t.id === tab && !showFull;
             return (
@@ -214,7 +226,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setTab(t.id)}
-                className={cn("-mb-px border-b-2 px-3 py-2 text-sm transition-colors", active ? "border-brand font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}
+                className={cn("-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors", active ? "border-brand font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}
               >
                 {t.label}
               </button>
@@ -223,7 +235,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
         </nav>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         {data.warnings.length > 0 && (
           <div role="alert" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
             {data.warnings.slice(0, 4).map((w) => (
