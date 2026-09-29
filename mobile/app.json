@@ -15,7 +15,10 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#5e6ad2"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.gnanalytica.internal",
@@ -35,12 +38,16 @@
           "imageWidth": 160,
           "resizeMode": "contain",
           "backgroundColor": "#5e6ad2",
-          "dark": { "backgroundColor": "#0a0a0a" }
+          "dark": {
+            "backgroundColor": "#0a0a0a"
+          }
         }
       ],
       [
         "expo-image-picker",
-        { "photosPermission": "Internal lets you attach photos from your library to issues, pages and comments." }
+        {
+          "photosPermission": "Internal lets you attach photos from your library to issues, pages and comments."
+        }
       ]
     ],
     "experiments": {
@@ -48,9 +55,15 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "https://internal.gnanalytica.com"
+      "apiUrl": "https://internal.gnanalytica.com",
+      "router": {},
+      "eas": {
+        "projectId": "e06d6da6-eca9-4a93-982a-6e6d01a88543"
+      }
     },
     "owner": "gnanalytica",
-    "runtimeVersion": { "policy": "appVersion" }
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
