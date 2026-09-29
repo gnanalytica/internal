@@ -16,7 +16,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#5e6ad2"
       },
-      "permissions": [
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -46,7 +46,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Internal lets you attach photos from your library to issues, pages and comments."
+          "photosPermission": "Internal lets you attach photos from your library to issues, pages and comments.",
+          "microphonePermission": false
         }
       ]
     ],
