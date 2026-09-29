@@ -1,0 +1,16 @@
+name: Android preview build
+
+# An installable APK for every change to the app that lands on main.
+# Run it by hand with: npx eas-cli workflow:run android-preview.yml
+on:
+  push:
+    branches: ['main']
+    paths: ['mobile/**']
+
+jobs:
+  build_android:
+    name: Build Android APK
+    type: build
+    params:
+      platform: android
+      profile: preview

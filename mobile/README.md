@@ -35,6 +35,13 @@ npx expo export --platform android
 
 ## Build an APK
 
+EAS Workflows builds one automatically: every push to `main` that touches
+`mobile/` runs `.eas/workflows/android-preview.yml` and produces an installable
+APK on expo.dev. It needs the Expo project linked (`extra.eas.projectId` in
+`app.json`) and the GitHub repo connected with base directory `mobile`.
+
+To build by hand:
+
 ```bash
 eas build -p android --profile preview      # installable .apk
 eas build -p android --profile production   # Play Store .aab
