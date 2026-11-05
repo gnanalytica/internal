@@ -14,11 +14,12 @@ import {
   getProjects,
   getWorkspace,
 } from "@/lib/data";
+import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { getTaskContext } from "@/lib/task-context";
 
 /**
  * The project's deal board and sales tasks. Prospects — the people a deal
- * might come from — live in the workspace-wide Prospects page.
+ * might come from — live in the Prospects page, linked from here.
  */
 export default async function ProjectSalesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -48,6 +49,7 @@ export default async function ProjectSalesPage({ params }: { params: Promise<{ i
       initialAccounts={accounts}
       initialContacts={contacts}
       issues={issues.filter((i) => i.projectId === id)}
+      prospectsHref={project.key === PROSPECTS_PRODUCT_KEY ? "/prospects" : undefined}
     />
   );
 }

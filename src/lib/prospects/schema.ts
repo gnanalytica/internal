@@ -15,6 +15,13 @@ export function prospectsSheetUrl(): string {
   return `https://docs.google.com/spreadsheets/d/${prospectsSheetId()}/edit`;
 }
 
+/**
+ * The product these prospects are for (valuers, firms, RVOs, bank panels):
+ * Prospects hangs off its Sales tab rather than sitting at the top level.
+ * Matched by key because the route itself isn't scoped to a project.
+ */
+export const PROSPECTS_PRODUCT_KEY = "VAL";
+
 export const PROSPECT_KINDS = ["valuer", "firm", "rvo", "panel", "bank"] as const;
 export type ProspectKind = (typeof PROSPECT_KINDS)[number];
 

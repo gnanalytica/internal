@@ -1,21 +1,25 @@
 "use client";
 
-import { ArrowLeft, ArrowUpRight, Check, Copy, Mail, MessageCircle, Pencil, Phone, X } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { ArrowLeft, Check, ChevronDown, Copy, Mail, Maximize2, MessageCircle, Phone, X } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getProspectDetail, logTouch, saveProspect } from "@/lib/prospects/actions";
 import type { ActivityEntry, ProspectRecord } from "@/lib/prospects/parse";
 import { displayDate, isDoNotContact, parseNoteLines } from "@/lib/prospects/parse";
-import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, UNSCORED_KINDS, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
-import { addDays, FACT_COUNT, factsKnown } from "@/lib/prospects/stats";
+import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, UNSCORED_KINDS, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
+import { addDays } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, Bar, DueChip, MissingValue, StagePill } from "./bits";
+import { BandBadge, Bar, DatePicker, DueChip, Owner, OwnerPicker, PATH, Segmented, StageBar, StageDot, shortDate } from "./bits";
 import { STAGE_COACHING } from "./playbook-content";
+import { useStageMove, type StageSubject } from "./stage-check";
 
 export type Selection = { kind: ProspectKind; id: string };
 export type Detail = { record: ProspectRecord; activity: ActivityEntry[] };
+export type LogOpts = { channel?: Channel; outcome?: Outcome };
 
 /** Loads one record's full detail through a server action; `reload` after every write. */
 export function useDetail(sel: Selection | null) {
@@ -40,100 +44,24 @@ export function useDetail(sel: Selection | null) {
   return { data: shown, loading: current === undefined, reload: () => setVersion((v) => v + 1) };
 }
 
-type Ctx = { kind: ProspectKind; id: string; today: string; me: string; onChanged: () => void; onLog: () => void };
+type Ctx = { kind: ProspectKind; id: string; today: string; me: string; team: string[]; onChanged: () => void; onLog: (o?: LogOpts) => void };
 
-function save(ctx: Ctx, patch: Record<string, string | number | null>, start: (fn: () => Promise<void>) => void, after?: () => void) {
-  start(async () => {
-    const r = await saveProspect(ctx.kind, ctx.id, patch);
-    if (r.ok) {
-      toast.success(r.message);
-      after?.();
-      ctx.onChanged();
-    } else toast.error(r.message);
-  });
+function useSave(ctx: Ctx) {
+  const [pending, start] = useTransition();
+  const save = (patch: Record<string, string | number | null>, after?: () => void) =>
+    start(async () => {
+      const r = await saveProspect(ctx.kind, ctx.id, patch);
+      if (r.ok) {
+        toast.success(r.message);
+        after?.();
+        ctx.onChanged();
+      } else toast.error(r.message);
+    });
+  return { save, pending };
 }
 
-/** A labelled value that turns into an input when clicked, and saves that one cell to the sheet. */
-export function EditField({
-  ctx,
-  col,
-  label,
-  value,
-  type = "text",
-  options,
-  display,
-  missing,
-  rows = 6,
-}: {
-  ctx: Ctx;
-  col: string;
-  label: string;
-  value: string;
-  type?: "text" | "textarea" | "number" | "select" | "date";
-  options?: readonly string[];
-  display?: React.ReactNode;
-  missing?: string;
-  rows?: number;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [pending, start] = useTransition();
-  const editable = WRITABLE[ctx.kind].has(col);
-  const inputId = `pf-${col}`;
-  const commit = () => {
-    const v = type === "number" ? (draft.trim() === "" ? null : Number(draft)) : draft.trim();
-    save(ctx, { [col]: v }, start, () => setEditing(false));
-  };
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <div className="flex items-center gap-1">
-        <label htmlFor={inputId} className="text-[11px] font-medium text-muted-foreground">
-          {label}
-        </label>
-        {editable && !editing && (
-          <button
-            type="button"
-            aria-label={`Edit ${label}`}
-            onClick={() => {
-              setDraft(value);
-              setEditing(true);
-            }}
-            className="rounded p-0.5 text-muted-foreground opacity-60 hover:bg-muted hover:opacity-100"
-          >
-            <Pencil className="size-3" />
-          </button>
-        )}
-      </div>
-      {editing ? (
-        <div className="flex flex-col gap-1.5">
-          {type === "textarea" ? (
-            <textarea id={inputId} value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" />
-          ) : type === "select" ? (
-            <select id={inputId} value={draft} onChange={(e) => setDraft(e.target.value)} className="h-8 rounded-md border bg-background px-2 text-sm">
-              <option value="">—</option>
-              {[...new Set([...(options ?? []), ...(value && !options?.includes(value) ? [value] : [])])].map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input id={inputId} type={type} inputMode={type === "number" ? "numeric" : undefined} value={draft} onChange={(e) => setDraft(e.target.value)} className="h-8 rounded-md border bg-background px-2 text-sm" />
-          )}
-          <div className="flex gap-1.5">
-            <Button size="xs" onClick={commit} disabled={pending}>
-              {pending ? "Saving…" : "Save to sheet"}
-            </Button>
-            <Button size="xs" variant="ghost" onClick={() => setEditing(false)} disabled={pending}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="min-w-0 text-sm break-words whitespace-pre-line">{value ? (display ?? value) : <MissingValue>{missing ?? "Not known — research"}</MissingValue>}</div>
-      )}
-    </div>
-  );
+export function subjectOf(r: ProspectRecord): StageSubject {
+  return { kind: r.kind, id: r.id, name: r.name, stage: r.stage, nextStep: r.nextStep, nextStepDate: r.nextStepDate, cases: r.casesPerMonth, software: r.software, pitchAngle: r.pitchAngle, objections: r.objections, hasPhone: Boolean(r.phone) };
 }
 
 function digits10(phone: string): string | null {
@@ -146,27 +74,246 @@ function emailParts(draft: string): { subject: string; body: string } {
   return m ? { subject: m[1].trim(), body: m[2].trim() } : { subject: "", body: draft };
 }
 
-const CHANNEL_KEYS = [
-  { key: "whatsapp", col: "draft_whatsapp", label: "WhatsApp" },
-  { key: "email", col: "draft_email", label: "Email" },
-  { key: "call", col: "draft_call", label: "Call" },
-  { key: "meeting", col: "draft_meeting", label: "Meeting" },
+/**
+ * One property: label on the left, value on the right. Clicking the value
+ * edits it in place; Enter saves that one cell to the sheet, Escape cancels.
+ */
+function Prop({ ctx, col, label, value, display, options, type = "text", missing = "Add" }: { ctx: Ctx; col: string; label: string; value: string; display?: React.ReactNode; options?: readonly string[]; type?: "text" | "number"; missing?: string }) {
+  const editable = WRITABLE[ctx.kind].has(col);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const { save, pending } = useSave(ctx);
+  const commit = (v: string) => {
+    if (v.trim() === value.trim()) return setEditing(false);
+    save({ [col]: type === "number" ? (v.trim() === "" ? null : Number(v)) : v.trim() }, () => setEditing(false));
+  };
+  const shown = value ? (display ?? value) : <span className={editable ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}>{editable ? missing : "—"}</span>;
+  const body = !editable ? (
+    <span className="block truncate px-2 py-1">{shown}</span>
+  ) : options ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger disabled={pending} className="flex w-full min-w-0 items-center rounded-md px-2 py-1 text-left hover:bg-muted aria-expanded:bg-muted">
+        <span className="truncate">{shown}</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-auto min-w-52">
+        <DropdownMenuRadioGroup value={value} onValueChange={(v) => commit(String(v))}>
+          {[...new Set([...options, ...(value && !options.includes(value) ? [value] : [])])].map((o) => (
+            <DropdownMenuRadioItem key={o} value={o}>
+              {o}
+            </DropdownMenuRadioItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioItem value="">Clear</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : editing ? (
+    <input
+      autoFocus
+      aria-label={label}
+      inputMode={type === "number" ? "numeric" : undefined}
+      value={draft}
+      disabled={pending}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => commit(draft)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit(draft);
+        if (e.key === "Escape") setEditing(false);
+      }}
+      className="h-7 w-full min-w-0 rounded-md border bg-background px-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+    />
+  ) : (
+    <button
+      type="button"
+      onClick={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
+      className="block w-full min-w-0 truncate rounded-md px-2 py-1 text-left hover:bg-muted"
+    >
+      {shown}
+    </button>
+  );
+  return (
+    <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
+      <dt className="truncate text-muted-foreground">{label}</dt>
+      <dd className="-mx-0 min-w-0">{body}</dd>
+    </div>
+  );
+}
+
+/** A long text cell (notes, research notes, a draft) that switches to a textarea to edit. */
+function LongText({ ctx, col, label, value, display, empty, rows = 8 }: { ctx: Ctx; col: string; label: string; value: string; display: React.ReactNode; empty: string; rows?: number }) {
+  const editable = WRITABLE[ctx.kind].has(col);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const { save, pending } = useSave(ctx);
+  if (editing)
+    return (
+      <div className="flex flex-col gap-2">
+        <textarea aria-label={label} autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
+        <div className="flex gap-2">
+          <Button size="sm" disabled={pending} onClick={() => save({ [col]: draft.trim() }, () => setEditing(false))}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  return (
+    <div className="group/long flex flex-col gap-1.5">
+      {value ? display : <p className="text-[13px] text-muted-foreground">{empty}</p>}
+      {editable && (
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+          className="self-start text-xs text-muted-foreground hover:text-foreground"
+        >
+          {value ? "Edit" : "Write"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The stage, as a menu: forward moves ask for what the current stage should have found out. */
+function StageMenu({ ctx, r, className }: { ctx: Ctx; r: ProspectRecord; className?: string }) {
+  const { move, dialog, pending } = useStageMove(ctx.onChanged);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger disabled={pending} className={cn("inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[13px] hover:bg-muted aria-expanded:bg-muted", className)}>
+          <StageDot stage={r.stage} />
+          {STAGES[r.stage]}
+          <ChevronDown className="size-3.5 text-muted-foreground" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-auto min-w-48">
+          <DropdownMenuRadioGroup value={String(r.stage)} onValueChange={(v) => move(subjectOf(r), Number(v))}>
+            {STAGES.map((s, i) => (
+              <div key={s} className="contents">
+                {i === 6 && <DropdownMenuSeparator />}
+                <DropdownMenuRadioItem value={String(i)}>
+                  <StageDot stage={i} /> {s}
+                </DropdownMenuRadioItem>
+              </div>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {dialog}
+    </>
+  );
+}
+
+/** Call, WhatsApp, Email and Log. Reaching out opens the log, ready for how it went. */
+function ActionBar({ ctx, r, className }: { ctx: Ctx; r: ProspectRecord; className?: string }) {
+  const phone = digits10(r.phone);
+  const cls = "inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-3 text-[13px] font-medium whitespace-nowrap hover:bg-muted sm:h-8 aria-disabled:pointer-events-none aria-disabled:opacity-40";
+  const email = emailParts(r.drafts.email);
+  return (
+    <div className={cn("grid grid-cols-4 gap-1.5", className)}>
+      <a href={phone ? `tel:+91${phone}` : undefined} aria-disabled={!phone} title={phone ? undefined : "No phone number yet"} onClick={() => phone && setTimeout(() => ctx.onLog({ channel: "Call", outcome: "Connected" }), 400)} className={cls}>
+        <Phone className="size-3.5" /> Call
+      </a>
+      <a
+        href={phone ? `https://wa.me/91${phone}${r.drafts.whatsapp ? `?text=${encodeURIComponent(r.drafts.whatsapp)}` : ""}` : undefined}
+        target="_blank"
+        rel="noreferrer"
+        aria-disabled={!phone}
+        title={phone ? undefined : "No phone number yet"}
+        onClick={() => phone && setTimeout(() => ctx.onLog({ channel: "WhatsApp", outcome: "Sent" }), 400)}
+        className={cls}
+      >
+        <MessageCircle className="size-3.5" /> <span className="max-sm:hidden">WhatsApp</span>
+        <span className="sm:hidden">Chat</span>
+      </a>
+      <a
+        href={r.email ? `mailto:${r.email}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}` : undefined}
+        aria-disabled={!r.email}
+        title={r.email ? undefined : "No email yet"}
+        onClick={() => r.email && setTimeout(() => ctx.onLog({ channel: "Email", outcome: "Sent" }), 400)}
+        className={cls}
+      >
+        <Mail className="size-3.5" /> Email
+      </a>
+      <button type="button" onClick={() => ctx.onLog()} className={cn(cls, "border-foreground bg-foreground text-background hover:bg-foreground/85")}>
+        Log
+      </button>
+    </div>
+  );
+}
+
+function NextStep({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
+  const { save, pending } = useSave(ctx);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(r.nextStep);
+  const commit = () => (draft.trim() === r.nextStep.trim() ? setEditing(false) : save({ next_step: draft.trim() }, () => setEditing(false)));
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg bg-muted/60 px-3.5 py-3">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="text-muted-foreground">Next step</span>
+        <DatePicker value={r.nextStepDate} today={ctx.today} onPick={(iso) => save({ next_step_date: iso })} disabled={pending}>
+          <button type="button" className="rounded px-1 hover:bg-background">
+            {r.nextStepDate ? <DueChip date={r.nextStepDate} today={ctx.today} /> : <span className="text-muted-foreground">Set a date</span>}
+          </button>
+        </DatePicker>
+      </div>
+      {editing ? (
+        <input
+          autoFocus
+          aria-label="Next step"
+          value={draft}
+          disabled={pending}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="h-8 rounded-md border bg-background px-2 text-sm outline-none"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(r.nextStep);
+            setEditing(true);
+          }}
+          className="text-left text-sm leading-snug hover:text-foreground/80"
+        >
+          {r.nextStep || <span className="text-muted-foreground">What happens next? Click to write it.</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
+const DRAFTS = [
+  { key: "whatsapp", col: "draft_whatsapp", label: "WhatsApp", channel: "WhatsApp" as Channel },
+  { key: "call", col: "draft_call", label: "Call script", channel: "Call" as Channel },
+  { key: "email", col: "draft_email", label: "Email", channel: "Email" as Channel },
+  { key: "meeting", col: "draft_meeting", label: "Meeting", channel: "Meeting" as Channel },
 ] as const;
 
 function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
-  const [tab, setTab] = useState<(typeof CHANNEL_KEYS)[number]["key"]>("whatsapp");
+  const channels = DRAFTS.filter((c) => WRITABLE[ctx.kind].has(c.col));
+  const [tab, setTab] = useState<(typeof DRAFTS)[number]["key"]>(() => channels.find((c) => r.drafts[c.key])?.key ?? channels[0]?.key ?? "whatsapp");
   const [pending, start] = useTransition();
-  const channels = CHANNEL_KEYS.filter((c) => WRITABLE[ctx.kind].has(c.col));
   if (!channels.length) return null;
   const ch = channels.find((c) => c.key === tab) ?? channels[0];
-  const text = r.drafts[tab];
+  const text = r.drafts[ch.key];
   const phone = digits10(r.phone);
   const openHref =
-    tab === "whatsapp" && phone
+    ch.key === "whatsapp" && phone
       ? `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`
-      : tab === "email" && r.email
+      : ch.key === "email" && r.email
         ? `mailto:${r.email}?subject=${encodeURIComponent(emailParts(text).subject)}&body=${encodeURIComponent(emailParts(text).body)}`
-        : tab === "call" && phone
+        : ch.key === "call" && phone
           ? `tel:+91${phone}`
           : null;
   const markSent = () =>
@@ -175,7 +322,7 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
         kind: ctx.kind,
         id: ctx.id,
         name: r.name,
-        channel: ch.label === "Meeting" ? "Meeting" : ch.label === "Call" ? "Call" : ch.label === "Email" ? "Email" : "WhatsApp",
+        channel: ch.channel,
         direction: "Outbound",
         outcome: ch.key === "call" || ch.key === "meeting" ? "Connected" : "Sent",
         durationMin: null,
@@ -189,197 +336,96 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
         ctx.onChanged();
       } else toast.error(res.message);
     });
+  const email = ch.key === "email" ? emailParts(text) : null;
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <h4 className="flex-1 text-sm font-semibold">Draft to send</h4>
-        <span className="text-[11px] text-muted-foreground">written by the research agents</span>
+    <section aria-label="Draft" className="flex flex-col gap-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="mr-2 text-sm font-semibold">Draft</h3>
+        <Segmented label="Draft channel" value={ch.key} onChange={setTab} options={channels.map((c) => ({ value: c.key, label: c.label }))} />
       </div>
-      <div role="tablist" aria-label="Draft channel" className="flex gap-1">
-        {channels.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            role="tab"
-            aria-selected={c.key === ch.key}
-            onClick={() => setTab(c.key)}
-            className={cn("h-7 rounded-full border px-3 text-xs font-medium", c.key === ch.key ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className="overflow-hidden rounded-lg border">
+        <LongText
+          ctx={ctx}
+          col={ch.col}
+          label={`${ch.label} draft`}
+          value={text}
+          rows={10}
+          empty={`No ${ch.label.toLowerCase()} draft yet. Research writes one per record, or write your own.`}
+          display={
+            <div className="text-sm leading-relaxed">
+              {email?.subject && (
+                <p className="border-b px-3.5 py-2 text-[13px]">
+                  <span className="text-muted-foreground">Subject</span>&nbsp;&nbsp;{email.subject}
+                </p>
+              )}
+              <p className="px-3.5 py-3 whitespace-pre-wrap">{email ? email.body : text}</p>
+            </div>
+          }
+        />
       </div>
-      <EditField ctx={ctx} col={ch.col} label={`${ch.label} draft`} value={text} type="textarea" missing="No draft yet — the research agents write one per record" display={<div className="rounded-lg border bg-muted/40 p-3 text-sm leading-relaxed whitespace-pre-wrap">{text}</div>} />
-      <div className="flex flex-wrap gap-1.5">
-        {text && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              navigator.clipboard.writeText(text).then(() => toast.success("Draft copied"));
-            }}
-          >
+      {text && (
+        <div className="flex flex-wrap gap-1.5">
+          {openHref && (
+            <a href={openHref} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/85">
+              {ch.key === "call" ? "Call now" : `Open in ${ch.key === "email" ? "Mail" : ch.label}`}
+            </a>
+          )}
+          <Button size="sm" variant="outline" className="h-8" onClick={() => navigator.clipboard.writeText(text).then(() => toast.success("Draft copied"))}>
             <Copy /> Copy
           </Button>
-        )}
-        {openHref && (
-          <a href={openHref} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[0.8rem] font-medium hover:bg-muted">
-            <ArrowUpRight className="size-3.5" /> {tab === "call" ? "Call" : `Open in ${ch.label}`}
-          </a>
-        )}
-        <Button size="sm" onClick={markSent} disabled={pending}>
-          <Check /> {pending ? "Saving…" : tab === "call" || tab === "meeting" ? "Mark done" : "Mark sent"}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={ctx.onLog}>
-          Log details…
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function QuickActions({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compact?: boolean }) {
-  const [pending, start] = useTransition();
-  const phone = digits10(r.phone);
-  const firstName = ctx.me.split(/\s+/)[0];
-  const cls = "inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-2 text-[13px] font-medium whitespace-nowrap hover:bg-muted sm:h-8 sm:justify-start sm:px-3";
-  return (
-    <div className={cn("grid grid-cols-4 gap-1.5", !compact && "sm:flex sm:flex-wrap")}>
-      {phone ? (
-        <a href={`tel:+91${phone}`} onClick={() => setTimeout(ctx.onLog, 400)} className={cls}>
-          <Phone className="size-3.5" /> Call
-        </a>
-      ) : (
-        <button type="button" className={cn(cls, "opacity-50")} disabled title="No phone number yet">
-          <Phone className="size-3.5" /> Call
-        </button>
-      )}
-      {phone ? (
-        <a href={`https://wa.me/91${phone}${r.drafts.whatsapp ? `?text=${encodeURIComponent(r.drafts.whatsapp)}` : ""}`} target="_blank" rel="noreferrer" className={cls}>
-          <MessageCircle className="size-3.5" /> WhatsApp
-        </a>
-      ) : (
-        <button type="button" className={cn(cls, "opacity-50")} disabled title="No phone number yet">
-          <MessageCircle className="size-3.5" /> WhatsApp
-        </button>
-      )}
-      {r.email ? (
-        <a href={`mailto:${r.email}?subject=${encodeURIComponent(emailParts(r.drafts.email).subject)}&body=${encodeURIComponent(emailParts(r.drafts.email).body)}`} className={cls}>
-          <Mail className="size-3.5" /> Email
-        </a>
-      ) : (
-        <button type="button" className={cn(cls, "opacity-50")} disabled title="No email yet">
-          <Mail className="size-3.5" /> Email
-        </button>
-      )}
-      <button type="button" onClick={ctx.onLog} className={cls}>
-        Log…
-      </button>
-      {!compact && (
-        <>
-          <button type="button" disabled={pending} onClick={() => save(ctx, { next_step_date: addDays(ctx.today, 3) }, start)} className={cn(cls, "col-span-2")}>
-            Follow up in 3 days
-          </button>
-          {!r.assigned || r.assigned.toLowerCase() !== firstName.toLowerCase() ? (
-            <button type="button" disabled={pending} onClick={() => save(ctx, { assigned: firstName }, start)} className={cn(cls, "col-span-2")}>
-              Assign to me
-            </button>
-          ) : null}
-          {WRITABLE[ctx.kind].has("disqualified") && (
-            <select
-              aria-label="Disqualify"
-              value=""
-              disabled={pending}
-              onChange={(e) => e.target.value && save(ctx, { disqualified: e.target.value }, start)}
-              className="col-span-4 h-9 rounded-md border border-red-200 bg-background px-2 text-[13px] text-red-700 sm:h-8 dark:border-red-900 dark:text-red-300"
-            >
-              <option value="">Disqualify…</option>
-              {DISQUALIFY_REASONS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function StatusSelect({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
-  const [pending, start] = useTransition();
-  return (
-    <select
-      aria-label="Status"
-      value={STAGES[r.stage]}
-      disabled={pending}
-      onChange={(e) => save(ctx, { status: e.target.value }, start)}
-      className="h-7 rounded-md border bg-background px-2 text-xs font-medium"
-    >
-      {STAGES.map((s) => (
-        <option key={s} value={s}>
-          {s}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function NextStep({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
-  const [pending, start] = useTransition();
-  return (
-    <div className="flex flex-col gap-2 rounded-lg bg-muted/60 p-3">
-      <div className="flex items-center gap-2">
-        <span className="flex-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Next step</span>
-        <DueChip date={r.nextStepDate} today={ctx.today} />
-      </div>
-      <EditField ctx={ctx} col="next_step" label="What" value={r.nextStep} missing="No next step set" />
-      <div className="flex flex-wrap items-center gap-1.5">
-        {[
-          ["Tomorrow", 1],
-          ["+3 days", 3],
-          ["Next week", 7],
-        ].map(([label, d]) => (
-          <button key={label} type="button" disabled={pending} onClick={() => save(ctx, { next_step_date: addDays(ctx.today, d as number) }, start)} className="h-6 rounded-full border bg-background px-2.5 text-[11px] hover:bg-muted">
-            {label}
-          </button>
-        ))}
-        <label className="sr-only" htmlFor="pf-next-date">
-          Pick a date
-        </label>
-        <input id="pf-next-date" type="date" defaultValue={r.nextStepDate ?? ""} onChange={(e) => e.target.value && save(ctx, { next_step_date: e.target.value }, start)} className="h-6 rounded-md border bg-background px-1.5 text-[11px]" />
-      </div>
-    </div>
-  );
-}
-
-function ScoreCard({ r }: { r: ProspectRecord }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-baseline gap-2">
-        <h4 className="flex-1 text-sm font-semibold">Score</h4>
-        <span className="font-mono text-lg tabular-nums">{r.opportunityScore ?? "—"}</span>
-        <span className="text-xs text-muted-foreground">/100 · {r.bandLabel || "not scored"}</span>
-      </div>
-      {SCORE_COLUMNS.map((s, i) => (
-        <div key={s.key} className="grid grid-cols-[130px_1fr_40px] items-center gap-2 text-xs">
-          <span>{s.label}</span>
-          <Bar value={r.scores[i] ?? 0} max={s.max} />
-          <span className="text-right font-mono tabular-nums">{r.scores[i] ?? "–"}/{s.max}</span>
+          <span className="flex-1" />
+          <Button size="sm" variant="ghost" className="h-8" onClick={markSent} disabled={pending}>
+            <Check /> {pending ? "Saving…" : ch.key === "call" || ch.key === "meeting" ? "Mark done" : "Mark sent"}
+          </Button>
         </div>
-      ))}
-      <p className="text-xs text-muted-foreground">
-        switching_barrier {r.switchingBarrier ?? 0} · disqualified {r.disqualified || "No"}
-      </p>
-      {r.scoreReason && (
-        <p className="text-sm leading-snug">
-          <strong>Why:</strong> {r.scoreReason}
-        </p>
       )}
-      <div className="rounded-md bg-amber-50 px-3 py-2 text-sm leading-snug dark:bg-amber-950">
-        <strong>Research next:</strong> {r.scoreGaps || "Nothing recorded — the research agents fill this when they score."}
-      </div>
+    </section>
+  );
+}
+
+function ActivityList({ items, limit }: { items: ActivityEntry[]; limit?: number }) {
+  const shown = limit ? items.slice(0, limit) : items;
+  if (!shown.length) return <p className="text-[13px] text-muted-foreground">Nothing logged yet. Every call or message you log lands here.</p>;
+  return (
+    <ul className="flex flex-col">
+      {shown.map((a) => (
+        <li key={a.id || a.loggedAt} className="grid grid-cols-[64px_1fr] gap-3 border-t py-2.5 text-[13px] first:border-t-0">
+          <span className="pt-0.5 font-mono text-[11px] text-muted-foreground">{(a.date ? displayDate(a.date) : a.loggedAt).slice(0, 5)}</span>
+          <span className="leading-snug">
+            {a.channel} · <strong className="font-medium">{a.outcome}</strong>
+            {a.durationMin ? ` · ${a.durationMin} min` : ""}
+            {a.statusAfter ? <span className="text-muted-foreground"> → {a.statusAfter}</span> : null}
+            <span className="text-muted-foreground"> · {a.by.split(/\s+/)[0]}</span>
+            {a.summary && <span className="mt-0.5 block text-muted-foreground">{a.summary}</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ResearchNotes({ r, limit }: { r: ProspectRecord; limit: number }) {
+  const [all, setAll] = useState(false);
+  const lines = parseNoteLines(r.researchNotes);
+  const shown = all ? lines : lines.slice(0, limit);
+  return (
+    <div className="flex flex-col gap-1.5 text-[13px] leading-relaxed">
+      {shown.map((l, i) =>
+        l.label ? (
+          <p key={i}>
+            <span className="text-muted-foreground">{l.label}:</span> {l.text}
+          </p>
+        ) : (
+          <p key={i} className={l.text.startsWith("- ") ? "pl-3" : "text-xs text-muted-foreground"}>
+            {l.text}
+          </p>
+        ),
+      )}
+      {lines.length > limit && (
+        <button type="button" className="self-start text-xs text-muted-foreground hover:text-foreground" onClick={() => setAll((v) => !v)}>
+          {all ? "Show less" : `Show all ${lines.length} lines`}
+        </button>
+      )}
     </div>
   );
 }
@@ -388,398 +434,368 @@ function ScoreCard({ r }: { r: ProspectRecord }) {
 function DoNotContactBanner({ r }: { r: ProspectRecord }) {
   if (!isDoNotContact(r.researchNotes)) return null;
   return (
-    <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-[13px] leading-snug font-medium text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] leading-snug font-medium text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
       {r.researchNotes.trim().split("\n")[0]}
     </div>
   );
 }
 
-function ResearchNotes({ ctx, r, limit }: { ctx: Ctx; r: ProspectRecord; limit: number }) {
-  const [all, setAll] = useState(false);
-  const lines = parseNoteLines(r.researchNotes);
-  const shown = all ? lines : lines.slice(0, limit);
-  return (
-    <EditField
-      ctx={ctx}
-      col="research_notes"
-      label="Research notes"
-      value={r.researchNotes}
-      type="textarea"
-      rows={16}
-      missing="Nothing yet — research adds findings here, one per line"
-      display={
-        <div className="flex flex-col gap-1.5 text-[13px] leading-snug">
-          {shown.map((l, i) =>
-            l.label ? (
-              <p key={i}>
-                <span className="font-medium text-muted-foreground">{l.label}:</span> {l.text}
-              </p>
-            ) : (
-              <p key={i} className={l.text.startsWith("- ") ? "pl-3" : "text-xs text-muted-foreground"}>
-                {l.text}
-              </p>
-            ),
-          )}
-          {lines.length > limit && (
-            <button type="button" className="self-start text-xs font-medium text-brand hover:underline" onClick={() => setAll((v) => !v)}>
-              {all ? "Show less" : `Show all ${lines.length} lines`}
-            </button>
-          )}
-        </div>
-      }
-    />
-  );
-}
-
-function ResearchCard({ r }: { r: ProspectRecord }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <h4 className="flex-1 text-sm font-semibold">Research</h4>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">{r.researchStatus || "Not started"}</span>
-      </div>
-      <span className="text-xs text-muted-foreground">{r.lastResearched ? `Last researched ${displayDate(r.lastResearched)}` : "Never researched"}</span>
-      {r.researchSources.length ? (
-        r.researchSources.map((s, i) => (
-          <div key={i} className="grid grid-cols-[72px_1fr] gap-2 text-xs">
-            <span className="font-mono text-muted-foreground">{s.what || "source"}</span>
-            <a href={/^https?:/i.test(s.url) ? s.url : `https://${s.url}`} target="_blank" rel="noreferrer" className="break-all text-brand hover:underline">
-              {s.url}
-            </a>
-          </div>
-        ))
-      ) : (
-        <span className="text-xs text-muted-foreground">No sources yet.</span>
-      )}
-    </div>
-  );
-}
-
-function ActivityList({ items, limit }: { items: ActivityEntry[]; limit?: number }) {
-  const shown = limit ? items.slice(0, limit) : items;
-  if (!shown.length) return <p className="text-xs text-muted-foreground">Nothing logged yet. Every call or message you log lands here and in the Activity tab.</p>;
-  return (
-    <ul className="flex flex-col gap-2">
-      {shown.map((a) => (
-        <li key={a.id || a.loggedAt} className="grid grid-cols-[88px_70px_1fr] gap-2 border-b pb-2 text-[13px] last:border-0">
-          <span className="font-mono text-[11px] text-muted-foreground">{a.loggedAt}</span>
-          <span className="text-[11px] font-medium">{a.channel}</span>
-          <span className="leading-snug">
-            <strong className="font-medium">{a.outcome}</strong>
-            {a.durationMin ? ` · ${a.durationMin} min` : ""}
-            {a.summary ? ` — ${a.summary}` : ""}
-            <span className="text-muted-foreground"> · {a.by.split(/\s+/)[0]}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Facts({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compact?: boolean }) {
-  const lenders = r.lenders.join("; ");
+/** The editable facts for a kind of record, in the order people look for them. */
+function Properties({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compact?: boolean }) {
   const has = (col: string) => WRITABLE[ctx.kind].has(col);
+  const { save, pending } = useSave(ctx);
   return (
-    <div className={cn("grid gap-x-4 gap-y-3", compact ? "grid-cols-2" : "grid-cols-1")}>
-      {has("contact_person") && <EditField ctx={ctx} col="contact_person" label="Contact person" value={r.bank.contactPerson} missing="Not named yet" />}
-      {has("designation") && <EditField ctx={ctx} col="designation" label="Designation" value={r.bank.designation} missing="Not known" />}
-      <EditField ctx={ctx} col="phone" label="Phone" value={r.phone} />
-      {!compact && <EditField ctx={ctx} col="email" label="Email" value={r.email} />}
-      {has("lenders_empanelled_with") && <EditField ctx={ctx} col="lenders_empanelled_with" label="Lenders empanelled with" value={lenders} type="textarea" />}
-      {has("lb_cases_per_month") && <EditField ctx={ctx} col="lb_cases_per_month" label="L&B cases / month" value={r.casesPerMonth === null ? "" : String(r.casesPerMonth)} type="number" />}
-      {has("current_software") && <EditField ctx={ctx} col="current_software" label="Current software" value={r.software} />}
-      {has("pitch_angle") && <EditField ctx={ctx} col="pitch_angle" label="Pitch angle" value={r.pitchAngle} type="select" options={PITCH_ANGLES} missing="Not picked yet" />}
-      {has("objections") && <EditField ctx={ctx} col="objections" label="Objection" value={r.objections} type="select" options={OBJECTIONS} missing="None recorded" />}
-      <EditField ctx={ctx} col="assigned" label="Assigned" value={r.assigned} missing="Nobody" />
-      {has("outreach_route") && <EditField ctx={ctx} col="outreach_route" label="Outreach route" value={r.outreachRoute} missing="Not planned" />}
-      {has("key_contact") && <EditField ctx={ctx} col="key_contact" label="Key contact" value={r.keyContact} missing="Not known" />}
-      {has("referred_by") && <EditField ctx={ctx} col="referred_by" label="Referred by" value={r.referredBy} missing="—" />}
-      {!compact && has("city") && <EditField ctx={ctx} col="city" label="City" value={r.city} />}
-    </div>
+    <dl className="flex flex-col">
+      <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
+        <dt className="text-muted-foreground">Owner</dt>
+        <dd className="min-w-0">
+          <OwnerPicker value={r.assigned} me={ctx.me} team={ctx.team} disabled={pending} onPick={(n) => save({ assigned: n })}>
+            <button type="button" className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted">
+              {r.assigned ? (
+                <>
+                  <Owner name={r.assigned} /> <span className="truncate">{r.assigned}</span>
+                </>
+              ) : (
+                <span className="text-amber-700 dark:text-amber-400">Nobody · assign</span>
+              )}
+            </button>
+          </OwnerPicker>
+        </dd>
+      </div>
+      {has("contact_person") && <Prop ctx={ctx} col="contact_person" label="Contact person" value={r.bank.contactPerson} />}
+      {has("designation") && <Prop ctx={ctx} col="designation" label="Designation" value={r.bank.designation} />}
+      <Prop ctx={ctx} col="phone" label="Phone" value={r.phone} missing="Add a number" />
+      <Prop ctx={ctx} col="email" label="Email" value={r.email} missing="Add an email" />
+      {has("lenders_empanelled_with") && <Prop ctx={ctx} col="lenders_empanelled_with" label="Lender panels" value={r.lenders.join("; ")} missing="Not known yet" />}
+      {has("current_software") && <Prop ctx={ctx} col="current_software" label="Software" value={r.software} missing="Ask on a call" />}
+      {has("lb_cases_per_month") && <Prop ctx={ctx} col="lb_cases_per_month" label="Cases / month" value={r.casesPerMonth === null ? "" : String(r.casesPerMonth)} type="number" missing="Ask on a call" />}
+      {has("pitch_angle") && <Prop ctx={ctx} col="pitch_angle" label="Pitch" value={r.pitchAngle} options={PITCH_ANGLES} missing="Pick one" />}
+      {has("objections") && <Prop ctx={ctx} col="objections" label="Objection" value={r.objections} options={OBJECTIONS} missing="None recorded" />}
+      {!compact && has("key_contact") && <Prop ctx={ctx} col="key_contact" label="Key contact" value={r.keyContact} />}
+      {!compact && has("outreach_route") && <Prop ctx={ctx} col="outreach_route" label="Outreach" value={r.outreachRoute} missing="Not planned" />}
+      {!compact && has("referred_by") && <Prop ctx={ctx} col="referred_by" label="Referred by" value={r.referredBy} missing="—" />}
+      {!compact && has("city") && <Prop ctx={ctx} col="city" label="City" value={r.city} />}
+      {!UNSCORED_KINDS.has(ctx.kind) && (
+        <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
+          <dt className="text-muted-foreground">Band</dt>
+          <dd className="px-2">{r.band ? <BandBadge band={r.band} score={r.opportunityScore} /> : <span className="text-muted-foreground">Not scored yet</span>}</dd>
+        </div>
+      )}
+      <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
+        <dt className="text-muted-foreground">Last contacted</dt>
+        <dd className="px-2">{r.lastContacted ? displayDate(r.lastContacted) : <span className="text-muted-foreground">Never</span>}</dd>
+      </div>
+    </dl>
   );
 }
 
 function Registration({ r, kind }: { r: ProspectRecord; kind: ProspectKind }) {
-  const rows: [string, string][] = [
-    [kind === "panel" || kind === "bank" ? "ID" : "Registration", r.id],
+  const rows = ([
     ["State", r.state],
     ["Address", r.address],
-    ...(kind === "valuer" ? ([["RVO", r.rvo], ["Registered", r.registeredOn], ["Firm", r.firmRegNo ? `${r.firmRegNo}${r.firmStatus ? ` · firm is ${r.firmStatus}` : ""}` : "—"]] as [string, string][]) : []),
-    ...(kind === "firm" ? ([["RVO", r.rvo], ["Directors / partners", r.people]] as [string, string][]) : []),
-    ...(kind === "rvo" ? ([["Website", r.website], ["Chair / president", r.keyContact], ["CEO / MD", r.people]] as [string, string][]) : []),
-    ...(kind === "panel" ? ([["City", r.city], ["Practice", r.practice], ["IBBI", "Not on the IBBI register"]] as [string, string][]) : []),
+    ...(kind === "valuer" ? ([["RVO", r.rvo], ["Registered", r.registeredOn], ["Firm", r.firmRegNo ? `${r.firmRegNo}${r.firmStatus ? ` · ${r.firmStatus}` : ""}` : ""]] as [string, string][]) : []),
+    ...(kind === "firm" ? ([["RVO", r.rvo], ["Partners", r.people]] as [string, string][]) : []),
+    ...(kind === "rvo" ? ([["Website", r.website], ["Chair", r.keyContact], ["CEO / MD", r.people]] as [string, string][]) : []),
+    ...(kind === "panel" ? ([["Practice", r.practice], ["IBBI", "Not on the IBBI register"]] as [string, string][]) : []),
     ...(kind === "bank"
       ? ([
           ["Institution", r.bank.institution],
           ["Type", r.bank.type],
           ["Office", r.bank.office],
           ["Department", r.bank.department],
-          ["City", r.city],
           ["Empanelment", r.bank.empanelmentWindow],
-          ["Panel page", r.bank.empanelmentPage],
           ["How to reach", r.bank.howToReach],
           ["Website", r.website],
         ] as [string, string][])
       : []),
-    ["Last contacted", r.lastContacted ? displayDate(r.lastContacted) : "Never"],
-  ];
+  ] as [string, string][]).filter(([, v]) => v);
   return (
-    <dl className="flex flex-col gap-2 text-[13px]">
+    <dl className="flex flex-col gap-1.5 text-[13px]">
       {rows.map(([k, v]) => (
-        <div key={k} className="grid grid-cols-[112px_1fr] gap-2 border-b pb-1.5 last:border-0">
+        <div key={k} className="grid grid-cols-[96px_1fr] gap-2">
           <dt className="text-muted-foreground">{k}</dt>
-          <dd className="min-w-0 break-words">{v || "—"}</dd>
+          <dd className="min-w-0 break-words">{v}</dd>
         </div>
       ))}
     </dl>
   );
 }
 
-function FactsMeter({ r }: { r: ProspectRecord }) {
-  const n = factsKnown(r);
+function ScoreCard({ r }: { r: ProspectRecord }) {
+  if (r.opportunityScore === null) return <p className="text-[13px] text-muted-foreground">{r.researchStatus ? `${r.researchStatus}. Scoring runs once research is reviewed.` : "Not scored yet."}</p>;
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground" title="Phone, email, lenders, software, case volume, firm/team, pitch angle, score">
-      <div className="h-1.5 w-24 rounded bg-muted">
-        <div className="h-full rounded bg-brand" style={{ width: `${(n / FACT_COUNT) * 100}%` }} />
-      </div>
-      {n}/{FACT_COUNT} facts known
+    <div className="flex flex-col gap-1.5">
+      {SCORE_COLUMNS.map((s, i) => (
+        <div key={s.key} className="grid grid-cols-[1fr_64px_36px] items-center gap-2 text-xs">
+          <span className="truncate">{s.label}</span>
+          <Bar value={r.scores[i] ?? 0} max={s.max} className="h-1.5" />
+          <span className="text-right font-mono text-muted-foreground tabular-nums">
+            {r.scores[i] ?? "–"}/{s.max}
+          </span>
+        </div>
+      ))}
+      {r.scoreReason && <p className="mt-1 text-[13px] leading-snug">{r.scoreReason}</p>}
     </div>
   );
 }
 
-/** The side panel: enough to act without leaving the list you were working through. */
-export function RecordPanel({ sel, today, me, onClose, onExpand, onLog, onChanged, detail }: { sel: Selection; today: string; me: string; onClose: () => void; onExpand: () => void; onLog: () => void; onChanged: () => void; detail: ReturnType<typeof useDetail> }) {
-  const r = detail.data?.record;
-  const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, onChanged, onLog };
+function DisqualifyButton({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<string>(DISQUALIFY_REASONS[0]);
+  const { save, pending } = useSave(ctx);
+  if (!WRITABLE[ctx.kind].has("disqualified")) return null;
+  const isOut = Boolean(r.disqualified) && r.disqualified !== "No";
+  if (isOut)
+    return (
+      <p className="text-xs text-muted-foreground">
+        Disqualified: {r.disqualified}.{" "}
+        <button type="button" disabled={pending} onClick={() => save({ disqualified: "No" })} className="underline hover:text-foreground">
+          Undo
+        </button>
+      </p>
+    );
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="self-start text-[13px] text-red-700 hover:underline dark:text-red-400">
+        Disqualify…
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="gap-4 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Disqualify {r.name}?</DialogTitle>
+            <DialogDescription>They drop out of every queue and the pipeline. You can undo it from the record.</DialogDescription>
+          </DialogHeader>
+          <div role="radiogroup" aria-label="Reason" className="flex flex-col">
+            {DISQUALIFY_REASONS.map((d) => (
+              <button key={d} type="button" role="radio" aria-checked={reason === d} onClick={() => setReason(d)} className="flex h-9 items-center gap-2.5 rounded-md px-2 text-left text-sm hover:bg-muted">
+                <span className={cn("size-3.5 shrink-0 rounded-full", reason === d ? "shadow-[inset_0_0_0_4.5px_var(--foreground)]" : "shadow-[inset_0_0_0_1.5px_var(--muted-foreground)]")} />
+                {d}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" className="bg-red-700 text-white hover:bg-red-800 dark:bg-red-700" disabled={pending} onClick={() => save({ disqualified: reason }, () => setOpen(false))}>
+              {pending ? "Saving…" : "Disqualify"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/** What the current stage still needs before moving on, and the button to move. */
+function StageGuide({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
+  const { move, dialog, pending } = useStageMove(ctx.onChanged);
+  if (r.stage >= 5) return null;
+  const next = r.stage + 1;
+  const coach = STAGE_COACHING[r.stage];
+  return (
+    <div className="flex flex-col gap-3 rounded-lg bg-muted/60 px-3.5 py-3 text-[13px] sm:flex-row sm:items-center">
+      <span className="flex-1 leading-snug">
+        To reach <strong className="font-medium">{STAGES[next]}</strong>: {coach.tips[0]}
+      </span>
+      <Button size="sm" variant="outline" className="h-8 shrink-0 bg-background" disabled={pending} onClick={() => move(subjectOf(r), next)}>
+        Move to {STAGES[next]}
+      </Button>
+      {dialog}
+    </div>
+  );
+}
+
+function useEscape(onClose: () => void) {
+  const ref = useRef(onClose);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    ref.current = onClose;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.querySelector("[role=dialog][data-open],[data-slot=popover-content],[data-slot=dropdown-menu-content]") && ref.current();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
+}
+
+type PanelProps = { sel: Selection; today: string; me: string; team: string[]; onLog: (o?: LogOpts) => void; onChanged: () => void; detail: ReturnType<typeof useDetail> };
+
+/** The side panel: enough to act without leaving the list or board you were working through. */
+export function RecordPanel({ sel, today, me, team, onClose, onExpand, onLog, onChanged, detail }: PanelProps & { onClose: () => void; onExpand: () => void }) {
+  const r = detail.data?.record;
+  const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, team, onChanged, onLog };
+  useEscape(onClose);
   return (
-    <aside aria-label="Record" className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[480px] flex-col border-l bg-background shadow-2xl">
-      <div className="flex flex-col gap-2 border-b p-4">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold">{r?.name ?? (detail.data === null ? "Not found" : "Loading…")}</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">
-              {sel.id}
-              {r?.city ? ` · ${r.city}` : ""}
-            </p>
-          </div>
-          <Button size="icon-sm" variant="outline" aria-label="Open full record" onClick={onExpand}>
-            <ArrowUpRight />
-          </Button>
-          <Button size="icon-sm" variant="outline" aria-label="Close" onClick={onClose}>
-            <X />
-          </Button>
-        </div>
-        {r && (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusSelect ctx={ctx} r={r} />
-              {!UNSCORED_KINDS.has(sel.kind) && <BandBadge band={r.band} score={r.opportunityScore} />}
-              <span className="flex-1" />
-              {!UNSCORED_KINDS.has(sel.kind) && <FactsMeter r={r} />}
-            </div>
-            <DoNotContactBanner r={r} />
-            <QuickActions ctx={ctx} r={r} compact />
-          </>
-        )}
+    <aside aria-label="Prospect" className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[460px] flex-col border-l bg-background shadow-[-12px_0_32px_rgba(0,0,0,0.06)]">
+      <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3">
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {KIND_LABEL[sel.kind].one} · <span className="font-mono text-[11px]">{sel.id}</span>
+        </span>
+        <Button size="icon-sm" variant="ghost" aria-label="Open full page" onClick={onExpand}>
+          <Maximize2 />
+        </Button>
+        <Button size="icon-sm" variant="ghost" aria-label="Close" onClick={onClose}>
+          <X />
+        </Button>
       </div>
-      {detail.data === null && <p className="p-4 text-sm text-muted-foreground">This record is no longer in the sheet.</p>}
+      {detail.data === null && <p className="p-5 text-sm text-muted-foreground">This record is no longer in the sheet.</p>}
+      {detail.data === undefined && <p className="p-5 text-sm text-muted-foreground">Loading…</p>}
       {r && detail.data && (
-        <div className={cn("flex flex-1 flex-col gap-5 overflow-y-auto p-4", detail.loading && "opacity-70")}>
-          <NextStep ctx={ctx} r={r} />
-          <Facts ctx={ctx} r={r} compact />
-          <ResearchNotes ctx={ctx} r={r} limit={6} />
-          {r.scoreGaps && (
-            <div className="rounded-md bg-amber-50 px-3 py-2 text-[13px] leading-snug dark:bg-amber-950">
-              <strong>Research next:</strong> {r.scoreGaps}
+        <div className={cn("flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-4 pb-8", detail.loading && "opacity-70")}>
+          <div className="flex flex-col gap-3">
+            <div>
+              <h2 className="text-xl leading-tight font-semibold tracking-tight">{r.name}</h2>
+              {(r.city || r.state) && <p className="mt-0.5 text-[13px] text-muted-foreground">{r.city || r.state}</p>}
             </div>
+            <StageBar stage={r.stage} />
+            <div className="flex items-center justify-between gap-2">
+              <StageMenu ctx={ctx} r={r} />
+              {r.stage < 5 && <span className="text-xs text-muted-foreground">Next: {PATH[r.stage + 1]}</span>}
+            </div>
+          </div>
+          <DoNotContactBanner r={r} />
+          <ActionBar ctx={ctx} r={r} />
+          <NextStep ctx={ctx} r={r} />
+          <Properties ctx={ctx} r={r} compact />
+          {r.scoreGaps && (
+            <p className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-[13px] leading-snug text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+              <span className="font-medium">Find out next:</span> {r.scoreGaps}
+            </p>
           )}
           <Drafts ctx={ctx} r={r} />
-          <div className="flex flex-col gap-2">
-            <h4 className="text-sm font-semibold">Recent</h4>
+          <section className="flex flex-col gap-1 border-t pt-4">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-sm font-semibold">Activity</h3>
+              {detail.data.activity.length > 3 && (
+                <button type="button" onClick={onExpand} className="text-xs text-muted-foreground hover:text-foreground">
+                  See all {detail.data.activity.length}
+                </button>
+              )}
+            </div>
             <ActivityList items={detail.data.activity} limit={3} />
-          </div>
+          </section>
         </div>
       )}
     </aside>
   );
 }
 
-/** The full page for one record: everything, plus the stage path with its coaching. */
-export function RecordFull({ sel, today, me, onBack, backLabel, onLog, onChanged, detail }: { sel: Selection; today: string; me: string; onBack: () => void; backLabel: string; onLog: () => void; onChanged: () => void; detail: ReturnType<typeof useDetail> }) {
+/** The full page for one record: the work on the left, everything known on the right. */
+export function RecordFull({ sel, today, me, team, onBack, backLabel, onLog, onChanged, detail }: PanelProps & { onBack: () => void; backLabel: string }) {
   const r = detail.data?.record;
-  const [view, setView] = useState<number | null>(null);
-  const [pending, start] = useTransition();
-  const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, onChanged, onLog };
+  const [history, setHistory] = useState<"touches" | "notes" | "research">("touches");
+  const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, team, onChanged, onLog };
   if (!r || !detail.data) {
     return (
       <div className="flex flex-col gap-3">
-        <Button variant="outline" size="sm" className="self-start" onClick={onBack}>
-          <ArrowLeft /> Back to {backLabel}
+        <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
+          <ArrowLeft /> {backLabel}
         </Button>
         <p className="text-sm text-muted-foreground">{detail.data === null ? "This record is no longer in the sheet." : "Loading…"}</p>
       </div>
     );
   }
-  const pv = view ?? r.stage;
-  const coach = STAGE_COACHING[pv];
+  const hasResearch = Boolean(r.researchNotes.trim());
   return (
-    <div className={cn("flex flex-col gap-4", detail.loading && "opacity-80")}>
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={onBack}>
-          <ArrowLeft /> Back to {backLabel}
-        </Button>
-        <span className="text-xs text-muted-foreground max-sm:hidden">Every change here is written to this row of the sheet.</span>
-      </div>
-      <section className="flex flex-col gap-4 rounded-xl border bg-card p-3 sm:p-5">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
-            <p className="text-xs text-muted-foreground">
-              {KIND_LABEL[sel.kind].one} · <span className="font-mono">{r.id}</span>
-              {r.city ? ` · ${r.city}` : ""}
+    <div className={cn("-mx-3 -my-3 grid min-h-full sm:-mx-6 sm:-my-5 lg:grid-cols-[minmax(0,1fr)_340px]", detail.loading && "opacity-80")}>
+      <div className="flex min-w-0 flex-col gap-7 px-4 py-5 sm:px-8 sm:py-6 lg:px-10">
+        <div className="flex flex-col gap-4">
+          <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={onBack}>
+            <ArrowLeft /> {backLabel}
+          </Button>
+          <div className="flex flex-col gap-1">
+            <p className="text-[13px] text-muted-foreground">
+              {KIND_LABEL[sel.kind].one}
+              {r.city ? ` · ${r.city}` : ""} · <span className="font-mono text-xs">{r.id}</span>
             </p>
-            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">{r.name}</h2>
-          </div>
-          {!UNSCORED_KINDS.has(sel.kind) && (
-            <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1.5">
-              <BandBadge band={r.band} score={r.opportunityScore} />
-              <FactsMeter r={r} />
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="flex-1 text-2xl font-semibold tracking-tight sm:text-[28px]">{r.name}</h1>
+              <StageMenu ctx={ctx} r={r} />
             </div>
-          )}
-        </div>
-        <DoNotContactBanner r={r} />
-        <QuickActions ctx={ctx} r={r} />
-        <div role="tablist" aria-label="Stage" className="no-scrollbar -mx-3 flex gap-1 overflow-x-auto px-3 sm:mx-0 sm:grid sm:grid-cols-7 sm:px-0">
-          {STAGES.map((s, i) => {
-            const current = i === r.stage;
-            const done = i < r.stage && i < 5;
-            return (
-              <button
-                key={s}
-                type="button"
-                role="tab"
-                aria-selected={i === pv}
-                onClick={() => setView(i)}
-                className={cn(
-                  "h-9 shrink-0 truncate px-3 text-xs font-semibold whitespace-nowrap transition-colors max-sm:min-w-28 [clip-path:polygon(0_0,calc(100%-10px)_0,100%_50%,calc(100%-10px)_100%,0_100%,10px_50%)] first:[clip-path:polygon(0_0,calc(100%-10px)_0,100%_50%,calc(100%-10px)_100%,0_100%)] last:[clip-path:polygon(0_0,100%_0,100%_100%,0_100%,10px_50%)]",
-                  current ? "bg-brand text-brand-foreground" : done ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" : i === pv ? "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200" : "bg-muted text-muted-foreground",
-                )}
-              >
-                {done ? "✓ " : ""}
-                {s}
-              </button>
-            );
-          })}
-        </div>
-        <div className="grid gap-4 rounded-lg bg-muted/60 p-3 sm:gap-5 sm:p-4 md:grid-cols-[240px_1fr_auto]">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Fill before moving on</span>
-            {coach.fields.filter((f) => !UNSCORED_KINDS.has(sel.kind) || WRITABLE[sel.kind].has(f)).map((f) => {
-              const filled = fieldFilled(r, f);
-              return (
-                <div key={f} className="flex justify-between text-xs">
-                  <span className="font-mono">{f}</span>
-                  <span className={filled ? "font-semibold text-emerald-700 dark:text-emerald-400" : "font-semibold text-red-700 dark:text-red-400"}>{filled ? "Filled" : "Empty"}</span>
-                </div>
-              );
-            })}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">How to win “{STAGES[pv]}”</span>
-            {coach.tips.map((t) => (
-              <p key={t} className="text-[13px] leading-snug">
-                ✓ {t}
-              </p>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2">
-            {pv !== r.stage ? (
-              <Button size="sm" disabled={pending} onClick={() => save(ctx, { status: STAGES[pv] }, start, () => setView(null))}>
-                Set status to {STAGES[pv]}
-              </Button>
-            ) : r.stage < 5 ? (
-              <Button size="sm" disabled={pending} onClick={() => save(ctx, { status: STAGES[r.stage + 1] }, start)}>
-                Move to {STAGES[r.stage + 1]}
-              </Button>
-            ) : null}
-          </div>
+          <StageBar stage={r.stage} labels className="max-sm:[&_span.text-xs]:hidden" />
+          <DoNotContactBanner r={r} />
+          <ActionBar ctx={ctx} r={r} className="sm:flex sm:flex-wrap" />
+          <StageGuide ctx={ctx} r={r} />
         </div>
-      </section>
 
-      <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
-        <div className="flex flex-col gap-4">
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
-            <h3 className="text-sm font-semibold">What we know</h3>
-            <Facts ctx={ctx} r={r} />
-          </section>
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
-            <h3 className="text-sm font-semibold">Registration</h3>
-            <Registration r={r} kind={sel.kind} />
-          </section>
-        </div>
-        <div className="flex flex-col gap-4">
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
-            <NextStep ctx={ctx} r={r} />
-            <Drafts ctx={ctx} r={r} />
-          </section>
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
-            <div className="flex items-center gap-2">
-              <h3 className="flex-1 text-sm font-semibold">Activity</h3>
-              <Button size="sm" variant="outline" onClick={onLog}>
-                Log a call or message
-              </Button>
-            </div>
+        <NextStep ctx={ctx} r={r} />
+        <Drafts ctx={ctx} r={r} />
+
+        <section aria-label="History" className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="mr-2 text-sm font-semibold">History</h3>
+            <Segmented
+              label="History"
+              value={history}
+              onChange={setHistory}
+              options={[
+                { value: "touches", label: `Touches ${detail.data.activity.length || ""}` },
+                { value: "notes", label: "Notes" },
+                { value: "research", label: "Research" },
+              ]}
+            />
+          </div>
+          {history === "touches" ? (
             <ActivityList items={detail.data.activity} />
-          </section>
-          <section className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4">
-            <EditField ctx={ctx} col="notes" label="Notes (newest first)" value={r.notes} type="textarea" missing="No notes yet" display={<div className="text-[13px] leading-relaxed whitespace-pre-wrap">{r.notes}</div>} />
-          </section>
-        </div>
-        <div className="flex flex-col gap-4">
-          {sel.kind === "valuer" && (
-            <section className="rounded-xl border bg-card p-3 sm:p-4">
-              <ScoreCard r={r} />
-            </section>
+          ) : history === "notes" ? (
+            <LongText ctx={ctx} col="notes" label="Notes" value={r.notes} rows={10} empty="No notes yet. Logging a touch adds a dated line here." display={<p className="text-[13px] leading-relaxed whitespace-pre-wrap">{r.notes}</p>} />
+          ) : (
+            <LongText
+              ctx={ctx}
+              col="research_notes"
+              label="Research notes"
+              value={r.researchNotes}
+              rows={16}
+              empty="Nothing yet. Research adds findings here, one per line."
+              display={hasResearch ? <ResearchNotes r={r} limit={14} /> : null}
+            />
           )}
-          <section className="rounded-xl border bg-card p-3 sm:p-4">
-            <ResearchNotes ctx={ctx} r={r} limit={14} />
-          </section>
-          <section className="rounded-xl border bg-card p-3 sm:p-4">
-            <ResearchCard r={r} />
-          </section>
-          <StagePillLegend stage={r.stage} />
-        </div>
+        </section>
       </div>
+
+      <aside aria-label="Details" className="flex flex-col gap-7 border-t bg-muted/20 px-4 py-6 sm:px-8 lg:border-t-0 lg:border-l lg:px-5">
+        <section className="flex flex-col gap-1.5">
+          <h3 className="text-sm font-semibold">Details</h3>
+          <Properties ctx={ctx} r={r} />
+        </section>
+        {r.scoreGaps && (
+          <section className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold">Find out next</h3>
+            <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-[13px] leading-snug text-amber-950 dark:bg-amber-950 dark:text-amber-100">{r.scoreGaps}</p>
+          </section>
+        )}
+        {!UNSCORED_KINDS.has(sel.kind) && (
+          <section className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-sm font-semibold">Score</h3>
+              {r.opportunityScore !== null && <BandBadge band={r.band} score={r.opportunityScore} />}
+            </div>
+            <ScoreCard r={r} />
+          </section>
+        )}
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Registration</h3>
+          <Registration r={r} kind={sel.kind} />
+        </section>
+        <section className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <h3 className="text-sm font-semibold">Sources</h3>
+            <span className="text-xs text-muted-foreground">{r.lastResearched ? `Researched ${displayDate(r.lastResearched)}` : "Never researched"}</span>
+          </div>
+          {r.researchSources.length ? (
+            r.researchSources.map((s, i) => (
+              <a key={i} href={/^https?:/i.test(s.url) ? s.url : `https://${s.url}`} target="_blank" rel="noreferrer" className="truncate text-[13px] hover:underline">
+                {s.url.replace(/^https?:\/\/(www\.)?/i, "")}
+              </a>
+            ))
+          ) : (
+            <p className="text-[13px] text-muted-foreground">No sources yet.</p>
+          )}
+        </section>
+        <DisqualifyButton ctx={ctx} r={r} />
+        <p className="text-xs text-muted-foreground">Every change here is written to this row of the sheet{r.nextStepDate ? ` · next step ${shortDate(r.nextStepDate, today)}` : ""}.</p>
+      </aside>
     </div>
   );
-}
-
-function StagePillLegend({ stage }: { stage: number }) {
-  return (
-    <p className="text-xs text-muted-foreground">
-      Currently <StagePill stage={stage} />
-    </p>
-  );
-}
-
-function fieldFilled(r: ProspectRecord, col: string): boolean {
-  const map: Record<string, unknown> = {
-    phone: r.phone,
-    pitch_angle: r.pitchAngle,
-    draft_whatsapp: r.drafts.whatsapp,
-    last_contacted: r.lastContacted,
-    next_step_date: r.nextStepDate,
-    next_step: r.nextStep,
-    lb_cases_per_month: r.casesPerMonth,
-    current_software: r.software,
-    objections: r.objections,
-    notes: r.notes,
-    referred_by: r.referredBy,
-  };
-  const v = map[col];
-  return v !== null && v !== undefined && v !== "";
 }
