@@ -160,7 +160,8 @@ describe("mobile-only helpers", () => {
 describe("the mobile copy of Today and Log a touch", () => {
   type WebQuick = { label: string; hint: string; outcome: schema.Outcome; days: number | null; log?: boolean; extra?: Record<string, string> };
   const webQuick = webLiteral("my-work.tsx", "QUICK") as Record<"message" | "call", WebQuick[]>;
-  const webDraftTabs = webLiteral("my-work.tsx", "DRAFT_TABS") as { key: "whatsapp" | "call" | "email"; label: string; channel: schema.Channel }[];
+  // Only the fields the phone uses: the web may carry more per tab (e.g. the sheet column a template saves to).
+  const webDraftTabs = (webLiteral("my-work.tsx", "DRAFT_TABS") as { key: "whatsapp" | "call" | "email"; label: string; channel: schema.Channel }[]).map(({ key, label, channel }) => ({ key, label, channel }));
 
   it("offers the same outcomes per channel, follow-ups and software", () => {
     expect(mobile.OUTCOMES_BY_CHANNEL).toEqual(webLiteral("log-touch-dialog.tsx", "OUTCOMES_BY_CHANNEL"));
