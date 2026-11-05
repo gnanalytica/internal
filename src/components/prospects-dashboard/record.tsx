@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown, Copy, Mail, Maximize2, MessageCircle, Phone, X } from "lucide-react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { ArrowLeft, Check, ChevronDown, Copy, Mail, MessageCircle, Pencil, Phone, Plus } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { displayDate, isDoNotContact, parseNoteLines } from "@/lib/prospects/par
 import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, UNSCORED_KINDS, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, Bar, DatePicker, DueChip, Owner, OwnerPicker, PATH, Segmented, StageBar, StageDot, shortDate } from "./bits";
+import { BandBadge, Bar, Chips, DatePicker, DueChip, Owner, OwnerPicker, Segmented, StageBar, StageDot } from "./bits";
 import { STAGE_COACHING } from "./playbook-content";
 import { useStageMove, type StageSubject } from "./stage-check";
 
@@ -39,7 +39,7 @@ export function useDetail(sel: Selection | null) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const current = state && state.key === key ? state.data : undefined;
-  // Keep showing the last good detail while a reload is in flight, so the panel does not flash.
+  // Keep showing the last good detail while a reload is in flight, so the page does not flash.
   const shown = current === undefined && state && sel && state.key.startsWith(`${sel.kind}:${sel.id}:`) ? state.data : current;
   return { data: shown, loading: current === undefined, reload: () => setVersion((v) => v + 1) };
 }
@@ -74,125 +74,62 @@ function emailParts(draft: string): { subject: string; body: string } {
   return m ? { subject: m[1].trim(), body: m[2].trim() } : { subject: "", body: draft };
 }
 
-/**
- * One property: label on the left, value on the right. Clicking the value
- * edits it in place; Enter saves that one cell to the sheet, Escape cancels.
- */
-function Prop({ ctx, col, label, value, display, options, type = "text", missing = "Add" }: { ctx: Ctx; col: string; label: string; value: string; display?: React.ReactNode; options?: readonly string[]; type?: "text" | "number"; missing?: string }) {
-  const editable = WRITABLE[ctx.kind].has(col);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const { save, pending } = useSave(ctx);
-  const commit = (v: string) => {
-    if (v.trim() === value.trim()) return setEditing(false);
-    save({ [col]: type === "number" ? (v.trim() === "" ? null : Number(v)) : v.trim() }, () => setEditing(false));
-  };
-  const shown = value ? (display ?? value) : <span className={editable ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}>{editable ? missing : "—"}</span>;
-  const body = !editable ? (
-    <span className="block truncate px-2 py-1">{shown}</span>
-  ) : options ? (
-    <DropdownMenu>
-      <DropdownMenuTrigger disabled={pending} className="flex w-full min-w-0 items-center rounded-md px-2 py-1 text-left hover:bg-muted aria-expanded:bg-muted">
-        <span className="truncate">{shown}</span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-auto min-w-52">
-        <DropdownMenuRadioGroup value={value} onValueChange={(v) => commit(String(v))}>
-          {[...new Set([...options, ...(value && !options.includes(value) ? [value] : [])])].map((o) => (
-            <DropdownMenuRadioItem key={o} value={o}>
-              {o}
-            </DropdownMenuRadioItem>
+/* ---------- building blocks ---------- */
+
+function Section({ title, aside, children, className }: { title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <section aria-label={title} className={cn("flex min-w-0 flex-col gap-3", className)}>
+      <div className="flex min-h-7 items-center gap-2">
+        <h3 className="flex-1 text-sm font-semibold">{title}</h3>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** A two-column table of label → value, the shape every facts block on the page uses. */
+function FactTable({ rows }: { rows: { label: string; value: React.ReactNode; missing?: boolean }[] }) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <table className="w-full text-[13px]">
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label} className="border-b border-border/60 last:border-0">
+              <th scope="row" className="w-40 bg-muted/30 px-3 py-2 text-left align-top font-normal text-muted-foreground">
+                {r.label}
+              </th>
+              <td className={cn("px-3 py-2 break-words", r.missing && "text-amber-700 dark:text-amber-400")}>{r.value}</td>
+            </tr>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuRadioItem value="">Clear</DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  ) : editing ? (
-    <input
-      autoFocus
-      aria-label={label}
-      inputMode={type === "number" ? "numeric" : undefined}
-      value={draft}
-      disabled={pending}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => commit(draft)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") commit(draft);
-        if (e.key === "Escape") setEditing(false);
-      }}
-      className="h-7 w-full min-w-0 rounded-md border bg-background px-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-    />
-  ) : (
-    <button
-      type="button"
-      onClick={() => {
-        setDraft(value);
-        setEditing(true);
-      }}
-      className="block w-full min-w-0 truncate rounded-md px-2 py-1 text-left hover:bg-muted"
-    >
-      {shown}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SmallButton({ children, ...props }: React.ComponentProps<"button">) {
+  return (
+    <button type="button" {...props} className={cn("inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium hover:bg-muted disabled:opacity-50", props.className)}>
+      {children}
     </button>
   );
-  return (
-    <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
-      <dt className="truncate text-muted-foreground">{label}</dt>
-      <dd className="-mx-0 min-w-0">{body}</dd>
-    </div>
-  );
 }
 
-/** A long text cell (notes, research notes, a draft) that switches to a textarea to edit. */
-function LongText({ ctx, col, label, value, display, empty, rows = 8 }: { ctx: Ctx; col: string; label: string; value: string; display: React.ReactNode; empty: string; rows?: number }) {
-  const editable = WRITABLE[ctx.kind].has(col);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const { save, pending } = useSave(ctx);
-  if (editing)
-    return (
-      <div className="flex flex-col gap-2">
-        <textarea aria-label={label} autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
-        <div className="flex gap-2">
-          <Button size="sm" disabled={pending} onClick={() => save({ [col]: draft.trim() }, () => setEditing(false))}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
-          <Button size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(false)}>
-            Cancel
-          </Button>
-        </div>
-      </div>
-    );
-  return (
-    <div className="group/long flex flex-col gap-1.5">
-      {value ? display : <p className="text-[13px] text-muted-foreground">{empty}</p>}
-      {editable && (
-        <button
-          type="button"
-          onClick={() => {
-            setDraft(value);
-            setEditing(true);
-          }}
-          className="self-start text-xs text-muted-foreground hover:text-foreground"
-        >
-          {value ? "Edit" : "Write"}
-        </button>
-      )}
-    </div>
-  );
-}
+/* ---------- header ---------- */
 
 /** The stage, as a menu: forward moves ask for what the current stage should have found out. */
-function StageMenu({ ctx, r, className }: { ctx: Ctx; r: ProspectRecord; className?: string }) {
+function StageMenu({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   const { move, dialog, pending } = useStageMove(ctx.onChanged);
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger disabled={pending} className={cn("inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[13px] hover:bg-muted aria-expanded:bg-muted", className)}>
+        <DropdownMenuTrigger disabled={pending} className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] hover:bg-muted aria-expanded:bg-muted">
           <StageDot stage={r.stage} />
           {STAGES[r.stage]}
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-auto min-w-48">
+        <DropdownMenuContent align="end" className="w-auto min-w-48">
           <DropdownMenuRadioGroup value={String(r.stage)} onValueChange={(v) => move(subjectOf(r), Number(v))}>
             {STAGES.map((s, i) => (
               <div key={s} className="contents">
@@ -211,12 +148,12 @@ function StageMenu({ ctx, r, className }: { ctx: Ctx; r: ProspectRecord; classNa
 }
 
 /** Call, WhatsApp, Email and Log. Reaching out opens the log, ready for how it went. */
-function ActionBar({ ctx, r, className }: { ctx: Ctx; r: ProspectRecord; className?: string }) {
+function ActionBar({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   const phone = digits10(r.phone);
   const cls = "inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-3 text-[13px] font-medium whitespace-nowrap hover:bg-muted sm:h-8 aria-disabled:pointer-events-none aria-disabled:opacity-40";
   const email = emailParts(r.drafts.email);
   return (
-    <div className={cn("grid grid-cols-4 gap-1.5", className)}>
+    <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap">
       <a href={phone ? `tel:+91${phone}` : undefined} aria-disabled={!phone} title={phone ? undefined : "No phone number yet"} onClick={() => phone && setTimeout(() => ctx.onLog({ channel: "Call", outcome: "Connected" }), 400)} className={cls}>
         <Phone className="size-3.5" /> Call
       </a>
@@ -242,23 +179,230 @@ function ActionBar({ ctx, r, className }: { ctx: Ctx; r: ProspectRecord; classNa
         <Mail className="size-3.5" /> Email
       </a>
       <button type="button" onClick={() => ctx.onLog()} className={cn(cls, "border-foreground bg-foreground text-background hover:bg-foreground/85")}>
-        Log
+        Log a touch
       </button>
     </div>
   );
 }
 
-function NextStep({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
+/** Shown on any record research has marked do-not-contact, above everything else. */
+function DoNotContactBanner({ r }: { r: ProspectRecord }) {
+  if (!isDoNotContact(r.researchNotes)) return null;
+  return (
+    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] leading-snug font-medium text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+      {r.researchNotes.trim().split("\n")[0]}
+    </div>
+  );
+}
+
+/* ---------- popups ---------- */
+
+/** A long text cell edited in a dialog: notes, a draft, research notes. */
+function TextDialog(props: { ctx: Ctx; col: string; title: string; description?: string; value: string; open: boolean; onOpenChange: (o: boolean) => void; rows?: number }) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="gap-4 sm:max-w-2xl">{props.open && <TextForm {...props} />}</DialogContent>
+    </Dialog>
+  );
+}
+
+/** Mounted each time the dialog opens, so it starts from the cell's current text. */
+function TextForm({ ctx, col, title, description, value, onOpenChange, rows = 12 }: { ctx: Ctx; col: string; title: string; description?: string; value: string; onOpenChange: (o: boolean) => void; rows?: number }) {
+  const [draft, setDraft] = useState(value);
+  const { save, pending } = useSave(ctx);
+  return (
+    <>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <textarea aria-label={title} value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancel
+          </Button>
+          <Button disabled={pending || draft.trim() === value.trim()} onClick={() => save({ [col]: draft.trim() }, () => onOpenChange(false))}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+        </div>
+    </>
+  );
+}
+
+/** Add a dated line to the top of notes, the way logging a touch does. */
+function AddNoteDialog({ ctx, r, open, onOpenChange }: { ctx: Ctx; r: ProspectRecord; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const [text, setText] = useState("");
+  const { save, pending } = useSave(ctx);
+  const line = `${displayDate(ctx.today)} — ${text.trim()} — ${ctx.me.split(/\s+/)[0]}`;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-4 sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add a note</DialogTitle>
+          <DialogDescription>Goes at the top of {r.name}&apos;s notes, dated and signed.</DialogDescription>
+        </DialogHeader>
+        <textarea aria-label="Note" autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="e.g. Partner says SBI cases take 3 days to write up." className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancel
+          </Button>
+          <Button
+            disabled={pending || !text.trim()}
+            onClick={() =>
+              save({ notes: r.notes.trim() ? `${line}\n${r.notes.trim()}` : line }, () => {
+                setText("");
+                onOpenChange(false);
+              })
+            }
+          >
+            {pending ? "Saving…" : "Add note"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const SOFTWARE = ["Word + Excel", "Word templates", "Own software", "Bank's portal", "Another tool"];
+
+type FieldDef = { col: string; label: string; get: (r: ProspectRecord) => string; type?: "text" | "number" | "textarea"; options?: readonly string[] };
+
+/** Every editable fact, in the order the details tab shows them; a kind sees only its own columns. */
+const FIELDS: { group: string; fields: FieldDef[] }[] = [
+  {
+    group: "Contact",
+    fields: [
+      { col: "contact_person", label: "Contact person", get: (r) => r.bank.contactPerson },
+      { col: "designation", label: "Designation", get: (r) => r.bank.designation },
+      { col: "key_contact", label: "Key contact", get: (r) => r.keyContact },
+      { col: "phone", label: "Phone", get: (r) => r.phone },
+      { col: "email", label: "Email", get: (r) => r.email },
+      { col: "city", label: "City", get: (r) => r.city },
+    ],
+  },
+  {
+    group: "Practice",
+    fields: [
+      { col: "lenders_empanelled_with", label: "Lender panels", get: (r) => r.lenders.join("; "), type: "textarea" },
+      { col: "current_software", label: "Software", get: (r) => r.software, options: SOFTWARE },
+      { col: "lb_cases_per_month", label: "Cases a month", get: (r) => (r.casesPerMonth === null ? "" : String(r.casesPerMonth)), type: "number" },
+    ],
+  },
+  {
+    group: "Selling",
+    fields: [
+      { col: "pitch_angle", label: "Pitch", get: (r) => r.pitchAngle, options: PITCH_ANGLES },
+      { col: "objections", label: "Objection", get: (r) => r.objections, options: OBJECTIONS },
+      { col: "outreach_route", label: "Outreach route", get: (r) => r.outreachRoute, type: "textarea" },
+      { col: "referred_by", label: "Referred by", get: (r) => r.referredBy },
+    ],
+  },
+];
+
+/** One form for a group of facts, saved as a single write to the row. */
+function EditFactsDialog({ ctx, r, group, open, onOpenChange }: { ctx: Ctx; r: ProspectRecord; group: string; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const fields = (FIELDS.find((g) => g.group === group)?.fields ?? []).filter((f) => WRITABLE[ctx.kind].has(f.col));
+  // The dialog is mounted only while open, so this starts from the record's current values.
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.col, f.get(r)])));
+  const { save, pending } = useSave(ctx);
+  const patch = Object.fromEntries(
+    fields
+      .filter((f) => (vals[f.col] ?? "").trim() !== f.get(r).trim())
+      .map((f) => {
+        const v = (vals[f.col] ?? "").trim();
+        return [f.col, f.type === "number" ? (v === "" ? null : Number(v)) : v];
+      }),
+  );
+  const changed = Object.keys(patch).length;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] gap-4 overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit {group.toLowerCase()}</DialogTitle>
+          <DialogDescription>{r.name}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          {fields.map((f) => (
+            <div key={f.col} className="flex flex-col gap-1.5">
+              <label htmlFor={`ef-${f.col}`} className="text-xs font-medium text-foreground/80">
+                {f.label}
+              </label>
+              {f.options ? (
+                <Chips label={f.label} value={vals[f.col] ?? ""} options={[...new Set([...f.options, ...(vals[f.col] && !f.options.includes(vals[f.col]) ? [vals[f.col]] : [])])]} onChange={(v) => setVals((p) => ({ ...p, [f.col]: v }))} allowNone />
+              ) : f.type === "textarea" ? (
+                <textarea id={`ef-${f.col}`} rows={3} value={vals[f.col] ?? ""} onChange={(e) => setVals((p) => ({ ...p, [f.col]: e.target.value }))} className="rounded-md border bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
+              ) : (
+                <input
+                  id={`ef-${f.col}`}
+                  inputMode={f.type === "number" ? "numeric" : undefined}
+                  value={vals[f.col] ?? ""}
+                  onChange={(e) => setVals((p) => ({ ...p, [f.col]: f.type === "number" ? e.target.value.replace(/\D/g, "") : e.target.value }))}
+                  className="h-9 rounded-md border bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t pt-4">
+          <span className="flex-1 text-xs text-muted-foreground">{changed ? `${changed} change${changed === 1 ? "" : "s"} to save` : "No changes yet"}</span>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancel
+          </Button>
+          <Button disabled={pending || !changed} onClick={() => save(patch, () => onOpenChange(false))}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DisqualifyDialog({ ctx, r, open, onOpenChange }: { ctx: Ctx; r: ProspectRecord; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const [reason, setReason] = useState<string>(DISQUALIFY_REASONS[0]);
+  const { save, pending } = useSave(ctx);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-4 sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Disqualify {r.name}?</DialogTitle>
+          <DialogDescription>They drop out of every queue and the pipeline. You can undo it from the Details tab.</DialogDescription>
+        </DialogHeader>
+        <div role="radiogroup" aria-label="Reason" className="flex flex-col">
+          {DISQUALIFY_REASONS.map((d) => (
+            <button key={d} type="button" role="radio" aria-checked={reason === d} onClick={() => setReason(d)} className="flex h-9 items-center gap-2.5 rounded-md px-2 text-left text-sm hover:bg-muted">
+              <span className={cn("size-3.5 shrink-0 rounded-full", reason === d ? "shadow-[inset_0_0_0_4.5px_var(--foreground)]" : "shadow-[inset_0_0_0_1.5px_var(--muted-foreground)]")} />
+              {d}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 border-t pt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancel
+          </Button>
+          <Button className="bg-red-700 text-white hover:bg-red-800" disabled={pending} onClick={() => save({ disqualified: reason }, () => onOpenChange(false))}>
+            {pending ? "Saving…" : "Disqualify"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- overview tab ---------- */
+
+function NextStepCard({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   const { save, pending } = useSave(ctx);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(r.nextStep);
+  const { move, dialog, pending: moving } = useStageMove(ctx.onChanged);
   const commit = () => (draft.trim() === r.nextStep.trim() ? setEditing(false) : save({ next_step: draft.trim() }, () => setEditing(false)));
+  const next = r.stage < 5 ? r.stage + 1 : null;
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg bg-muted/60 px-3.5 py-3">
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="text-muted-foreground">Next step</span>
+    <div className="flex flex-col gap-3 rounded-xl border p-4">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="flex-1 font-medium text-muted-foreground">Next step</span>
         <DatePicker value={r.nextStepDate} today={ctx.today} onPick={(iso) => save({ next_step_date: iso })} disabled={pending}>
-          <button type="button" className="rounded px-1 hover:bg-background">
+          <button type="button" className="rounded-md border px-2 py-1 hover:bg-muted">
             {r.nextStepDate ? <DueChip date={r.nextStepDate} today={ctx.today} /> : <span className="text-muted-foreground">Set a date</span>}
           </button>
         </DatePicker>
@@ -275,7 +419,7 @@ function NextStep({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
             if (e.key === "Enter") commit();
             if (e.key === "Escape") setEditing(false);
           }}
-          className="h-8 rounded-md border bg-background px-2 text-sm outline-none"
+          className="h-9 rounded-md border bg-background px-2.5 text-sm outline-none"
         />
       ) : (
         <button
@@ -284,11 +428,23 @@ function NextStep({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
             setDraft(r.nextStep);
             setEditing(true);
           }}
-          className="text-left text-sm leading-snug hover:text-foreground/80"
+          className="group/ns flex items-start gap-2 text-left text-[15px] leading-snug"
         >
-          {r.nextStep || <span className="text-muted-foreground">What happens next? Click to write it.</span>}
+          <span className="flex-1">{r.nextStep || <span className="text-muted-foreground">What happens next? Click to write it.</span>}</span>
+          <Pencil className="mt-1 size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover/ns:opacity-100" />
         </button>
       )}
+      {next !== null && (
+        <div className="flex flex-col gap-2 border-t pt-3 text-[13px] sm:flex-row sm:items-center">
+          <span className="flex-1 leading-snug text-muted-foreground">
+            To reach <strong className="font-medium text-foreground">{STAGES[next]}</strong>: {STAGE_COACHING[r.stage].tips[0]}
+          </span>
+          <SmallButton className="h-8 shrink-0" disabled={moving} onClick={() => move(subjectOf(r), next)}>
+            Move to {STAGES[next]}
+          </SmallButton>
+        </div>
+      )}
+      {dialog}
     </div>
   );
 }
@@ -303,11 +459,13 @@ const DRAFTS = [
 function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   const channels = DRAFTS.filter((c) => WRITABLE[ctx.kind].has(c.col));
   const [tab, setTab] = useState<(typeof DRAFTS)[number]["key"]>(() => channels.find((c) => r.drafts[c.key])?.key ?? channels[0]?.key ?? "whatsapp");
+  const [editOpen, setEditOpen] = useState(false);
   const [pending, start] = useTransition();
   if (!channels.length) return null;
   const ch = channels.find((c) => c.key === tab) ?? channels[0];
   const text = r.drafts[ch.key];
   const phone = digits10(r.phone);
+  const email = ch.key === "email" ? emailParts(text) : null;
   const openHref =
     ch.key === "whatsapp" && phone
       ? `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`
@@ -336,466 +494,531 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
         ctx.onChanged();
       } else toast.error(res.message);
     });
-  const email = ch.key === "email" ? emailParts(text) : null;
   return (
-    <section aria-label="Draft" className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="mr-2 text-sm font-semibold">Draft</h3>
-        <Segmented label="Draft channel" value={ch.key} onChange={setTab} options={channels.map((c) => ({ value: c.key, label: c.label }))} />
-      </div>
-      <div className="overflow-hidden rounded-lg border">
-        <LongText
-          ctx={ctx}
-          col={ch.col}
-          label={`${ch.label} draft`}
-          value={text}
-          rows={10}
-          empty={`No ${ch.label.toLowerCase()} draft yet. Research writes one per record, or write your own.`}
-          display={
-            <div className="text-sm leading-relaxed">
-              {email?.subject && (
-                <p className="border-b px-3.5 py-2 text-[13px]">
-                  <span className="text-muted-foreground">Subject</span>&nbsp;&nbsp;{email.subject}
-                </p>
-              )}
-              <p className="px-3.5 py-3 whitespace-pre-wrap">{email ? email.body : text}</p>
-            </div>
-          }
-        />
-      </div>
-      {text && (
-        <div className="flex flex-wrap gap-1.5">
-          {openHref && (
+    <Section title="Draft" aside={<Segmented label="Draft channel" value={ch.key} onChange={setTab} options={channels.map((c) => ({ value: c.key, label: c.label }))} />}>
+      <div className="overflow-hidden rounded-xl border">
+        {text ? (
+          <div className="text-sm leading-relaxed">
+            {email?.subject && (
+              <p className="border-b px-4 py-2 text-[13px]">
+                <span className="text-muted-foreground">Subject</span>&nbsp;&nbsp;{email.subject}
+              </p>
+            )}
+            <p className="max-h-72 overflow-y-auto px-4 py-3 whitespace-pre-wrap">{email ? email.body : text}</p>
+          </div>
+        ) : (
+          <p className="px-4 py-5 text-[13px] text-muted-foreground">No {ch.label === "Call script" ? "call script" : `${ch.label} draft`} yet. Research writes one per record, or write your own.</p>
+        )}
+        <div className="flex flex-wrap gap-1.5 border-t bg-muted/30 px-3 py-2">
+          {text && openHref && (
             <a href={openHref} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/85">
               {ch.key === "call" ? "Call now" : `Open in ${ch.key === "email" ? "Mail" : ch.label}`}
             </a>
           )}
-          <Button size="sm" variant="outline" className="h-8" onClick={() => navigator.clipboard.writeText(text).then(() => toast.success("Draft copied"))}>
-            <Copy /> Copy
-          </Button>
+          {text && (
+            <Button size="sm" variant="outline" className="h-8 bg-background" onClick={() => navigator.clipboard.writeText(text).then(() => toast.success("Draft copied"))}>
+              <Copy /> Copy
+            </Button>
+          )}
+          {WRITABLE[ctx.kind].has(ch.col) && (
+            <Button size="sm" variant="outline" className="h-8 bg-background" onClick={() => setEditOpen(true)}>
+              <Pencil /> {text ? "Edit" : "Write"}
+            </Button>
+          )}
           <span className="flex-1" />
-          <Button size="sm" variant="ghost" className="h-8" onClick={markSent} disabled={pending}>
-            <Check /> {pending ? "Saving…" : ch.key === "call" || ch.key === "meeting" ? "Mark done" : "Mark sent"}
-          </Button>
+          {text && (
+            <Button size="sm" variant="ghost" className="h-8" onClick={markSent} disabled={pending}>
+              <Check /> {pending ? "Saving…" : ch.key === "call" || ch.key === "meeting" ? "Mark done" : "Mark sent"}
+            </Button>
+          )}
         </div>
-      )}
-    </section>
+      </div>
+      <TextDialog ctx={ctx} col={ch.col} title={`${ch.label} draft`} description={`For ${r.name}. Saved to the sheet; research may rewrite it.`} value={text} open={editOpen} onOpenChange={setEditOpen} />
+    </Section>
   );
 }
 
-function ActivityList({ items, limit }: { items: ActivityEntry[]; limit?: number }) {
+function shortStamp(a: ActivityEntry): string {
+  return a.date ? displayDate(a.date) : a.loggedAt.slice(0, 10);
+}
+
+function ActivityTable({ items, limit }: { items: ActivityEntry[]; limit?: number }) {
   const shown = limit ? items.slice(0, limit) : items;
-  if (!shown.length) return <p className="text-[13px] text-muted-foreground">Nothing logged yet. Every call or message you log lands here.</p>;
+  if (!shown.length) return <p className="rounded-lg border border-dashed px-4 py-5 text-[13px] text-muted-foreground">Nothing logged yet. Every call or message logged here lands in this table and in the sheet&apos;s Activity tab.</p>;
   return (
-    <ul className="flex flex-col">
-      {shown.map((a) => (
-        <li key={a.id || a.loggedAt} className="grid grid-cols-[64px_1fr] gap-3 border-t py-2.5 text-[13px] first:border-t-0">
-          <span className="pt-0.5 font-mono text-[11px] text-muted-foreground">{(a.date ? displayDate(a.date) : a.loggedAt).slice(0, 5)}</span>
-          <span className="leading-snug">
-            {a.channel} · <strong className="font-medium">{a.outcome}</strong>
-            {a.durationMin ? ` · ${a.durationMin} min` : ""}
-            {a.statusAfter ? <span className="text-muted-foreground"> → {a.statusAfter}</span> : null}
-            <span className="text-muted-foreground"> · {a.by.split(/\s+/)[0]}</span>
-            {a.summary && <span className="mt-0.5 block text-muted-foreground">{a.summary}</span>}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full min-w-[640px] text-[13px]">
+        <thead className="bg-muted/30 text-left text-xs text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 font-normal">Date</th>
+            <th className="px-3 py-2 font-normal">Channel</th>
+            <th className="px-3 py-2 font-normal">Outcome</th>
+            <th className="px-3 py-2 font-normal">Stage after</th>
+            <th className="px-3 py-2 font-normal">By</th>
+            <th className="px-3 py-2 font-normal">What they said</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((a) => (
+            <tr key={a.id || a.loggedAt} className="border-t border-border/60 align-top">
+              <td className="px-3 py-2 font-mono text-xs whitespace-nowrap text-muted-foreground">{shortStamp(a)}</td>
+              <td className="px-3 py-2 whitespace-nowrap">
+                {a.channel}
+                {a.durationMin ? <span className="text-muted-foreground"> · {a.durationMin} min</span> : null}
+              </td>
+              <td className="px-3 py-2 font-medium whitespace-nowrap">{a.outcome}</td>
+              <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{a.statusAfter || "—"}</td>
+              <td className="px-3 py-2 whitespace-nowrap">{a.by.split(/\s+/)[0]}</td>
+              <td className="px-3 py-2 text-muted-foreground">{a.summary || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-function ResearchNotes({ r, limit }: { r: ProspectRecord; limit: number }) {
+function OverviewTab({ ctx, r, activity, onTab }: { ctx: Ctx; r: ProspectRecord; activity: ActivityEntry[]; onTab: (t: RecordTab) => void }) {
+  const has = (col: string) => WRITABLE[ctx.kind].has(col);
+  const keyFacts = [
+    { label: "Phone", value: r.phone || "Not known yet", missing: !r.phone },
+    { label: "Email", value: r.email || "Not known yet", missing: !r.email },
+    ...(has("lenders_empanelled_with") ? [{ label: "Lender panels", value: r.lenders.join(" · ") || "Not known yet", missing: !r.lenders.length }] : []),
+    ...(has("current_software") ? [{ label: "Software", value: r.software || "Ask on a call", missing: !r.software }] : []),
+    ...(has("lb_cases_per_month") ? [{ label: "Cases a month", value: r.casesPerMonth ?? "Ask on a call", missing: r.casesPerMonth === null }] : []),
+    ...(has("pitch_angle") ? [{ label: "Pitch", value: r.pitchAngle || "Pick one", missing: !r.pitchAngle }] : []),
+  ];
+  return (
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="flex min-w-0 flex-col gap-8">
+        <NextStepCard ctx={ctx} r={r} />
+        <Drafts ctx={ctx} r={r} />
+        <Section
+          title="Recent activity"
+          aside={
+            activity.length > 3 ? (
+              <button type="button" onClick={() => onTab("activity")} className="text-xs text-muted-foreground hover:text-foreground">
+                All {activity.length} →
+              </button>
+            ) : undefined
+          }
+        >
+          <ActivityTable items={activity} limit={3} />
+        </Section>
+      </div>
+      <div className="flex min-w-0 flex-col gap-8">
+        <Section
+          title="Key facts"
+          aside={
+            <button type="button" onClick={() => onTab("details")} className="text-xs text-muted-foreground hover:text-foreground">
+              All details →
+            </button>
+          }
+        >
+          <FactTable rows={keyFacts} />
+        </Section>
+        {r.scoreGaps && (
+          <Section title="Find out next">
+            <p className="rounded-lg bg-amber-50 px-3.5 py-3 text-[13px] leading-relaxed text-amber-950 dark:bg-amber-950 dark:text-amber-100">{r.scoreGaps}</p>
+          </Section>
+        )}
+        {!UNSCORED_KINDS.has(ctx.kind) && r.opportunityScore !== null && (
+          <Section
+            title="Score"
+            aside={
+              <button type="button" onClick={() => onTab("research")} className="text-xs text-muted-foreground hover:text-foreground">
+                Breakdown →
+              </button>
+            }
+          >
+            <div className="flex items-center gap-3 rounded-lg border px-3.5 py-3">
+              <BandBadge band={r.band} score={r.opportunityScore} />
+              <span className="text-[13px] leading-snug text-muted-foreground">{r.scoreReason || r.bandLabel}</span>
+            </div>
+          </Section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- activity tab ---------- */
+
+function ActivityTab({ ctx, r, activity }: { ctx: Ctx; r: ProspectRecord; activity: ActivityEntry[] }) {
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const notes = r.notes.split("\n").filter((l) => l.trim());
+  return (
+    <div className="flex flex-col gap-8">
+      <Section
+        title={`Touches${activity.length ? ` · ${activity.length}` : ""}`}
+        aside={
+          <SmallButton onClick={() => ctx.onLog()}>
+            <Plus className="size-3.5" /> Log a touch
+          </SmallButton>
+        }
+      >
+        <ActivityTable items={activity} />
+      </Section>
+      <Section
+        title="Notes"
+        aside={
+          <div className="flex gap-1.5">
+            {r.notes && WRITABLE[ctx.kind].has("notes") && <SmallButton onClick={() => setEditOpen(true)}>Edit all</SmallButton>}
+            {WRITABLE[ctx.kind].has("notes") && (
+              <SmallButton onClick={() => setNoteOpen(true)}>
+                <Plus className="size-3.5" /> Add a note
+              </SmallButton>
+            )}
+          </div>
+        }
+      >
+        {notes.length ? (
+          <ul className="divide-y divide-border/60 rounded-lg border">
+            {notes.map((l, i) => {
+              const m = l.match(/^(\d{2}-\d{2}-\d{4})\s+—\s+(.*)$/);
+              return (
+                <li key={i} className="grid grid-cols-[92px_1fr] gap-3 px-3 py-2 text-[13px] leading-relaxed">
+                  <span className="font-mono text-xs text-muted-foreground">{m?.[1] ?? ""}</span>
+                  <span>{m?.[2] ?? l}</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="rounded-lg border border-dashed px-4 py-5 text-[13px] text-muted-foreground">No notes yet. Logging a touch adds a dated line here.</p>
+        )}
+      </Section>
+      <AddNoteDialog ctx={ctx} r={r} open={noteOpen} onOpenChange={setNoteOpen} />
+      <TextDialog ctx={ctx} col="notes" title="Notes" description="Newest first, one line per entry." value={r.notes} open={editOpen} onOpenChange={setEditOpen} rows={16} />
+    </div>
+  );
+}
+
+/* ---------- research tab ---------- */
+
+function ResearchTab({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
+  const [editOpen, setEditOpen] = useState(false);
   const [all, setAll] = useState(false);
   const lines = parseNoteLines(r.researchNotes);
-  const shown = all ? lines : lines.slice(0, limit);
+  const shown = all ? lines : lines.slice(0, 16);
   return (
-    <div className="flex flex-col gap-1.5 text-[13px] leading-relaxed">
-      {shown.map((l, i) =>
-        l.label ? (
-          <p key={i}>
-            <span className="text-muted-foreground">{l.label}:</span> {l.text}
-          </p>
-        ) : (
-          <p key={i} className={l.text.startsWith("- ") ? "pl-3" : "text-xs text-muted-foreground"}>
-            {l.text}
-          </p>
-        ),
-      )}
-      {lines.length > limit && (
-        <button type="button" className="self-start text-xs text-muted-foreground hover:text-foreground" onClick={() => setAll((v) => !v)}>
-          {all ? "Show less" : `Show all ${lines.length} lines`}
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** Shown on any record research has marked do-not-contact, above everything else. */
-function DoNotContactBanner({ r }: { r: ProspectRecord }) {
-  if (!isDoNotContact(r.researchNotes)) return null;
-  return (
-    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] leading-snug font-medium text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-      {r.researchNotes.trim().split("\n")[0]}
-    </div>
-  );
-}
-
-/** The editable facts for a kind of record, in the order people look for them. */
-function Properties({ ctx, r, compact }: { ctx: Ctx; r: ProspectRecord; compact?: boolean }) {
-  const has = (col: string) => WRITABLE[ctx.kind].has(col);
-  const { save, pending } = useSave(ctx);
-  return (
-    <dl className="flex flex-col">
-      <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
-        <dt className="text-muted-foreground">Owner</dt>
-        <dd className="min-w-0">
-          <OwnerPicker value={r.assigned} me={ctx.me} team={ctx.team} disabled={pending} onPick={(n) => save({ assigned: n })}>
-            <button type="button" className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted">
-              {r.assigned ? (
-                <>
-                  <Owner name={r.assigned} /> <span className="truncate">{r.assigned}</span>
-                </>
-              ) : (
-                <span className="text-amber-700 dark:text-amber-400">Nobody · assign</span>
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="flex min-w-0 flex-col gap-8">
+        <Section
+          title="What research found"
+          aside={
+            <span className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{r.lastResearched ? `Researched ${displayDate(r.lastResearched)}` : "Never researched"}</span>
+              {WRITABLE[ctx.kind].has("research_notes") && <SmallButton onClick={() => setEditOpen(true)}>Edit</SmallButton>}
+            </span>
+          }
+        >
+          {lines.length ? (
+            <div className="flex flex-col gap-2 rounded-lg border px-4 py-3 text-[13px] leading-relaxed">
+              {shown.map((l, i) =>
+                l.label ? (
+                  <p key={i}>
+                    <span className="text-muted-foreground">{l.label}:</span> {l.text}
+                  </p>
+                ) : (
+                  <p key={i} className={l.text.startsWith("- ") ? "pl-3" : "text-xs text-muted-foreground"}>
+                    {l.text}
+                  </p>
+                ),
               )}
-            </button>
-          </OwnerPicker>
-        </dd>
-      </div>
-      {has("contact_person") && <Prop ctx={ctx} col="contact_person" label="Contact person" value={r.bank.contactPerson} />}
-      {has("designation") && <Prop ctx={ctx} col="designation" label="Designation" value={r.bank.designation} />}
-      <Prop ctx={ctx} col="phone" label="Phone" value={r.phone} missing="Add a number" />
-      <Prop ctx={ctx} col="email" label="Email" value={r.email} missing="Add an email" />
-      {has("lenders_empanelled_with") && <Prop ctx={ctx} col="lenders_empanelled_with" label="Lender panels" value={r.lenders.join("; ")} missing="Not known yet" />}
-      {has("current_software") && <Prop ctx={ctx} col="current_software" label="Software" value={r.software} missing="Ask on a call" />}
-      {has("lb_cases_per_month") && <Prop ctx={ctx} col="lb_cases_per_month" label="Cases / month" value={r.casesPerMonth === null ? "" : String(r.casesPerMonth)} type="number" missing="Ask on a call" />}
-      {has("pitch_angle") && <Prop ctx={ctx} col="pitch_angle" label="Pitch" value={r.pitchAngle} options={PITCH_ANGLES} missing="Pick one" />}
-      {has("objections") && <Prop ctx={ctx} col="objections" label="Objection" value={r.objections} options={OBJECTIONS} missing="None recorded" />}
-      {!compact && has("key_contact") && <Prop ctx={ctx} col="key_contact" label="Key contact" value={r.keyContact} />}
-      {!compact && has("outreach_route") && <Prop ctx={ctx} col="outreach_route" label="Outreach" value={r.outreachRoute} missing="Not planned" />}
-      {!compact && has("referred_by") && <Prop ctx={ctx} col="referred_by" label="Referred by" value={r.referredBy} missing="—" />}
-      {!compact && has("city") && <Prop ctx={ctx} col="city" label="City" value={r.city} />}
-      {!UNSCORED_KINDS.has(ctx.kind) && (
-        <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
-          <dt className="text-muted-foreground">Band</dt>
-          <dd className="px-2">{r.band ? <BandBadge band={r.band} score={r.opportunityScore} /> : <span className="text-muted-foreground">Not scored yet</span>}</dd>
-        </div>
-      )}
-      <div className="grid min-h-8 grid-cols-[112px_minmax(0,1fr)] items-center text-[13px]">
-        <dt className="text-muted-foreground">Last contacted</dt>
-        <dd className="px-2">{r.lastContacted ? displayDate(r.lastContacted) : <span className="text-muted-foreground">Never</span>}</dd>
-      </div>
-    </dl>
-  );
-}
-
-function Registration({ r, kind }: { r: ProspectRecord; kind: ProspectKind }) {
-  const rows = ([
-    ["State", r.state],
-    ["Address", r.address],
-    ...(kind === "valuer" ? ([["RVO", r.rvo], ["Registered", r.registeredOn], ["Firm", r.firmRegNo ? `${r.firmRegNo}${r.firmStatus ? ` · ${r.firmStatus}` : ""}` : ""]] as [string, string][]) : []),
-    ...(kind === "firm" ? ([["RVO", r.rvo], ["Partners", r.people]] as [string, string][]) : []),
-    ...(kind === "rvo" ? ([["Website", r.website], ["Chair", r.keyContact], ["CEO / MD", r.people]] as [string, string][]) : []),
-    ...(kind === "panel" ? ([["Practice", r.practice], ["IBBI", "Not on the IBBI register"]] as [string, string][]) : []),
-    ...(kind === "bank"
-      ? ([
-          ["Institution", r.bank.institution],
-          ["Type", r.bank.type],
-          ["Office", r.bank.office],
-          ["Department", r.bank.department],
-          ["Empanelment", r.bank.empanelmentWindow],
-          ["How to reach", r.bank.howToReach],
-          ["Website", r.website],
-        ] as [string, string][])
-      : []),
-  ] as [string, string][]).filter(([, v]) => v);
-  return (
-    <dl className="flex flex-col gap-1.5 text-[13px]">
-      {rows.map(([k, v]) => (
-        <div key={k} className="grid grid-cols-[96px_1fr] gap-2">
-          <dt className="text-muted-foreground">{k}</dt>
-          <dd className="min-w-0 break-words">{v}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function ScoreCard({ r }: { r: ProspectRecord }) {
-  if (r.opportunityScore === null) return <p className="text-[13px] text-muted-foreground">{r.researchStatus ? `${r.researchStatus}. Scoring runs once research is reviewed.` : "Not scored yet."}</p>;
-  return (
-    <div className="flex flex-col gap-1.5">
-      {SCORE_COLUMNS.map((s, i) => (
-        <div key={s.key} className="grid grid-cols-[1fr_64px_36px] items-center gap-2 text-xs">
-          <span className="truncate">{s.label}</span>
-          <Bar value={r.scores[i] ?? 0} max={s.max} className="h-1.5" />
-          <span className="text-right font-mono text-muted-foreground tabular-nums">
-            {r.scores[i] ?? "–"}/{s.max}
-          </span>
-        </div>
-      ))}
-      {r.scoreReason && <p className="mt-1 text-[13px] leading-snug">{r.scoreReason}</p>}
-    </div>
-  );
-}
-
-function DisqualifyButton({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState<string>(DISQUALIFY_REASONS[0]);
-  const { save, pending } = useSave(ctx);
-  if (!WRITABLE[ctx.kind].has("disqualified")) return null;
-  const isOut = Boolean(r.disqualified) && r.disqualified !== "No";
-  if (isOut)
-    return (
-      <p className="text-xs text-muted-foreground">
-        Disqualified: {r.disqualified}.{" "}
-        <button type="button" disabled={pending} onClick={() => save({ disqualified: "No" })} className="underline hover:text-foreground">
-          Undo
-        </button>
-      </p>
-    );
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className="self-start text-[13px] text-red-700 hover:underline dark:text-red-400">
-        Disqualify…
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="gap-4 sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Disqualify {r.name}?</DialogTitle>
-            <DialogDescription>They drop out of every queue and the pipeline. You can undo it from the record.</DialogDescription>
-          </DialogHeader>
-          <div role="radiogroup" aria-label="Reason" className="flex flex-col">
-            {DISQUALIFY_REASONS.map((d) => (
-              <button key={d} type="button" role="radio" aria-checked={reason === d} onClick={() => setReason(d)} className="flex h-9 items-center gap-2.5 rounded-md px-2 text-left text-sm hover:bg-muted">
-                <span className={cn("size-3.5 shrink-0 rounded-full", reason === d ? "shadow-[inset_0_0_0_4.5px_var(--foreground)]" : "shadow-[inset_0_0_0_1.5px_var(--muted-foreground)]")} />
-                {d}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
-              Cancel
-            </Button>
-            <Button variant="destructive" className="bg-red-700 text-white hover:bg-red-800 dark:bg-red-700" disabled={pending} onClick={() => save({ disqualified: reason }, () => setOpen(false))}>
-              {pending ? "Saving…" : "Disqualify"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-/** What the current stage still needs before moving on, and the button to move. */
-function StageGuide({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
-  const { move, dialog, pending } = useStageMove(ctx.onChanged);
-  if (r.stage >= 5) return null;
-  const next = r.stage + 1;
-  const coach = STAGE_COACHING[r.stage];
-  return (
-    <div className="flex flex-col gap-3 rounded-lg bg-muted/60 px-3.5 py-3 text-[13px] sm:flex-row sm:items-center">
-      <span className="flex-1 leading-snug">
-        To reach <strong className="font-medium">{STAGES[next]}</strong>: {coach.tips[0]}
-      </span>
-      <Button size="sm" variant="outline" className="h-8 shrink-0 bg-background" disabled={pending} onClick={() => move(subjectOf(r), next)}>
-        Move to {STAGES[next]}
-      </Button>
-      {dialog}
-    </div>
-  );
-}
-
-function useEscape(onClose: () => void) {
-  const ref = useRef(onClose);
-  useEffect(() => {
-    ref.current = onClose;
-  });
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.querySelector("[role=dialog][data-open],[data-slot=popover-content],[data-slot=dropdown-menu-content]") && ref.current();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-}
-
-type PanelProps = { sel: Selection; today: string; me: string; team: string[]; onLog: (o?: LogOpts) => void; onChanged: () => void; detail: ReturnType<typeof useDetail> };
-
-/** The side panel: enough to act without leaving the list or board you were working through. */
-export function RecordPanel({ sel, today, me, team, onClose, onExpand, onLog, onChanged, detail }: PanelProps & { onClose: () => void; onExpand: () => void }) {
-  const r = detail.data?.record;
-  const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, team, onChanged, onLog };
-  useEscape(onClose);
-  return (
-    <aside aria-label="Prospect" className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[460px] flex-col border-l bg-background shadow-[-12px_0_32px_rgba(0,0,0,0.06)]">
-      <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3">
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          {KIND_LABEL[sel.kind].one} · <span className="font-mono text-[11px]">{sel.id}</span>
-        </span>
-        <Button size="icon-sm" variant="ghost" aria-label="Open full page" onClick={onExpand}>
-          <Maximize2 />
-        </Button>
-        <Button size="icon-sm" variant="ghost" aria-label="Close" onClick={onClose}>
-          <X />
-        </Button>
-      </div>
-      {detail.data === null && <p className="p-5 text-sm text-muted-foreground">This record is no longer in the sheet.</p>}
-      {detail.data === undefined && <p className="p-5 text-sm text-muted-foreground">Loading…</p>}
-      {r && detail.data && (
-        <div className={cn("flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-4 pb-8", detail.loading && "opacity-70")}>
-          <div className="flex flex-col gap-3">
-            <div>
-              <h2 className="text-xl leading-tight font-semibold tracking-tight">{r.name}</h2>
-              {(r.city || r.state) && <p className="mt-0.5 text-[13px] text-muted-foreground">{r.city || r.state}</p>}
-            </div>
-            <StageBar stage={r.stage} />
-            <div className="flex items-center justify-between gap-2">
-              <StageMenu ctx={ctx} r={r} />
-              {r.stage < 5 && <span className="text-xs text-muted-foreground">Next: {PATH[r.stage + 1]}</span>}
-            </div>
-          </div>
-          <DoNotContactBanner r={r} />
-          <ActionBar ctx={ctx} r={r} />
-          <NextStep ctx={ctx} r={r} />
-          <Properties ctx={ctx} r={r} compact />
-          {r.scoreGaps && (
-            <p className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-[13px] leading-snug text-amber-950 dark:bg-amber-950 dark:text-amber-100">
-              <span className="font-medium">Find out next:</span> {r.scoreGaps}
-            </p>
-          )}
-          <Drafts ctx={ctx} r={r} />
-          <section className="flex flex-col gap-1 border-t pt-4">
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-sm font-semibold">Activity</h3>
-              {detail.data.activity.length > 3 && (
-                <button type="button" onClick={onExpand} className="text-xs text-muted-foreground hover:text-foreground">
-                  See all {detail.data.activity.length}
+              {lines.length > 16 && (
+                <button type="button" className="self-start text-xs text-muted-foreground hover:text-foreground" onClick={() => setAll((v) => !v)}>
+                  {all ? "Show less" : `Show all ${lines.length} lines`}
                 </button>
               )}
             </div>
-            <ActivityList items={detail.data.activity} limit={3} />
-          </section>
-        </div>
-      )}
-    </aside>
+          ) : (
+            <p className="rounded-lg border border-dashed px-4 py-5 text-[13px] text-muted-foreground">Nothing yet. Research adds findings here, one per line.</p>
+          )}
+        </Section>
+        <Section title={`Sources${r.researchSources.length ? ` · ${r.researchSources.length}` : ""}`}>
+          {r.researchSources.length ? (
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full table-fixed text-[13px]">
+                <thead className="bg-muted/30 text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="w-44 px-3 py-2 font-normal">What</th>
+                    <th className="px-3 py-2 font-normal">Link</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.researchSources.map((s, i) => (
+                    <tr key={i} className="border-t border-border/60">
+                      <td className="truncate px-3 py-2 text-muted-foreground">{s.what || "Source"}</td>
+                      <td className="truncate px-3 py-2">
+                        <a href={/^https?:/i.test(s.url) ? s.url : `https://${s.url}`} target="_blank" rel="noreferrer" className="hover:underline">
+                          {s.url.replace(/^https?:\/\/(www\.)?/i, "")}
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-[13px] text-muted-foreground">No sources yet.</p>
+          )}
+        </Section>
+      </div>
+      <div className="flex min-w-0 flex-col gap-8">
+        <Section title="Status">
+          <FactTable
+            rows={[
+              { label: "Research", value: r.researchStatus || "Not started", missing: !r.researchStatus },
+              { label: "Find out next", value: r.scoreGaps || "—" },
+            ]}
+          />
+        </Section>
+        {!UNSCORED_KINDS.has(ctx.kind) && (
+          <Section title="Score" aside={r.opportunityScore !== null ? <BandBadge band={r.band} score={r.opportunityScore} /> : undefined}>
+            {r.opportunityScore === null ? (
+              <p className="text-[13px] text-muted-foreground">Not scored yet. Scoring runs once research is reviewed.</p>
+            ) : (
+              <div className="overflow-hidden rounded-lg border">
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {SCORE_COLUMNS.map((s, i) => (
+                      <tr key={s.key} className="border-b border-border/60 last:border-0">
+                        <th scope="row" className="px-3 py-2 text-left font-normal">
+                          {s.label}
+                        </th>
+                        <td className="w-24 px-2">
+                          <Bar value={r.scores[i] ?? 0} max={s.max} className="h-1.5" />
+                        </td>
+                        <td className="w-14 px-3 text-right font-mono text-xs text-muted-foreground tabular-nums">
+                          {r.scores[i] ?? "–"}/{s.max}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-muted/30">
+                      <th scope="row" className="px-3 py-2 text-left font-medium">
+                        Total
+                      </th>
+                      <td />
+                      <td className="px-3 text-right font-mono text-xs font-medium tabular-nums">{r.opportunityScore}/100</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {r.scoreReason && <p className="text-[13px] leading-relaxed text-muted-foreground">{r.scoreReason}</p>}
+          </Section>
+        )}
+      </div>
+      <TextDialog ctx={ctx} col="research_notes" title="Research notes" description="One finding per line, as “label: text”." value={r.researchNotes} open={editOpen} onOpenChange={setEditOpen} rows={18} />
+    </div>
   );
 }
 
-/** The full page for one record: the work on the left, everything known on the right. */
-export function RecordFull({ sel, today, me, team, onBack, backLabel, onLog, onChanged, detail }: PanelProps & { onBack: () => void; backLabel: string }) {
+/* ---------- details tab ---------- */
+
+function registration(r: ProspectRecord, kind: ProspectKind): { label: string; value: string }[] {
+  const rows: [string, string][] = [
+    [kind === "panel" || kind === "bank" ? "ID" : "Registration", r.id],
+    ["State", r.state],
+    ["Address", r.address],
+  ];
+  if (kind === "valuer") rows.push(["RVO", r.rvo], ["Registered", r.registeredOn], ["Firm", r.firmRegNo ? `${r.firmRegNo}${r.firmStatus ? ` · ${r.firmStatus}` : ""}` : ""]);
+  if (kind === "firm") rows.push(["RVO", r.rvo], ["Partners", r.people]);
+  if (kind === "rvo") rows.push(["Website", r.website], ["Chair", r.keyContact], ["CEO / MD", r.people]);
+  if (kind === "panel") rows.push(["Practice", r.practice], ["IBBI", "Not on the IBBI register"]);
+  if (kind === "bank")
+    rows.push(["Institution", r.bank.institution], ["Type", r.bank.type], ["Office", r.bank.office], ["Department", r.bank.department], ["Empanelment", r.bank.empanelmentWindow], ["Panel page", r.bank.empanelmentPage], ["How to reach", r.bank.howToReach], ["Website", r.website]);
+  return rows.filter(([, v]) => v).map(([label, value]) => ({ label, value }));
+}
+
+function DetailsTab({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [dq, setDq] = useState(false);
+  const { save, pending } = useSave(ctx);
+  const isOut = Boolean(r.disqualified) && r.disqualified !== "No";
+  const canDq = WRITABLE[ctx.kind].has("disqualified");
+  return (
+    <div className="grid gap-8 lg:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-8">
+        <Section title="Ownership">
+          <FactTable
+            rows={[
+              {
+                label: "Owner",
+                value: (
+                  <OwnerPicker value={r.assigned} me={ctx.me} team={ctx.team} disabled={pending} onPick={(n) => save({ assigned: n })}>
+                    <button type="button" className="-my-1 -ml-1.5 inline-flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-muted">
+                      {r.assigned ? (
+                        <>
+                          <Owner name={r.assigned} /> {r.assigned}
+                        </>
+                      ) : (
+                        <span className="text-amber-700 dark:text-amber-400">Nobody · assign</span>
+                      )}
+                      <ChevronDown className="size-3.5 text-muted-foreground" />
+                    </button>
+                  </OwnerPicker>
+                ),
+              },
+              { label: "Stage", value: STAGES[r.stage] },
+              { label: "Last contacted", value: r.lastContacted ? displayDate(r.lastContacted) : "Never" },
+            ]}
+          />
+        </Section>
+        {FIELDS.map((g) => {
+          const fields = g.fields.filter((f) => WRITABLE[ctx.kind].has(f.col) || (f.col === "email" && r.email));
+          if (!fields.length) return null;
+          const editable = fields.some((f) => WRITABLE[ctx.kind].has(f.col));
+          return (
+            <Section
+              key={g.group}
+              title={g.group}
+              aside={
+                editable ? (
+                  <SmallButton onClick={() => setEditing(g.group)}>
+                    <Pencil className="size-3" /> Edit
+                  </SmallButton>
+                ) : undefined
+              }
+            >
+              <FactTable rows={fields.map((f) => ({ label: f.label, value: f.get(r) || "Not known yet", missing: !f.get(r) }))} />
+            </Section>
+          );
+        })}
+      </div>
+      <div className="flex min-w-0 flex-col gap-8">
+        <Section title="Registration">
+          <FactTable rows={registration(r, ctx.kind)} />
+        </Section>
+        {canDq && (
+          <Section title="Disqualify">
+            <div className="flex flex-col gap-3 rounded-lg border border-red-200 px-4 py-3 text-[13px] dark:border-red-900">
+              {isOut ? (
+                <>
+                  <span>
+                    Disqualified: <strong className="font-medium">{r.disqualified}</strong>. They are out of every queue and the pipeline.
+                  </span>
+                  <SmallButton className="self-start" disabled={pending} onClick={() => save({ disqualified: "No" })}>
+                    Undo
+                  </SmallButton>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Takes them out of every queue and the pipeline, with a reason. You can undo it here.</span>
+                  <SmallButton className="self-start border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400" onClick={() => setDq(true)}>
+                    Disqualify…
+                  </SmallButton>
+                </>
+              )}
+            </div>
+          </Section>
+        )}
+      </div>
+      {editing && <EditFactsDialog ctx={ctx} r={r} group={editing} open onOpenChange={(o) => !o && setEditing(null)} />}
+      <DisqualifyDialog ctx={ctx} r={r} open={dq} onOpenChange={setDq} />
+    </div>
+  );
+}
+
+/* ---------- page ---------- */
+
+export type RecordTab = "overview" | "activity" | "research" | "details";
+
+/** The full page for one prospect: a header to act from, and tabs for everything known. */
+export function RecordPage({
+  sel,
+  today,
+  me,
+  team,
+  onBack,
+  backLabel,
+  onLog,
+  onChanged,
+  detail,
+  tab,
+  setTab,
+}: {
+  sel: Selection;
+  today: string;
+  me: string;
+  team: string[];
+  onBack: () => void;
+  backLabel: string;
+  onLog: (o?: LogOpts) => void;
+  onChanged: () => void;
+  detail: ReturnType<typeof useDetail>;
+  tab: RecordTab;
+  setTab: (t: RecordTab) => void;
+}) {
   const r = detail.data?.record;
-  const [history, setHistory] = useState<"touches" | "notes" | "research">("touches");
   const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, team, onChanged, onLog };
   if (!r || !detail.data) {
     return (
       <div className="flex flex-col gap-3">
-        <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
+        <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={onBack}>
           <ArrowLeft /> {backLabel}
         </Button>
-        <p className="text-sm text-muted-foreground">{detail.data === null ? "This record is no longer in the sheet." : "Loading…"}</p>
+        <p className="text-sm text-muted-foreground">{detail.data === null ? "This prospect is no longer in the sheet." : "Loading…"}</p>
       </div>
     );
   }
-  const hasResearch = Boolean(r.researchNotes.trim());
+  const activity = detail.data.activity;
   return (
-    <div className={cn("-mx-3 -my-3 grid min-h-full sm:-mx-6 sm:-my-5 lg:grid-cols-[minmax(0,1fr)_340px]", detail.loading && "opacity-80")}>
-      <div className="flex min-w-0 flex-col gap-7 px-4 py-5 sm:px-8 sm:py-6 lg:px-10">
-        <div className="flex flex-col gap-4">
-          <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={onBack}>
-            <ArrowLeft /> {backLabel}
-          </Button>
-          <div className="flex flex-col gap-1">
+    <div className={cn("mx-auto flex max-w-6xl flex-col gap-6", detail.loading && "opacity-80")}>
+      <div className="flex flex-col gap-4">
+        <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={onBack}>
+          <ArrowLeft /> {backLabel}
+        </Button>
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="text-[13px] text-muted-foreground">
               {KIND_LABEL[sel.kind].one}
-              {r.city ? ` · ${r.city}` : ""} · <span className="font-mono text-xs">{r.id}</span>
+              {r.city ? ` · ${r.city}` : r.state ? ` · ${r.state}` : ""} · <span className="font-mono text-xs">{r.id}</span>
             </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="flex-1 text-2xl font-semibold tracking-tight sm:text-[28px]">{r.name}</h1>
-              <StageMenu ctx={ctx} r={r} />
-            </div>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{r.name}</h1>
           </div>
-          <StageBar stage={r.stage} labels className="max-sm:[&_span.text-xs]:hidden" />
-          <DoNotContactBanner r={r} />
-          <ActionBar ctx={ctx} r={r} className="sm:flex sm:flex-wrap" />
-          <StageGuide ctx={ctx} r={r} />
+          <div className="flex items-center gap-2">
+            {r.assigned && (
+              <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                <Owner name={r.assigned} /> {r.assigned}
+              </span>
+            )}
+            <StageMenu ctx={ctx} r={r} />
+          </div>
         </div>
-
-        <NextStep ctx={ctx} r={r} />
-        <Drafts ctx={ctx} r={r} />
-
-        <section aria-label="History" className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="mr-2 text-sm font-semibold">History</h3>
-            <Segmented
-              label="History"
-              value={history}
-              onChange={setHistory}
-              options={[
-                { value: "touches", label: `Touches ${detail.data.activity.length || ""}` },
-                { value: "notes", label: "Notes" },
-                { value: "research", label: "Research" },
-              ]}
-            />
-          </div>
-          {history === "touches" ? (
-            <ActivityList items={detail.data.activity} />
-          ) : history === "notes" ? (
-            <LongText ctx={ctx} col="notes" label="Notes" value={r.notes} rows={10} empty="No notes yet. Logging a touch adds a dated line here." display={<p className="text-[13px] leading-relaxed whitespace-pre-wrap">{r.notes}</p>} />
-          ) : (
-            <LongText
-              ctx={ctx}
-              col="research_notes"
-              label="Research notes"
-              value={r.researchNotes}
-              rows={16}
-              empty="Nothing yet. Research adds findings here, one per line."
-              display={hasResearch ? <ResearchNotes r={r} limit={14} /> : null}
-            />
-          )}
-        </section>
+        <StageBar stage={r.stage} labels className="max-sm:[&_span.text-xs]:hidden" />
+        <DoNotContactBanner r={r} />
+        <ActionBar ctx={ctx} r={r} />
       </div>
 
-      <aside aria-label="Details" className="flex flex-col gap-7 border-t bg-muted/20 px-4 py-6 sm:px-8 lg:border-t-0 lg:border-l lg:px-5">
-        <section className="flex flex-col gap-1.5">
-          <h3 className="text-sm font-semibold">Details</h3>
-          <Properties ctx={ctx} r={r} />
-        </section>
-        {r.scoreGaps && (
-          <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">Find out next</h3>
-            <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-[13px] leading-snug text-amber-950 dark:bg-amber-950 dark:text-amber-100">{r.scoreGaps}</p>
-          </section>
-        )}
-        {!UNSCORED_KINDS.has(sel.kind) && (
-          <section className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-sm font-semibold">Score</h3>
-              {r.opportunityScore !== null && <BandBadge band={r.band} score={r.opportunityScore} />}
-            </div>
-            <ScoreCard r={r} />
-          </section>
-        )}
-        <section className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">Registration</h3>
-          <Registration r={r} kind={sel.kind} />
-        </section>
-        <section className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-sm font-semibold">Sources</h3>
-            <span className="text-xs text-muted-foreground">{r.lastResearched ? `Researched ${displayDate(r.lastResearched)}` : "Never researched"}</span>
-          </div>
-          {r.researchSources.length ? (
-            r.researchSources.map((s, i) => (
-              <a key={i} href={/^https?:/i.test(s.url) ? s.url : `https://${s.url}`} target="_blank" rel="noreferrer" className="truncate text-[13px] hover:underline">
-                {s.url.replace(/^https?:\/\/(www\.)?/i, "")}
-              </a>
-            ))
-          ) : (
-            <p className="text-[13px] text-muted-foreground">No sources yet.</p>
-          )}
-        </section>
-        <DisqualifyButton ctx={ctx} r={r} />
-        <p className="text-xs text-muted-foreground">Every change here is written to this row of the sheet{r.nextStepDate ? ` · next step ${shortDate(r.nextStepDate, today)}` : ""}.</p>
-      </aside>
+      <nav role="tablist" aria-label="Prospect" className="no-scrollbar -mx-3 flex gap-1 overflow-x-auto border-b px-3 sm:mx-0 sm:px-0">
+        {(
+          [
+            { id: "overview", label: "Overview" },
+            { id: "activity", label: "Activity", count: activity.length },
+            { id: "research", label: "Research" },
+            { id: "details", label: "Details" },
+          ] as { id: RecordTab; label: string; count?: number }[]
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={t.id === tab}
+            onClick={() => setTab(t.id)}
+            className={cn("-mb-px h-10 shrink-0 border-b-2 px-3 text-sm whitespace-nowrap", t.id === tab ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}
+          >
+            {t.label}
+            {t.count ? <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{t.count}</span> : null}
+          </button>
+        ))}
+      </nav>
+
+      <div className="pb-10">
+        {tab === "overview" ? <OverviewTab ctx={ctx} r={r} activity={activity} onTab={setTab} /> : tab === "activity" ? <ActivityTab ctx={ctx} r={r} activity={activity} /> : tab === "research" ? <ResearchTab ctx={ctx} r={r} /> : <DetailsTab ctx={ctx} r={r} />}
+      </div>
     </div>
   );
 }
