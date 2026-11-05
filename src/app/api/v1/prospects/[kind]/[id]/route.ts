@@ -17,11 +17,11 @@ export const GET = withApiAuth<Params>(async (_req, _auth, { kind, id }) => {
  * name. Only the dashboard's writable columns for this kind are accepted;
  * formula columns and anything else are refused, as on the web.
  */
-export const PATCH = withApiAuth<Params>(async (req, _auth, { kind, id }) => {
+export const PATCH = withApiAuth<Params>(async (req, auth, { kind, id }) => {
   const k = kindOr404(kind);
   const patch = parseInput(patchSchema, await readJson(req));
   if (!Object.keys(patch).length) throw new ApiInputError("Nothing to save.", 400);
-  const res = await saveProspectRecord(k, recordId(id), patch, invalidateProspects);
+  const res = await saveProspectRecord(k, recordId(id), patch, invalidateProspects, { workspaceId: auth.workspaceId, userId: auth.userId });
   if (!res.ok) throw new ApiInputError(res.message, 422);
   return ok({ data: { written: res.written, message: res.message } });
 });

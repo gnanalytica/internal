@@ -20,7 +20,7 @@ export const POST = withApiAuth<Params>(async (req, auth, { kind, id }) => {
   const by = await requireMemberName(auth);
   const name = typeof body.name === "string" ? body.name : ((await readProspectDetail(k, rid))?.record.name ?? "");
   const input = parseInput(touchSchema, { ...body, kind: k, id: rid, name });
-  const res = await logProspectTouch(input, by, invalidateProspects);
+  const res = await logProspectTouch(input, by, invalidateProspects, { workspaceId: auth.workspaceId, userId: auth.userId });
   if (!res.ok) throw new ApiInputError(res.message, 422);
   return ok({ data: { written: res.written, message: res.message } }, 201);
 });

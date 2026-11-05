@@ -4,7 +4,12 @@ import { appendRows, formulaColumns, readRange, writeCells } from "./sheets-api"
 import { activityRow, colLetter, nextActivityId, planRowWrite, quoteTab, type CellPatch, type NewActivity } from "./plan";
 import { ID_COLUMN, prospectsSheetId, TAB, type ProspectKind } from "./schema";
 
-export type WriteResult = { written: string[]; row: number };
+export type WriteResult = {
+  written: string[];
+  row: number;
+  /** The row as it read just before this write, by header name — what changed is `before` vs the patch. */
+  before: Record<string, string>;
+};
 
 /**
  * Write cells on one row, found by its registration number at write time.
@@ -33,7 +38,12 @@ export async function writeRecord(kind: ProspectKind, id: string, patch: CellPat
   if (plan.refused.length) throw new Error(`Refused: ${plan.refused.join("; ")}.`);
   await writeCells(sheet, plan.raw, "RAW");
   await writeCells(sheet, plan.entered, "USER_ENTERED");
-  return { written: plan.written, row };
+  const before: Record<string, string> = {};
+  header.forEach((h, i) => {
+    const name = String(h ?? "").trim();
+    if (name && !(name in before)) before[name] = String(current[i] ?? "").trim();
+  });
+  return { written: plan.written, row, before };
 }
 
 /** Append one row to Activity, with the next permanent activity_id. */
