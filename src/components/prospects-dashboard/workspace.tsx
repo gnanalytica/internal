@@ -3,7 +3,7 @@
 import { ArrowLeft, BookOpen, ExternalLink, MoreHorizontal, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -20,7 +20,7 @@ import { MyWork } from "./my-work";
 import { Overview } from "./overview";
 import { Pipeline } from "./pipeline";
 import { Playbook } from "./playbook";
-import { RecordFull, RecordPanel, useDetail, type LogOpts, type Selection } from "./record";
+import { RecordPage, useDetail, type LogOpts, type RecordTab, type Selection } from "./record";
 
 export type WorkspaceData = {
   rows: Record<ProspectKind, ProspectRow[]>;
@@ -134,13 +134,14 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
     const i = rec?.indexOf(":") ?? -1;
     return rec && i > 0 && (PROSPECT_KINDS as readonly string[]).includes(rec.slice(0, i)) ? { kind: rec.slice(0, i) as ProspectKind, id: rec.slice(i + 1) } : null;
   });
-  const [full, setFullState] = useState(get("full") === "1");
+  const [recTab, setRecTabState] = useState<RecordTab>((["overview", "activity", "research", "details"] as string[]).includes(get("rt") ?? "") ? (get("rt") as RecordTab) : "overview");
   const [logTarget, setLogTarget] = useState<LogTarget | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [logPickOpen, setLogPickOpen] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const detail = useDetail(sel);
+  const pushed = useRef(false);
 
   // Mirror view state into the URL without a server round trip.
   const sync = useCallback((patch: Record<string, string | null>) => {
@@ -151,6 +152,21 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
     }
     const qs = next.toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, []);
+
+  // Opening a prospect is a page of its own, so the browser's Back returns to the list it came from.
+  useEffect(() => {
+    const onPop = () => {
+      pushed.current = false;
+      const p = new URLSearchParams(window.location.search);
+      const rec = p.get("rec");
+      const i = rec?.indexOf(":") ?? -1;
+      setSelState(rec && i > 0 && (PROSPECT_KINDS as readonly string[]).includes(rec.slice(0, i)) ? { kind: rec.slice(0, i) as ProspectKind, id: rec.slice(i + 1) } : null);
+      setRecTabState((p.get("rt") as RecordTab) || "overview");
+      setTabState(tabFrom(p.get("tab")));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   // "/" opens the prospect search from anywhere on the page that is not a text field.
@@ -168,8 +184,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
 
   const setTab = (t: Tab) => {
     setTabState(t);
-    setFullState(false);
-    sync({ tab: t === "today" ? null : t, full: null });
+    sync({ tab: t === "today" ? null : t });
   };
   const setKind = (k: ProspectKind | "") => {
     setKindState(k);
@@ -193,22 +208,29 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
   };
   const open = (r: { kind: ProspectKind; id: string }) => {
     setSelState({ kind: r.kind, id: r.id });
-    setFullState(false);
-    sync({ rec: `${r.kind}:${r.id}`, full: null });
+    setRecTabState("overview");
+    const next = new URLSearchParams(window.location.search);
+    next.set("rec", `${r.kind}:${r.id}`);
+    next.delete("rt");
+    next.delete("full");
+    // Only the first open pushes; moving between prospects replaces, so Back always lands on the list.
+    if (pushed.current) window.history.replaceState(null, "", `?${next.toString()}`);
+    else window.history.pushState(null, "", `?${next.toString()}`);
+    pushed.current = true;
+    document.querySelector("[data-prospects-scroll]")?.scrollTo({ top: 0 });
   };
   const close = useCallback(() => {
+    if (pushed.current) {
+      pushed.current = false;
+      window.history.back();
+      return;
+    }
     setSelState(null);
-    setFullState(false);
-    sync({ rec: null, full: null });
+    sync({ rec: null, rt: null, full: null });
   }, [sync]);
-  const expand = () => {
-    setFullState(true);
-    sync({ full: "1" });
-  };
-  const back = () => {
-    setSelState(null);
-    setFullState(false);
-    sync({ rec: null, full: null });
+  const setRecTab = (t: RecordTab) => {
+    setRecTabState(t);
+    sync({ rt: t === "overview" ? null : t });
   };
   const onChanged = () => {
     detail.reload();
@@ -236,7 +258,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
     });
 
   const everyone = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
-  const showFull = Boolean(sel && full);
+  const showFull = Boolean(sel);
   const backLabel = tab === "playbook" ? "Playbook" : TABS.find((t) => t.id === tab)!.label;
 
   return (
@@ -266,7 +288,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
         <div className="flex items-center gap-1 pr-2 pl-1 sm:pr-4 sm:pl-2">
           <nav role="tablist" aria-label="Sales views" className="no-scrollbar flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
             {TABS.map((t) => {
-              const active = t.id === tab && !showFull;
+              const active = t.id === tab;
               return (
                 <button
                   key={t.id}
@@ -317,7 +339,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+      <div data-prospects-scroll className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         {data.warnings.length > 0 && (
           <div role="alert" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
             {data.warnings.slice(0, 4).map((w) => (
@@ -327,7 +349,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
           </div>
         )}
         {showFull && sel ? (
-          <RecordFull sel={sel} today={data.today} me={data.me} team={data.team} onBack={back} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} />
+          <RecordPage sel={sel} today={data.today} me={data.me} team={data.team} onBack={close} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} tab={recTab} setTab={setRecTab} />
         ) : tab === "today" ? (
           <MyWork
             rows={everyone}
@@ -401,7 +423,6 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
         )}
       </div>
 
-      {sel && !showFull && <RecordPanel sel={sel} today={data.today} me={data.me} team={data.team} onClose={close} onExpand={expand} onLog={logFromRecord} onChanged={onChanged} detail={detail} />}
       <LogTouchDialog target={logTarget} today={data.today} open={logOpen} onOpenChange={setLogOpen} onSaved={onChanged} />
     </div>
   );
