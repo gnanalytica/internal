@@ -17,7 +17,7 @@ import { PipelineView } from "./pipeline";
 import { PlaybookView } from "./playbook-view";
 
 const TABS = [
-  { value: "mywork", label: "My work" },
+  { value: "mywork", label: "Today" },
   { value: "list", label: "List" },
   { value: "pipeline", label: "Pipeline" },
   { value: "overview", label: "Overview" },
@@ -108,7 +108,14 @@ export function ProspectsWorkspace() {
         }}
       />
       {tab === "mywork" ? (
-        <MyWorkView scope={scope} header={header} />
+        <MyWorkView
+          scope={scope}
+          header={header}
+          onFind={() => {
+            setKind("valuer");
+            gotoList("a-new");
+          }}
+        />
       ) : tab === "list" ? (
         <ListView key={`${kind}:${listView.n}`} kind={kind} scope={scope} header={header} initialView={listView.view} initialStage={listView.stage} />
       ) : tab === "pipeline" ? (

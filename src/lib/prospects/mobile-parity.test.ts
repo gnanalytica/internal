@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+
+import * as webBits from "@/components/prospects-dashboard/bits";
+import * as webLog from "@/components/prospects-dashboard/log-touch-dialog";
 
 // The phone app keeps its own copy of the prospects rules (it is a separate
 // project and cannot import the web's modules). These tests fail the moment
@@ -13,7 +17,38 @@ import * as schema from "./schema";
 import * as stats from "./stats";
 import type { MyWorkItem } from "./views";
 
+// The log dialog imports the server actions; the rules under test never call them.
+vi.mock("@/lib/prospects/actions", () => ({}));
+
 const TODAY = "2026-09-28";
+
+/**
+ * A module-private literal from a web component (Today's QUICK, the log
+ * dialog's OUTCOMES_BY_CHANNEL…), read from its source. The web keeps these
+ * inside the component, so the test reads them where they live rather than
+ * asking the web to export them. A rename fails here, loudly.
+ */
+function webLiteral(file: string, name: string): unknown {
+  const src = readFileSync(new URL(`../../components/prospects-dashboard/${file}`, import.meta.url), "utf8");
+  const m = new RegExp(`const ${name}\\b[^=]*=\\s*`).exec(src);
+  if (!m) throw new Error(`${name} is no longer in ${file}: update this test and the mobile copy in mobile/src/features/prospects/model.ts`);
+  const start = m.index + m[0].length;
+  let depth = 0;
+  let quote = "";
+  for (let i = start; i < src.length; i++) {
+    const ch = src[i];
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = "";
+    } else if (ch === '"' || ch === "'" || ch === "`") quote = ch;
+    else if (ch === "[" || ch === "{") depth++;
+    else if (ch === "]" || ch === "}") {
+      depth--;
+      if (depth === 0) return new Function(`return (${src.slice(start, i + 1)});`)();
+    }
+  }
+  throw new Error(`Couldn't read ${name} from ${file}`);
+}
 
 function row(p: Partial<stats.ProspectRow> & { id: string }): stats.ProspectRow {
   return {
@@ -111,12 +146,7 @@ describe("mobile-only helpers", () => {
     expect(f({ q: "  F " })).toEqual(["f"]);
   });
 
-  it("logs a one-tap outcome the way the web's My work does", () => {
-    const [sent, noAnswer, demo, notInterested] = mobile.QUICK;
-    expect(mobile.quickTouch(sent, { name: "A", stage: 0 }, TODAY)).toEqual({ name: "A", channel: "WhatsApp", direction: "Outbound", outcome: "Sent", durationMin: null, summary: "", statusAfter: "Contacted", nextStep: "Follow up if no reply", nextStepDate: "2026-10-01" });
-    expect(mobile.quickTouch(noAnswer, { name: "A", stage: 2 }, TODAY)).toMatchObject({ statusAfter: "Discovery done", nextStepDate: "2026-09-29" });
-    expect(mobile.quickTouch(demo, { name: "A", stage: 0 }, TODAY)).toMatchObject({ statusAfter: "Discovery done", nextStep: "Run the demo" });
-    expect(mobile.quickTouch(notInterested, { name: "A", stage: 1 }, TODAY)).toMatchObject({ statusAfter: "Lost", nextStep: null, nextStepDate: null });
+  it("logs a draft marked as sent the way the web's record panel does", () => {
     expect(mobile.markSentTouch("call", { name: "A", stage: 0, nextStep: "" }, TODAY)).toMatchObject({ channel: "Call", outcome: "Connected", statusAfter: "Contacted", nextStep: "Follow up", nextStepDate: "2026-10-01" });
     expect(mobile.markSentTouch("email", { name: "A", stage: 3, nextStep: "Demo" }, TODAY)).toMatchObject({ channel: "Email", outcome: "Sent", statusAfter: "Demo done", nextStep: "Demo" });
   });
@@ -124,5 +154,66 @@ describe("mobile-only helpers", () => {
   it("orders the board overdue first, then by score", () => {
     const sorted = [...ROWS].sort(mobile.byUrgency(TODAY)).map((r) => r.id);
     expect(sorted.slice(0, 3)).toEqual(["a", "e", "c"]);
+  });
+});
+
+describe("the mobile copy of Today and Log a touch", () => {
+  type WebQuick = { label: string; hint: string; outcome: schema.Outcome; days: number | null; log?: boolean; extra?: Record<string, string> };
+  const webQuick = webLiteral("my-work.tsx", "QUICK") as Record<"message" | "call", WebQuick[]>;
+  const webDraftTabs = webLiteral("my-work.tsx", "DRAFT_TABS") as { key: "whatsapp" | "call" | "email"; label: string; channel: schema.Channel }[];
+
+  it("offers the same outcomes per channel, follow-ups and software", () => {
+    expect(mobile.OUTCOMES_BY_CHANNEL).toEqual(webLiteral("log-touch-dialog.tsx", "OUTCOMES_BY_CHANNEL"));
+    expect(mobile.FOLLOW_UPS).toEqual(webLiteral("log-touch-dialog.tsx", "FOLLOW_UPS"));
+    expect(mobile.SOFTWARE).toEqual(webLiteral("log-touch-dialog.tsx", "SOFTWARE"));
+  });
+
+  it("defaults the stage after and the next step the same way", () => {
+    for (const stage of schema.STAGES.keys())
+      for (const channel of schema.CHANNELS)
+        for (const outcome of schema.OUTCOMES) expect([stage, channel, outcome, mobile.defaultStage(stage, channel, outcome)]).toEqual([stage, channel, outcome, webLog.defaultStage(stage, channel, outcome)]);
+    for (const outcome of schema.OUTCOMES) for (const current of ["", "Send the deck"]) expect(mobile.defaultNextStep(outcome, current)).toBe(webLog.defaultNextStep(outcome, current));
+  });
+
+  it("groups the queue, names the draft tabs and picks the first drafted channel", () => {
+    expect(mobile.TODAY_GROUPS).toEqual(webLiteral("my-work.tsx", "GROUPS"));
+    expect(mobile.DRAFT_TABS).toEqual(webDraftTabs);
+    const drafts = { email: "", whatsapp: "", call: "", meeting: "" };
+    expect(mobile.defaultDraftTab(drafts)).toBe("whatsapp");
+    expect(mobile.defaultDraftTab({ ...drafts, email: "Subject: x", call: "Hi" })).toBe("call");
+    expect(mobile.defaultDraftTab({ ...drafts, meeting: "Agenda" })).toBe("whatsapp");
+  });
+
+  it("shows the same one-tap outcomes for each draft tab and logs them as the web does", () => {
+    expect(mobile.QUICK).toEqual(webQuick);
+    const row = { name: "A", stage: 1, nextStep: "Send the deck" };
+    for (const { channel } of webDraftTabs) {
+      // my-work.tsx: the call list for a call, the message list otherwise; an email has no wrong number.
+      const web = webQuick[channel === "Call" ? "call" : "message"].filter((q) => q.outcome !== "Wrong number" || channel !== "Email");
+      expect(mobile.quickOptions(channel)).toEqual(web);
+      for (const q of web.filter((x) => !x.log))
+        expect(mobile.quickTouch(q, channel, row, TODAY)).toEqual({
+          name: "A",
+          channel,
+          direction: "Outbound",
+          outcome: q.outcome,
+          durationMin: null,
+          summary: "",
+          statusAfter: schema.STAGES[webLog.defaultStage(row.stage, channel, q.outcome)],
+          nextStep: webLog.defaultNextStep(q.outcome, row.nextStep) || null,
+          nextStepDate: q.days === null ? null : stats.addDays(TODAY, q.days),
+        });
+    }
+    const [sent] = mobile.quickOptions("WhatsApp");
+    expect(mobile.quickTouch(sent, "WhatsApp", { name: "A", stage: 0, nextStep: "" }, TODAY)).toMatchObject({ statusAfter: "Contacted", nextStep: "Follow up if no reply", nextStepDate: "2026-10-01" });
+    const notInterested = mobile.quickOptions("Call").find((q) => q.outcome === "Not interested")!;
+    expect(mobile.quickTouch(notInterested, "Call", row, TODAY)).toMatchObject({ statusAfter: "Lost", nextStep: null, nextStepDate: null });
+  });
+
+  it("names follow-up dates and missing facts as the web does", () => {
+    for (const d of [TODAY, "2026-09-29", "2026-10-01", "2026-10-08", "2027-01-03"]) expect(mobile.shortDate(d, TODAY)).toBe(webBits.shortDate(d, TODAY));
+    const item = { row: { kind: "valuer" as const }, software: "", casesPerMonth: null, phone: "12345" };
+    expect(mobile.missingFacts(item)).toEqual(["Software unknown", "Volume unknown", "No phone"]);
+    expect(mobile.missingFacts({ ...item, row: { kind: "firm" }, software: "Own software", phone: "98480 12345" })).toEqual([]);
   });
 });
