@@ -2,10 +2,13 @@
 
 import { refresh, updateTag } from "next/cache";
 
-import { getCurrentUser, getWorkspace } from "@/lib/data";
+import { getCurrentUser, getMembers, getWorkspace } from "@/lib/data";
 import type { ActivityEntry, ProspectRecord } from "./parse";
-import { PROSPECTS_TAG } from "./read";
+import { recordsOf } from "./parse";
+import { loadWorkbook, PROSPECTS_TAG } from "./read";
+import { relatedRecords, type Related } from "./related";
 import type { ProspectKind } from "./schema";
+import { isAssignedTo } from "./stats";
 import { assignProspects, logProspectTouch, readProspectDetail, saveProspectRecord, type ProspectResult } from "./service";
 import type { TouchInput as ServiceTouchInput } from "./touch";
 
@@ -38,6 +41,26 @@ export async function saveProspect(kind: ProspectKind, id: string, patch: Record
 /** Assign a row to whoever is signed in, by their first name as the team writes it. */
 export async function assignToMe(kind: ProspectKind, ids: string[]): Promise<ActionResult> {
   return assignProspects(kind, ids, await signedInName(), invalidate);
+}
+
+/**
+ * Assign rows to a teammate. Only names of workspace members are accepted, so
+ * a typo can't leave rows owned by nobody anyone recognises.
+ */
+export async function assignTo(kind: ProspectKind, ids: string[], person: string): Promise<ActionResult> {
+  const ws = await getWorkspace();
+  const members = await getMembers(ws.id);
+  const member = members.map((m) => (m.name || m.email || "").trim()).find((n) => n && isAssignedTo(person, n));
+  if (!member) return { ok: false, message: `${person} is not a member of this workspace.` };
+  return assignProspects(kind, ids, member, invalidate);
+}
+
+/** The rows a prospect is connected to (firm, partners, lenders, panel, members). */
+export async function getRelatedProspects(kind: ProspectKind, id: string): Promise<{ items: Related[]; more: number }> {
+  await getWorkspace();
+  const wb = await loadWorkbook();
+  const record = recordsOf(wb, kind).find((r) => r.id === id);
+  return record ? relatedRecords(wb, record) : { items: [], more: 0 };
 }
 
 /**
