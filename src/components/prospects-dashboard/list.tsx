@@ -1,50 +1,94 @@
 "use client";
 
+import { ChevronDown, X } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { assignToMe, saveProspect } from "@/lib/prospects/actions";
-import { displayDate } from "@/lib/prospects/parse";
-import { ID_COLUMN, STAGES, UNSCORED_KINDS, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
-import { FACT_COUNT, SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
+import { saveProspect } from "@/lib/prospects/actions";
+import { KIND_LABEL, PROSPECT_KINDS, STAGES, UNSCORED_KINDS, type ProspectKind } from "@/lib/prospects/schema";
+import { SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, DueChip, StagePill } from "./bits";
-import { applyFilters, FilterBar, type Filters } from "./pipeline";
+import { BandBadge, DatePicker, DueChip, FilterMenu, Owner, OwnerPicker, StageDot, StagePill } from "./bits";
+import { applyFilters, FilterBar, NO_FILTERS, type Filters } from "./pipeline";
 
 const PAGE = 100;
 
-function csv(kind: ProspectKind, rows: ProspectRow[]): string {
-  const head = [ID_COLUMN[kind], "name", "city", "state", "status", "band", "score", "assigned", "next_step", "next_step_date", "last_contacted", "lenders", "lb_cases_per_month", "current_software"];
+function csv(rows: ProspectRow[]): string {
+  const head = ["type", "id", "name", "city", "state", "status", "band", "score", "assigned", "next_step", "next_step_date", "last_contacted", "lenders", "lb_cases_per_month", "current_software"];
   const esc = (v: unknown) => {
     const s = v === null || v === undefined ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  return [head.join(","), ...rows.map((r) => [r.id, r.name, r.city, r.state, STAGES[r.stage], r.band, r.score, r.assigned, r.nextStep, r.nextStepDate, r.lastContacted, r.lenders, r.cases, r.software].map(esc).join(","))].join("\n");
+  return [head.join(","), ...rows.map((r) => [KIND_LABEL[r.kind].one, r.id, r.name, r.city, r.state, STAGES[r.stage], r.band, r.score, r.assigned, r.nextStep, r.nextStepDate, r.lastContacted, r.lenders, r.cases, r.software].map(esc).join(","))].join("\n");
 }
 
-export function ListView({ kind, rows, today, me, team, view, setView, stage, setStage, onOpen, onChanged }: { kind: ProspectKind; rows: ProspectRow[]; today: string; me: string; team: string[]; view: string; setView: (v: string) => void; stage: number | null; setStage: (s: number | null) => void; onOpen: (r: ProspectRow) => void; onChanged: () => void }) {
-  const [filters, setFilters] = useState<Filters>({ owner: "", band: "", q: "" });
+const keyOf = (r: { kind: ProspectKind; id: string }) => `${r.kind}:${r.id}`;
+
+export function ListView({
+  kind,
+  setKind,
+  rows,
+  today,
+  me,
+  team,
+  view,
+  setView,
+  stage,
+  setStage,
+  scope,
+  setScope,
+  onOpen,
+  onChanged,
+  openKey,
+}: {
+  kind: ProspectKind | "";
+  setKind: (k: ProspectKind | "") => void;
+  rows: ProspectRow[];
+  today: string;
+  me: string;
+  team: string[];
+  view: string;
+  setView: (v: string) => void;
+  stage: number | null;
+  setStage: (s: number | null) => void;
+  scope: "focus" | "all";
+  setScope: (s: "focus" | "all") => void;
+  onOpen: (r: ProspectRow) => void;
+  onChanged: () => void;
+  openKey: string | null;
+}) {
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [limit, setLimit] = useState(PAGE);
   const [pending, start] = useTransition();
   const ctx = { person: me, today };
-  const col = { band: kind === "valuer", lenders: WRITABLE[kind].has("lenders_empanelled_with"), cases: WRITABLE[kind].has("lb_cases_per_month"), software: WRITABLE[kind].has("current_software"), facts: !UNSCORED_KINDS.has(kind) };
+  const ofKind = useMemo(() => (kind ? rows.filter((r) => r.kind === kind) : rows), [rows, kind]);
   const current = SAVED_VIEWS.find((v) => v.id === view) ?? SAVED_VIEWS[0];
   const shown = useMemo(() => {
-    const base = applyFilters(rows, filters, me).filter((r) => current.test(r, ctx) && (stage === null || r.stage === stage));
+    const base = applyFilters(ofKind, filters, me).filter((r) => current.test(r, ctx) && (stage === null || r.stage === stage));
     return base.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filters, me, current, stage, today]);
-  const selected = shown.filter((r) => checked.has(r.id));
-  const allOnPage = shown.slice(0, limit);
-  const toggleAll = () => setChecked(checked.size === allOnPage.length ? new Set() : new Set(allOnPage.map((r) => r.id)));
+  }, [ofKind, filters, me, current, stage, today]);
+  const selected = shown.filter((r) => checked.has(keyOf(r)));
+  const page = shown.slice(0, limit);
+  const allOn = page.length > 0 && page.every((r) => checked.has(keyOf(r)));
+  const toggle = (r: ProspectRow) => {
+    const next = new Set(checked);
+    if (next.has(keyOf(r))) next.delete(keyOf(r));
+    else next.add(keyOf(r));
+    setChecked(next);
+  };
+  const showBand = kind ? !UNSCORED_KINDS.has(kind) : true;
+  const counts = useMemo(() => Object.fromEntries(PROSPECT_KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length])), [rows]);
 
-  const bulkStatus = (s: string) =>
+  /** Writes the same cells to each selected row, one at a time, stopping at the first failure. */
+  const bulk = (patch: Record<string, string | null>, done: string) =>
     start(async () => {
       let n = 0;
       for (const r of selected.slice(0, 50)) {
-        const res = await saveProspect(kind, r.id, { status: s });
+        const res = await saveProspect(r.kind, r.id, patch);
         if (!res.ok) {
           toast.error(`${n} updated; stopped at ${r.name}: ${res.message}`);
           onChanged();
@@ -52,223 +96,171 @@ export function ListView({ kind, rows, today, me, team, view, setView, stage, se
         }
         n++;
       }
-      toast.success(`${n} set to ${s}`);
+      toast.success(`${n} ${done}${selected.length > 50 ? " (the first 50)" : ""}`);
       setChecked(new Set());
       onChanged();
     });
 
+  const exportCsv = () => {
+    const url = URL.createObjectURL(new Blob([csv(selected.length ? selected : shown)], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prospects-${kind || "all"}-${view}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="no-scrollbar -mx-3 flex items-center gap-1.5 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:px-0">
-        <span className="mr-1 text-xs text-muted-foreground max-sm:hidden">Views</span>
-        {SAVED_VIEWS.map((v) => {
-          const n = rows.filter((r) => v.test(r, ctx)).length;
-          return (
-            <button
-              key={v.id}
-              type="button"
-              aria-pressed={v.id === view}
-              onClick={() => {
-                setView(v.id);
-                setLimit(PAGE);
-                setChecked(new Set());
-              }}
-              className={cn("h-7 shrink-0 rounded-full border px-3 text-xs font-medium whitespace-nowrap", v.id === view ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
-            >
-              {v.label} <span className="font-mono opacity-70">{n.toLocaleString("en-IN")}</span>
-            </button>
-          );
-        })}
-      </div>
-      <FilterBar filters={filters} setFilters={setFilters} team={team}>
-        <label className="sr-only" htmlFor="pf-stage">
-          Status
-        </label>
-        <select id="pf-stage" value={stage ?? ""} onChange={(e) => setStage(e.target.value === "" ? null : Number(e.target.value))} className="h-8 rounded-md border bg-background px-2 text-sm">
-          <option value="">Status: any</option>
-          {STAGES.map((s, i) => (
-            <option key={s} value={i}>
-              Status: {s}
-            </option>
-          ))}
-        </select>
-      </FilterBar>
-      <div className="flex min-h-9 flex-wrap items-center gap-2">
-        {current.chips.map((c) => (
-          <span key={c} className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-            {c}
-          </span>
-        ))}
-        <span className="text-xs text-muted-foreground">{shown.length.toLocaleString("en-IN")} rows</span>
-        <span className="flex-1" />
-        {selected.length > 0 ? (
-          <div className="flex items-center gap-1.5 rounded-lg bg-foreground px-2 py-1 text-xs text-background">
-            <span className="px-1">{selected.length} selected</span>
-            <Button
-              size="xs"
-              variant="secondary"
-              disabled={pending}
-              onClick={() =>
-                start(async () => {
-                  const res = await assignToMe(kind, selected.map((r) => r.id));
-                  if (res.ok) toast.success(res.message);
-                  else toast.error(res.message);
-                  setChecked(new Set());
-                  onChanged();
-                })
-              }
-            >
-              Assign to me
-            </Button>
-            <label className="sr-only" htmlFor="pf-bulk-status">
-              Set status
-            </label>
-            <select id="pf-bulk-status" value="" disabled={pending} onChange={(e) => e.target.value && bulkStatus(e.target.value)} className="h-6 rounded-md bg-secondary px-1.5 text-xs text-secondary-foreground">
-              <option value="">Set status…</option>
-              {STAGES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <Button
-            size="xs"
-            variant="outline"
+      <div role="tablist" aria-label="Record type" className="no-scrollbar -mx-3 flex gap-0.5 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+        {[{ value: "" as const, label: "All", n: rows.length }, ...PROSPECT_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k].many, n: counts[k] }))].map((t) => (
+          <button
+            key={t.value || "all"}
+            type="button"
+            role="tab"
+            aria-selected={t.value === kind}
             onClick={() => {
-              const url = URL.createObjectURL(new Blob([csv(kind, shown)], { type: "text/csv" }));
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `prospects-${view}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
+              setKind(t.value);
+              setChecked(new Set());
+              setLimit(PAGE);
             }}
+            className={cn("h-8 shrink-0 rounded-md px-2.5 text-[13px] whitespace-nowrap", t.value === kind ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
           >
-            Export CSV
-          </Button>
-        )}
+            {t.label} <span className="font-mono text-[11px] text-muted-foreground/70">{t.n.toLocaleString("en-IN")}</span>
+          </button>
+        ))}
       </div>
-      <ul className="divide-y rounded-xl border bg-card md:hidden">
-        {allOnPage.map((r) => (
-          <li key={r.id} className={cn("flex items-start gap-3 px-3 py-2.5", checked.has(r.id) && "bg-muted/60")}>
-            <input
-              type="checkbox"
-              aria-label={`Select ${r.name}`}
-              checked={checked.has(r.id)}
-              onChange={() => {
-                const next = new Set(checked);
-                if (next.has(r.id)) next.delete(r.id);
-                else next.add(r.id);
-                setChecked(next);
-              }}
-              className="mt-1 size-4 shrink-0 accent-foreground"
-            />
+
+      <FilterBar filters={filters} setFilters={setFilters} team={team} scope={scope} setScope={setScope} showKind={false}>
+        <FilterMenu label="View" value={view} onChange={(v) => setView(v)} options={SAVED_VIEWS.map((v) => ({ value: v.id, label: v.id === "all" ? "Everything" : v.label }))} />
+        <FilterMenu label="Stage" value={stage === null ? "" : String(stage)} onChange={(v) => setStage(v === "" ? null : Number(v))} options={[{ value: "", label: "Any" }, ...STAGES.map((s, i) => ({ value: String(i), label: s }))]} />
+      </FilterBar>
+
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span>{shown.length.toLocaleString("en-IN")} prospects</span>
+        <span className="flex-1" />
+        <button type="button" onClick={exportCsv} className="hover:text-foreground">
+          Export CSV
+        </button>
+      </div>
+
+      <ul className="divide-y rounded-lg border md:hidden">
+        {page.map((r) => (
+          <li key={keyOf(r)} className={cn("flex items-start gap-3 px-3 py-2.5", (checked.has(keyOf(r)) || openKey === keyOf(r)) && "bg-muted/60")}>
+            <input type="checkbox" aria-label={`Select ${r.name}`} checked={checked.has(keyOf(r))} onChange={() => toggle(r)} className="mt-1 size-4 shrink-0 accent-foreground" />
             <button type="button" onClick={() => onOpen(r)} className="flex min-w-0 flex-1 flex-col gap-1 text-left">
               <span className="flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.name}</span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">{r.assigned || "Unassigned"}</span>
+                <Owner name={r.assigned} />
               </span>
-              <span className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                <StagePill stage={r.stage} />
-                {col.band && <BandBadge band={r.band} score={r.score} />}
+              <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+                <StagePill stage={r.stage} className="text-xs" />
+                {r.band && <BandBadge band={r.band} score={r.score} />}
                 <span className="truncate">{r.city || r.state || "—"}</span>
                 {r.nextStepDate && <DueChip date={r.nextStepDate} today={today} />}
-                {!r.hasPhone && <span className="text-amber-700 dark:text-amber-400">no phone</span>}
               </span>
             </button>
           </li>
         ))}
-        {shown.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">Nothing matches this view.</li>}
+        {shown.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">Nothing matches.</li>}
       </ul>
-      <div className="overflow-x-auto rounded-xl border bg-card max-md:hidden">
-        <table className="w-full min-w-[1080px] text-[13px]">
-          <thead className="bg-muted/60 text-left text-[11px] text-muted-foreground">
-            <tr>
-              <th className="w-8 px-3 py-2">
-                <input type="checkbox" aria-label="Select all on this page" checked={allOnPage.length > 0 && checked.size === allOnPage.length} onChange={toggleAll} className="accent-foreground" />
+
+      <div className="overflow-x-auto max-md:hidden">
+        <table className="w-full min-w-[900px] table-fixed text-[13px]">
+          <thead className="text-left text-xs text-muted-foreground">
+            <tr className="border-b">
+              <th className="w-9 py-2 pl-1 font-normal">
+                <input type="checkbox" aria-label="Select all on this page" checked={allOn} onChange={() => setChecked(allOn ? new Set() : new Set(page.map(keyOf)))} className="accent-foreground" />
               </th>
-              <th className="py-2 pr-2 font-medium">Name</th>
-              <th className="px-2 font-medium">City</th>
-              <th className="px-2 font-medium">Status</th>
-              {col.band && <th className="px-2 font-medium">Band</th>}
-              {col.lenders && <th className="px-2 text-right font-medium">Lenders</th>}
-              {col.cases && <th className="px-2 text-right font-medium">Cases</th>}
-              {col.software && <th className="px-2 font-medium">Software</th>}
-              <th className="px-2 font-medium">Contact</th>
-              {col.facts && <th className="px-2 font-medium">Facts</th>}
-              <th className="px-2 font-medium">Research</th>
-              <th className="px-2 font-medium">Last touch</th>
-              <th className="px-2 font-medium">Next step</th>
-              <th className="pr-3 pl-2 font-medium">Owner</th>
+              <th className="w-[30%] py-2 pr-3 font-normal">Name</th>
+              <th className="w-[14%] px-3 font-normal">Stage</th>
+              {showBand && <th className="w-16 px-3 font-normal">Band</th>}
+              <th className="w-[12%] px-3 font-normal">City</th>
+              <th className="px-3 font-normal">Next step</th>
+              <th className="w-32 px-3 font-normal">Due</th>
+              <th className="w-28 px-3 font-normal">Owner</th>
             </tr>
           </thead>
           <tbody>
-            {allOnPage.map((r) => (
-              <tr key={r.id} className={cn("border-t hover:bg-muted/40", checked.has(r.id) && "bg-muted/60")}>
-                <td className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${r.name}`}
-                    checked={checked.has(r.id)}
-                    onChange={() => {
-                      const next = new Set(checked);
-                      if (next.has(r.id)) next.delete(r.id);
-                      else next.add(r.id);
-                      setChecked(next);
-                    }}
-                    className="accent-foreground"
-                  />
+            {page.map((r) => (
+              <tr key={keyOf(r)} onClick={() => onOpen(r)} className={cn("h-10 cursor-pointer border-b border-border/60 hover:bg-muted/40", (checked.has(keyOf(r)) || openKey === keyOf(r)) && "bg-muted/60")}>
+                <td className="pl-1" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" aria-label={`Select ${r.name}`} checked={checked.has(keyOf(r))} onChange={() => toggle(r)} className="accent-foreground" />
                 </td>
-                <td className="max-w-64 py-2 pr-2">
-                  <button type="button" onClick={() => onOpen(r)} className="block max-w-full truncate text-left font-medium hover:underline">
+                <td className="truncate pr-3">
+                  <button type="button" onClick={() => onOpen(r)} className="font-medium hover:underline">
                     {r.name}
                   </button>
-                  <span className="block truncate font-mono text-[10px] text-muted-foreground">{r.id}</span>
+                  {!kind && <span className="ml-2 font-mono text-[10px] text-muted-foreground uppercase">{r.kind.slice(0, 3)}</span>}
                 </td>
-                <td className="px-2">{r.city || <span className="text-muted-foreground">{r.state || "—"}</span>}</td>
-                <td className="px-2">
+                <td className="truncate px-3">
                   <StagePill stage={r.stage} />
                 </td>
-                {col.band && (
-                  <td className="px-2">
-                    <BandBadge band={r.band} score={r.score} />
-                  </td>
-                )}
-                {col.lenders && <td className={cn("px-2 text-right font-mono tabular-nums", !r.lenders && "text-amber-700")}>{r.lenders || "?"}</td>}
-                {col.cases && <td className={cn("px-2 text-right font-mono tabular-nums", r.cases === null && "text-amber-700")}>{r.cases ?? "?"}</td>}
-                {col.software && <td className={cn("max-w-36 truncate px-2", !r.software && "text-amber-700")}>{r.software || "unknown"}</td>}
-                <td className="px-2">
-                  <span className="flex gap-1 text-[11px]">
-                    <span className={cn("rounded px-1", r.hasPhone ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950")} title={r.hasPhone ? "Has phone" : "No phone"}>
-                      ☎
+                {showBand && <td className="px-3">{r.band ? <BandBadge band={r.band} score={r.score} /> : <span className="text-muted-foreground">—</span>}</td>}
+                <td className="truncate px-3">{r.city || <span className="text-muted-foreground">{r.state || "—"}</span>}</td>
+                <td className="truncate px-3 text-muted-foreground">{r.nextStep || "—"}</td>
+                <td className="px-3">{r.nextStepDate ? <DueChip date={r.nextStepDate} today={today} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
+                <td className="truncate px-3 text-muted-foreground">
+                  {r.assigned ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Owner name={r.assigned} /> {r.assigned}
                     </span>
-                    <span className={cn("rounded px-1", r.hasEmail ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950")} title={r.hasEmail ? "Has email" : "No email"}>
-                      @
-                    </span>
-                  </span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
-                {col.facts && (
-                  <td className="px-2 font-mono text-[11px] tabular-nums">
-                    {r.facts}/{FACT_COUNT}
-                  </td>
-                )}
-                <td className="max-w-32 truncate px-2 text-[11px]">{r.researchStatus || <span className="text-muted-foreground">Not started</span>}</td>
-                <td className="px-2 font-mono text-[11px] text-muted-foreground">{r.lastContacted ? displayDate(r.lastContacted) : "—"}</td>
-                <td className="px-2">{r.nextStepDate ? <DueChip date={r.nextStepDate} today={today} /> : <span className="text-[11px] text-muted-foreground">—</span>}</td>
-                <td className="pr-3 pl-2 text-[12px]">{r.assigned || <span className="text-muted-foreground">—</span>}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {shown.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">Nothing matches this view.</p>}
+        {shown.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">Nothing matches. Try another view or clear a filter.</p>}
       </div>
+
       {shown.length > limit && (
         <Button variant="outline" size="sm" className="self-center" onClick={() => setLimit((l) => l + PAGE)}>
           Show {Math.min(PAGE, shown.length - limit)} more of {(shown.length - limit).toLocaleString("en-IN")}
         </Button>
       )}
-      <p className="text-xs text-muted-foreground">Amber means not researched yet. Tap a name to open the record.</p>
+
+      {selected.length > 0 && (
+        <div role="toolbar" aria-label="Bulk actions" className="fixed inset-x-3 bottom-20 z-30 mx-auto flex max-w-fit flex-wrap items-center gap-1 rounded-xl bg-foreground p-1.5 text-[13px] text-background shadow-2xl md:bottom-6">
+          <span className="px-2.5">{selected.length} selected</span>
+          <OwnerPicker value="" me={me} team={team} disabled={pending} onPick={(n) => bulk({ assigned: n || null }, n ? `assigned to ${n}` : "unassigned")}>
+            <button type="button" className="h-8 rounded-lg bg-background/10 px-2.5 hover:bg-background/20">
+              Assign to…
+            </button>
+          </OwnerPicker>
+          <DropdownMenu>
+            <DropdownMenuTrigger disabled={pending} className="inline-flex h-8 items-center gap-1 rounded-lg bg-background/10 px-2.5 hover:bg-background/20">
+              Set stage <ChevronDown className="size-3.5 opacity-60" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-auto min-w-44">
+              {STAGES.map((s, i) => (
+                <div key={s} className="contents">
+                  {i === 6 && <DropdownMenuSeparator />}
+                  <DropdownMenuItem onClick={() => bulk({ status: s }, `set to ${s}`)}>
+                    <StageDot stage={i} /> {s}
+                  </DropdownMenuItem>
+                </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DatePicker value={null} today={today} disabled={pending} allowClear={false} onPick={(iso) => iso && bulk({ next_step_date: iso }, "given a follow-up date")}>
+            <button type="button" className="h-8 rounded-lg bg-background/10 px-2.5 hover:bg-background/20">
+              Follow up…
+            </button>
+          </DatePicker>
+          <button type="button" onClick={exportCsv} className="h-8 rounded-lg px-2.5 text-background/70 hover:text-background">
+            Export
+          </button>
+          <button type="button" aria-label="Clear selection" onClick={() => setChecked(new Set())} className="grid size-8 place-items-center rounded-lg text-background/70 hover:text-background">
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+      <span className="sr-only" aria-live="polite">
+        {pending ? "Saving to the sheet" : ""}
+      </span>
     </div>
   );
 }

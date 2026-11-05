@@ -18,7 +18,7 @@ export default async function MyIssuesPage() {
       projects={ctx.projects}
       members={ctx.members}
       labels={ctx.labels}
-      heading="My Issues"
+      heading="My tasks"
       defaultProjectId={null}
       savedViews={ctx.savedViews}
       cycles={ctx.cycles}

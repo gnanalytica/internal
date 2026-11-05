@@ -35,7 +35,7 @@ export function BottomNav({ unreadCount, onMore }: { unreadCount: number; onMore
       <Item
         href="/my-issues"
         active={pathname === "/my-issues"}
-        label="My Issues"
+        label="My tasks"
         icon={<CircleUser className="size-5" />}
       />
       <Item

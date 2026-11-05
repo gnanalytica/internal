@@ -1,182 +1,276 @@
 "use client";
 
+import { Copy, Phone } from "lucide-react";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { logTouch, saveProspect } from "@/lib/prospects/actions";
-import { STAGES, type Channel, type Outcome } from "@/lib/prospects/schema";
+import { KIND_LABEL, STAGES, type Channel, type Outcome } from "@/lib/prospects/schema";
 import { addDays, myTasks, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, DueChip, Empty, MissingValue, StagePill } from "./bits";
-import { defaultStage } from "./log-touch-dialog";
-import { useDetail } from "./record";
+import { DueChip, Segmented } from "./bits";
+import { defaultNextStep, defaultStage } from "./log-touch-dialog";
+import { useDetail, type LogOpts } from "./record";
 
 const DRAFT_TABS = [
-  { key: "whatsapp", label: "WhatsApp" },
-  { key: "email", label: "Email" },
-  { key: "call", label: "Call" },
-  { key: "meeting", label: "Meeting" },
+  { key: "whatsapp", label: "WhatsApp", channel: "WhatsApp" },
+  { key: "call", label: "Call script", channel: "Call" },
+  { key: "email", label: "Email", channel: "Email" },
+] as const;
+type DraftKey = (typeof DRAFT_TABS)[number]["key"];
+
+/** One click: log the touch, set the follow-up, move on. `log` opens the full log instead. */
+type Quick = { label: string; hint: string; outcome: Outcome; days: number | null; log?: boolean; extra?: Record<string, string> };
+
+const QUICK: Record<"message" | "call", Quick[]> = {
+  message: [
+    { label: "Sent", hint: "Follow up in 3 days", outcome: "Sent", days: 3 },
+    { label: "Replied or talked", hint: "Note what they said", outcome: "Replied", days: 3, log: true },
+    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
+    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
+  ],
+  call: [
+    { label: "Talked", hint: "Note what they said", outcome: "Connected", days: 3, log: true },
+    { label: "No answer", hint: "Try another channel tomorrow", outcome: "No answer", days: 1 },
+    { label: "Call back later", hint: "Retry tomorrow", outcome: "Busy — call back", days: 1 },
+    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
+    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
+  ],
+};
+
+const GROUPS = [
+  { reason: "overdue", title: "Overdue" },
+  { reason: "today", title: "Due today" },
+  { reason: "new", title: "First contact" },
 ] as const;
 
-type Quick = { label: string; hint: string; channel: Channel; outcome: Outcome; days: number | null; nextStep: string; extra?: Record<string, string> };
+function digits10(phone: string): string | null {
+  const d = phone.replace(/\D/g, "");
+  return d.length >= 10 ? d.slice(-10) : null;
+}
 
-const QUICK: Quick[] = [
-  { label: "Sent", hint: "follow up in 3 days", channel: "WhatsApp", outcome: "Sent", days: 3, nextStep: "Follow up if no reply" },
-  { label: "No answer", hint: "retry tomorrow, other channel", channel: "Call", outcome: "No answer", days: 1, nextStep: "Try again on another channel" },
-  { label: "Demo booked", hint: "status → Discovery done", channel: "Call", outcome: "Demo booked", days: 3, nextStep: "Run the demo" },
-  { label: "Not interested", hint: "status → Lost · ask for a referral", channel: "Call", outcome: "Not interested", days: null, nextStep: "" },
-  { label: "Wrong number", hint: "flags it for research", channel: "Call", outcome: "Wrong number", days: 2, nextStep: "Find a working number", extra: { research_status: "Needs a person" } },
-];
-
-export function MyWork({ rows, today, me, onOpen, onLog, onChanged }: { rows: ProspectRow[]; today: string; me: string; onOpen: (r: ProspectRow) => void; onLog: (r: ProspectRow) => void; onChanged: () => void }) {
-  const tasks = useMemo(() => myTasks(rows, me, today), [rows, me, today]);
+/** Today: the person's queue on the left, one prospect at a time on the right. */
+export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { rows: ProspectRow[]; today: string; me: string; onOpen: (r: ProspectRow) => void; onLog: (r: ProspectRow, o?: LogOpts) => void; onChanged: () => void; onFind: () => void }) {
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const all = useMemo(() => myTasks(rows, me, today), [rows, me, today]);
+  const tasks = useMemo(() => [...all.filter((t) => !skipped.has(`${t.row.kind}:${t.row.id}`)), ...all.filter((t) => skipped.has(`${t.row.kind}:${t.row.id}`))], [all, skipped]);
   const [selId, setSelId] = useState<string | null>(null);
-  const cardRef = useRef<HTMLElement>(null);
   const [done, setDone] = useState(0);
-  const [tab, setTab] = useState<(typeof DRAFT_TABS)[number]["key"]>("whatsapp");
+  // null follows the record: the first channel research wrote a draft for.
+  const [picked, setTab] = useState<DraftKey | null>(null);
   const [pending, start] = useTransition();
+  const cardRef = useRef<HTMLElement>(null);
   const current = tasks.find((t) => `${t.row.kind}:${t.row.id}` === selId) ?? tasks[0];
   const detail = useDetail(current ? { kind: current.row.kind, id: current.row.id } : null);
   const r = detail.data?.record;
+  const tab: DraftKey = picked ?? DRAFT_TABS.find((d) => r?.drafts[d.key])?.key ?? "whatsapp";
   const first = me.split(/\s+/)[0];
+  const total = tasks.length + done;
 
   if (!tasks.length) {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-3 py-16 text-center">
-        <h3 className="text-lg font-semibold">Nothing due for {first}</h3>
-        <p className="text-sm text-muted-foreground">
-          Your queue is built from rows whose <span className="font-mono">assigned</span> is {first} and whose next step is due today or overdue, plus A-band valuers of yours nobody has contacted yet. Pick some up from the Overview or the List.
+      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-20 text-center">
+        <h2 className="text-lg font-semibold">{done ? `All done, ${first}` : `Nothing due for ${first}`}</h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {done ? `${done} logged this session. ` : ""}Today fills with follow-ups assigned to you that are due, plus A-band valuers of yours nobody has contacted yet.
         </p>
-        {done > 0 && <p className="text-sm font-medium text-emerald-700">{done} done this session.</p>}
+        <Button variant="outline" onClick={onFind}>
+          Pick up A-band prospects
+        </Button>
       </div>
     );
   }
 
-  const quick = (q: Quick) =>
+  const select = (key: string) => {
+    setSelId(key);
+    setTab(null);
+    if (window.matchMedia("(max-width: 1023px)").matches) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const advance = () => {
+    const next = tasks.find((t) => t !== current);
+    setSelId(next ? `${next.row.kind}:${next.row.id}` : null);
+    setTab(null);
+  };
+  const tabInfo = DRAFT_TABS.find((d) => d.key === tab)!;
+  const channel: Channel = tabInfo.channel;
+  const quicks = QUICK[channel === "Call" ? "call" : "message"].filter((q) => q.outcome !== "Wrong number" || channel !== "Email");
+
+  const quick = (q: Quick) => {
+    if (!current) return;
+    const row = current.row;
+    if (q.log) return onLog(row, { channel, outcome: q.outcome });
     start(async () => {
-      if (!current) return;
-      const row = current.row;
-      const stage = defaultStage(row.stage, q.channel, q.outcome);
+      const stage = defaultStage(row.stage, channel, q.outcome);
       const res = await logTouch({
         kind: row.kind,
         id: row.id,
         name: row.name,
-        channel: q.channel,
+        channel,
         direction: "Outbound",
         outcome: q.outcome,
         durationMin: null,
         summary: "",
         statusAfter: STAGES[stage],
-        nextStep: q.nextStep || null,
+        nextStep: defaultNextStep(q.outcome, row.nextStep) || null,
         nextStepDate: q.days === null ? null : addDays(today, q.days),
       });
       if (res.ok && q.extra && row.kind === "valuer") await saveProspect(row.kind, row.id, q.extra);
       if (res.ok) {
         toast.success(res.message);
         setDone((n) => n + 1);
-        const next = tasks.find((t) => t !== current);
-        setSelId(next ? `${next.row.kind}:${next.row.id}` : null);
+        advance();
         onChanged();
       } else toast.error(res.message);
     });
+  };
 
   const draft = r?.drafts[tab] ?? "";
+  const phone = r ? digits10(r.phone) : null;
+  const openHref = !r
+    ? null
+    : tab === "whatsapp" && phone
+      ? `https://wa.me/91${phone}?text=${encodeURIComponent(draft)}`
+      : tab === "email" && r.email
+        ? `mailto:${r.email}?body=${encodeURIComponent(draft.replace(/^Subject:.*\n+/, ""))}&subject=${encodeURIComponent(draft.match(/^Subject:\s*(.+)/)?.[1] ?? "")}`
+        : tab === "call" && phone
+          ? `tel:+91${phone}`
+          : null;
+  const missing = r ? [r.software ? null : "Software unknown", r.casesPerMonth === null && r.kind === "valuer" ? "Volume unknown" : null, phone ? null : "No phone"].filter(Boolean) : [];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[440px_1fr]">
-      <section aria-label="Your queue" className="flex flex-col gap-2">
-        <div className="flex items-baseline gap-2">
-          <h3 className="text-base font-semibold">Today</h3>
-          <span className="flex-1 text-xs text-muted-foreground">
-            {tasks.length} in your queue{done ? ` · ${done} done this session` : ""}
-          </span>
+    <div className="-mx-3 -my-3 grid min-h-full sm:-mx-6 sm:-my-5 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <section aria-label="Your queue" className="flex flex-col border-b px-3 py-4 lg:border-r lg:border-b-0">
+        <div className="flex flex-col gap-2 px-2 pb-2">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-base font-semibold">Your day</h2>
+            <span className="text-[13px] text-muted-foreground">
+              {done} of {total} done
+            </span>
+          </div>
+          <div className="h-1 rounded-full bg-muted">
+            <div className="h-full rounded-full bg-foreground transition-all" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+          </div>
         </div>
-        {tasks.map((t) => {
-          const on = t === current;
+        {GROUPS.map((g) => {
+          const items = tasks.filter((t) => t.reason === g.reason);
+          if (!items.length) return null;
           return (
-            <button
-              key={`${t.row.kind}:${t.row.id}`}
-              type="button"
-              onClick={() => {
-                setSelId(`${t.row.kind}:${t.row.id}`);
-                // Below lg the task card sits above the queue, so bring it back into view.
-                if (window.matchMedia("(max-width: 1023px)").matches) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className={cn("flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/50", on && "border-foreground ring-1 ring-foreground")}
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-sm font-medium">{t.reason === "new" ? "First contact" : t.row.nextStep || "Follow up"}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {t.row.name} · {t.row.city || t.row.state || t.row.kind.toUpperCase()}
-                </span>
-              </span>
-              <span className="flex flex-col items-end gap-1">
-                {t.reason === "new" ? <span className="rounded bg-emerald-100 px-1.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">New</span> : <DueChip date={t.row.nextStepDate} today={today} />}
-                <BandBadge band={t.row.band} score={t.row.score} />
-              </span>
-            </button>
+            <div key={g.reason} className="flex flex-col">
+              <h3 className="px-2 pt-3 pb-1.5 text-xs font-medium text-muted-foreground">
+                {g.title} <span className="font-mono">{items.length}</span>
+              </h3>
+              {items.map((t) => {
+                const key = `${t.row.kind}:${t.row.id}`;
+                const on = t === current;
+                return (
+                  <button key={key} type="button" onClick={() => select(key)} className={cn("flex items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted/60", on && "bg-muted hover:bg-muted", skipped.has(key) && "opacity-50")}>
+                    <span className="size-3.5 shrink-0 rounded-full shadow-[inset_0_0_0_1.5px_var(--muted-foreground)]" />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="truncate text-sm font-medium">{t.row.name}</span>
+                      <span className="truncate text-xs text-muted-foreground">{t.reason === "new" ? t.row.pitchAngle || t.row.city || t.row.state || "First message" : t.row.nextStep || "Follow up"}</span>
+                    </span>
+                    {t.reason === "new" ? <span className="font-mono text-[10px] text-muted-foreground uppercase">{t.row.kind.slice(0, 3)}</span> : <DueChip date={t.row.nextStepDate} today={today} />}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
       </section>
 
       {current && (
-        <section ref={cardRef} className="flex min-w-0 scroll-mt-3 flex-col overflow-hidden rounded-xl border bg-card max-lg:order-first">
-          <div className="flex flex-col gap-2 border-b p-3 sm:p-4">
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-lg font-semibold">{current.row.name}</h3>
-                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {current.row.city || current.row.state} <StagePill stage={current.row.stage} /> {r?.pitchAngle ? `· pitch: ${r.pitchAngle}` : ""}
-                </p>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => onOpen(current.row)}>
+        <section ref={cardRef} aria-label="Current prospect" className={cn("flex max-w-3xl min-w-0 scroll-mt-3 flex-col gap-6 px-4 py-5 max-lg:order-first sm:px-8 sm:py-6", detail.loading && "opacity-70")}>
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <span className="text-[13px] text-muted-foreground">
+                {KIND_LABEL[current.row.kind].one}
+                {current.row.city ? ` · ${current.row.city}` : ""} · {STAGES[current.row.stage]}
+              </span>
+              <h2 className="text-2xl font-semibold tracking-tight">{current.row.name}</h2>
+              {r && (
+                <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
+                  {r.lenders.length > 0 && <span className="rounded-md bg-muted px-2 py-1">{r.lenders.slice(0, 3).join(" · ")}</span>}
+                  {r.software && <span className="rounded-md bg-muted px-2 py-1">{r.software}</span>}
+                  {r.casesPerMonth !== null && <span className="rounded-md bg-muted px-2 py-1">{r.casesPerMonth} cases / month</span>}
+                  {missing.map((m) => (
+                    <span key={m} className="rounded-md bg-amber-50 px-2 py-1 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-1.5">
+              <Button variant="outline" onClick={() => onOpen(current.row)}>
                 Open record
               </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSkipped((s) => new Set(s).add(`${current.row.kind}:${current.row.id}`));
+                  advance();
+                }}
+              >
+                Skip
+              </Button>
             </div>
-            {r && (
-              <div className="flex flex-wrap gap-1.5 text-xs">
-                {r.lenders.length ? <span className="rounded-full bg-muted px-2 py-0.5">{r.lenders.length} lender panels</span> : <MissingValue>Lenders unknown</MissingValue>}
-                {r.casesPerMonth !== null ? <span className="rounded-full bg-muted px-2 py-0.5">{r.casesPerMonth} cases / month</span> : <MissingValue>Volume unknown — ask</MissingValue>}
-                {r.software ? <span className="rounded-full bg-muted px-2 py-0.5">{r.software}</span> : <MissingValue>Software unknown — ask</MissingValue>}
-                {r.phone ? <a href={`tel:${r.phone}`} className="rounded-full bg-muted px-2 py-0.5 hover:underline">{r.phone}</a> : <MissingValue>No phone</MissingValue>}
-              </div>
-            )}
           </div>
-          <div className="flex flex-col gap-3 p-3 sm:p-4">
-            <div className="flex items-center gap-1.5">
-              {DRAFT_TABS.map((d) => (
-                <button key={d.key} type="button" aria-pressed={d.key === tab} onClick={() => setTab(d.key)} className={cn("h-7 rounded-full border px-3 text-xs font-medium", d.key === tab ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>
-                  {d.label}
-                </button>
-              ))}
+
+          {(current.row.nextStep || current.row.pitchAngle) && (
+            <div className="flex items-start gap-2.5 rounded-lg bg-muted/60 px-3.5 py-3 text-sm leading-snug">
+              <span className="shrink-0 rounded-md bg-background px-2 py-0.5 text-xs shadow-[0_0_0_1px_var(--border)]">{current.reason === "new" ? "First contact" : "Next step"}</span>
+              <span>{current.row.nextStep || `Lead with: ${current.row.pitchAngle}`}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Segmented label="Draft" value={tab} onChange={setTab} options={DRAFT_TABS.map((d) => ({ value: d.key, label: d.label }))} />
               <span className="flex-1" />
+              <span className="text-xs text-muted-foreground max-sm:hidden">Drafted by research · edit before sending</span>
+            </div>
+            <div className="min-h-32 rounded-lg border px-4 py-3.5 text-sm leading-relaxed whitespace-pre-wrap">
+              {draft || <span className="text-muted-foreground">No {tabInfo.label === "Call script" ? "call script" : `${tabInfo.label} draft`} yet. Research writes one per record; you can also write one from the record.</span>}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {openHref && (
+                <a href={openHref} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background hover:bg-foreground/85 sm:h-8">
+                  {tab === "call" ? (
+                    <>
+                      <Phone className="size-3.5" /> Call now
+                    </>
+                  ) : (
+                    `Open in ${tab === "email" ? "Mail" : "WhatsApp"}`
+                  )}
+                </a>
+              )}
               {draft && (
-                <Button size="xs" variant="outline" onClick={() => navigator.clipboard.writeText(draft).then(() => toast.success("Draft copied"))}>
-                  Copy
+                <Button variant="outline" className="h-9 sm:h-8" onClick={() => navigator.clipboard.writeText(draft).then(() => toast.success("Draft copied"))}>
+                  <Copy /> Copy
                 </Button>
               )}
             </div>
-            <div className={cn("min-h-44 rounded-lg border bg-muted/40 p-3 text-sm leading-relaxed whitespace-pre-wrap", detail.loading && "opacity-60")}>
-              {draft || <span className="text-muted-foreground">No {DRAFT_TABS.find((d) => d.key === tab)!.label} draft yet — the research agents write one per record. You can also write it from the record.</span>}
+          </div>
+
+          <div className="flex flex-col gap-3 border-t pt-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-1">
+              <h3 className="text-sm font-semibold">How did it go?</h3>
+              <span className="text-xs text-muted-foreground">One click logs it, sets the follow-up and moves you on</span>
             </div>
-            <p className="text-xs font-medium text-muted-foreground">How did it go? One click writes the sheet and schedules the follow-up.</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {QUICK.map((q) => (
-                <button key={q.label} type="button" disabled={pending} onClick={() => quick(q)} className="flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left hover:bg-muted disabled:opacity-50">
+              {quicks.map((q) => (
+                <button key={q.label} type="button" disabled={pending} onClick={() => quick(q)} className="flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors hover:bg-muted disabled:opacity-50">
                   <span className="text-[13px] font-medium">{q.label}</span>
-                  <span className="text-[11px] text-muted-foreground">{q.hint}</span>
+                  <span className="text-xs text-muted-foreground">{q.hint}</span>
                 </button>
               ))}
-              <button type="button" onClick={() => onLog(current.row)} className="flex flex-col items-start gap-0.5 rounded-lg border border-foreground/40 px-3 py-2 text-left hover:bg-muted">
-                <span className="text-[13px] font-medium">Replied / talked…</span>
-                <span className="text-[11px] text-muted-foreground">log what they said</span>
-              </button>
             </div>
           </div>
         </section>
       )}
-      {!current && <Empty>Pick a task.</Empty>}
     </div>
   );
 }
