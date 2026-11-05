@@ -11,7 +11,6 @@ import {
   ChevronRight,
   CircleDot,
   CircleUser,
-  Contact,
   Folder,
   KeyRound,
   LogOut,
@@ -404,24 +403,7 @@ export function Sidebar({
           }
         >
           {products.map((p) => (
-            <div key={p.id}>
-              <ProductNavItem project={p} active={productActive(p)} />
-              {p.key === PROSPECTS_PRODUCT_KEY && (
-                <Link
-                  href="/prospects"
-                  aria-current={pathname.startsWith("/prospects") ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-sm transition-colors",
-                    pathname.startsWith("/prospects")
-                      ? "bg-sidebar-accent font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-                  )}
-                >
-                  <Contact className="size-3.5 shrink-0" />
-                  <span className="truncate">Prospects</span>
-                </Link>
-              )}
-            </div>
+            <ProductNavItem key={p.id} project={p} active={productActive(p)} />
           ))}
         </Section>
 

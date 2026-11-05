@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 
+import { DepartmentTasks } from "@/components/department-tasks";
+import { ProspectsWorkspace } from "@/components/prospects-dashboard/workspace";
 import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
@@ -14,14 +16,22 @@ import {
   getProjects,
   getWorkspace,
 } from "@/lib/data";
+import { loadProspectsWorkspace } from "@/lib/prospects/page-data";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { getTaskContext } from "@/lib/task-context";
 
 /**
- * The project's deal board and sales tasks. Prospects — the people a deal
- * might come from — live in the Prospects page, linked from here.
+ * The project's sales. For Valytica that is its prospects — the sheet the team
+ * works every day — with the deals they turn into and the sales tasks beside
+ * them. Other products get the deal board, accounts and contacts.
  */
-export default async function ProjectSalesPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProjectSalesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
@@ -30,6 +40,31 @@ export default async function ProjectSalesPage({ params }: { params: Promise<{ i
 
   if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Sales" />;
   const ctx = await getTaskContext(ws.id);
+
+  if (project.key === PROSPECTS_PRODUCT_KEY) {
+    const sp = await searchParams;
+    const [data, deals, issues] = await Promise.all([
+      loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus"),
+      getDeals(ws.id, id),
+      getIssues(ws.id),
+    ]);
+    return (
+      <ProspectsWorkspace
+        data={data}
+        deals={deals}
+        tasks={
+          <DepartmentTasks
+            issues={issues.filter((i) => i.projectId === id)}
+            department="sales"
+            ctx={ctx}
+            projectId={id}
+            emptyLabel="No sales tasks yet."
+          />
+        }
+      />
+    );
+  }
+
   const [issues, deals, accounts, contacts, members, projects] = await Promise.all([
     getIssues(ws.id),
     getDeals(ws.id, id),
@@ -49,7 +84,6 @@ export default async function ProjectSalesPage({ params }: { params: Promise<{ i
       initialAccounts={accounts}
       initialContacts={contacts}
       issues={issues.filter((i) => i.projectId === id)}
-      prospectsHref={project.key === PROSPECTS_PRODUCT_KEY ? "/prospects" : undefined}
     />
   );
 }

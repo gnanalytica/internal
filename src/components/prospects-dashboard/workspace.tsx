@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, BookOpen, ExternalLink, MoreHorizontal, RefreshCw, Search, Users } from "lucide-react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
@@ -12,8 +11,10 @@ import { refreshProspects } from "@/lib/prospects/actions";
 import type { ActivityEntry } from "@/lib/prospects/parse";
 import { PROSPECT_KINDS, STAGES, type ProspectKind } from "@/lib/prospects/schema";
 import type { ProspectRow } from "@/lib/prospects/stats";
+import type { DealWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { StageDot } from "./bits";
+import { DealsTab } from "./deals-tab";
 import { ListView } from "./list";
 import { LogTouchDialog, type LogTarget } from "./log-touch-dialog";
 import { MyWork } from "./my-work";
@@ -35,14 +36,14 @@ export type WorkspaceData = {
   me: string;
   team: string[];
   scope: "focus" | "all";
-  /** The product these prospects sell, for the breadcrumb; null when it is not in the workspace. */
-  product: { id: string; name: string; color: string } | null;
 };
 
 const TABS = [
   { id: "today", label: "Today" },
   { id: "pipeline", label: "Pipeline" },
   { id: "list", label: "Prospects" },
+  { id: "deals", label: "Deals" },
+  { id: "tasks", label: "Tasks" },
   { id: "insights", label: "Insights" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"] | "playbook";
@@ -120,7 +121,7 @@ function ProspectPicker({ rows, onPick, open, onOpenChange, children, placeholde
  * Google Sheet; everything changed here is written back to it. View state
  * lives in the URL so any view, list or record can be shared as a link.
  */
-export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
+export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData; deals?: DealWithRelations[]; tasks?: React.ReactNode }) {
   const router = useRouter();
   const params = useSearchParams();
   const get = (k: string) => params.get(k);
@@ -261,36 +262,19 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
 
   const everyone = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
   const showFull = Boolean(sel);
-  const backLabel = tab === "playbook" ? "Playbook" : TABS.find((t) => t.id === tab)!.label;
+  const tabs = TABS.filter((t) => (t.id === "deals" ? deals : t.id === "tasks" ? tasks : true));
+  const current: Tab = tab === "playbook" || tabs.some((t) => t.id === tab) ? tab : "today";
+  const backLabel = current === "playbook" ? "Playbook" : tabs.find((t) => t.id === current)!.label;
+  // The deal board and the task list fill the page and scroll themselves.
+  const fullBleed = !showFull && (current === "deals" || current === "tasks");
 
   return (
     <div className="flex h-full flex-col">
       <header className="shrink-0 border-b bg-background">
-        <div className="flex h-10 items-center gap-1.5 border-b border-border/60 px-3 text-[13px] text-muted-foreground sm:h-11 sm:px-4">
-          {data.product ? (
-            <>
-              <span aria-hidden className="size-2 rounded-full" style={{ background: data.product.color }} />
-              <Link href={`/projects/${data.product.id}`} className="hover:text-foreground">
-                {data.product.name}
-              </Link>
-              <span>/</span>
-              <Link href={`/projects/${data.product.id}/sales`} className="hover:text-foreground">
-                Sales
-              </Link>
-              <span>/</span>
-            </>
-          ) : null}
-          <span className="text-foreground">Prospects</span>
-          <span className="flex-1" />
-          <button type="button" onClick={refresh} disabled={refreshing} title="The page re-reads the sheet at most a minute after any change. Click to re-read it now." className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs hover:bg-muted hover:text-foreground">
-            {refreshing ? <RefreshCw className="size-3 animate-spin" /> : <span aria-hidden className="size-1.5 rounded-full bg-emerald-500" />}
-            <span className="max-sm:hidden">Synced with sheet ·</span> {readTime(data.readAt)}
-          </button>
-        </div>
         <div className="flex items-center gap-1 pr-2 pl-1 sm:pr-4 sm:pl-2">
           <nav role="tablist" aria-label="Sales views" className="no-scrollbar flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
-            {TABS.map((t) => {
-              const active = t.id === tab;
+            {tabs.map((t) => {
+              const active = t.id === current;
               return (
                 <button
                   key={t.id}
@@ -309,6 +293,10 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
               );
             })}
           </nav>
+          <button type="button" onClick={refresh} disabled={refreshing} title="The page re-reads the sheet at most a minute after any change. Click to re-read it now." className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground max-sm:hidden">
+            {refreshing ? <RefreshCw className="size-3 animate-spin" /> : <span aria-hidden className="size-1.5 rounded-full bg-emerald-500" />}
+            <span className="max-lg:hidden">Synced ·</span> {readTime(data.readAt)}
+          </button>
           <ProspectPicker rows={everyone} open={findOpen} onOpenChange={setFindOpen} onPick={open} placeholder="Find a prospect">
             <button type="button" aria-label="Find a prospect" className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border px-2 text-[13px] text-muted-foreground hover:bg-muted sm:px-2.5">
               <Search className="size-3.5" />
@@ -344,6 +332,9 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
         </div>
       </header>
 
+      {fullBleed ? (
+        <div className="min-h-0 flex-1">{current === "deals" ? <DealsTab deals={deals ?? []} onOpen={open} /> : tasks}</div>
+      ) : (
       <div data-prospects-scroll className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         {data.warnings.length > 0 && (
           <div role="alert" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
@@ -355,7 +346,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
         )}
         {showFull && sel ? (
           <RecordPage onOpen={open} sel={sel} today={data.today} me={data.me} team={data.team} onBack={close} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} tab={recTab} setTab={setRecTab} />
-        ) : tab === "today" ? (
+        ) : current === "today" ? (
           <MyWork
             rows={everyone}
             today={data.today}
@@ -370,7 +361,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
               setTab("list");
             }}
           />
-        ) : tab === "pipeline" ? (
+        ) : current === "pipeline" ? (
           <Pipeline
             rows={everyone}
             today={data.today}
@@ -389,7 +380,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
             }}
             onChanged={() => router.refresh()}
           />
-        ) : tab === "list" ? (
+        ) : current === "list" ? (
           <ListView
             kind={kind}
             setKind={setKind}
@@ -408,7 +399,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
             openKey={sel ? `${sel.kind}:${sel.id}` : null}
             onShareOut={() => setShareOpen(true)}
           />
-        ) : tab === "insights" ? (
+        ) : current === "insights" ? (
           <Overview
             rows={everyone}
             activity={data.activity}
@@ -429,6 +420,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
           </div>
         )}
       </div>
+      )}
 
       <ShareOutDialog rows={everyone} team={data.team} me={data.me} open={shareOpen} onOpenChange={setShareOpen} onDone={() => router.refresh()} />
       <LogTouchDialog target={logTarget} today={data.today} open={logOpen} onOpenChange={setLogOpen} onSaved={onChanged} />

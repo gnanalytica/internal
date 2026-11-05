@@ -47,14 +47,14 @@ export function BottomNav({ unreadCount, onMore }: { unreadCount: number; onMore
       />
       <Item
         href="/projects"
-        active={pathname.startsWith("/projects")}
+        active={pathname.startsWith("/projects") && !pathname.endsWith("/sales")}
         label="Projects"
         icon={<Folder className="size-5" />}
       />
       <Item
         href="/prospects"
-        active={pathname.startsWith("/prospects")}
-        label="Prospects"
+        active={pathname.startsWith("/prospects") || pathname.endsWith("/sales")}
+        label="Sales"
         icon={<Contact className="size-5" />}
       />
       <button
