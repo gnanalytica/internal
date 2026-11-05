@@ -4,37 +4,31 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
-  BarChart3,
+  Activity,
   Bell,
+  CalendarRange,
   ChevronDown,
   ChevronRight,
   CircleDot,
   CircleUser,
-  Compass,
+  Contact,
   Folder,
-  House,
   KeyRound,
-  Tag,
-  LifeBuoy,
   LogOut,
-  Megaphone,
+  Map,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   PenSquare,
+  Plus,
   Search,
   Settings,
   Sparkles,
   Star,
   Table2,
-  Target,
-  Timer,
+  Tag,
   Trash2,
-  TrendingUp,
   Users,
-  Wallet,
-  Contact,
 } from "lucide-react";
 
 import { UserAvatar } from "@/components/glyphs";
@@ -59,7 +53,6 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { createPage, deletePage, deleteProject, setActiveWorkspace } from "@/lib/actions";
-import { visibleDepartments, type DepartmentSlug } from "@/lib/departments";
 import { authClient } from "@/lib/auth/client";
 import type {
   FavoriteItem,
@@ -70,6 +63,7 @@ import type {
   Workspace,
   WorkspaceWithRole,
 } from "@/lib/types";
+import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({
@@ -82,7 +76,6 @@ export function Sidebar({
   labels,
   unreadCount = 0,
   favorites = [],
-  isAdmin = false,
 }: {
   workspace: Workspace;
   workspaces: WorkspaceWithRole[];
@@ -98,12 +91,17 @@ export function Sidebar({
   const router = useRouter();
   const pathname = usePathname();
   const [, startTransition] = useTransition();
-  const [showProjects, setShowProjects] = useState(true);
+  const [showProducts, setShowProducts] = useState(true);
   const [showOps, setShowOps] = useState(true);
-  const [showPages, setShowPages] = useState(true);
+  const [showLibrary, setShowLibrary] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
-  const peopleHr = projects.find((p) => p.key === "PPL");
+  const products = projects.filter((p) => p.kind === "project");
+  const operations = projects.filter((p) => p.kind === "operation");
+  const productActive = (p: Project) =>
+    pathname === `/projects/${p.id}` ||
+    pathname.startsWith(`/projects/${p.id}/`) ||
+    (p.key === PROSPECTS_PRODUCT_KEY && pathname.startsWith("/prospects"));
 
   // Restore collapsed state after mount (avoids SSR hydration mismatch).
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -190,14 +188,22 @@ export function Sidebar({
           <Search className="size-4" />
         </RailButton>
         <div className="my-1 h-px w-6 bg-border" />
-        <RailLink href="/" active={pathname === "/"} label="Overview"><House className="size-4" /></RailLink>
-        <RailLink href="/ask" active={pathname.startsWith("/ask")} label="Ask AI"><Sparkles className="size-4" /></RailLink>
         <RailLink href="/inbox" active={pathname.startsWith("/inbox")} label="Inbox"><Bell className="size-4" /></RailLink>
-        <RailLink href="/my-issues" active={pathname === "/my-issues"} label="My Issues"><CircleUser className="size-4" /></RailLink>
-        <RailLink href="/issues" active={pathname === "/issues"} label="Tasks"><CircleDot className="size-4" /></RailLink>
-        <RailLink href="/projects" active={pathname.startsWith("/projects")} label="Projects"><Folder className="size-4" /></RailLink>
-        <RailLink href="/prospects" active={pathname.startsWith("/prospects")} label="Prospects"><Contact className="size-4" /></RailLink>
-        <RailLink href="/org" active={pathname === "/org"} label="Org"><Users className="size-4" /></RailLink>
+        <RailLink href="/my-issues" active={pathname === "/my-issues"} label="My tasks"><CircleUser className="size-4" /></RailLink>
+        <RailLink href="/ask" active={pathname.startsWith("/ask")} label="Ask"><Sparkles className="size-4" /></RailLink>
+        <div className="my-1 h-px w-6 bg-border" />
+        <RailLink href="/" active={pathname === "/"} label="Pulse"><Activity className="size-4" /></RailLink>
+        <RailLink href="/weekly" active={pathname === "/weekly"} label="Weekly review"><CalendarRange className="size-4" /></RailLink>
+        <RailLink href="/roadmap" active={pathname === "/roadmap"} label="Roadmap"><Map className="size-4" /></RailLink>
+        <RailLink href="/issues" active={pathname === "/issues"} label="All tasks"><CircleDot className="size-4" /></RailLink>
+        <RailLink href="/org" active={pathname === "/org"} label="Team"><Users className="size-4" /></RailLink>
+        <div className="my-1 h-px w-6 bg-border" />
+        {products.map((p) => (
+          <RailLink key={p.id} href={`/projects/${p.id}`} active={productActive(p)} label={p.name}>
+            <span className="size-3 rounded-[3px]" style={{ backgroundColor: p.color }} />
+          </RailLink>
+        ))}
+        <div className="my-1 h-px w-6 bg-border" />
         <RailLink href="/databases" active={pathname.startsWith("/databases")} label="Databases"><Table2 className="size-4" /></RailLink>
       </aside>
     );
@@ -205,15 +211,15 @@ export function Sidebar({
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
-      {/* Workspace + user */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
+      {/* Workspace switcher + collapse */}
+      <div className="flex items-center gap-1 px-3 py-2.5">
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex flex-1 items-center gap-2 rounded-md px-1.5 py-1 hover:bg-sidebar-accent focus:outline-none">
-            <span className="grid size-6 place-items-center rounded-md bg-brand text-xs font-bold text-brand-foreground">
+          <DropdownMenuTrigger className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1 hover:bg-sidebar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="grid size-6 shrink-0 place-items-center rounded-md bg-brand text-xs font-bold text-brand-foreground">
               {workspace.name[0]}
             </span>
-            <span className="text-sm font-semibold">{workspace.name}</span>
-            <ChevronDown className="ml-auto size-3.5 text-muted-foreground" />
+            <span className="truncate text-sm font-semibold">{workspace.name}</span>
+            <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-60">
             <div className="px-2 pt-1.5 text-[11px] text-muted-foreground">
@@ -243,27 +249,8 @@ export function Sidebar({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="px-2 pt-1 text-[11px] text-muted-foreground">
-              Signed in as
+              Integrations
             </div>
-            <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
-              <UserAvatar name={currentUser.name} color={currentUser.avatarColor} />
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">{currentUser.name}</div>
-                <div className="truncate text-[11px] text-muted-foreground">
-                  {currentUser.email}
-                </div>
-              </div>
-            </div>
-            <DropdownMenuSeparator />
-            {peopleHr && (
-              <DropdownMenuItem
-                onClick={() => router.push(`/projects/${peopleHr.id}`)}
-                className="gap-2 text-sm"
-              >
-                <Users className="size-4" />
-                People &amp; HR
-              </DropdownMenuItem>
-            )}
             <DropdownMenuItem
               onClick={() => router.push("/settings/slack")}
               className="gap-2 text-sm"
@@ -292,13 +279,7 @@ export function Sidebar({
               <Tag className="size-4" />
               Labels
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => router.push("/settings")}
-              className="gap-2 text-sm"
-            >
-              <Settings className="size-4" />
-              Account settings
-            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <ThemeToggleItem />
             <DropdownMenuItem onClick={signOut} className="gap-2 text-sm">
               <LogOut className="size-4" />
@@ -339,28 +320,14 @@ export function Sidebar({
           className="size-8 ring-1 ring-border"
           aria-label="Search"
           title="Search (⌘K)"
-          onClick={() =>
-            window.dispatchEvent(new Event("open-command-palette"))
-          }
+          onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
         >
           <Search className="size-4 text-muted-foreground" />
         </Button>
       </div>
 
-      <nav className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-4">
-        {/* Primary — personal + daily driver */}
-        <NavItem
-          href="/"
-          active={pathname === "/"}
-          icon={<House className="size-4" />}
-          label="Overview"
-        />
-        <NavItem
-          href="/ask"
-          active={pathname.startsWith("/ask")}
-          icon={<Sparkles className="size-4" />}
-          label="Ask AI"
-        />
+      <nav aria-label="Main" className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-4">
+        {/* You — what needs me */}
         <NavItem
           href="/inbox"
           active={pathname.startsWith("/inbox")}
@@ -368,7 +335,7 @@ export function Sidebar({
           label="Inbox"
           trailing={
             unreadCount > 0 ? (
-              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             ) : undefined
@@ -378,36 +345,15 @@ export function Sidebar({
           href="/my-issues"
           active={pathname === "/my-issues"}
           icon={<CircleUser className="size-4" />}
-          label="My Issues"
+          label="My tasks"
         />
         <NavItem
-          href="/issues"
-          active={pathname === "/issues"}
-          icon={<CircleDot className="size-4" />}
-          label="Tasks"
-        />
-        <NavItem
-          href="/prospects"
-          active={pathname.startsWith("/prospects")}
-          icon={<Contact className="size-4" />}
-          label="Prospects"
-        />
-        <NavItem
-          href="/org"
-          active={pathname === "/org"}
-          icon={<Users className="size-4" />}
-          label="Org"
-        />
-        {/* Reachable only from one link inside a project and from the command
-            palette until now, which is no way to find a top-level surface. */}
-        <NavItem
-          href="/databases"
-          active={pathname.startsWith("/databases")}
-          icon={<Table2 className="size-4" />}
-          label="Databases"
+          href="/ask"
+          active={pathname.startsWith("/ask")}
+          icon={<Sparkles className="size-4" />}
+          label="Ask"
         />
 
-        {/* Favorites */}
         {favorites.length > 0 && (
           <Section
             title="Favorites"
@@ -432,112 +378,137 @@ export function Sidebar({
           </Section>
         )}
 
-        {/* Projects — each expands to its department modules */}
+        {/* Company — are we working on the right things */}
+        <Group title="Company">
+          <NavItem href="/" active={pathname === "/"} icon={<Activity className="size-4" />} label="Pulse" />
+          <NavItem href="/weekly" active={pathname === "/weekly"} icon={<CalendarRange className="size-4" />} label="Weekly review" />
+          <NavItem href="/roadmap" active={pathname === "/roadmap"} icon={<Map className="size-4" />} label="Roadmap" />
+          <NavItem href="/issues" active={pathname === "/issues"} icon={<CircleDot className="size-4" />} label="All tasks" />
+          <NavItem href="/org" active={pathname === "/org"} icon={<Users className="size-4" />} label="Team" />
+        </Group>
+
+        {/* Products — departments live in each product's header tabs, not here */}
         <Section
-          title="Projects"
-          open={showProjects}
-          onToggle={() => setShowProjects((v) => !v)}
+          title="Products"
+          open={showProducts}
+          onToggle={() => setShowProducts((v) => !v)}
           action={
             <Link
               href="/projects"
               className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
               aria-label="All projects"
+              title="All projects"
             >
               <Folder className="size-3.5" />
             </Link>
           }
         >
-          {projects
-            .filter((p) => p.kind === "project")
-            .map((p) => (
-              <ProjectNavItem
-                key={p.id}
-                project={p}
-                pathname={pathname}
-                isAdmin={isAdmin}
-                isOwner={p.ownerId === currentUser.id}
-              />
-            ))}
+          {products.map((p) => (
+            <div key={p.id}>
+              <ProductNavItem project={p} active={productActive(p)} />
+              {p.key === PROSPECTS_PRODUCT_KEY && (
+                <Link
+                  href="/prospects"
+                  aria-current={pathname.startsWith("/prospects") ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-sm transition-colors",
+                    pathname.startsWith("/prospects")
+                      ? "bg-sidebar-accent font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                  )}
+                >
+                  <Contact className="size-3.5 shrink-0" />
+                  <span className="truncate">Prospects</span>
+                </Link>
+              )}
+            </div>
+          ))}
         </Section>
 
-        {/* Operations — back-office projects, no department modules */}
-        {projects.some((p) => p.kind === "operation") && (
-          <Section
-            title="Operations"
-            open={showOps}
-            onToggle={() => setShowOps((v) => !v)}
-          >
-            {projects
-              .filter((p) => p.kind === "operation")
-              .map((p) => (
-                <NavItem
-                  key={p.id}
-                  href={`/projects/${p.id}`}
-                  active={pathname === `/projects/${p.id}`}
-                  icon={
-                    <span
-                      className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-                      style={{ backgroundColor: p.color }}
-                    />
-                  }
-                  label={p.name}
-                  trailing={
-                    <span className="font-mono text-[10px] text-muted-foreground">{p.key}</span>
-                  }
-                />
-              ))}
+        {/* Back office — company operations across both entities */}
+        {operations.length > 0 && (
+          <Section title="Back office" open={showOps} onToggle={() => setShowOps((v) => !v)}>
+            {operations.map((o) => (
+              <NavItem
+                key={o.id}
+                href={`/projects/${o.id}`}
+                active={pathname === `/projects/${o.id}` || pathname.startsWith(`/projects/${o.id}/`)}
+                icon={<span className="block size-2 rounded-full ring-[1.5px] ring-current ring-inset" />}
+                label={o.name}
+              />
+            ))}
           </Section>
         )}
 
-        {/* Wiki — company pages (handbook, SOPs, entity refs). Always shown:
-            it used to hide while empty, which also hid the "+" that creates the
-            first page, leaving the command palette as the only way in. An empty
-            section with a visible + is the point at which someone starts one. */}
-        {(
-          <Section
-            title="Wiki"
-            open={showPages}
-            onToggle={() => setShowPages((v) => !v)}
-            action={
-              <>
-              <Link
-                href="/trash"
-                className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-                aria-label="Trash"
-              >
-                <Trash2 className="size-3.5" />
-              </Link>
-              <button
-                onClick={() => newPage(null)}
-                className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-                aria-label="New page"
-              >
-                <Plus className="size-3.5" />
-              </button>
-              </>
-            }
-          >
-            {pageTree.length === 0 ? (
-              <button
-                onClick={() => newPage(null)}
-                className="w-full rounded px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              >
-                Start the handbook…
-              </button>
-            ) : (
-              pageTree.map((node) => (
-                <PageTreeItem
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  pathname={pathname}
-                  onAddChild={(id) => newPage(id)}
-                />
-              ))
-            )}
-          </Section>
-        )}
+        {/* Library — where things are written down. The section and its "+"
+            always show: an empty wiki needs a visible way to start it. */}
+        <Section
+          title="Library"
+          open={showLibrary}
+          onToggle={() => setShowLibrary((v) => !v)}
+          action={
+            <button
+              onClick={() => newPage(null)}
+              className="rounded p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              aria-label="New page"
+              title="New page"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          }
+        >
+          <NavItem
+            href="/databases"
+            active={pathname.startsWith("/databases")}
+            icon={<Table2 className="size-4" />}
+            label="Databases"
+          />
+          <NavItem
+            href="/trash"
+            active={pathname === "/trash"}
+            icon={<Trash2 className="size-4" />}
+            label="Trash"
+          />
+          {pageTree.length === 0 ? (
+            <button
+              onClick={() => newPage(null)}
+              className="w-full rounded px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            >
+              Start the handbook
+            </button>
+          ) : (
+            pageTree.map((node) => (
+              <PageTreeItem
+                key={node.id}
+                node={node}
+                depth={0}
+                pathname={pathname}
+                onAddChild={(id) => newPage(id)}
+              />
+            ))
+          )}
+        </Section>
       </nav>
+
+      {/* You, and the way into settings */}
+      <div className="flex items-center gap-2 border-t px-3 py-2">
+        <UserAvatar name={currentUser.name} color={currentUser.avatarColor} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">{currentUser.name}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{currentUser.email}</div>
+        </div>
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          title="Settings"
+          className={cn(
+            "grid size-8 shrink-0 place-items-center rounded-md hover:bg-sidebar-accent hover:text-foreground",
+            pathname.startsWith("/settings") ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          <Settings className="size-4" />
+        </Link>
+      </div>
     </aside>
   );
 }
@@ -549,9 +520,12 @@ function RailLink({ href, active, label, children }: { href: string; active?: bo
       href={href}
       title={label}
       aria-label={label}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "grid size-8 place-items-center rounded-md transition-colors",
-        active ? "bg-sidebar-accent text-brand" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+        active
+          ? "bg-sidebar-accent text-brand"
+          : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
       )}
     >
       {children}
@@ -589,6 +563,7 @@ function NavItem({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
         active
@@ -596,84 +571,44 @@ function NavItem({
           : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
       )}
     >
-      <span className={cn("shrink-0", active ? "text-brand" : "")}>{icon}</span>
+      <span className={cn("grid size-4 shrink-0 place-items-center", active && "text-brand")}>
+        {icon}
+      </span>
       <span className="flex-1 truncate">{label}</span>
       {trailing}
     </Link>
   );
 }
 
-function ProjectNavItem({
-  project,
-  pathname,
-  isAdmin,
-  isOwner = false,
-}: {
-  project: Project;
-  pathname: string;
-  isAdmin: boolean;
-  isOwner?: boolean;
-}) {
+/** One product, marked by its colour dot. */
+function ProductNavItem({ project, active }: { project: Project; active: boolean }) {
   const router = useRouter();
   const [, start] = useTransition();
   const base = `/projects/${project.id}`;
-  const [open, setOpen] = useState(pathname.startsWith(base));
-  const deptIcons: Record<DepartmentSlug, React.ReactNode> = {
-    product: <Compass className="size-3.5" />,
-    engineering: <CircleDot className="size-3.5" />,
-    analytics: <BarChart3 className="size-3.5" />,
-    marketing: <Megaphone className="size-3.5" />,
-    sales: <TrendingUp className="size-3.5" />,
-    "customer-success": <LifeBuoy className="size-3.5" />,
-    finance: <Wallet className="size-3.5" />,
-    strategy: <Target className="size-3.5" />,
-  };
-  const depts = [
-    ...visibleDepartments(
-      project.enabledDepartments,
-      isAdmin ? "admin" : "member",
-      isOwner,
-    ).map((d) => ({
-      href: `${base}/${d.slug}`,
-      icon: deptIcons[d.slug],
-      label: d.label,
-    })),
-    // Not a department, but the surface people open most often — cadence,
-    // velocity and the current sprint all live here.
-    ...(project.kind === "operation"
-      ? []
-      : [{ href: `${base}/cycles`, icon: <Timer className="size-3.5" />, label: "Cycles" }]),
-  ];
   return (
-    <div>
-      <ContextMenu>
+    <ContextMenu>
       <ContextMenuTrigger
         render={
-          <div
+          <Link
+            href={base}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "group/prod flex items-center gap-1 rounded-md pr-1 text-sm transition-colors",
-              pathname === base
+              "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+              active
                 ? "bg-sidebar-accent font-medium text-foreground"
                 : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
             )}
           />
         }
       >
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:bg-black/5"
-          aria-label={open ? "Collapse" : "Expand"}
-        >
-          <ChevronRight className={cn("size-3 transition-transform", open && "rotate-90")} />
-        </button>
-        <Link href={base} className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
+        <span className="grid size-4 shrink-0 place-items-center">
           <span
-            className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+            className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
             style={{ backgroundColor: project.color }}
           />
-          <span className="flex-1 truncate">{project.name}</span>
-          <span className="font-mono text-[10px] text-muted-foreground">{project.key}</span>
-        </Link>
+        </span>
+        <span className="flex-1 truncate">{project.name}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">{project.key}</span>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={() => router.push(base)}>Open</ContextMenuItem>
@@ -701,27 +636,21 @@ function ProjectNavItem({
           Delete project
         </ContextMenuItem>
       </ContextMenuContent>
-      </ContextMenu>
-      {open &&
-        depts.map((d) => (
-          <Link
-            key={d.href}
-            href={d.href}
-            className={cn(
-              "flex items-center gap-2 rounded-md py-1.5 pl-7 pr-2 text-sm transition-colors",
-              pathname === d.href
-                ? "bg-sidebar-accent font-medium text-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-            )}
-          >
-            <span className="shrink-0">{d.icon}</span>
-            <span className="truncate">{d.label}</span>
-          </Link>
-        ))}
+    </ContextMenu>
+  );
+}
+
+/** A fixed group of links under a plain heading. */
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-4">
+      <div className="px-2 pb-1 text-xs font-semibold text-muted-foreground">{title}</div>
+      {children}
     </div>
   );
 }
 
+/** A group that folds away; its actions show on hover. */
 function Section({
   title,
   open,
@@ -737,21 +666,22 @@ function Section({
 }) {
   return (
     <div className="mt-4">
-      <div className="group flex items-center gap-1 px-2 py-1">
+      <div className="group flex items-center gap-1 px-2 pb-1">
         <button
           onClick={onToggle}
-          className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+          aria-expanded={open}
+          className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
         >
+          {title}
           <ChevronRight
             className={cn("size-3 transition-transform", open && "rotate-90")}
           />
-          {title}
         </button>
-        <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+        <div className="ml-auto flex items-center gap-0.5 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
           {action}
         </div>
       </div>
-      {open && <div className="mt-0.5">{children}</div>}
+      {open && <div>{children}</div>}
     </div>
   );
 }

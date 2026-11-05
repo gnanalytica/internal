@@ -43,7 +43,7 @@ export function PortfolioView({
 
   return (
     <div className="flex h-full flex-col">
-      <Topbar breadcrumb={[{ label: "Overview" }]} />
+      <Topbar breadcrumb={[{ label: "Pulse" }]} />
       <div className="scrollbar-thin flex-1 overflow-y-auto p-4">
         <BetsStrip bets={bets} isAdmin={isAdmin} />
 
