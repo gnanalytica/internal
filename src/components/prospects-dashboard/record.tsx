@@ -6,16 +6,18 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { getProspectDetail, logTouch, saveProspect } from "@/lib/prospects/actions";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { getProspectDetail, getRelatedProspects, logTouch, saveProspect } from "@/lib/prospects/actions";
 import type { ActivityEntry, ProspectRecord } from "@/lib/prospects/parse";
 import { displayDate, isDoNotContact, parseNoteLines } from "@/lib/prospects/parse";
 import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, UNSCORED_KINDS, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
+import type { Related } from "@/lib/prospects/related";
 import { addDays } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
 import { BandBadge, Bar, Chips, DatePicker, DueChip, Owner, OwnerPicker, Segmented, StageBar, StageDot } from "./bits";
 import { STAGE_COACHING } from "./playbook-content";
 import { useStageMove, type StageSubject } from "./stage-check";
+import { fillTemplate, GENERAL_ANGLE, TEMPLATE_ANGLES, type TemplateChannel } from "./templates";
 
 export type Selection = { kind: ProspectKind; id: string };
 export type Detail = { record: ProspectRecord; activity: ActivityEntry[] };
@@ -44,7 +46,7 @@ export function useDetail(sel: Selection | null) {
   return { data: shown, loading: current === undefined, reload: () => setVersion((v) => v + 1) };
 }
 
-type Ctx = { kind: ProspectKind; id: string; today: string; me: string; team: string[]; onChanged: () => void; onLog: (o?: LogOpts) => void };
+type Ctx = { kind: ProspectKind; id: string; today: string; me: string; team: string[]; onChanged: () => void; onLog: (o?: LogOpts) => void; onOpen: (r: { kind: ProspectKind; id: string }) => void };
 
 function useSave(ctx: Ctx) {
   const [pending, start] = useTransition();
@@ -198,7 +200,7 @@ function DoNotContactBanner({ r }: { r: ProspectRecord }) {
 /* ---------- popups ---------- */
 
 /** A long text cell edited in a dialog: notes, a draft, research notes. */
-function TextDialog(props: { ctx: Ctx; col: string; title: string; description?: string; value: string; open: boolean; onOpenChange: (o: boolean) => void; rows?: number }) {
+function TextDialog(props: { ctx: Ctx; col: string; title: string; description?: string; value: string; initial?: string; open: boolean; onOpenChange: (o: boolean) => void; rows?: number }) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="gap-4 sm:max-w-2xl">{props.open && <TextForm {...props} />}</DialogContent>
@@ -207,8 +209,8 @@ function TextDialog(props: { ctx: Ctx; col: string; title: string; description?:
 }
 
 /** Mounted each time the dialog opens, so it starts from the cell's current text. */
-function TextForm({ ctx, col, title, description, value, onOpenChange, rows = 12 }: { ctx: Ctx; col: string; title: string; description?: string; value: string; onOpenChange: (o: boolean) => void; rows?: number }) {
-  const [draft, setDraft] = useState(value);
+function TextForm({ ctx, col, title, description, value, initial, onOpenChange, rows = 12 }: { ctx: Ctx; col: string; title: string; description?: string; value: string; initial?: string; onOpenChange: (o: boolean) => void; rows?: number }) {
+  const [draft, setDraft] = useState(initial ?? value);
   const { save, pending } = useSave(ctx);
   return (
     <>
@@ -460,6 +462,7 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   const channels = DRAFTS.filter((c) => WRITABLE[ctx.kind].has(c.col));
   const [tab, setTab] = useState<(typeof DRAFTS)[number]["key"]>(() => channels.find((c) => r.drafts[c.key])?.key ?? channels[0]?.key ?? "whatsapp");
   const [editOpen, setEditOpen] = useState(false);
+  const [starter, setStarter] = useState<string | undefined>(undefined);
   const [pending, start] = useTransition();
   if (!channels.length) return null;
   const ch = channels.find((c) => c.key === tab) ?? channels[0];
@@ -521,9 +524,38 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
             </Button>
           )}
           {WRITABLE[ctx.kind].has(ch.col) && (
-            <Button size="sm" variant="outline" className="h-8 bg-background" onClick={() => setEditOpen(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 bg-background"
+              onClick={() => {
+                setStarter(undefined);
+                setEditOpen(true);
+              }}
+            >
               <Pencil /> {text ? "Edit" : "Write"}
             </Button>
+          )}
+          {!text && ch.key !== "meeting" && WRITABLE[ctx.kind].has(ch.col) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2.5 text-[13px] font-medium hover:bg-muted aria-expanded:bg-muted">
+                Start from a template <ChevronDown className="size-3.5 text-muted-foreground" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-auto min-w-56">
+                {TEMPLATE_ANGLES.map((a) => (
+                  <DropdownMenuItem
+                    key={a}
+                    onClick={() => {
+                      setStarter(fillTemplate(a, ch.key as TemplateChannel, { kind: r.kind, name: r.name, city: r.city, lenders: r.lenders }, ctx.me));
+                      setEditOpen(true);
+                    }}
+                  >
+                    {a === GENERAL_ANGLE ? "Discovery (any prospect)" : a}
+                    {a === r.pitchAngle && <span className="ml-auto text-xs text-muted-foreground">their pitch</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <span className="flex-1" />
           {text && (
@@ -533,7 +565,7 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
           )}
         </div>
       </div>
-      <TextDialog ctx={ctx} col={ch.col} title={`${ch.label} draft`} description={`For ${r.name}. Saved to the sheet; research may rewrite it.`} value={text} open={editOpen} onOpenChange={setEditOpen} />
+      <TextDialog ctx={ctx} col={ch.col} title={`${ch.label} draft`} description={`For ${r.name}. Saved to the sheet; research may rewrite it.`} value={text} initial={starter} open={editOpen} onOpenChange={setEditOpen} />
     </Section>
   );
 }
@@ -575,6 +607,52 @@ function ActivityTable({ items, limit }: { items: ActivityEntry[]; limit?: numbe
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Rows this prospect is connected to — firm, partners, lenders, panel — each one click away. */
+function RelatedSection({ ctx }: { ctx: Ctx }) {
+  const [state, setState] = useState<{ key: string; items: Related[]; more: number } | null>(null);
+  const key = `${ctx.kind}:${ctx.id}`;
+  useEffect(() => {
+    let alive = true;
+    getRelatedProspects(ctx.kind, ctx.id).then(
+      (r) => alive && setState({ key, ...r }),
+      () => alive && setState({ key, items: [], more: 0 }),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [ctx.kind, ctx.id, key]);
+  const data = state?.key === key ? state : null;
+  if (data && !data.items.length) return null;
+  return (
+    <Section title="Related" aside={data?.more ? <span className="text-xs text-muted-foreground">+{data.more} more</span> : undefined}>
+      {!data ? (
+        <p className="text-[13px] text-muted-foreground">Looking for the firm, partners and lenders…</p>
+      ) : (
+        <div className="overflow-hidden rounded-lg border">
+          <table className="w-full table-fixed text-[13px]">
+            <tbody>
+              {data.items.map((x) => (
+                <tr key={`${x.kind}:${x.id}`} className="border-b border-border/60 last:border-0">
+                  <td className="w-28 truncate bg-muted/30 px-3 py-2 text-muted-foreground">{x.relation}</td>
+                  <td className="truncate px-3 py-2">
+                    <button type="button" onClick={() => ctx.onOpen(x)} className="font-medium hover:underline">
+                      {x.name}
+                    </button>
+                    {x.city && <span className="text-muted-foreground"> · {x.city}</span>}
+                  </td>
+                  <td className="w-32 px-3 py-2 text-right whitespace-nowrap text-muted-foreground">
+                    <StageDot stage={x.stage} /> {STAGES[x.stage]}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
   );
 }
 
@@ -637,6 +715,7 @@ function OverviewTab({ ctx, r, activity, onTab }: { ctx: Ctx; r: ProspectRecord;
             </div>
           </Section>
         )}
+        <RelatedSection ctx={ctx} />
       </div>
     </div>
   );
@@ -939,11 +1018,13 @@ export function RecordPage({
   detail,
   tab,
   setTab,
+  onOpen,
 }: {
   sel: Selection;
   today: string;
   me: string;
   team: string[];
+  onOpen: (r: { kind: ProspectKind; id: string }) => void;
   onBack: () => void;
   backLabel: string;
   onLog: (o?: LogOpts) => void;
@@ -953,7 +1034,7 @@ export function RecordPage({
   setTab: (t: RecordTab) => void;
 }) {
   const r = detail.data?.record;
-  const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, team, onChanged, onLog };
+  const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, team, onChanged, onLog, onOpen };
   if (!r || !detail.data) {
     return (
       <div className="flex flex-col gap-3">

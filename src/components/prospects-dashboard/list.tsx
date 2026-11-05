@@ -42,6 +42,7 @@ export function ListView({
   onOpen,
   onChanged,
   openKey,
+  onShareOut,
 }: {
   kind: ProspectKind | "";
   setKind: (k: ProspectKind | "") => void;
@@ -58,6 +59,7 @@ export function ListView({
   onOpen: (r: ProspectRow) => void;
   onChanged: () => void;
   openKey: string | null;
+  onShareOut: () => void;
 }) {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -139,6 +141,10 @@ export function ListView({
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>{shown.length.toLocaleString("en-IN")} prospects</span>
         <span className="flex-1" />
+        <button type="button" onClick={onShareOut} className="hover:text-foreground">
+          Share out…
+        </button>
+        <span aria-hidden>·</span>
         <button type="button" onClick={exportCsv} className="hover:text-foreground">
           Export CSV
         </button>

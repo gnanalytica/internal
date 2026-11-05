@@ -1,22 +1,23 @@
 "use client";
 
 import { Copy, Phone } from "lucide-react";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { logTouch, saveProspect } from "@/lib/prospects/actions";
-import { KIND_LABEL, STAGES, type Channel, type Outcome } from "@/lib/prospects/schema";
+import { KIND_LABEL, STAGES, WRITABLE, type Channel, type Outcome } from "@/lib/prospects/schema";
 import { addDays, myTasks, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
 import { DueChip, Segmented } from "./bits";
 import { defaultNextStep, defaultStage } from "./log-touch-dialog";
 import { useDetail, type LogOpts } from "./record";
+import { fillTemplate, GENERAL_ANGLE, TEMPLATE_ANGLES } from "./templates";
 
 const DRAFT_TABS = [
-  { key: "whatsapp", label: "WhatsApp", channel: "WhatsApp" },
-  { key: "call", label: "Call script", channel: "Call" },
-  { key: "email", label: "Email", channel: "Email" },
+  { key: "whatsapp", label: "WhatsApp", channel: "WhatsApp", col: "draft_whatsapp" },
+  { key: "call", label: "Call script", channel: "Call", col: "draft_call" },
+  { key: "email", label: "Email", channel: "Email", col: "draft_email" },
 ] as const;
 type DraftKey = (typeof DRAFT_TABS)[number]["key"];
 
@@ -53,7 +54,7 @@ function digits10(phone: string): string | null {
 }
 
 /** Today: the person's queue on the left, one prospect at a time on the right. */
-export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { rows: ProspectRow[]; today: string; me: string; onOpen: (r: ProspectRow) => void; onLog: (r: ProspectRow, o?: LogOpts) => void; onChanged: () => void; onFind: () => void }) {
+export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onShareOut }: { rows: ProspectRow[]; today: string; me: string; onOpen: (r: ProspectRow) => void; onLog: (r: ProspectRow, o?: LogOpts) => void; onChanged: () => void; onFind: () => void; onShareOut: () => void }) {
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const all = useMemo(() => myTasks(rows, me, today), [rows, me, today]);
   const tasks = useMemo(() => [...all.filter((t) => !skipped.has(`${t.row.kind}:${t.row.id}`)), ...all.filter((t) => skipped.has(`${t.row.kind}:${t.row.id}`))], [all, skipped]);
@@ -61,6 +62,8 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
   const [done, setDone] = useState(0);
   // null follows the record: the first channel research wrote a draft for.
   const [picked, setTab] = useState<DraftKey | null>(null);
+  // A starter message chosen for a prospect research wrote no draft for; null shows the picker.
+  const [angle, setAngle] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const cardRef = useRef<HTMLElement>(null);
   const current = tasks.find((t) => `${t.row.kind}:${t.row.id}` === selId) ?? tasks[0];
@@ -70,31 +73,27 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
   const first = me.split(/\s+/)[0];
   const total = tasks.length + done;
 
-  if (!tasks.length) {
-    return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-20 text-center">
-        <h2 className="text-lg font-semibold">{done ? `All done, ${first}` : `Nothing due for ${first}`}</h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {done ? `${done} logged this session. ` : ""}Today fills with follow-ups assigned to you that are due, plus A-band valuers of yours nobody has contacted yet.
-        </p>
-        <Button variant="outline" onClick={onFind}>
-          Pick up A-band prospects
-        </Button>
-      </div>
-    );
-  }
-
   const select = (key: string) => {
     setSelId(key);
     setTab(null);
+    setAngle(null);
     if (window.matchMedia("(max-width: 1023px)").matches) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const advance = () => {
     const next = tasks.find((t) => t !== current);
     setSelId(next ? `${next.row.kind}:${next.row.id}` : null);
     setTab(null);
+    setAngle(null);
+  };
+  const skip = () => {
+    if (!current) return;
+    setSkipped((s) => new Set(s).add(`${current.row.kind}:${current.row.id}`));
+    advance();
   };
   const tabInfo = DRAFT_TABS.find((d) => d.key === tab)!;
+  const ownDraft = r?.drafts[tab] ?? "";
+  const pickedAngle = angle ?? (r?.pitchAngle && TEMPLATE_ANGLES.includes(r.pitchAngle) ? r.pitchAngle : null);
+  const templated = !ownDraft && r && pickedAngle ? fillTemplate(pickedAngle, tab, { kind: r.kind, name: r.name, city: r.city, lenders: r.lenders }, me) : "";
   const channel: Channel = tabInfo.channel;
   const quicks = QUICK[channel === "Call" ? "call" : "message"].filter((q) => q.outcome !== "Wrong number" || channel !== "Email");
 
@@ -127,7 +126,41 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
     });
   };
 
-  const draft = r?.drafts[tab] ?? "";
+  const draft = ownDraft || templated;
+  const saveTemplate = () =>
+    r &&
+    start(async () => {
+      const res = await saveProspect(r.kind, r.id, { [tabInfo.col]: templated });
+      if (res.ok) {
+        toast.success("Saved as the draft");
+        detail.reload();
+      } else toast.error(res.message);
+    });
+
+  // Keys for working the queue without the mouse; ignored while typing or with a dialog open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.metaKey || e.ctrlKey || e.altKey || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || t.isContentEditable || document.querySelector("[role=dialog]")) return;
+      if (!current) return;
+      const n = Number(e.key);
+      if (n >= 1 && n <= quicks.length && !pending) quick(quicks[n - 1]);
+      else if (e.key === "j" || e.key === "k") {
+        const i = tasks.indexOf(current);
+        const next = tasks[Math.min(Math.max(i + (e.key === "j" ? 1 : -1), 0), tasks.length - 1)];
+        if (next) select(`${next.row.kind}:${next.row.id}`);
+      } else if (e.key === "s") skip();
+      else if (e.key === "o") onOpen(current.row);
+      else if (e.key === "l") onLog(current.row, { channel });
+      else if (e.key === "c" && draft) navigator.clipboard.writeText(draft).then(() => toast.success("Draft copied"));
+      else if (e.key === "t") setTab(DRAFT_TABS[(DRAFT_TABS.findIndex((d) => d.key === tab) + 1) % DRAFT_TABS.length].key);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const phone = r ? digits10(r.phone) : null;
   const openHref = !r
     ? null
@@ -138,6 +171,23 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
         : tab === "call" && phone
           ? `tel:+91${phone}`
           : null;
+  if (!tasks.length) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-20 text-center">
+        <h2 className="text-lg font-semibold">{done ? `All done, ${first}` : `Nothing due for ${first}`}</h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {done ? `${done} logged this session. ` : ""}Today fills with follow-ups assigned to you that are due, plus A-band valuers of yours nobody has contacted yet.
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button onClick={onShareOut}>Share out prospects</Button>
+          <Button variant="outline" onClick={onFind}>
+            Browse A-band valuers
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const missing = r ? [r.software ? null : "Software unknown", r.casesPerMonth === null && r.kind === "valuer" ? "Volume unknown" : null, phone ? null : "No phone"].filter(Boolean) : [];
 
   return (
@@ -207,13 +257,7 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
               <Button variant="outline" onClick={() => onOpen(current.row)}>
                 Open record
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSkipped((s) => new Set(s).add(`${current.row.kind}:${current.row.id}`));
-                  advance();
-                }}
-              >
+              <Button variant="ghost" onClick={skip}>
                 Skip
               </Button>
             </div>
@@ -228,13 +272,31 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
 
           <div className="flex flex-col gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <Segmented label="Draft" value={tab} onChange={setTab} options={DRAFT_TABS.map((d) => ({ value: d.key, label: d.label }))} />
+              <Segmented
+                label="Draft"
+                value={tab}
+                onChange={(v) => {
+                  setTab(v);
+                  setAngle(null);
+                }}
+                options={DRAFT_TABS.map((d) => ({ value: d.key, label: d.label }))}
+              />
               <span className="flex-1" />
-              <span className="text-xs text-muted-foreground max-sm:hidden">Drafted by research · edit before sending</span>
+              <span className="text-xs text-muted-foreground max-sm:hidden">{ownDraft ? "Drafted by research · edit before sending" : templated ? `Template · ${pickedAngle}` : ""}</span>
             </div>
-            <div className="min-h-32 rounded-lg border px-4 py-3.5 text-sm leading-relaxed whitespace-pre-wrap">
-              {draft || <span className="text-muted-foreground">No {tabInfo.label === "Call script" ? "call script" : `${tabInfo.label} draft`} yet. Research writes one per record; you can also write one from the record.</span>}
-            </div>
+            {!ownDraft && r && (
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="mr-1 text-muted-foreground">{templated ? "Other templates:" : "No draft yet. Start from a template:"}</span>
+                {TEMPLATE_ANGLES.map((a) => (
+                  <button key={a} type="button" aria-pressed={a === pickedAngle} onClick={() => setAngle(a)} className={cn("h-7 rounded-md border px-2 whitespace-nowrap", a === pickedAngle ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>
+                    {a === GENERAL_ANGLE ? "Discovery (any)" : a}
+                  </button>
+                ))}
+              </div>
+            )}
+            {(ownDraft || templated) && (
+              <div className={cn("min-h-32 rounded-lg border px-4 py-3.5 text-sm leading-relaxed whitespace-pre-wrap", !ownDraft && "border-dashed")}>{draft}</div>
+            )}
             <div className="flex flex-wrap gap-2">
               {openHref && (
                 <a href={openHref} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background hover:bg-foreground/85 sm:h-8">
@@ -252,6 +314,11 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
                   <Copy /> Copy
                 </Button>
               )}
+              {templated && r && WRITABLE[r.kind].has(tabInfo.col) && (
+                <Button variant="ghost" className="h-9 sm:h-8" disabled={pending} onClick={saveTemplate}>
+                  Save as the draft
+                </Button>
+              )}
             </div>
           </div>
 
@@ -263,11 +330,17 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind }: { 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {quicks.map((q) => (
                 <button key={q.label} type="button" disabled={pending} onClick={() => quick(q)} className="flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors hover:bg-muted disabled:opacity-50">
-                  <span className="text-[13px] font-medium">{q.label}</span>
+                  <span className="flex w-full items-center gap-2 text-[13px] font-medium">
+                    <span className="flex-1">{q.label}</span>
+                    <kbd className="font-mono text-[10px] font-normal text-muted-foreground/70 max-lg:hidden">{quicks.indexOf(q) + 1}</kbd>
+                  </span>
                   <span className="text-xs text-muted-foreground">{q.hint}</span>
                 </button>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground max-lg:hidden">
+              Keys: <kbd className="font-mono">1</kbd>–<kbd className="font-mono">{quicks.length}</kbd> how it went · <kbd className="font-mono">J</kbd>/<kbd className="font-mono">K</kbd> next or previous · <kbd className="font-mono">S</kbd> skip · <kbd className="font-mono">T</kbd> switch draft · <kbd className="font-mono">C</kbd> copy · <kbd className="font-mono">L</kbd> log with notes · <kbd className="font-mono">O</kbd> open record
+            </p>
           </div>
         </section>
       )}

@@ -17,22 +17,25 @@ export async function isSlackConnected(workspaceId: string): Promise<boolean> {
 
 /**
  * Best-effort Slack notification via the workspace's Incoming Webhook URL.
- * Never throws — Slack delivery should not break app actions.
+ * Never throws — Slack delivery should not break app actions. Resolves to
+ * whether Slack accepted the message, for callers (crons) that report it.
  */
-export async function notifySlack(workspaceId: string, text: string): Promise<void> {
+export async function notifySlack(workspaceId: string, text: string): Promise<boolean> {
   try {
     const [ws] = await db
       .select({ url: workspaces.slackWebhookUrl })
       .from(workspaces)
       .where(eq(workspaces.id, workspaceId))
       .limit(1);
-    if (!ws?.url) return;
-    await fetch(ws.url, {
+    if (!ws?.url) return false;
+    const res = await fetch(ws.url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
+    return res.ok;
   } catch {
     // swallow — notifications are non-critical
+    return false;
   }
 }
