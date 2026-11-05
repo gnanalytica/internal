@@ -1,5 +1,6 @@
 // The prospects rules the phone needs, copied from the web's
-// src/lib/prospects/{schema,stats,parse}.ts and log-touch-dialog.tsx. Kept free
+// src/lib/prospects/{schema,stats,parse}.ts and the web's Today (my-work.tsx)
+// and log-touch-dialog.tsx. Kept free
 // of React Native and of "@/" imports so the web's test suite can import this
 // file and assert the two copies still agree (src/lib/prospects/mobile-parity.test.ts).
 
@@ -308,26 +309,34 @@ export function defaultNextStep(outcome: Outcome, current: string): string {
   return current || "Follow up";
 }
 
+/** The outcomes that make sense for each channel, most likely first (web: log-touch-dialog.tsx). */
+export const OUTCOMES_BY_CHANNEL: Record<Channel, Outcome[]> = {
+  Call: ["Connected", "No answer", "Busy — call back", "Demo booked", "Not interested", "Wrong number"],
+  WhatsApp: ["Sent", "Replied", "Demo booked", "Not interested", "Wrong number"],
+  Email: ["Sent", "Replied", "Demo booked", "Not interested"],
+  Meeting: ["Meeting held", "Demo booked", "Not interested"],
+  Other: ["Sent", "Replied", "Connected", "Not interested"],
+};
+
+/** The log sheet's follow-up shortcuts; "Pick a date" and "No follow-up" sit beside them. */
 export const FOLLOW_UPS = [
   { label: "Tomorrow", days: 1 },
   { label: "In 3 days", days: 3 },
   { label: "Next week", days: 7 },
-  { label: "In 2 weeks", days: 14 },
-  { label: "No follow-up", days: null },
 ] as const;
 
 export const SOFTWARE = ["Word + Excel", "Word templates", "Own software", "Bank's portal", "Another tool"] as const;
 
-export type Quick = { label: string; hint: string; channel: Channel; outcome: Outcome; days: number | null; nextStep: string; extra?: Record<string, string> };
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** My work's one-tap outcomes (web: my-work.tsx QUICK). */
-export const QUICK: Quick[] = [
-  { label: "Sent", hint: "follow up in 3 days", channel: "WhatsApp", outcome: "Sent", days: 3, nextStep: "Follow up if no reply" },
-  { label: "No answer", hint: "retry tomorrow, other channel", channel: "Call", outcome: "No answer", days: 1, nextStep: "Try again on another channel" },
-  { label: "Demo booked", hint: "status → Discovery done", channel: "Call", outcome: "Demo booked", days: 3, nextStep: "Run the demo" },
-  { label: "Not interested", hint: "status → Lost · ask for a referral", channel: "Call", outcome: "Not interested", days: null, nextStep: "" },
-  { label: "Wrong number", hint: "flags it for research", channel: "Call", outcome: "Wrong number", days: 2, nextStep: "Find a working number", extra: { research_status: "Needs a person" } },
-];
+/** "Today", "Tomorrow" or "Thu, 8 Oct" — the web's shortDate, without relying on Intl on the phone. */
+export function shortDate(iso: string, today: string): string {
+  if (iso === today) return "Today";
+  if (iso === addDays(today, 1)) return "Tomorrow";
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
 
 /** The body POSTed to /prospects/{kind}/{id}/touch. */
 export type TouchBody = {
@@ -343,19 +352,77 @@ export type TouchBody = {
   fields?: { current_software?: string; lb_cases_per_month?: number; objections?: string; pitch_angle?: string; referred_by?: string };
 };
 
-/** A one-tap outcome as the web's My work logs it. */
-export function quickTouch(q: Quick, row: { name: string; stage: number }, today: string): TouchBody {
+// ---- Today -----------------------------------------------------------------------
+
+/** Today's queue, in the order the server returns it (web: my-work.tsx GROUPS). */
+export const TODAY_GROUPS = [
+  { reason: "overdue", title: "Overdue" },
+  { reason: "today", title: "Due today" },
+  { reason: "new", title: "First contact" },
+] as const satisfies readonly { reason: MyWorkItem["reason"]; title: string }[];
+
+/** Today's draft tabs (web: my-work.tsx DRAFT_TABS). */
+export const DRAFT_TABS = [
+  { key: "whatsapp", label: "WhatsApp", channel: "WhatsApp" },
+  { key: "call", label: "Call script", channel: "Call" },
+  { key: "email", label: "Email", channel: "Email" },
+] as const satisfies readonly { key: keyof Drafts; label: string; channel: Channel }[];
+export type DraftTab = (typeof DRAFT_TABS)[number]["key"];
+
+/** Open on the first channel research wrote a draft for. */
+export function defaultDraftTab(drafts: Drafts): DraftTab {
+  return DRAFT_TABS.find((d) => drafts[d.key])?.key ?? "whatsapp";
+}
+
+/** One tap: log the touch, set the follow-up, move on. `log` opens the full log sheet instead. */
+export type Quick = { label: string; hint: string; outcome: Outcome; days: number | null; log?: boolean; extra?: Record<string, string> };
+
+/** Today's one-tap outcomes per kind of channel (web: my-work.tsx QUICK). */
+export const QUICK: Record<"message" | "call", Quick[]> = {
+  message: [
+    { label: "Sent", hint: "Follow up in 3 days", outcome: "Sent", days: 3 },
+    { label: "Replied or talked", hint: "Note what they said", outcome: "Replied", days: 3, log: true },
+    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
+    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
+  ],
+  call: [
+    { label: "Talked", hint: "Note what they said", outcome: "Connected", days: 3, log: true },
+    { label: "No answer", hint: "Try another channel tomorrow", outcome: "No answer", days: 1 },
+    { label: "Call back later", hint: "Retry tomorrow", outcome: "Busy — call back", days: 1 },
+    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
+    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
+  ],
+};
+
+/** The outcome buttons for the open draft tab's channel; an email has no wrong number. */
+export function quickOptions(channel: Channel): Quick[] {
+  return QUICK[channel === "Call" ? "call" : "message"].filter((q) => q.outcome !== "Wrong number" || channel !== "Email");
+}
+
+/** A one-tap outcome as the web's Today logs it. */
+export function quickTouch(q: Quick, channel: Channel, row: { name: string; stage: number; nextStep: string }, today: string): TouchBody {
   return {
     name: row.name,
-    channel: q.channel,
+    channel,
     direction: "Outbound",
     outcome: q.outcome,
     durationMin: null,
     summary: "",
-    statusAfter: STAGES[defaultStage(row.stage, q.channel, q.outcome)],
-    nextStep: q.nextStep || null,
+    statusAfter: STAGES[defaultStage(row.stage, channel, q.outcome)],
+    nextStep: defaultNextStep(q.outcome, row.nextStep) || null,
     nextStepDate: q.days === null ? null : addDays(today, q.days),
   };
+}
+
+/** The facts Today flags in amber when research hasn't found them (web: my-work.tsx `missing`). */
+export function missingFacts(t: { row: { kind: ProspectKind }; software: string; casesPerMonth: number | null; phone: string }): string[] {
+  const out: string[] = [];
+  if (!t.software) out.push("Software unknown");
+  if (t.casesPerMonth === null && t.row.kind === "valuer") out.push("Volume unknown");
+  if (!digits10(t.phone)) out.push("No phone");
+  return out;
 }
 
 export const DRAFT_CHANNELS = [
