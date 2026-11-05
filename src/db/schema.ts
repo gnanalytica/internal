@@ -1112,12 +1112,19 @@ export const deals = pgTable(
     entity: text("entity").notNull().default("Global"),
     // Fractional sort key for ordering within a pipeline column.
     sortKey: text("sort_key").notNull().default("a0"),
+    // The prospect (in the Prospects sheet) this deal was opened for, as
+    // "<kind>:<id>" — e.g. "valuer:IBBI/RV/02/2019/1". Set only on deals the
+    // prospects sync creates, so a prospect never gets two. See
+    // src/lib/prospects/deals.ts.
+    prospectRef: text("prospect_ref"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("deals_ws_idx").on(t.workspaceId),
     index("deals_project_idx").on(t.projectId),
+    // Nulls never collide, so hand-made deals are unaffected.
+    uniqueIndex("deals_prospect_ref_idx").on(t.workspaceId, t.prospectRef),
   ],
 );
 

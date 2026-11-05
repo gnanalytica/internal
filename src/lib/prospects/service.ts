@@ -1,5 +1,6 @@
 import "server-only";
 
+import { syncProspectDeal, type DealContext } from "./deals";
 import type { ActivityEntry, ProspectRecord } from "./parse";
 import { recordsOf } from "./parse";
 import { loadWorkbook } from "./read";
@@ -13,6 +14,11 @@ import { appendActivity, writeRecord } from "./write";
  * server actions and the mobile API both call these, each passing the acting
  * member's name and its own way of expiring the cached workbook — so the sheet
  * is only ever written one way, whichever door a change comes through.
+ *
+ * Both doors also pass the workspace and member acting (a DealContext), so a
+ * status change that reaches "Demo done" or later opens or moves the
+ * prospect's deal on the product's Sales board — see deals.ts. A deal that
+ * fails to write never fails the sheet write.
  */
 
 export type ProspectResult = { ok: true; message: string; written: string[] } | { ok: false; message: string };
@@ -35,13 +41,21 @@ export async function readProspectDetail(kind: ProspectKind, id: string): Promis
 }
 
 /** Write edited cells on one row. Only the dashboard's writable columns are accepted. */
-export async function saveProspectRecord(kind: ProspectKind, id: string, patch: Record<string, string | number | null>, invalidate: Invalidate): Promise<ProspectResult> {
+export async function saveProspectRecord(
+  kind: ProspectKind,
+  id: string,
+  patch: Record<string, string | number | null>,
+  invalidate: Invalidate,
+  dealCtx: DealContext | null,
+): Promise<ProspectResult> {
   const k = kindSchema.parse(kind);
   const clean = patchSchema.parse(patch);
   const unknown = Object.keys(clean).filter((c) => !WRITABLE[k].has(c));
   if (unknown.length) return { ok: false, message: `Not editable from the dashboard: ${unknown.join(", ")}.` };
   try {
-    const { written } = await writeRecord(k, idSchema.parse(id), clean);
+    const rid = idSchema.parse(id);
+    const { written, before } = await writeRecord(k, rid, clean);
+    if (written.includes("status")) await syncProspectDeal(dealCtx, { kind: k, id: rid, before, status: String(clean.status ?? "") });
     invalidate();
     return { ok: true, written, message: `Saved to the sheet: ${written.join(", ")}.` };
   } catch (err) {
@@ -54,7 +68,7 @@ export async function assignProspects(kind: ProspectKind, ids: string[], memberN
   const name = firstName(memberName);
   const done: string[] = [];
   for (const id of ids.slice(0, 50)) {
-    const r = await saveProspectRecord(kind, id, { assigned: name }, invalidate);
+    const r = await saveProspectRecord(kind, id, { assigned: name }, invalidate, null);
     if (!r.ok) return { ok: false, message: `${done.length} assigned; stopped at ${id}: ${r.message}` };
     done.push(id);
   }
@@ -66,11 +80,15 @@ export async function assignProspects(kind: ProspectKind, ids: string[], memberN
  * next step, what was learnt, a dated line at the top of notes) and appends
  * one row to Activity, which is where the history and the stats come from.
  */
-export async function logProspectTouch(input: TouchInput, by: string, invalidate: Invalidate): Promise<ProspectResult> {
+export async function logProspectTouch(input: TouchInput, by: string, invalidate: Invalidate, dealCtx: DealContext | null): Promise<ProspectResult> {
   const t = touchSchema.parse(input);
   const patch = touchPatch(t, by, todayIST());
   try {
-    const { written } = await writeRecord(t.kind, t.id, patch);
+    const { written, before } = await writeRecord(t.kind, t.id, patch);
+    // Straight after the row write: if Activity then fails and the touch is
+    // retried, the status will already read as written and the retry would
+    // see no change to sync.
+    await syncProspectDeal(dealCtx, { kind: t.kind, id: t.id, before, status: t.statusAfter });
     const activityId = await appendActivity({
       loggedAt: nowIST(),
       recordType: RECORD_TYPE[t.kind],

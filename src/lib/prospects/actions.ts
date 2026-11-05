@@ -3,6 +3,7 @@
 import { refresh, updateTag } from "next/cache";
 
 import { getCurrentUser, getMembers, getWorkspace } from "@/lib/data";
+import type { DealContext } from "./deals";
 import type { ActivityEntry, ProspectRecord } from "./parse";
 import { recordsOf } from "./parse";
 import { loadWorkbook, PROSPECTS_TAG } from "./read";
@@ -20,10 +21,11 @@ function invalidate() {
   refresh();
 }
 
-async function signedInName(): Promise<string> {
+/** Who is acting: their name as the sheet writes it, and where a deal they open goes. */
+async function signedIn(): Promise<{ name: string; dealCtx: DealContext }> {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
-  return (me.name || me.email || "Unknown").trim();
+  return { name: (me.name || me.email || "Unknown").trim(), dealCtx: { workspaceId: ws.id, userId: me.id } };
 }
 
 /** The full record behind a row, plus its Activity history, for the side panel and full page. */
@@ -34,13 +36,13 @@ export async function getProspectDetail(kind: ProspectKind, id: string): Promise
 
 /** Write edited cells on one row. Only the dashboard's writable columns are accepted. */
 export async function saveProspect(kind: ProspectKind, id: string, patch: Record<string, string | number | null>): Promise<ActionResult> {
-  await getWorkspace();
-  return saveProspectRecord(kind, id, patch, invalidate);
+  const { dealCtx } = await signedIn();
+  return saveProspectRecord(kind, id, patch, invalidate, dealCtx);
 }
 
 /** Assign a row to whoever is signed in, by their first name as the team writes it. */
 export async function assignToMe(kind: ProspectKind, ids: string[]): Promise<ActionResult> {
-  return assignProspects(kind, ids, await signedInName(), invalidate);
+  return assignProspects(kind, ids, (await signedIn()).name, invalidate);
 }
 
 /**
@@ -69,7 +71,8 @@ export async function getRelatedProspects(kind: ProspectKind, id: string): Promi
  * one row to Activity, which is where the history and the stats come from.
  */
 export async function logTouch(input: TouchInput): Promise<ActionResult> {
-  return logProspectTouch(input, await signedInName(), invalidate);
+  const { name, dealCtx } = await signedIn();
+  return logProspectTouch(input, name, invalidate, dealCtx);
 }
 
 /** Re-read the sheet now instead of waiting for the one-minute cache. */
