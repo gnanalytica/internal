@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BookOpen, ExternalLink, MoreHorizontal, RefreshCw, Search } from "lucide-react";
+import { ArrowLeft, BookOpen, ExternalLink, MoreHorizontal, RefreshCw, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -20,6 +20,7 @@ import { MyWork } from "./my-work";
 import { Overview } from "./overview";
 import { Pipeline } from "./pipeline";
 import { Playbook } from "./playbook";
+import { ShareOutDialog } from "./share-out";
 import { RecordPage, useDetail, type LogOpts, type RecordTab, type Selection } from "./record";
 
 export type WorkspaceData = {
@@ -139,6 +140,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
   const [logOpen, setLogOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [logPickOpen, setLogPickOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const detail = useDetail(sel);
   const pushed = useRef(false);
@@ -319,6 +321,9 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
               <MoreHorizontal />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-auto min-w-48">
+              <DropdownMenuItem onClick={() => setShareOpen(true)}>
+                <Users /> Share out prospects…
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTab("playbook")}>
                 <BookOpen /> Playbook
               </DropdownMenuItem>
@@ -349,7 +354,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
           </div>
         )}
         {showFull && sel ? (
-          <RecordPage sel={sel} today={data.today} me={data.me} team={data.team} onBack={close} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} tab={recTab} setTab={setRecTab} />
+          <RecordPage onOpen={open} sel={sel} today={data.today} me={data.me} team={data.team} onBack={close} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} tab={recTab} setTab={setRecTab} />
         ) : tab === "today" ? (
           <MyWork
             rows={everyone}
@@ -358,6 +363,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
             onOpen={open}
             onLog={logRow}
             onChanged={() => router.refresh()}
+            onShareOut={() => setShareOpen(true)}
             onFind={() => {
               setKind("valuer");
               setView("a-new");
@@ -400,6 +406,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
             onOpen={open}
             onChanged={() => router.refresh()}
             openKey={sel ? `${sel.kind}:${sel.id}` : null}
+            onShareOut={() => setShareOpen(true)}
           />
         ) : tab === "insights" ? (
           <Overview
@@ -423,6 +430,7 @@ export function ProspectsWorkspace({ data }: { data: WorkspaceData }) {
         )}
       </div>
 
+      <ShareOutDialog rows={everyone} team={data.team} me={data.me} open={shareOpen} onOpenChange={setShareOpen} onDone={() => router.refresh()} />
       <LogTouchDialog target={logTarget} today={data.today} open={logOpen} onOpenChange={setLogOpen} onSaved={onChanged} />
     </div>
   );
