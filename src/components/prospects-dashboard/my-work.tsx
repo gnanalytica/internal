@@ -8,8 +8,12 @@ import { Button } from "@/components/ui/button";
 import { logTouch, saveProspect } from "@/lib/prospects/actions";
 import { KIND_LABEL, STAGES, WRITABLE, type Channel, type Outcome } from "@/lib/prospects/schema";
 import { addDays, myTasks, type ProspectRow } from "@/lib/prospects/stats";
+import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
-import { DueChip, Segmented } from "./bits";
+import { DueChip, KIND_TONE, KindDot, outcomeTone, Segmented, StageDot, StagePill } from "./bits";
+
+/** Overdue red, due today amber, first contact blue — the same tones as the due chips. */
+const GROUP_DOT: Record<string, string> = { overdue: tone("red").dot, today: tone("amber").dot, new: tone("blue").dot };
 import { defaultNextStep, defaultStage } from "./log-touch-dialog";
 import { useDetail, type LogOpts } from "./record";
 import { fillTemplate, GENERAL_ANGLE, TEMPLATE_ANGLES } from "./templates";
@@ -201,7 +205,7 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
             </span>
           </div>
           <div className="h-1 rounded-full bg-muted">
-            <div className="h-full rounded-full bg-foreground transition-all" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+            <div className="h-full rounded-full bg-emerald-500 transition-all duration-500 ease-out" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
           </div>
         </div>
         {GROUPS.map((g) => {
@@ -209,20 +213,22 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
           if (!items.length) return null;
           return (
             <div key={g.reason} className="flex flex-col">
-              <h3 className="px-2 pt-3 pb-1.5 text-xs font-medium text-muted-foreground">
+              <h3 className="flex items-center gap-1.5 px-2 pt-3 pb-1.5 text-xs font-medium text-muted-foreground">
+                <span aria-hidden className={cn("size-1.5 rounded-full", GROUP_DOT[g.reason])} />
                 {g.title} <span className="font-mono">{items.length}</span>
               </h3>
               {items.map((t) => {
                 const key = `${t.row.kind}:${t.row.id}`;
                 const on = t === current;
                 return (
-                  <button key={key} type="button" onClick={() => select(key)} className={cn("flex items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted/60", on && "bg-muted hover:bg-muted", skipped.has(key) && "opacity-50")}>
-                    <span className="size-3.5 shrink-0 rounded-full shadow-[inset_0_0_0_1.5px_var(--muted-foreground)]" />
+                  <button key={key} type="button" onClick={() => select(key)} className={cn("press relative flex items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-muted/60", on && "bg-muted hover:bg-muted", skipped.has(key) && "opacity-50")}>
+                    {on && <span aria-hidden className="animate-fade absolute inset-y-2 -left-1 w-0.5 rounded-full bg-brand" />}
+                    <StageDot stage={t.row.stage} className="size-2.5" />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="truncate text-sm font-medium">{t.row.name}</span>
                       <span className="truncate text-xs text-muted-foreground">{t.reason === "new" ? t.row.pitchAngle || t.row.city || t.row.state || "First message" : t.row.nextStep || "Follow up"}</span>
                     </span>
-                    {t.reason === "new" ? <span className="font-mono text-[10px] text-muted-foreground uppercase">{t.row.kind.slice(0, 3)}</span> : <DueChip date={t.row.nextStepDate} today={today} />}
+                    {t.reason === "new" ? <span className={cn("font-mono text-[10px] font-medium uppercase", tone(KIND_TONE[t.row.kind]).text)}>{t.row.kind.slice(0, 3)}</span> : <DueChip date={t.row.nextStepDate} today={today} />}
                   </button>
                 );
               })}
@@ -235,9 +241,11 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
         <section ref={cardRef} aria-label="Current prospect" className={cn("flex max-w-3xl min-w-0 scroll-mt-3 flex-col gap-6 px-4 py-5 max-lg:order-first sm:px-8 sm:py-6", detail.loading && "opacity-70")}>
           <div className="flex flex-wrap items-start gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <span className="text-[13px] text-muted-foreground">
+              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted-foreground">
+                <KindDot kind={current.row.kind} />
                 {KIND_LABEL[current.row.kind].one}
-                {current.row.city ? ` · ${current.row.city}` : ""} · {STAGES[current.row.stage]}
+                {current.row.city ? ` · ${current.row.city}` : ""}
+                <StagePill stage={current.row.stage} className="ml-1" />
               </span>
               <h2 className="text-2xl font-semibold tracking-tight">{current.row.name}</h2>
               {r && (
@@ -246,7 +254,7 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
                   {r.software && <span className="rounded-md bg-muted px-2 py-1">{r.software}</span>}
                   {r.casesPerMonth !== null && <span className="rounded-md bg-muted px-2 py-1">{r.casesPerMonth} cases / month</span>}
                   {missing.map((m) => (
-                    <span key={m} className="rounded-md bg-amber-50 px-2 py-1 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                    <span key={m} className={cn("rounded-md px-2 py-1", tone("amber").chip)}>
                       {m}
                     </span>
                   ))}
@@ -329,8 +337,9 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {quicks.map((q) => (
-                <button key={q.label} type="button" disabled={pending} onClick={() => quick(q)} className="flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors hover:bg-muted disabled:opacity-50">
+                <button key={q.label} type="button" disabled={pending} onClick={() => quick(q)} className="hover-lift press flex flex-col items-start gap-0.5 rounded-lg border bg-card px-3 py-2.5 text-left hover:border-foreground/20 disabled:opacity-50">
                   <span className="flex w-full items-center gap-2 text-[13px] font-medium">
+                    <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", tone(outcomeTone(q.outcome)).dot)} />
                     <span className="flex-1">{q.label}</span>
                     <kbd className="font-mono text-[10px] font-normal text-muted-foreground/70 max-lg:hidden">{quicks.indexOf(q) + 1}</kbd>
                   </span>

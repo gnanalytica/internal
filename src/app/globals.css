@@ -51,6 +51,7 @@
 }
 
 :root {
+  color-scheme: light;
   --hl-yellow: #fef08a;
   --hl-green: #bbf7d0;
   --hl-blue: #bfdbfe;
@@ -103,6 +104,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --hl-yellow: #713f12;
   --hl-green: #14532d;
   --hl-blue: #1e3a8a;
@@ -117,23 +119,23 @@
   --bg-block-purple: #3c2d49;
   --bg-block-pink: #4e2c3c;
   --bg-block-red: #522e2a;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.155 0.005 264);
+  --foreground: oklch(0.96 0.003 264);
+  --card: oklch(0.185 0.006 264);
+  --card-foreground: oklch(0.96 0.003 264);
+  --popover: oklch(0.2 0.007 264);
+  --popover-foreground: oklch(0.96 0.003 264);
+  --primary: oklch(0.93 0.003 264);
+  --primary-foreground: oklch(0.2 0.005 264);
+  --secondary: oklch(0.24 0.007 264);
+  --secondary-foreground: oklch(0.96 0.003 264);
+  --muted: oklch(0.235 0.007 264);
+  --muted-foreground: oklch(0.7 0.012 264);
+  --accent: oklch(0.25 0.008 264);
+  --accent-foreground: oklch(0.96 0.003 264);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
   --ring: var(--brand);
   --brand: oklch(0.62 0.17 277);
   --brand-foreground: oklch(0.985 0 0);
@@ -142,13 +144,13 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar: oklch(0.135 0.005 264);
+  --sidebar-foreground: oklch(0.96 0.003 264);
+  --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: oklch(0.22 0.007 264);
+  --sidebar-accent-foreground: oklch(0.96 0.003 264);
+  --sidebar-border: oklch(1 0 0 / 7%);
   --sidebar-ring: oklch(0.556 0 0);
 }
 
@@ -202,6 +204,76 @@
       box-shadow 0.15s ease,
       transform 0.15s ease,
       opacity 0.15s ease;
+  }
+}
+
+/* ---- Motion ---- */
+@layer base {
+  input,
+  textarea,
+  select {
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      background-color 0.15s ease;
+  }
+  tbody tr {
+    transition: background-color 0.12s ease;
+  }
+  /* Thin, theme-aware scrollbars. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
+  }
+}
+
+/* The theme switch grows the new theme out from the button (see src/lib/theme.ts). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes enter-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  /* A panel or list arriving: a short rise and fade. */
+  .animate-enter {
+    animation: enter 0.24s cubic-bezier(0.2, 0, 0, 1) both;
+  }
+  .animate-fade {
+    animation: enter-fade 0.2s ease both;
+  }
+  /* Children arrive one after another; the first eight are staggered, the rest arrive with the eighth. */
+  .stagger > * {
+    animation: enter 0.28s cubic-bezier(0.2, 0, 0, 1) both;
+  }
+  .stagger > :nth-child(2) { animation-delay: 30ms; }
+  .stagger > :nth-child(3) { animation-delay: 60ms; }
+  .stagger > :nth-child(4) { animation-delay: 90ms; }
+  .stagger > :nth-child(5) { animation-delay: 120ms; }
+  .stagger > :nth-child(6) { animation-delay: 150ms; }
+  .stagger > :nth-child(7) { animation-delay: 180ms; }
+  .stagger > :nth-child(n + 8) { animation-delay: 210ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

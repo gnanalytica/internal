@@ -98,7 +98,7 @@ export function CalloutView({ node, updateAttributes, editor }: NodeViewProps) {
           type="button"
           disabled={!editor.isEditable}
           onClick={() => setOpen((o) => !o)}
-          className="grid size-6 place-items-center rounded text-base leading-none hover:bg-black/5 dark:hover:bg-white/10"
+          className="grid size-6 place-items-center rounded text-base leading-none hover:bg-foreground/5 dark:hover:bg-white/10"
           aria-label="Change callout emoji"
           title="Change emoji"
         >

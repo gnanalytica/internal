@@ -14,6 +14,7 @@ import type { ProspectRow } from "@/lib/prospects/stats";
 import type { DealWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { StageDot } from "./bits";
+import { TabIndicator } from "@/components/tab-indicator";
 import { DealsTab } from "./deals-tab";
 import { ListView } from "./list";
 import { LogTouchDialog, type LogTarget } from "./log-touch-dialog";
@@ -272,7 +273,7 @@ export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData
     <div className="flex h-full flex-col">
       <header className="shrink-0 border-b bg-background">
         <div className="flex items-center gap-1 pr-2 pl-1 sm:pr-4 sm:pl-2">
-          <nav role="tablist" aria-label="Sales views" className="no-scrollbar flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
+          <nav role="tablist" aria-label="Sales views" className="no-scrollbar relative flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
             {tabs.map((t) => {
               const active = t.id === current;
               return (
@@ -281,17 +282,19 @@ export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData
                   type="button"
                   role="tab"
                   aria-selected={active}
+                  data-active={active ? "" : undefined}
                   onClick={() => {
                     setTab(t.id);
                     if (sel) close();
                   }}
-                  className={cn("-mb-px h-11 shrink-0 border-b-2 px-2.5 text-sm whitespace-nowrap transition-colors", active ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}
+                  className={cn("h-11 shrink-0 px-2.5 text-sm whitespace-nowrap transition-colors", active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
                 >
                   {t.label}
                   {t.id === "list" && <span className="ml-1.5 font-mono text-[11px] text-muted-foreground/70">{everyone.length.toLocaleString("en-IN")}</span>}
                 </button>
               );
             })}
+            <TabIndicator activeKey={current} />
           </nav>
           <button type="button" onClick={refresh} disabled={refreshing} title="The page re-reads the sheet at most a minute after any change. Click to re-read it now." className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground max-sm:hidden">
             {refreshing ? <RefreshCw className="size-3 animate-spin" /> : <span aria-hidden className="size-1.5 rounded-full bg-emerald-500" />}
@@ -333,9 +336,10 @@ export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData
       </header>
 
       {fullBleed ? (
-        <div className="min-h-0 flex-1">{current === "deals" ? <DealsTab deals={deals ?? []} onOpen={open} /> : tasks}</div>
+        <div key={current} className="animate-fade min-h-0 flex-1">{current === "deals" ? <DealsTab deals={deals ?? []} onOpen={open} /> : tasks}</div>
       ) : (
       <div data-prospects-scroll className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+        <div key={showFull && sel ? `rec:${sel.kind}:${sel.id}` : current} className="animate-enter">
         {data.warnings.length > 0 && (
           <div role="alert" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
             {data.warnings.slice(0, 4).map((w) => (
@@ -419,6 +423,7 @@ export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData
             <Playbook section={pb} setSection={setPb} />
           </div>
         )}
+        </div>
       </div>
       )}
 

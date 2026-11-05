@@ -7,8 +7,9 @@ import { useMemo, useState } from "react";
 import { displayDate } from "@/lib/prospects/parse";
 import { KIND_LABEL, PROSPECT_KINDS, STAGES, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays, dueBucket, isAssignedTo, isOpen, type ProspectRow } from "@/lib/prospects/stats";
+import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
-import { DueChip, FilterMenu, Owner, PATH, Segmented, StageDot } from "./bits";
+import { DueChip, FilterMenu, KIND_TONE, Owner, PATH, Segmented, StageDot, stageTone } from "./bits";
 import { useStageMove } from "./stage-check";
 
 const COLUMN_CAP = 30;
@@ -87,11 +88,11 @@ function BoardCard({ r, today, onOpen, overlay }: { r: ProspectRow; today: strin
       {...(overlay ? {} : attributes)}
       {...(overlay ? {} : listeners)}
       onClick={() => onOpen?.(r)}
-      className={cn("flex w-full flex-col gap-1.5 rounded-lg border bg-card p-3 text-left shadow-xs transition-colors hover:border-foreground/25", isDragging && "opacity-40", overlay && "rotate-1 shadow-lg")}
+      className={cn("hover-lift flex w-full flex-col gap-1.5 rounded-lg border border-l-[3px] bg-card p-3 text-left shadow-xs hover:border-foreground/20", stageTone(r.stage).edgeL, isDragging && "opacity-40", overlay && "rotate-2 scale-[1.03] shadow-xl")}
     >
       <span className="flex items-baseline gap-1.5">
         <span className="min-w-0 flex-1 text-[13px] leading-tight font-medium">{r.name}</span>
-        <span className="font-mono text-[10px] text-muted-foreground uppercase">{r.kind.slice(0, 3)}</span>
+        <span className={cn("font-mono text-[10px] font-medium uppercase", tone(KIND_TONE[r.kind]).text)}>{r.kind.slice(0, 3)}</span>
       </span>
       {r.nextStep ? <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">{r.nextStep}</span> : <span className="text-xs text-muted-foreground">{r.city || r.state || "—"}</span>}
       <span className="mt-0.5 flex items-center gap-2">
@@ -106,11 +107,11 @@ function BoardCard({ r, today, onOpen, overlay }: { r: ProspectRow; today: strin
 function Column({ stage, rows, total, today, onOpen, onMore }: { stage: number; rows: ProspectRow[]; total: number; today: string; onOpen: (r: ProspectRow) => void; onMore: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: `stage-${stage}` });
   return (
-    <section ref={setNodeRef} aria-label={STAGES[stage]} className={cn("flex min-h-[420px] w-[82vw] max-w-80 shrink-0 snap-start flex-col gap-2 rounded-xl bg-muted/50 p-2 sm:w-auto sm:max-w-none sm:min-w-[176px] sm:flex-1", isOver && "ring-2 ring-foreground/30")}>
+    <section ref={setNodeRef} aria-label={STAGES[stage]} className={cn("flex min-h-[420px] w-[82vw] max-w-80 shrink-0 snap-start flex-col gap-2 rounded-xl border-t-2 bg-muted/50 p-2 transition-[box-shadow,background-color] duration-150 sm:w-auto sm:max-w-none sm:min-w-[176px] sm:flex-1", stageTone(stage).edgeT, isOver && "bg-muted ring-2 ring-brand/40")}>
       <div className="flex items-center gap-1.5 px-1.5 pt-1 pb-0.5 text-[13px]">
         <StageDot stage={stage} />
         <span className="flex-1 font-medium">{STAGES[stage]}</span>
-        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{total.toLocaleString("en-IN")}</span>
+        <span className={cn("rounded-full px-1.5 font-mono text-[11px] tabular-nums", stageTone(stage).chip)}>{total.toLocaleString("en-IN")}</span>
       </div>
       {rows.map((r) => (
         <BoardCard key={`${r.kind}:${r.id}`} r={r} today={today} onOpen={onOpen} />

@@ -296,7 +296,7 @@ export function IssueDetail({
                       </Link>
                       <button
                         onClick={() => persist(() => unlinkIssueFromPage(issue.id, p.id))}
-                        className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-black/5 hover:text-foreground group-hover:opacity-100"
+                        className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-foreground/5 hover:text-foreground group-hover:opacity-100"
                         aria-label="Unlink page"
                       >
                         <X className="size-3.5" />
@@ -645,7 +645,7 @@ function IssueRelations({
                     </Link>
                     <button
                       onClick={() => remove(r.relationId)}
-                      className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-black/5 hover:text-foreground group-hover:opacity-100"
+                      className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-foreground/5 hover:text-foreground group-hover:opacity-100"
                       aria-label="Remove relation"
                     >
                       <X className="size-3.5" />
@@ -752,7 +752,7 @@ function SubIssues({
               )}
               <button
                 onClick={() => detach(s.id)}
-                className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-black/5 hover:text-foreground group-hover:opacity-100"
+                className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-foreground/5 hover:text-foreground group-hover:opacity-100"
                 aria-label="Remove from parent"
               >
                 <X className="size-3.5" />
