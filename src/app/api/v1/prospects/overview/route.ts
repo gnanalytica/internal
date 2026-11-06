@@ -1,6 +1,6 @@
 import { apiError, ok, withApiAuth } from "@/lib/api/http";
 import { requireMemberName, teamNames } from "@/lib/api/prospects";
-import { loadWorkbook } from "@/lib/prospects/read";
+import { loadProspectSnapshot } from "@/lib/prospects/read";
 import { buildOverview, todayIST, type Period } from "@/lib/prospects/stats";
 import { parseKind, parseScope, scopedRows } from "@/lib/prospects/views";
 
@@ -17,7 +17,7 @@ export const GET = withApiAuth(async (req, auth) => {
   const period = (PERIODS as readonly string[]).includes(sp.get("period") ?? "") ? (sp.get("period") as Period) : "week";
   const who = sp.get("who") === "me" ? "me" : "team";
   const person = who === "me" ? await requireMemberName(auth) : null;
-  const [wb, team] = await Promise.all([loadWorkbook(), teamNames(auth.workspaceId)]);
+  const [wb, team] = await Promise.all([loadProspectSnapshot(), teamNames(auth.workspaceId)]);
   const today = todayIST();
   const data = buildOverview({ rows: scopedRows(wb, kind, parseScope(sp.get("scope"))), activity: wb.activity, today, period, person, team });
   return ok({ data, kind, period, who, today, readAt: wb.readAt });

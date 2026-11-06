@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { parseWorkbook } from "./parse";
 import { TAB } from "./schema";
+import { packSnapshot, snapshotOf, unpackSnapshot } from "./snapshot";
+import { toRow } from "./stats";
 import { firstName, nowIST, patchSchema, touchPatch, touchSchema } from "./touch";
 import { everyRow, kindCounts, myWork, parseKind, parseScope, scopedRows } from "./views";
 
@@ -36,17 +38,39 @@ describe("request parsing", () => {
   });
 });
 
+/** The rows as the list routes read them: through the shared cache's packed form. */
+function snapshot() {
+  return unpackSnapshot(packSnapshot(snapshotOf(workbook())));
+}
+
+describe("packed snapshot", () => {
+  it("unpacks to exactly the rows toRow builds", () => {
+    const wb = workbook();
+    const snap = snapshot();
+    expect(snap.rows.valuer).toEqual(wb.valuers.map(toRow));
+    expect(snap.rows.bank).toEqual(wb.banks.map(toRow));
+    expect(snap.rows.firm).toEqual([]);
+    expect(snap.readAt).toBe(wb.readAt);
+  });
+
+  it("stores each row as a plain array, field names once", () => {
+    const packed = packSnapshot(snapshotOf(workbook()));
+    expect(packed.keys).toContain("nextStepDate");
+    expect(packed.rows.valuer[0]).toHaveLength(packed.keys.length);
+  });
+});
+
 describe("scoped rows", () => {
   it("keeps valuers in KA, AP and TS unless the scope is all India", () => {
-    const wb = workbook();
-    expect(scopedRows(wb, "valuer", "focus").map((r) => r.id)).toEqual(["IBBI/RV/01/1", "IBBI/RV/01/2", "IBBI/RV/01/3", "IBBI/RV/01/5"]);
-    expect(scopedRows(wb, "valuer", "all")).toHaveLength(5);
+    const snap = snapshot();
+    expect(scopedRows(snap, "valuer", "focus").map((r) => r.id)).toEqual(["IBBI/RV/01/1", "IBBI/RV/01/2", "IBBI/RV/01/3", "IBBI/RV/01/5"]);
+    expect(scopedRows(snap, "valuer", "all")).toHaveLength(5);
     // Other kinds are never narrowed by state.
-    expect(scopedRows(wb, "bank", "focus")).toHaveLength(1);
+    expect(scopedRows(snap, "bank", "focus")).toHaveLength(1);
   });
 
   it("sends the slim row, not the record — no drafts, notes or phone number", () => {
-    const [r] = scopedRows(workbook(), "valuer", "focus");
+    const [r] = scopedRows(snapshot(), "valuer", "focus");
     expect(r).toMatchObject({ id: "IBBI/RV/01/1", hasPhone: true, hasEmail: true, lenders: 2, software: "Word + Excel", band: "A", score: 80 });
     expect(r).not.toHaveProperty("drafts");
     expect(r).not.toHaveProperty("phone");
@@ -54,11 +78,11 @@ describe("scoped rows", () => {
   });
 
   it("counts each kind in scope and in total", () => {
-    const { counts, totals } = kindCounts(workbook(), "focus");
+    const { counts, totals } = kindCounts(snapshot(), "focus");
     expect(counts).toEqual({ valuer: 4, firm: 0, rvo: 0, panel: 0, bank: 1 });
     expect(totals.valuer).toBe(5);
-    expect(kindCounts(workbook(), "all").counts.valuer).toBe(5);
-    expect(everyRow(workbook(), "focus")).toHaveLength(5);
+    expect(kindCounts(snapshot(), "all").counts.valuer).toBe(5);
+    expect(everyRow(snapshot(), "focus")).toHaveLength(5);
   });
 });
 

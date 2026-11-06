@@ -5,7 +5,7 @@ import { projects, workspaces } from "@/db/schema";
 import { teamNames } from "@/lib/api/prospects";
 import { appBaseUrl } from "@/lib/email";
 import { isGoogleConfigured } from "@/lib/prospects/google-auth";
-import { loadWorkbook } from "@/lib/prospects/read";
+import { loadProspectSnapshot } from "@/lib/prospects/read";
 import { buildReminder, reminderText } from "@/lib/prospects/reminder";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { todayIST } from "@/lib/prospects/stats";
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
 
   let wb;
   try {
-    wb = await loadWorkbook();
+    wb = await loadProspectSnapshot();
   } catch (err) {
     return Response.json({ error: `Could not read the prospects sheet: ${err instanceof Error ? err.message : String(err)}` }, { status: 502 });
   }

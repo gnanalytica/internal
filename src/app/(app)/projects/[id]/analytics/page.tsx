@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { AnalyticsView } from "@/components/analytics-view";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
 import { getMetrics, getMyRole, getProject, getScorecardSignals, getWorkspace } from "@/lib/data";
-import { loadWorkbook } from "@/lib/prospects/read";
-import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
+import { loadProspectSnapshot } from "@/lib/prospects/read";
+import { PROSPECT_KINDS, PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { buildRows, prospectSignals, scorecardWeeks } from "@/lib/scorecard";
 
 /**
@@ -14,8 +14,8 @@ import { buildRows, prospectSignals, scorecardWeeks } from "@/lib/scorecard";
  */
 async function loadProspectSignals() {
   try {
-    const wb = await loadWorkbook();
-    return prospectSignals(wb.activity, [...wb.valuers, ...wb.firms, ...wb.rvos, ...wb.panels, ...wb.banks]);
+    const snap = await loadProspectSnapshot();
+    return prospectSignals(snap.activity, PROSPECT_KINDS.flatMap((k) => snap.rows[k]));
   } catch (err) {
     console.error("scorecard: prospects sheet unreadable", err);
     return null;

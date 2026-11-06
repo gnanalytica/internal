@@ -23,26 +23,20 @@ export default async function ProjectSalesPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const [project, role] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id)]);
+  // Both kinds of Sales page show the deals, so they go out with the gate's
+  // reads; the gates below still decide whether anything renders.
+  const [project, role, deals, sp] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id), getDeals(ws.id, id), searchParams]);
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
 
   if (!canSeeConfidential(role)) return <Restricted label="Sales" />;
 
   if (project.key === PROSPECTS_PRODUCT_KEY) {
-    const sp = await searchParams;
-    const [data, deals] = await Promise.all([
-      loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus"),
-      getDeals(ws.id, id),
-    ]);
+    const data = await loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus");
     return <ProspectsWorkspace data={data} deals={deals} />;
   }
 
-  const [ctx, issues, deals] = await Promise.all([
-    getTaskContext(ws.id),
-    getIssues(ws.id),
-    getDeals(ws.id, id),
-  ]);
+  const [ctx, issues] = await Promise.all([getTaskContext(ws.id), getIssues(ws.id)]);
   return (
     <SalesView
       ctx={ctx}

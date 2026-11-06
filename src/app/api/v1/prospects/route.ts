@@ -1,6 +1,6 @@
 import { apiError, ok, withApiAuth } from "@/lib/api/http";
 import { memberName, teamNames } from "@/lib/api/prospects";
-import { loadWorkbook } from "@/lib/prospects/read";
+import { loadProspectSnapshot } from "@/lib/prospects/read";
 import { prospectsSheetUrl } from "@/lib/prospects/schema";
 import { todayIST } from "@/lib/prospects/stats";
 import { kindCounts, parseKind, parseScope, scopedRows } from "@/lib/prospects/views";
@@ -17,7 +17,7 @@ export const GET = withApiAuth(async (req, auth) => {
   const kind = sp.get("kind") ? parseKind(sp.get("kind")) : "valuer";
   if (!kind) return apiError("kind must be valuer, firm, rvo, panel or bank.", 400);
   const scope = parseScope(sp.get("scope"));
-  const [wb, team, me] = await Promise.all([loadWorkbook(), teamNames(auth.workspaceId), memberName(auth)]);
+  const [wb, team, me] = await Promise.all([loadProspectSnapshot(), teamNames(auth.workspaceId), memberName(auth)]);
   const rows = scopedRows(wb, kind, scope);
   return ok({
     data: rows,
