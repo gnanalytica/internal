@@ -1,5 +1,5 @@
 import { TaskPanel } from "@/components/task-panel";
-import type { IssueWithRelations, TaskContext } from "@/lib/types";
+import type { IssueListItem, TaskContext } from "@/lib/types";
 
 /**
  * Every task in the project, on the overview.
@@ -16,7 +16,7 @@ export function ProjectSchedule({
   ctx,
 }: {
   projectId: string;
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   ctx: TaskContext;
 }) {
   if (issues.length === 0) return null;

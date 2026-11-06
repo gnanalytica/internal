@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { IssuesView } from "@/components/issues-view";
 import { issueBelongsToDepartment, type DepartmentSlug } from "@/lib/departments";
-import type { IssueWithRelations, TaskContext } from "@/lib/types";
+import type { IssueListItem, TaskContext } from "@/lib/types";
 
 /**
  * The tasks on one department's surface — the same issues as the global board,
@@ -21,7 +21,7 @@ export function DepartmentTasks({
   projectId,
   emptyLabel,
 }: {
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   department: DepartmentSlug;
   ctx: TaskContext;
   /** Scopes new tasks and the cycle/milestone menus to this project. */

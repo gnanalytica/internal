@@ -7,13 +7,13 @@ import { toast } from "sonner";
 import { DepartmentHeader } from "@/components/department-header";
 import { Button } from "@/components/ui/button";
 import { createContent, deleteContent, updateContent } from "@/lib/actions";
-import { asFormat, CHANNEL_FORMAT, CHANNELS, type ContentFormat } from "@/lib/marketing";
+import { asFormat, CHANNEL_FORMAT, CHANNELS } from "@/lib/marketing";
 import type { Member } from "@/lib/types";
 import type { Piece, PiecePatch } from "./bits";
 import { CalendarTab } from "./calendar";
 import { ChannelsTab } from "./channels";
 import { PieceEditor } from "./editor";
-import { PiecesTab } from "./pieces";
+import { PiecesTab, type PieceFilter } from "./pieces";
 
 const TABS = ["calendar", "pieces", "channels"] as const;
 type Tab = (typeof TABS)[number];
@@ -62,7 +62,7 @@ export function MarketingWorkspace({
   initialPiece?: string;
 }) {
   const [tab, setTabState] = useState<Tab>(tabFrom(initialTab));
-  const [format, setFormatState] = useState<ContentFormat | "">("");
+  const [format, setFormatState] = useState<PieceFilter>("");
   const [openId, setOpenId] = useState<string | null>(initialPiece ?? null);
   // A piece just created isn't in the server's list until the action's refresh lands.
   const [fresh, setFresh] = useState<Piece | null>(null);
@@ -74,7 +74,7 @@ export function MarketingWorkspace({
     setTabState(t);
     sync({ tab: t === "calendar" ? null : t });
   };
-  const setFormat = (f: ContentFormat | "") => setFormatState(f);
+  const setFormat = (f: PieceFilter) => setFormatState(f);
   const open = (p: Piece) => {
     setOpenId(p.id);
     sync({ piece: p.id });
@@ -150,7 +150,7 @@ export function MarketingWorkspace({
           {tab === "calendar" ? (
             <CalendarTab items={items} members={members} today={today} salesHref={salesHref} onOpen={open} onSave={save} />
           ) : tab === "pieces" ? (
-            <PiecesTab items={items} format={format} setFormat={setFormat} openId={openId} onOpen={open} />
+            <PiecesTab items={items} today={today} format={format} setFormat={setFormat} openId={openId} onOpen={open} />
           ) : (
             <ChannelsTab items={items} today={today} />
           )}

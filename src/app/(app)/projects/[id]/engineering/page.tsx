@@ -12,11 +12,13 @@ export default async function ProjectEngineeringPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  const [project, allIssues, ctx] = await Promise.all([
+    getProject(ws.id, id),
+    getIssues(ws.id),
+    getTaskContext(ws.id),
+  ]);
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "engineering")) notFound();
-
-  const [allIssues, ctx] = await Promise.all([getIssues(ws.id), getTaskContext(ws.id)]);
 
   return (
     <EngineeringView

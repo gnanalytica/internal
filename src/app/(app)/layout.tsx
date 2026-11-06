@@ -16,6 +16,7 @@ import {
   getUnreadCount,
   getWorkspace,
 } from "@/lib/data";
+import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 
 // Every page in this segment reads the current user's session and workspace
 // data, so the whole authenticated app is rendered per-request. Under Cache
@@ -43,6 +44,10 @@ export default async function AppLayout({
   const isAdmin = canSeeConfidential(role);
   // Hide confidential projects (Finance, People & HR) from members' sidebar.
   const visibleProjects = isAdmin ? projects : projects.filter((p) => !p.confidential);
+  // Prospects live on Valytica's Sales tab; link there rather than through the
+  // /prospects redirect.
+  const prospectsProduct = projects.find((p) => p.key === PROSPECTS_PRODUCT_KEY);
+  const salesHref = prospectsProduct ? `/projects/${prospectsProduct.id}/sales` : "/prospects";
 
   // `h-screen` is 100vh, which on a mobile browser includes the strip behind the
   // collapsing URL bar — and with `overflow-hidden` that put the bottom of every
@@ -53,6 +58,7 @@ export default async function AppLayout({
       <AppShell
         workspaceName={ws.name}
         unreadCount={unreadCount}
+        salesHref={salesHref}
         sidebar={
           <Sidebar
             workspace={ws}

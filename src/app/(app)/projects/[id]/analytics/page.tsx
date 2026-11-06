@@ -35,11 +35,11 @@ export default async function ProjectAnalyticsPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  const [project, role] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id)]);
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "analytics")) notFound();
 
-  const isAdmin = canSeeConfidential(await getMyRole(ws.id));
+  const isAdmin = canSeeConfidential(role);
   const [metrics, signals, prospects] = await Promise.all([
     getMetrics(ws.id, id),
     getScorecardSignals(ws.id, id),

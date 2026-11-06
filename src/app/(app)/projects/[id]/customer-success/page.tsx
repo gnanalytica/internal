@@ -19,7 +19,7 @@ export default async function ProjectCustomerSuccessPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  const [project, role] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id)]);
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "customer-success")) notFound();
 
@@ -27,7 +27,7 @@ export default async function ProjectCustomerSuccessPage({
     workspaceId: ws.id,
     projectId: id,
     fromSheet: project.key === PROSPECTS_PRODUCT_KEY,
-    showValue: canSeeConfidential(await getMyRole(ws.id)),
+    showValue: canSeeConfidential(role),
   });
   return <CustomerSuccessView data={data} />;
 }

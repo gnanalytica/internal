@@ -202,7 +202,7 @@ export function AssigneePicker({
 }
 
 /** Overlapping avatars for a set of members (read display). */
-export function AvatarStack({ members, max = 3 }: { members: Member[]; max?: number }) {
+export function AvatarStack({ members, max = 3 }: { members: Pick<Member, "id" | "name" | "avatarColor">[]; max?: number }) {
   const shown = members.slice(0, max);
   const extra = members.length - shown.length;
   return (

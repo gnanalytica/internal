@@ -11,8 +11,7 @@ export default async function MilestoneDetailPage({
 }) {
   const { mid } = await params;
   const ws = await getWorkspace();
-  const milestone = await getMilestone(ws.id, mid);
+  const [milestone, ctx] = await Promise.all([getMilestone(ws.id, mid), getTaskContext(ws.id)]);
   if (!milestone) notFound();
-  const ctx = await getTaskContext(ws.id);
   return <MilestoneDetailView milestone={milestone} ctx={ctx} />;
 }

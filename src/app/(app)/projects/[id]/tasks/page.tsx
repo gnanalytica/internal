@@ -18,15 +18,20 @@ export default async function ProjectTasksPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  // The gate below only decides what renders; the reads are cached and cheap,
+  // so they go out together rather than one after another.
+  const [project, role, allIssues, ctx] = await Promise.all([
+    getProject(ws.id, id),
+    getMyRole(ws.id),
+    getIssues(ws.id),
+    getTaskContext(ws.id),
+  ]);
   if (!project) notFound();
 
   // Confidential operations (Finance, People & HR) are founders-only.
-  if (project.confidential && !canSeeConfidential(await getMyRole(ws.id))) {
+  if (project.confidential && !canSeeConfidential(role)) {
     return <Restricted label={project.name} />;
   }
-
-  const [allIssues, ctx] = await Promise.all([getIssues(ws.id), getTaskContext(ws.id)]);
 
   return (
     <IssuesView

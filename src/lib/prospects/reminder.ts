@@ -118,12 +118,15 @@ function itemLine(item: ReminderItem, today: string): string {
 /**
  * The Slack message (mrkdwn), or null when nobody has anything due — a quiet
  * day posts nothing rather than a "nothing to do" that trains people to skip it.
- * `mention` renders a person's name; it defaults to bold, and is where a Slack
- * `<@U123>` mention would go if the app ever stores Slack user IDs.
+ * `prospectsUrl` is the absolute URL of the prospects page the link opens —
+ * Valytica's Sales tab, linked directly rather than through the `/prospects`
+ * redirect. `mention` renders a person's name; it defaults to bold, and is
+ * where a Slack `<@U123>` mention would go if the app ever stores Slack user
+ * IDs.
  */
 export function reminderText(
   reminder: Reminder,
-  baseUrl: string,
+  prospectsUrl: string,
   mention: (person: string) => string = (p) => `*${escapeMrkdwn(p)}*`,
 ): string | null {
   const { people, unassigned, today } = reminder;
@@ -139,6 +142,6 @@ export function reminderText(
     blocks.push(`*Unassigned* — ${counts(unassigned.overdue, unassigned.today)}, nobody's name on them yet`);
   }
 
-  const link = `${baseUrl}/prospects${reminder.outsideFocus ? "?scope=all" : ""}`;
+  const link = `${prospectsUrl}${reminder.outsideFocus ? "?scope=all" : ""}`;
   return [`:sunrise: *Prospect follow-ups for ${shortDate(today)}*`, ...blocks, `<${link}|Open Today in Prospects →>`].join("\n\n");
 }

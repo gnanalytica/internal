@@ -27,6 +27,7 @@ export default async function IssueRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
+  const issuePromise = getIssue(ws.id, id);
   const [
     issue,
     projects,
@@ -38,8 +39,13 @@ export default async function IssueRoute({
     githubConnected,
     relations,
     allIssues,
+    favorited,
+    watching,
+    mentionItems,
+    backlinks,
+    milestones,
   ] = await Promise.all([
-    getIssue(ws.id, id),
+    issuePromise,
     getProjects(ws.id),
     getMembers(ws.id),
     getLabels(ws.id),
@@ -49,15 +55,15 @@ export default async function IssueRoute({
     isGithubConnected(ws.id),
     getIssueRelations(ws.id, id),
     getIssuesFlat(ws.id),
-  ]);
-  if (!issue) notFound();
-  const [favorited, watching, mentionItems, backlinks, milestones] = await Promise.all([
     isFavorite(ws.id, "issue", id),
     isSubscribed(ws.id, "issue", id),
     getMentionItems(ws.id),
     getBacklinks(ws.id, "issue", id),
-    issue.projectId ? getMilestones(ws.id, issue.projectId) : Promise.resolve([]),
+    // The only read that needs the issue: chained on it rather than waiting
+    // for the whole batch.
+    issuePromise.then((i) => (i?.projectId ? getMilestones(ws.id, i.projectId) : [])),
   ]);
+  if (!issue) notFound();
 
   return (
     <IssueDetail

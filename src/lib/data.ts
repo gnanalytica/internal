@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { cache } from "react";
 
 import { auth } from "@/lib/auth/server";
 import { wsTags } from "@/lib/cache-tags";
@@ -76,6 +77,7 @@ import type {
   FlatIssue,
   FeatureWithRelations,
   InvoiceWithRelations,
+  IssueListItem,
   IssueWithRelations,
   Label,
   Member,
@@ -112,6 +114,7 @@ export type {
   FlatIssue,
   FlatPage,
   Issue,
+  IssueListItem,
   IssueWithRelations,
   Label,
   Member,
@@ -127,8 +130,14 @@ export type {
 } from "@/lib/types";
 export { issueIdentifier } from "@/lib/types";
 
+// The per-user lookups below are wrapped in React `cache()`: a page's layouts,
+// page and data helpers each ask for the session user, workspace and role, and
+// without it every ask was its own session read + query (about ten a page).
+// `cache()` dedupes within one request only — nothing is shared between users
+// or requests, which is why these stay out of `"use cache"`.
+
 /** Resolve the app user from the Neon Auth session (create on first sign-in). */
-async function resolveSessionUser(): Promise<Member> {
+const resolveSessionUser = cache(async (): Promise<Member> => {
   // Stop prerendering before the session is read. This is the entry point for
   // every authenticated read, so without it the build walks into
   // `auth.getSession()` on every route and the Neon Auth SDK logs the
@@ -154,10 +163,10 @@ async function resolveSessionUser(): Promise<Member> {
     })
     .returning();
   return created;
-}
+});
 
 /** All workspaces the current user is a member of, with their role. */
-export async function getMyWorkspaces(): Promise<WorkspaceWithRole[]> {
+export const getMyWorkspaces = cache(async (): Promise<WorkspaceWithRole[]> => {
   const me = await resolveSessionUser();
   const rows = await db
     .select({
@@ -174,22 +183,22 @@ export async function getMyWorkspaces(): Promise<WorkspaceWithRole[]> {
     .where(eq(workspaceMembers.userId, me.id))
     .orderBy(asc(workspaces.name));
   return rows.map(({ role, ...ws }) => ({ ...ws, role }));
-}
+});
 
 /**
  * The active workspace for the current user, chosen by the `active_ws` cookie
  * (validated against membership) or the first workspace they belong to.
  * Users with no workspace are sent to onboarding.
  */
-export async function getWorkspace(): Promise<Workspace> {
+export const getWorkspace = cache(async (): Promise<Workspace> => {
   const mine = await getMyWorkspaces();
   if (mine.length === 0) redirect("/onboarding");
   const activeId = (await cookies()).get("active_ws")?.value;
   return mine.find((w) => w.id === activeId) ?? mine[0];
-}
+});
 
 export async function getMembers(workspaceId: string): Promise<Member[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "members"));
   cacheLife("hours");
 
@@ -287,23 +296,14 @@ export async function getOrgRoles(workspaceId: string): Promise<OrgRoleNode[]> {
 }
 
 /** The current user's role in the workspace ("admin" | "member"). */
-export async function getMyRole(workspaceId: string): Promise<Role> {
-  const me = await getCurrentUser(workspaceId);
-  const [m] = await db
-    .select({ role: workspaceMembers.role })
-    .from(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, me.id),
-      ),
-    )
-    .limit(1);
+export const getMyRole = cache(async (workspaceId: string): Promise<Role> => {
+  // getMyWorkspaces already loaded the membership row, role included.
+  const m = (await getMyWorkspaces()).find((w) => w.id === workspaceId);
   return m?.role === "admin" ? "admin" : "member";
-}
+});
 
 export async function getProjects(workspaceId: string): Promise<Project[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "projects"));
   cacheLife("minutes");
 
@@ -320,38 +320,42 @@ export async function getProjects(workspaceId: string): Promise<Project[]> {
  * One pass over projects + a few aggregate queries (no per-project round-trips).
  */
 export async function getPortfolio(workspaceId: string): Promise<PortfolioRow[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "projects", "issues", "milestones", "status-updates", "members"));
   cacheLife("minutes");
 
-  const [projs, members] = await Promise.all([
+  // Independent reads, so one round trip's worth of latency rather than five.
+  const [projs, members, issueResult, healthResult, msResult] = await Promise.all([
     db.select().from(projects).where(eq(projects.workspaceId, workspaceId)).orderBy(asc(projects.name)),
     getMembers(workspaceId),
+    // Issue counts per project (done / total, canceled excluded).
+    db.execute(sql`
+      SELECT project_id AS pid,
+             count(*) FILTER (WHERE status <> 'canceled')::int AS total,
+             count(*) FILTER (WHERE status = 'done')::int AS done
+      FROM issues WHERE workspace_id = ${workspaceId} AND project_id IS NOT NULL
+      GROUP BY project_id`),
+    // Latest health per project.
+    db.execute(sql`
+      SELECT DISTINCT ON (project_id) project_id AS pid, health
+      FROM project_status_updates WHERE workspace_id = ${workspaceId}
+      ORDER BY project_id, created_at DESC`),
+    // Current milestone per project: next-upcoming target, else the latest.
+    db.execute(sql`
+      SELECT project_id AS pid, name, target_date AS target
+      FROM milestones WHERE workspace_id = ${workspaceId}
+      ORDER BY project_id, target_date ASC NULLS LAST`),
   ]);
   const ownerName = (id: string | null) =>
     id ? (members.find((m) => m.id === id)?.name ?? null) : null;
 
-  // Issue counts per project (done / total, canceled excluded).
-  const issueRows = (await db.execute(sql`
-    SELECT project_id AS pid,
-           count(*) FILTER (WHERE status <> 'canceled')::int AS total,
-           count(*) FILTER (WHERE status = 'done')::int AS done
-    FROM issues WHERE workspace_id = ${workspaceId} AND project_id IS NOT NULL
-    GROUP BY project_id`)).rows as { pid: string; total: number; done: number }[];
+  const issueRows = issueResult.rows as { pid: string; total: number; done: number }[];
   const counts = new Map(issueRows.map((r) => [r.pid, r]));
 
-  // Latest health per project.
-  const healthRows = (await db.execute(sql`
-    SELECT DISTINCT ON (project_id) project_id AS pid, health
-    FROM project_status_updates WHERE workspace_id = ${workspaceId}
-    ORDER BY project_id, created_at DESC`)).rows as { pid: string; health: string }[];
+  const healthRows = healthResult.rows as { pid: string; health: string }[];
   const healthByProject = new Map(healthRows.map((r) => [r.pid, r.health]));
 
-  // Current milestone per project: next-upcoming target, else the latest.
-  const msRows = (await db.execute(sql`
-    SELECT project_id AS pid, name, target_date AS target
-    FROM milestones WHERE workspace_id = ${workspaceId}
-    ORDER BY project_id, target_date ASC NULLS LAST`)).rows as {
+  const msRows = msResult.rows as {
     pid: string;
     name: string;
     target: string | null;
@@ -458,32 +462,19 @@ export async function getProject(
   cacheTag(...wsTags(workspaceId, "projects"));
   cacheLife("minutes");
 
+  // Project columns + owner only. Every /projects/[id] route loads this in its
+  // layout, so joining the project's issues here shipped the whole issue list
+  // (descriptions and all) to pages that never show it. A page that lists the
+  // project's tasks loads them itself.
   const row = await db.query.projects.findFirst({
     where: and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)),
-    with: {
-      owner: true,
-      issues: {
-        orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
-        with: {
-          project: true,
-          cycle: true,
-          assignee: true,
-          labels: { with: { label: true } },
-          milestone: { columns: { id: true, name: true } },
-          assignees: { with: { user: true } },
-        },
-      },
-    },
+    with: { owner: true },
   });
-  if (!row) return null;
-  return {
-    ...row,
-    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label), assignees: i.assignees.map((a) => a.user) })),
-  };
+  return row ?? null;
 }
 
 export async function getLabels(workspaceId: string): Promise<Label[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "labels"));
   cacheLife("hours");
 
@@ -494,24 +485,39 @@ export async function getLabels(workspaceId: string): Promise<Label[]> {
     .orderBy(asc(labels.name));
 }
 
+// What a task list loads per issue: everything but the description, and the
+// relations trimmed to the `IssueListItem` refs. Shared by every list getter so
+// the shape can't drift between them.
+const USER_REF_COLUMNS = { id: true, name: true, email: true, avatarColor: true } as const;
+const ISSUE_LIST_QUERY = {
+  columns: { description: false },
+  with: {
+    project: { columns: { id: true, key: true, name: true, color: true } },
+    cycle: { columns: { id: true, name: true, number: true, startDate: true, endDate: true } },
+    assignee: { columns: USER_REF_COLUMNS },
+    labels: { with: { label: true } },
+    milestone: { columns: { id: true, name: true } },
+    assignees: { with: { user: { columns: USER_REF_COLUMNS } } },
+  },
+} as const;
+
+/**
+ * Every issue in the workspace, as task lists render them. Lists filter this in
+ * memory (by project, department, assignee), so it stays one cache entry per
+ * workspace — and stays slim, because it ships to the client on every task
+ * surface. The issue page reads the full row through `getIssue`.
+ */
 export async function getIssues(
   workspaceId: string,
-): Promise<IssueWithRelations[]> {
-  "use cache";
+): Promise<IssueListItem[]> {
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "issues", "labels"));
   cacheLife("minutes");
 
   const rows = await db.query.issues.findMany({
     where: eq(issues.workspaceId, workspaceId),
     orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
-    with: {
-      project: true,
-      cycle: true,
-      assignee: true,
-      labels: { with: { label: true } },
-      milestone: { columns: { id: true, name: true } },
-      assignees: { with: { user: true } },
-    },
+    ...ISSUE_LIST_QUERY,
   });
   return rows.map((r) => ({
     ...r,
@@ -531,7 +537,7 @@ export async function getIssues(
  * surfaces that render tasks pull it once via `getTaskContext`.
  */
 export async function getBlockedIssueIds(workspaceId: string): Promise<string[]> {
-  "use cache";
+  "use cache: remote";
   // Relations are invalidated under the "issues" tag, as is any status change
   // that clears a blocker.
   cacheTag(...wsTags(workspaceId, "issues"));
@@ -776,12 +782,16 @@ export async function getPageTree(
   workspaceId: string,
   projectId?: string,
 ): Promise<PageNode[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "pages"));
   cacheLife("minutes");
 
+  // Every column but the body (content + its text index).
+  const { content: _content, contentText: _contentText, ...treeColumns } = getTableColumns(pages);
+  void _content;
+  void _contentText;
   const all = await db
-    .select()
+    .select(treeColumns)
     .from(pages)
     .where(
       and(
@@ -793,7 +803,7 @@ export async function getPageTree(
     )
     .orderBy(asc(pages.position), asc(pages.createdAt));
 
-  const byParent = new Map<string | null, Page[]>();
+  const byParent = new Map<string | null, typeof all>();
   for (const p of all) {
     const key = p.parentId;
     if (!byParent.has(key)) byParent.set(key, []);
@@ -1128,7 +1138,7 @@ export async function getCycle(
 
 /** Cycles as a flat list for pickers. */
 export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "cycles"));
   cacheLife("minutes");
 
@@ -1146,7 +1156,7 @@ export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
  * a task list by milestone lands in roadmap order rather than alphabetically.
  */
 export async function getMilestonesFlat(workspaceId: string): Promise<Milestone[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "milestones"));
   cacheLife("minutes");
 
@@ -1476,7 +1486,7 @@ export async function getWebhooks(workspaceId: string): Promise<WebhookRow[]> {
 export async function getSavedViews(
   workspaceId: string,
 ): Promise<import("@/lib/types").SavedView[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "saved-views"));
   cacheLife("minutes");
 
@@ -1642,8 +1652,10 @@ export async function getNotifications(
 
 export async function getUnreadCount(workspaceId: string): Promise<number> {
   const me = await getCurrentUser(workspaceId);
-  const rows = await db
-    .select({ id: notifications.id })
+  // Count in the database: this runs in the app layout on every page, and
+  // fetching every unread row just to take its length grows with the backlog.
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
     .from(notifications)
     .where(
       and(
@@ -1652,7 +1664,7 @@ export async function getUnreadCount(workspaceId: string): Promise<number> {
         isNull(notifications.read),
       ),
     );
-  return rows.length;
+  return row?.n ?? 0;
 }
 
 // ---- CRM / Sales / Marketing (Project × Department matrix) ----
@@ -2057,19 +2069,34 @@ export async function getMilestones(
     .orderBy(asc(milestones.sortKey), asc(milestones.targetDate));
   if (ms.length === 0) return [];
 
-  // Features assigned to these milestones (id → milestoneId).
-  const feats = await db
-    .select({ id: features.id, milestoneId: features.milestoneId })
-    .from(features)
-    .where(
-      and(
-        eq(features.workspaceId, workspaceId),
-        inArray(
-          features.milestoneId,
-          ms.map((m) => m.id),
+  const [feats, directCounts] = await Promise.all([
+    // Features assigned to these milestones (id → milestoneId).
+    db
+      .select({ id: features.id, milestoneId: features.milestoneId })
+      .from(features)
+      .where(
+        and(
+          eq(features.workspaceId, workspaceId),
+          inArray(
+            features.milestoneId,
+            ms.map((m) => m.id),
+          ),
         ),
       ),
-    );
+    // Tasks attached directly to a milestone (no feature) also count toward it.
+    db
+      .select({ milestoneId: issues.milestoneId, status: issues.status })
+      .from(issues)
+      .where(
+        and(
+          eq(issues.workspaceId, workspaceId),
+          inArray(
+            issues.milestoneId,
+            ms.map((m) => m.id),
+          ),
+        ),
+      ),
+  ]);
   const milestoneOfFeature = new Map(feats.map((f) => [f.id, f.milestoneId]));
   const featureCount = new Map<string, number>();
   for (const f of feats) {
@@ -2101,19 +2128,6 @@ export async function getMilestones(
     }
   }
 
-  // Tasks attached directly to a milestone (no feature) also count toward it.
-  const directCounts = await db
-    .select({ milestoneId: issues.milestoneId, status: issues.status })
-    .from(issues)
-    .where(
-      and(
-        eq(issues.workspaceId, workspaceId),
-        inArray(
-          issues.milestoneId,
-          ms.map((m) => m.id),
-        ),
-      ),
-    );
   for (const c of directCounts) {
     if (!c.milestoneId || c.status === "canceled") continue;
     const e = prog.get(c.milestoneId) ?? { done: 0, total: 0 };
@@ -2145,22 +2159,38 @@ export async function getMilestone(
   cacheTag(...wsTags(workspaceId, "milestones", "features", "issues"));
   cacheLife("minutes");
 
-  const row = await db.query.milestones.findFirst({
-    where: and(eq(milestones.workspaceId, workspaceId), eq(milestones.id, id)),
-    with: { project: true },
-  });
+  // The milestone, its features and its direct tasks only need the id, so
+  // they go out together.
+  const [row, featRows, directIssueRows] = await Promise.all([
+    db.query.milestones.findFirst({
+      where: and(eq(milestones.workspaceId, workspaceId), eq(milestones.id, id)),
+      with: { project: true },
+    }),
+    db.query.features.findMany({
+      where: and(eq(features.workspaceId, workspaceId), eq(features.milestoneId, id)),
+      orderBy: [asc(features.sortKey), desc(features.createdAt)],
+      with: {
+        project: true,
+        milestone: { columns: { id: true, name: true } },
+        owner: true,
+        page: { columns: { id: true, title: true, icon: true } },
+      },
+    }),
+    // Tasks attached straight to the milestone (no feature).
+    db.query.issues.findMany({
+      where: and(eq(issues.workspaceId, workspaceId), eq(issues.milestoneId, id)),
+      orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
+      with: {
+        project: true,
+        cycle: true,
+        assignee: true,
+        milestone: { columns: { id: true, name: true } },
+        labels: { with: { label: true } },
+        assignees: { with: { user: true } },
+      },
+    }),
+  ]);
   if (!row) return null;
-
-  const featRows = await db.query.features.findMany({
-    where: and(eq(features.workspaceId, workspaceId), eq(features.milestoneId, id)),
-    orderBy: [asc(features.sortKey), desc(features.createdAt)],
-    with: {
-      project: true,
-      milestone: { columns: { id: true, name: true } },
-      owner: true,
-      page: { columns: { id: true, title: true, icon: true } },
-    },
-  });
 
   // Roll up linked-issue progress per feature (canceled excluded).
   const counts = featRows.length
@@ -2198,19 +2228,6 @@ export async function getMilestone(
     };
   });
 
-  // Tasks attached straight to the milestone (no feature).
-  const directIssueRows = await db.query.issues.findMany({
-    where: and(eq(issues.workspaceId, workspaceId), eq(issues.milestoneId, id)),
-    orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
-    with: {
-      project: true,
-      cycle: true,
-      assignee: true,
-      milestone: { columns: { id: true, name: true } },
-      labels: { with: { label: true } },
-      assignees: { with: { user: true } },
-    },
-  });
   const directIssues = directIssueRows.map((r) => ({
     ...r,
     labels: r.labels.map((l) => l.label),

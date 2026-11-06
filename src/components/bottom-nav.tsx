@@ -21,7 +21,20 @@ import { cn } from "@/lib/utils";
  * the app would need its own bottom padding to keep its last row reachable;
  * laid out in the column it reserves its own space once.
  */
-export function BottomNav({ unreadCount, onMore }: { unreadCount: number; onMore: () => void }) {
+export function BottomNav({
+  unreadCount,
+  salesHref,
+  onMore,
+}: {
+  unreadCount: number;
+  /**
+   * Valytica's Sales tab when the workspace has it, else `/prospects`. Linking
+   * straight there skips a round trip through `/prospects`, which only
+   * redirects to it.
+   */
+  salesHref: string;
+  onMore: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -52,7 +65,7 @@ export function BottomNav({ unreadCount, onMore }: { unreadCount: number; onMore
         icon={<Folder className="size-5" />}
       />
       <Item
-        href="/prospects"
+        href={salesHref}
         active={pathname.startsWith("/prospects") || pathname.endsWith("/sales")}
         label="Sales"
         icon={<Contact className="size-5" />}

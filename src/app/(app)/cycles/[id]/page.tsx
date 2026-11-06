@@ -12,9 +12,8 @@ export default async function CycleRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const cycle = await getCycle(ws.id, id);
+  const [cycle, ctx] = await Promise.all([getCycle(ws.id, id), getTaskContext(ws.id)]);
   if (!cycle) notFound();
-  const ctx = await getTaskContext(ws.id);
 
   const burndown = computeBurndown({
     issues: cycle.issues.map((i) => ({
