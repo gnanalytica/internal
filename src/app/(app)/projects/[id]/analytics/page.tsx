@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { AnalyticsView } from "@/components/analytics-view";
-import { isDepartmentEnabled } from "@/lib/departments";
-import { getMetrics, getProject, getScorecardSignals, getWorkspace } from "@/lib/data";
+import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
+import { getMetrics, getMyRole, getProject, getScorecardSignals, getWorkspace } from "@/lib/data";
 import { loadWorkbook } from "@/lib/prospects/read";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { buildRows, prospectSignals, scorecardWeeks } from "@/lib/scorecard";
@@ -25,7 +25,8 @@ async function loadProspectSignals() {
 /**
  * The project's weekly scorecard. Auto numbers are counted here, at read
  * time, from the prospects sheet, deals, the content calendar and tasks;
- * typed-in numbers come from metric points.
+ * typed-in numbers come from metric points. Sales rows are for admins only,
+ * like the Sales page they count from.
  */
 export default async function ProjectAnalyticsPage({
   params,
@@ -38,13 +39,14 @@ export default async function ProjectAnalyticsPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "analytics")) notFound();
 
+  const isAdmin = canSeeConfidential(await getMyRole(ws.id));
   const [metrics, signals, prospects] = await Promise.all([
     getMetrics(ws.id, id),
     getScorecardSignals(ws.id, id),
-    project.key === PROSPECTS_PRODUCT_KEY ? loadProspectSignals() : Promise.resolve(null),
+    isAdmin && project.key === PROSPECTS_PRODUCT_KEY ? loadProspectSignals() : Promise.resolve(null),
   ]);
   const weeks = scorecardWeeks(new Date());
-  const rows = buildRows(metrics, weeks, signals, prospects);
+  const rows = buildRows(metrics, weeks, signals, prospects).filter((r) => isAdmin || r.area !== "sales");
 
   const notes: string[] = [];
   if (!prospects && rows.some((r) => r.source.startsWith("sales.") && r.source !== "sales.dealsWon"))
