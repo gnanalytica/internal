@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 type Grid = unknown[][];
-const sheet: { tabs: Record<string, Grid>; calls: string[] } = { tabs: {}, calls: [] };
+const sheet: { tabs: Record<string, Grid>; calls: string[]; beforeRowRead?: () => void } = { tabs: {}, calls: [] };
 
 const colIndex = (letters: string) => [...letters].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
 
@@ -27,6 +27,8 @@ vi.mock("server-only", () => ({}));
 vi.mock("./sheets-api", () => ({
   readRange: async (_id: string, a1: string) => {
     sheet.calls.push("readRange");
+    // Lets a test move rows between the ID read and the row read.
+    if (/!\d+:\d+$/.test(a1) && !a1.endsWith("!1:1")) sheet.beforeRowRead?.();
     return read(a1);
   },
   readRanges: async (_id: string, ranges: string[]) => {
@@ -53,6 +55,7 @@ const TAB = "Registered Valuers";
 
 beforeEach(() => {
   sheet.calls = [];
+  sheet.beforeRowRead = undefined;
   sheet.tabs[TAB] = [
     ["name", "registration_no", "city"],
     ["Asha", "IBBI/1", "Pune"],
@@ -90,6 +93,18 @@ describe("writeRecord", () => {
     expect(res.row).toBe(2);
     expect(sheet.tabs[TAB][1]).toEqual(["Ravi", "", "IBBI/2", "Chennai"]);
     expect(sheet.tabs[TAB][2]).toEqual(["Asha", "", "IBBI/1", "Pune"]);
+  });
+
+  it("refuses when the rows are re-sorted between finding the id and reading its row", async () => {
+    const { writeRecord } = await import("./write");
+    sheet.beforeRowRead = () => {
+      const [head, a, b] = sheet.tabs[TAB];
+      sheet.tabs[TAB] = [head, b, a];
+    };
+    await expect(writeRecord("valuer", "IBBI/2", { city: "Mumbai" })).rejects.toThrow("changed while saving");
+    // Nothing was written to either row.
+    expect(sheet.calls).not.toContain("writeCells");
+    expect(sheet.tabs[TAB].map((r) => r[2])).toEqual(["city", "Delhi", "Pune"]);
   });
 
   it("still refuses an id that is missing or on two rows", async () => {

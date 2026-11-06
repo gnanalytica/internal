@@ -22,7 +22,7 @@ export type WriteResult = {
 export async function writeRecord(kind: ProspectKind, id: string, patch: CellPatch): Promise<WriteResult> {
   const sheet = prospectsSheetId();
   const tab = TAB[kind];
-  const { header, ids } = await readHeaderAndKeys(sheet, tab, ID_COLUMN[kind]);
+  const { header, ids, col: idCol } = await readHeaderAndKeys(sheet, tab, ID_COLUMN[kind]);
   const matches = ids.flatMap((v, i) => (v.trim() === id ? [i + 2] : []));
   if (matches.length !== 1) {
     throw new Error(matches.length ? `${id} is on ${matches.length} rows of ${tab}; fix the duplicate in the sheet first.` : `${id} is no longer in ${tab}.`);
@@ -35,6 +35,11 @@ export async function writeRecord(kind: ProspectKind, id: string, patch: CellPat
     formulaColumnsInRows(sheet, tab, [2, row]),
   ]);
   const current = currentRows[0] ?? [];
+  // The rows can be re-sorted between reading the IDs and reading the row. The
+  // row read just now is what the write lands on, so it must still be this id.
+  if (String(current[idCol] ?? "").trim() !== id) {
+    throw new Error(`${tab} changed while saving (rows moved); reload and try again.`);
+  }
 
   const plan = planRowWrite({ kind, tab, header, row, current, formulas, patch });
   if (plan.refused.length) throw new Error(`Refused: ${plan.refused.join("; ")}.`);
@@ -76,7 +81,7 @@ async function readHeaderAndKeys(
   tab: string,
   keyName: string,
   fallback?: number,
-): Promise<{ header: unknown[]; ids: string[] }> {
+): Promise<{ header: unknown[]; ids: string[]; col: number }> {
   const headerRange = `${quoteTab(tab)}!1:1`;
   const keyRange = (col: number) => `${quoteTab(tab)}!${colLetter(col)}2:${colLetter(col)}`;
   const toIds = (rows: unknown[][]) => rows.map((r) => String(r[0] ?? ""));
@@ -92,14 +97,14 @@ async function readHeaderAndKeys(
     const [headerRows, keyRows] = await readRanges(sheet, [headerRange, keyRange(hint)]);
     const header = headerRows[0] ?? [];
     const col = locate(header);
-    if (col === hint) return { header, ids: toIds(keyRows) };
+    if (col === hint) return { header, ids: toIds(keyRows), col };
     // The column moved since last time: read it where it is now.
     keyColumnHint.set(tab, col);
-    return { header, ids: toIds(await readRange(sheet, keyRange(col))) };
+    return { header, ids: toIds(await readRange(sheet, keyRange(col))), col };
   }
 
   const header = (await readRange(sheet, headerRange))[0] ?? [];
   const col = locate(header);
   keyColumnHint.set(tab, col);
-  return { header, ids: toIds(await readRange(sheet, keyRange(col))) };
+  return { header, ids: toIds(await readRange(sheet, keyRange(col))), col };
 }
