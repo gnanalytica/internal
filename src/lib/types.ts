@@ -284,7 +284,6 @@ export type ProjectWithIssueCount = Project & {
 
 export type ProjectDetail = Project & {
   owner: Member | null;
-  issues: IssueWithRelations[];
 };
 
 export const PROJECT_HEALTH = [

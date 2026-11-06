@@ -458,28 +458,15 @@ export async function getProject(
   cacheTag(...wsTags(workspaceId, "projects"));
   cacheLife("minutes");
 
+  // Project columns + owner only. Every /projects/[id] route loads this in its
+  // layout, so joining the project's issues here shipped the whole issue list
+  // (descriptions and all) to pages that never show it. A page that lists the
+  // project's tasks loads them itself.
   const row = await db.query.projects.findFirst({
     where: and(eq(projects.workspaceId, workspaceId), eq(projects.id, id)),
-    with: {
-      owner: true,
-      issues: {
-        orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
-        with: {
-          project: true,
-          cycle: true,
-          assignee: true,
-          labels: { with: { label: true } },
-          milestone: { columns: { id: true, name: true } },
-          assignees: { with: { user: true } },
-        },
-      },
-    },
+    with: { owner: true },
   });
-  if (!row) return null;
-  return {
-    ...row,
-    issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label), assignees: i.assignees.map((a) => a.user) })),
-  };
+  return row ?? null;
 }
 
 export async function getLabels(workspaceId: string): Promise<Label[]> {

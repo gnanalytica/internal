@@ -93,9 +93,10 @@ export default async function ProjectRoute({
   // workspace databases (Tools & Subscriptions), folded in from the old top-level
   // Databases page.
   if (project.kind !== "project") {
-    const [ctx, role, favorited, statusUpdates, backlinks, databases] =
+    const [ctx, allIssues, role, favorited, statusUpdates, backlinks, databases] =
       await Promise.all([
         getTaskContext(ws.id),
+        getIssues(ws.id),
         getMyRole(ws.id),
         isFavorite(ws.id, "project", id),
         getStatusUpdates(ws.id, id),
@@ -105,6 +106,7 @@ export default async function ProjectRoute({
     return (
       <ProjectDetail
         project={project}
+        issues={allIssues.filter((i) => i.projectId === id)}
         members={ctx.members}
         ctx={ctx}
         isAdmin={role === "admin"}

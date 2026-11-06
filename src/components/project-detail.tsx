@@ -29,6 +29,7 @@ import {
 import {
   PROJECT_HEALTH,
   type BacklinkItem,
+  type IssueWithRelations,
   type Member,
   type ProjectDetail as ProjectDetailType,
   type ProjectHealth,
@@ -38,6 +39,7 @@ import {
 
 export function ProjectDetail({
   project,
+  issues,
   members,
   isAdmin,
   favorited,
@@ -47,6 +49,8 @@ export function ProjectDetail({
   ctx,
 }: {
   project: ProjectDetailType;
+  /** This operation's tasks, in board order. */
+  issues: IssueWithRelations[];
   members: Member[];
   ctx: TaskContext;
   isAdmin: boolean;
@@ -67,8 +71,8 @@ export function ProjectDetail({
       router.refresh();
     });
 
-  const total = project.issues.length;
-  const done = project.issues.filter((i) => i.status === "done").length;
+  const total = issues.length;
+  const done = issues.filter((i) => i.status === "done").length;
   const pct = total ? Math.round((done / total) * 100) : 0;
   const latestHealth = statusUpdates[0]
     ? PROJECT_HEALTH.find((h) => h.id === statusUpdates[0].health)
@@ -246,7 +250,7 @@ export function ProjectDetail({
           <div className="mx-auto w-full max-w-6xl px-5 pb-2 md:px-8">
             <TaskPanel
               heading="Tasks"
-              issues={project.issues}
+              issues={issues}
               ctx={ctx}
               projectId={project.id}
               storageScope="operation"

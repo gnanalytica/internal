@@ -30,7 +30,13 @@ export default async function ProjectLayout({
     <div className="flex h-full flex-col">
       {/* Projects show department tabs; operations show Overview + Docs. */}
       <ProjectTabs
-        project={project}
+        project={{
+          id: project.id,
+          name: project.name,
+          color: project.color,
+          kind: project.kind,
+          enabledDepartments: project.enabledDepartments,
+        }}
         isAdmin={isAdmin}
         isOwner={isOwner}
         watching={watching}
