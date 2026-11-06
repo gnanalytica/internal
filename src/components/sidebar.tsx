@@ -192,8 +192,8 @@ export function Sidebar({
         <RailLink href="/ask" active={pathname.startsWith("/ask")} label="Ask"><Sparkles className="size-4" /></RailLink>
         <div className="my-1 h-px w-6 bg-border" />
         <RailLink href="/" active={pathname === "/"} label="Pulse"><Activity className="size-4" /></RailLink>
-        <RailLink href="/weekly" active={pathname === "/weekly"} label="Weekly review"><CalendarRange className="size-4" /></RailLink>
-        <RailLink href="/roadmap" active={pathname === "/roadmap"} label="Roadmap"><Map className="size-4" /></RailLink>
+        <RailLink href="/projects?tab=week" label="Weekly review"><CalendarRange className="size-4" /></RailLink>
+        <RailLink href="/projects?tab=timeline" label="Roadmap"><Map className="size-4" /></RailLink>
         <RailLink href="/issues" active={pathname === "/issues"} label="All tasks"><CircleDot className="size-4" /></RailLink>
         <RailLink href="/org" active={pathname === "/org"} label="Team"><Users className="size-4" /></RailLink>
         <div className="my-1 h-px w-6 bg-border" />
@@ -380,8 +380,8 @@ export function Sidebar({
         {/* Company — are we working on the right things */}
         <Group title="Company">
           <NavItem href="/" active={pathname === "/"} icon={<Activity className="size-4" />} label="Pulse" />
-          <NavItem href="/weekly" active={pathname === "/weekly"} icon={<CalendarRange className="size-4" />} label="Weekly review" />
-          <NavItem href="/roadmap" active={pathname === "/roadmap"} icon={<Map className="size-4" />} label="Roadmap" />
+          <NavItem href="/projects?tab=week" icon={<CalendarRange className="size-4" />} label="Weekly review" />
+          <NavItem href="/projects?tab=timeline" icon={<Map className="size-4" />} label="Roadmap" />
           <NavItem href="/issues" active={pathname === "/issues"} icon={<CircleDot className="size-4" />} label="All tasks" />
           <NavItem href="/org" active={pathname === "/org"} icon={<Users className="size-4" />} label="Team" />
         </Group>

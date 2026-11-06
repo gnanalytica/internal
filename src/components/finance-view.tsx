@@ -32,7 +32,6 @@ import {
 } from "@/lib/departments";
 import { dateInputValue } from "@/lib/matrix-format";
 import type {
-  CrmAccount,
   ExpenseWithRelations,
   InvoiceWithRelations,
   Project,
@@ -44,7 +43,6 @@ const fieldCls =
 export function FinanceView({
   heading,
   scopeProjectId,
-  accounts,
   initialInvoices,
   initialExpenses,
   intro,
@@ -53,7 +51,6 @@ export function FinanceView({
   heading: string;
   scopeProjectId: string | null;
   projects: Project[];
-  accounts: CrmAccount[];
   initialInvoices: InvoiceWithRelations[];
   initialExpenses: ExpenseWithRelations[];
   /** Optional content rendered above the invoice/expense tabs (e.g. the
@@ -163,7 +160,6 @@ export function FinanceView({
               <InvoiceRow
                 key={inv.id}
                 invoice={inv}
-                accounts={accounts}
                 showProject={!scopeProjectId}
                 onChanged={refresh}
               />
@@ -217,12 +213,10 @@ function ProjectTag({ project }: { project: Project | null }) {
 
 function InvoiceRow({
   invoice,
-  accounts,
   showProject,
   onChanged,
 }: {
   invoice: InvoiceWithRelations;
-  accounts: CrmAccount[];
   showProject: boolean;
   onChanged: () => void;
 }) {
@@ -238,14 +232,6 @@ function InvoiceRow({
         className={fieldCls + " w-28 font-mono"}
       />
       {showProject && <ProjectTag project={invoice.project} />}
-      <select
-        defaultValue={invoice.accountId ?? ""}
-        onChange={(e) => upd({ accountId: e.target.value || null })}
-        className={fieldCls + " min-w-32 flex-1"}
-      >
-        <option value="">No account</option>
-        {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select>
       <span className="flex items-center gap-1">
         <span className="text-xs text-muted-foreground" title={entityCurrency(invoice.entity)}>
           {currencySymbol(entityCurrency(invoice.entity))}

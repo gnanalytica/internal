@@ -91,12 +91,6 @@ export const DEPARTMENTS = [
   },
 ] as const;
 
-export const DEPARTMENT_MAP = Object.fromEntries(
-  DEPARTMENTS.map((d) => [d.slug, d]),
-) as Record<DepartmentSlug, (typeof DEPARTMENTS)[number]>;
-
-export const ALL_DEPARTMENT_SLUGS = DEPARTMENTS.map((d) => d.slug);
-
 /**
  * Departments restricted to admins (founders) — revenue-sensitive. Finance is
  * a company-level Operation (also confidential); HR lives in the People & HR
@@ -178,11 +172,6 @@ export const DEAL_STAGES = [
 ] as const;
 
 export type DealStageId = (typeof DEAL_STAGES)[number]["id"];
-export const DEAL_STAGE_MAP = Object.fromEntries(
-  DEAL_STAGES.map((s) => [s.id, s]),
-) as Record<DealStageId, (typeof DEAL_STAGES)[number]>;
-export const isDealStage = (v: string): v is DealStageId =>
-  DEAL_STAGES.some((s) => s.id === v);
 /** Stages that count as open (still in pipeline). */
 export const OPEN_DEAL_STAGES: DealStageId[] = [
   "lead",
@@ -191,51 +180,13 @@ export const OPEN_DEAL_STAGES: DealStageId[] = [
   "negotiation",
 ];
 
-// ---- CRM ----
-export const ACCOUNT_TYPES = [
-  { id: "prospect", label: "Prospect", color: "#6366f1" },
-  { id: "customer", label: "Customer", color: "#10b981" },
-  { id: "partner", label: "Partner", color: "#a855f7" },
-  { id: "churned", label: "Churned", color: "#ef4444" },
-] as const;
-
-export const LIFECYCLE_STAGES = [
-  { id: "lead", label: "Lead", color: "#94a3b8" },
-  { id: "qualified", label: "Qualified", color: "#6366f1" },
-  { id: "customer", label: "Customer", color: "#10b981" },
-] as const;
-
+// ---- Sales: deal activity ----
 export const ACTIVITY_TYPES = [
   { id: "note", label: "Note", icon: "📝" },
   { id: "call", label: "Call", icon: "📞" },
   { id: "email", label: "Email", icon: "✉️" },
   { id: "task", label: "Task", icon: "✅" },
   { id: "meeting", label: "Meeting", icon: "📅" },
-] as const;
-
-// ---- Marketing ----
-export const CAMPAIGN_CHANNELS = [
-  { id: "email", label: "Email", color: "#6366f1" },
-  { id: "whatsapp", label: "WhatsApp", color: "#22c55e" },
-  { id: "linkedin", label: "LinkedIn", color: "#0ea5e9" },
-  { id: "events", label: "Events", color: "#a855f7" },
-  { id: "content", label: "Content", color: "#10b981" },
-  { id: "paid", label: "Paid", color: "#f59e0b" },
-  { id: "referral", label: "Referral", color: "#ec4899" },
-] as const;
-
-export const CAMPAIGN_STATUSES = [
-  { id: "planned", label: "Planned", color: "#94a3b8" },
-  { id: "active", label: "Active", color: "#10b981" },
-  { id: "done", label: "Done", color: "#6366f1" },
-] as const;
-
-// Content calendar stages (order = board columns).
-export const CONTENT_STATUSES = [
-  { id: "idea", label: "Idea", color: "#94a3b8" },
-  { id: "draft", label: "Draft", color: "#f59e0b" },
-  { id: "scheduled", label: "Scheduled", color: "#6366f1" },
-  { id: "published", label: "Published", color: "#10b981" },
 ] as const;
 
 // ---- Finance ----
@@ -259,26 +210,6 @@ export const EXPENSE_CATEGORIES = [
   { id: "other", label: "Other", color: "#94a3b8" },
 ] as const;
 
-// ---- Support: ticket queue (order = board columns) ----
-export const TICKET_STATUSES = [
-  { id: "open", label: "Open", color: "#ef4444" },
-  { id: "pending", label: "Pending", color: "#f59e0b" },
-  { id: "solved", label: "Solved", color: "#10b981" },
-  { id: "closed", label: "Closed", color: "#94a3b8" },
-] as const;
-
-export type TicketStatusId = (typeof TICKET_STATUSES)[number]["id"];
-export const isTicketStatus = (v: string): v is TicketStatusId =>
-  TICKET_STATUSES.some((s) => s.id === v);
-export const OPEN_TICKET_STATUSES: TicketStatusId[] = ["open", "pending"];
-
-export const TICKET_PRIORITIES = [
-  { id: "urgent", label: "Urgent", color: "#ef4444" },
-  { id: "high", label: "High", color: "#f59e0b" },
-  { id: "normal", label: "Normal", color: "#6366f1" },
-  { id: "low", label: "Low", color: "#94a3b8" },
-] as const;
-
 // ---- Features: feature pipeline (order = board columns) ----
 export const FEATURE_STATUSES = [
   { id: "idea", label: "Idea", color: "#94a3b8" },
@@ -289,48 +220,12 @@ export const FEATURE_STATUSES = [
 ] as const;
 
 export type FeatureStatusId = (typeof FEATURE_STATUSES)[number]["id"];
-export const isFeatureStatus = (v: string): v is FeatureStatusId =>
-  FEATURE_STATUSES.some((s) => s.id === v);
-/** Statuses that count as "open" (still on the roadmap). */
-export const OPEN_FEATURE_STATUSES: FeatureStatusId[] = ["idea", "planned", "building"];
 
 export const ENTITIES = [
   { id: "India", label: "India 🇮🇳", color: "#f59e0b" },
   { id: "Netherlands", label: "Netherlands 🇳🇱", color: "#f97316" },
   { id: "Global", label: "Global", color: "#94a3b8" },
 ] as const;
-
-// ---- Analytics: metric cadence ----
-export const METRIC_CADENCES = [
-  { id: "weekly", label: "Weekly" },
-  { id: "monthly", label: "Monthly" },
-  { id: "quarterly", label: "Quarterly" },
-] as const;
-
-// ---- Product: feedback sources & pipeline ----
-export const FEEDBACK_SOURCES = [
-  { id: "customer", label: "Customer", color: "#10b981" },
-  { id: "sales", label: "Sales", color: "#0ea5e9" },
-  { id: "support", label: "Support", color: "#f97316" },
-  { id: "interview", label: "Interview", color: "#a855f7" },
-  { id: "internal", label: "Internal", color: "#6366f1" },
-  { id: "other", label: "Other", color: "#94a3b8" },
-] as const;
-
-// Feedback pipeline (order = board columns).
-export const FEEDBACK_STATUSES = [
-  { id: "new", label: "New", color: "#94a3b8" },
-  { id: "reviewing", label: "Reviewing", color: "#f59e0b" },
-  { id: "planned", label: "Planned", color: "#6366f1" },
-  { id: "shipped", label: "Shipped", color: "#10b981" },
-  { id: "declined", label: "Declined", color: "#ef4444" },
-] as const;
-
-export type FeedbackStatusId = (typeof FEEDBACK_STATUSES)[number]["id"];
-export const isFeedbackStatus = (v: string): v is FeedbackStatusId =>
-  FEEDBACK_STATUSES.some((s) => s.id === v);
-/** Statuses that count as open (still in the discovery pipeline). */
-export const OPEN_FEEDBACK_STATUSES: FeedbackStatusId[] = ["new", "reviewing", "planned"];
 
 /** Look up the {label,color} for an id in one of the option lists above. */
 export function optionMeta(

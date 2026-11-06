@@ -95,17 +95,7 @@ export type ContactWithAccount = CrmContact & {
   owner: Member | null;
 };
 
-export type AccountWithRelations = CrmAccount & {
-  owner: Member | null;
-  contacts: CrmContact[];
-  deals: Deal[];
-};
-
 export type ActivityWithActor = CrmActivity & { actor: Member | null };
-
-export type AccountDetail = AccountWithRelations & {
-  activities: ActivityWithActor[];
-};
 
 export type CampaignWithRelations = Campaign & {
   owner: Member | null;
@@ -144,15 +134,16 @@ export type TicketWithRelations = Ticket & {
   issue: { id: string; number: number; title: string; projectId: string | null } | null;
 };
 
-export type TicketCommentWithAuthor = TicketComment & { author: Member | null };
-
 /** A saved question → answer pair, for replying to customer requests in one click. */
 export type SupportAnswer = typeof supportAnswers.$inferSelect;
 
 /** A project plus the rollup counts shown on the projects hub cards. */
 export type ProjectSummary = Project & {
   openDeals: number;
+  /** Open deal value as stored, in each deal's own entity currency (the API's figure). */
   pipelineValue: number;
+  /** Open deal value converted to rupees, for display. */
+  pipelineValueInr: number;
   openIssues: number;
   /** Open top-level tasks per department slug, routed by label. */
   openIssuesByDepartment: Record<string, number>;
@@ -161,6 +152,11 @@ export type ProjectSummary = Project & {
   openTickets: number;
   openMilestones: number;
   metricCount: number;
+  /** Features in the roadmap's Now column (status "building"). */
+  featuresNow: number;
+  feedbackCount: number;
+  /** Content pieces dated in this India week, Monday to Sunday. */
+  piecesThisWeek: number;
 };
 
 export type Feature = typeof features.$inferSelect;
@@ -524,7 +520,6 @@ export type TaskContext = {
 };
 
 export type AskSource = { kind: "issue" | "page"; title: string; href: string };
-export type AskResult = { answer: string; sources: AskSource[] };
 
 export type NotificationItem = {
   id: string;

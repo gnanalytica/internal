@@ -13,16 +13,14 @@ import {
   issues,
   notifications,
   pageComments,
-  pageVersions,
   pages,
   users,
 } from "@/db/schema";
-import { docToText } from "@/lib/markdown";
 
 /**
  * Reads and writes for the collaboration surfaces: issue comment threads, the
- * issue relationship graph, issue↔page links, page comments and version
- * history, attachments and notifications.
+ * issue relationship graph, issue↔page links, resolving page comments, trash,
+ * attachments and notifications.
  *
  * These deliberately take an explicit workspaceId/userId rather than reusing
  * the app's data helpers, several of which resolve the current user from
@@ -187,59 +185,6 @@ export async function apiUnlinkIssuePage(
 
 // ---- Page comments ----
 
-export async function apiListPageComments(workspaceId: string, pageId: string) {
-  await assertPage(workspaceId, pageId);
-  const rows = await db
-    .select({
-      id: pageComments.id,
-      body: pageComments.body,
-      parentId: pageComments.parentId,
-      blockId: pageComments.blockId,
-      resolvedAt: pageComments.resolvedAt,
-      createdAt: pageComments.createdAt,
-      authorId: users.id,
-      authorName: users.name,
-    })
-    .from(pageComments)
-    .leftJoin(users, eq(pageComments.authorId, users.id))
-    .where(
-      and(eq(pageComments.workspaceId, workspaceId), eq(pageComments.pageId, pageId)),
-    )
-    .orderBy(pageComments.createdAt);
-  return rows.map((r) => ({
-    id: r.id,
-    body: r.body,
-    parentId: r.parentId,
-    blockId: r.blockId,
-    resolved: r.resolvedAt != null,
-    author: r.authorId ? { id: r.authorId, name: r.authorName } : null,
-    createdAt: r.createdAt,
-  }));
-}
-
-export async function apiCreatePageComment(
-  workspaceId: string,
-  userId: string | null,
-  pageId: string,
-  input: { body?: string; parentId?: string | null; blockId?: string | null },
-): Promise<string> {
-  await assertPage(workspaceId, pageId);
-  const body = input.body?.trim();
-  if (!body) throw new Error("`body` is required.");
-  const [created] = await db
-    .insert(pageComments)
-    .values({
-      workspaceId,
-      pageId,
-      parentId: input.parentId || null,
-      blockId: input.blockId || null,
-      authorId: userId,
-      body,
-    })
-    .returning({ id: pageComments.id });
-  return created.id;
-}
-
 export async function apiResolvePageComment(
   workspaceId: string,
   commentId: string,
@@ -256,68 +201,6 @@ export async function apiResolvePageComment(
 }
 
 // ---- Page version history ----
-
-export async function apiListPageVersions(workspaceId: string, pageId: string) {
-  await assertPage(workspaceId, pageId);
-  return db
-    .select({
-      id: pageVersions.id,
-      title: pageVersions.title,
-      createdAt: pageVersions.createdAt,
-    })
-    .from(pageVersions)
-    .where(
-      and(eq(pageVersions.workspaceId, workspaceId), eq(pageVersions.pageId, pageId)),
-    )
-    .orderBy(desc(pageVersions.createdAt));
-}
-
-/** Roll a page back to a snapshot, saving the current state first so the
- *  restore is itself undoable. */
-export async function apiRestorePageVersion(
-  workspaceId: string,
-  pageId: string,
-  versionId: string,
-): Promise<boolean> {
-  const [version] = await db
-    .select({ title: pageVersions.title, content: pageVersions.content })
-    .from(pageVersions)
-    .where(
-      and(
-        eq(pageVersions.workspaceId, workspaceId),
-        eq(pageVersions.pageId, pageId),
-        eq(pageVersions.id, versionId),
-      ),
-    )
-    .limit(1);
-  if (!version) return false;
-
-  const [current] = await db
-    .select({ title: pages.title, content: pages.content })
-    .from(pages)
-    .where(and(eq(pages.workspaceId, workspaceId), eq(pages.id, pageId)))
-    .limit(1);
-  if (!current) return false;
-
-  await db.insert(pageVersions).values({
-    workspaceId,
-    pageId,
-    title: current.title,
-    content: current.content,
-  });
-
-  await db
-    .update(pages)
-    .set({
-      title: version.title,
-      content: version.content,
-      contentText: docToText(version.content).slice(0, 20000),
-      updatedAt: new Date(),
-    })
-    .where(and(eq(pages.workspaceId, workspaceId), eq(pages.id, pageId)));
-  apiInvalidate(workspaceId, "pages");
-  return true;
-}
 
 // ---- Trash ----
 

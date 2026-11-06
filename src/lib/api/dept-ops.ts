@@ -442,46 +442,6 @@ async function assertDatabase(workspaceId: string, databaseId: string): Promise<
   if (!row) throw new Error("`databaseId`: database not found in this workspace.");
 }
 
-const FIELD_TYPES = [
-  "text",
-  "number",
-  "select",
-  "checkbox",
-  "date",
-  "relation",
-  "rollup",
-];
-
-export async function apiAddDatabaseField(
-  workspaceId: string,
-  databaseId: string,
-  input: { name?: string; type?: string; options?: unknown },
-): Promise<string> {
-  await assertDatabase(workspaceId, databaseId);
-  const name = req(input.name, "name");
-  const type = input.type ?? "text";
-  if (!FIELD_TYPES.includes(type))
-    throw new Error(`\`type\` must be one of: ${FIELD_TYPES.join(", ")}.`);
-
-  const [{ value: last }] = await db
-    .select({ value: max(databaseFields.position) })
-    .from(databaseFields)
-    .where(eq(databaseFields.databaseId, databaseId));
-
-  const [created] = await db
-    .insert(databaseFields)
-    .values({
-      databaseId,
-      name: name.slice(0, 120),
-      type,
-      options: (input.options as never) ?? null,
-      position: `${last ?? "a"}a`,
-    })
-    .returning({ id: databaseFields.id });
-  apiInvalidate(workspaceId, "databases");
-  return created.id;
-}
-
 export async function apiDeleteDatabaseField(
   workspaceId: string,
   databaseId: string,

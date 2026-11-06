@@ -1,49 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
-import { FileText, Plus } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Plus } from "lucide-react";
 
 import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
-import { Labelled, ScrollTabsList } from "@/components/responsive";
+import { ScrollTabsList } from "@/components/responsive";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
-import {
-  attachCrmPage,
-  createAccount,
-  createContact,
-  deleteAccount,
-  deleteContact,
-  moveDeals,
-  updateAccount,
-  updateContact,
-} from "@/lib/actions";
-import { ChannelPicker } from "@/components/pickers";
+import { moveDeals } from "@/lib/actions";
 import { DepartmentTasks } from "@/components/department-tasks";
-import { CRM_CHANNELS } from "@/lib/constants";
 import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
-import {
-  ACCOUNT_TYPES,
-  DEAL_STAGES,
-  ENTITIES,
-  LIFECYCLE_STAGES,
-  OPEN_DEAL_STAGES,
-} from "@/lib/departments";
+import { DEAL_STAGES, OPEN_DEAL_STAGES } from "@/lib/departments";
 import { formatMoney } from "@/lib/matrix-format";
 import type {
-  ContactWithAccount,
   IssueWithRelations,
-  CrmAccount,
   DealWithRelations,
   Member,
   Project,
   TaskContext,
 } from "@/lib/types";
-
-const fieldCls =
-  "h-9 min-w-0 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 sm:h-8";
 
 export function SalesView({
   heading,
@@ -52,8 +30,6 @@ export function SalesView({
   projects,
   members,
   initialDeals,
-  initialAccounts,
-  initialContacts,
   issues,
 }: {
   heading: string;
@@ -61,8 +37,6 @@ export function SalesView({
   projects: Project[];
   members: Member[];
   initialDeals: DealWithRelations[];
-  initialAccounts: CrmAccount[];
-  initialContacts: ContactWithAccount[];
   issues: IssueWithRelations[];
   ctx: TaskContext;
 }) {
@@ -70,41 +44,6 @@ export function SalesView({
   const [, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DealWithRelations | null>(null);
-  // The lists run to hundreds of rows once a lead database is loaded, so both
-  // tabs filter before they render.
-  const [accountFilter, setAccountFilter] = useState<Filter>({ q: "", channel: "" });
-  const [contactFilter, setContactFilter] = useState<Filter>({ q: "", channel: "" });
-
-  const accounts = useMemo(
-    () =>
-      initialAccounts.filter(
-        (a) =>
-          (!accountFilter.channel || a.channel === accountFilter.channel) &&
-          matches(accountFilter.q, a.name, a.industry, a.website),
-      ),
-    [initialAccounts, accountFilter],
-  );
-  const contacts = useMemo(
-    () =>
-      initialContacts
-        .filter(
-          (c) =>
-            (!contactFilter.channel || c.channel === contactFilter.channel) &&
-            matches(contactFilter.q, c.name, c.email, c.title, c.account?.name),
-        )
-        // Hottest first — an unscored contact sorts last, not as a zero.
-        .sort((a, b) => (b.leadScore ?? -1) - (a.leadScore ?? -1)),
-    [initialContacts, contactFilter],
-  );
-
-  // Where the pipeline actually comes from — MA-03's "which channel produced
-  // leads", computed rather than reported by hand.
-  const byChannel: Slice[] = CRM_CHANNELS.map((c) => ({
-    label: c.label,
-    value: initialContacts.filter((x) => x.channel === c.id).length,
-    color: c.color,
-  })).filter((s) => s.value > 0);
-
   const openValue = initialDeals
     .filter((d) => OPEN_DEAL_STAGES.includes(d.stage as (typeof OPEN_DEAL_STAGES)[number]))
     .reduce((sum, d) => sum + (d.value ?? 0), 0);
@@ -147,9 +86,6 @@ export function SalesView({
         }
       />
 
-      {/* Land on a tab that has something in it. A workspace can hold hundreds
-          of accounts and contacts before its first deal exists, and opening on
-          an empty pipeline reads as "there is no data". */}
       <Tabs
         defaultValue="tasks"
         className="flex min-h-0 flex-1 flex-col"
@@ -157,8 +93,6 @@ export function SalesView({
         <ScrollTabsList>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline{count(initialDeals.length)}</TabsTrigger>
-          <TabsTrigger value="accounts">Accounts{count(initialAccounts.length)}</TabsTrigger>
-          <TabsTrigger value="contacts">Contacts{count(initialContacts.length)}</TabsTrigger>
         </ScrollTabsList>
 
         <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
@@ -193,67 +127,6 @@ export function SalesView({
             </>
           )}
         </TabsContent>
-
-        <TabsContent value="accounts" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
-          <SectionHeader
-            title="Accounts"
-            count={`${accounts.length} of ${initialAccounts.length}`}
-            onAdd={() => startTransition(async () => { await createAccount({}); router.refresh(); })}
-            addLabel="New account"
-          />
-          <FilterBar
-            value={accountFilter}
-            onChange={setAccountFilter}
-            placeholder="Search name, industry, website"
-            rows={initialAccounts}
-          />
-          <div className="space-y-1.5">
-            {accounts.map((a) => (
-              <AccountRow key={a.id} account={a} onChanged={() => router.refresh()} />
-            ))}
-            {accounts.length === 0 && (
-              <Empty inline label={initialAccounts.length ? "No accounts match." : "No accounts yet."} />
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="contacts" className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
-          <SectionHeader
-            title="Contacts"
-            count={`${contacts.length} of ${initialContacts.length}`}
-            onAdd={() => startTransition(async () => { await createContact({}); router.refresh(); })}
-            addLabel="New contact"
-          />
-          {byChannel.length > 1 && (
-            <ChartCard
-              title="Contacts by channel"
-              hint={`${initialContacts.length} total`}
-              className="mb-4"
-            >
-              <ColumnChart data={byChannel} height={96} />
-            </ChartCard>
-          )}
-          <FilterBar
-            value={contactFilter}
-            onChange={setContactFilter}
-            placeholder="Search name, email, title, account"
-            rows={initialContacts}
-          />
-          <div className="space-y-1.5">
-            {contacts.map((c) => (
-              <ContactRow
-                key={c.id}
-                contact={c}
-                accounts={initialAccounts}
-                contacts={initialContacts}
-                onChanged={() => router.refresh()}
-              />
-            ))}
-            {contacts.length === 0 && (
-              <Empty inline label={initialContacts.length ? "No contacts match." : "No contacts yet."} />
-            )}
-          </div>
-        </TabsContent>
       </Tabs>
 
       <DealDialog
@@ -261,8 +134,6 @@ export function SalesView({
         onOpenChange={setDialogOpen}
         deal={editing}
         projects={projects}
-        accounts={initialAccounts}
-        contacts={initialContacts}
         members={members}
         scopeProjectId={scopeProjectId}
         onSaved={() => router.refresh()}
@@ -272,247 +143,15 @@ export function SalesView({
   );
 }
 
-type Filter = { q: string; channel: string };
-
 /** Row count beside a tab label, so an empty tab is visibly empty from outside it. */
 function count(n: number) {
   if (!n) return null;
   return <span className="ml-1.5 text-[11px] tabular-nums opacity-60">{n}</span>;
 }
 
-function matches(q: string, ...fields: (string | null | undefined)[]) {
-  const needle = q.trim().toLowerCase();
-  if (!needle) return true;
-  return fields.some((f) => f?.toLowerCase().includes(needle));
-}
-
-function SectionHeader({
-  title,
-  count,
-  onAdd,
-  addLabel,
-}: {
-  title: string;
-  count?: string;
-  onAdd: () => void;
-  addLabel: string;
-}) {
+function Empty({ label }: { label: string }) {
   return (
-    <div className="mb-3 flex items-center gap-2">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      {count && <span className="text-xs tabular-nums text-muted-foreground">{count}</span>}
-      <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={onAdd}>
-        <Plus className="size-4" /> {addLabel}
-      </Button>
-    </div>
-  );
-}
-
-/** Search + channel filter. Channel buttons show their live count. */
-function FilterBar({
-  value,
-  onChange,
-  placeholder,
-  rows,
-}: {
-  value: Filter;
-  onChange: (f: Filter) => void;
-  placeholder: string;
-  rows: { channel: string }[];
-}) {
-  const counts = new Map<string, number>();
-  for (const r of rows) counts.set(r.channel, (counts.get(r.channel) ?? 0) + 1);
-  return (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
-      <input
-        value={value.q}
-        onChange={(e) => onChange({ ...value, q: e.target.value })}
-        placeholder={placeholder}
-        className={fieldCls + " w-full sm:w-64"}
-        aria-label={placeholder}
-      />
-      <div className="flex flex-wrap items-center gap-1">
-        {CRM_CHANNELS.filter((c) => counts.get(c.id)).map((c) => {
-          const on = value.channel === c.id;
-          return (
-            <button
-              key={c.id}
-              onClick={() => onChange({ ...value, channel: on ? "" : c.id })}
-              aria-pressed={on}
-              className="rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors"
-              style={{
-                borderColor: `color-mix(in oklch, ${c.color} ${on ? "70%" : "30%"}, transparent)`,
-                color: c.color,
-                backgroundColor: `color-mix(in oklch, ${c.color} ${on ? "22%" : "8%"}, transparent)`,
-              }}
-            >
-              {c.label} {counts.get(c.id)}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/** Opens this record's deck/pitch page, creating it on first click. */
-function DeckLink({ kind, id, pageId }: { kind: "account" | "contact"; id: string; pageId: string | null }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  return (
-    <button
-      disabled={pending}
-      onClick={() =>
-        start(async () => {
-          const { pageId: target } = await attachCrmPage(kind, id);
-          router.push(`/pages/${target}`);
-        })
-      }
-      className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
-      title={pageId ? "Open deck & notes" : "Create a deck & notes page"}
-    >
-      <FileText className="size-3.5" /> {pageId ? "Deck" : "+ Deck"}
-    </button>
-  );
-}
-
-function AccountRow({ account, onChanged }: { account: CrmAccount; onChanged: () => void }) {
-  const [, start] = useTransition();
-  const upd = (patch: Parameters<typeof updateAccount>[1]) =>
-    start(async () => { await updateAccount(account.id, patch); onChanged(); });
-  return (
-    <div className="grid grid-cols-2 gap-2 rounded-md border bg-background p-2 lg:flex lg:flex-wrap lg:items-center">
-      <input
-        defaultValue={account.name}
-        onBlur={(e) => e.target.value !== account.name && upd({ name: e.target.value })}
-        className={fieldCls + " col-span-2 font-medium lg:min-w-40 lg:flex-1"}
-      />
-      <select defaultValue={account.type} onChange={(e) => upd({ type: e.target.value })} className={fieldCls}>
-        {ACCOUNT_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-      </select>
-      <Labelled label="Industry" className="lg:w-32">
-        <input
-          defaultValue={account.industry ?? ""}
-          placeholder="Industry"
-          aria-label="Industry"
-          onBlur={(e) => e.target.value !== (account.industry ?? "") && upd({ industry: e.target.value || null })}
-          className={fieldCls + " w-full lg:w-32"}
-        />
-      </Labelled>
-      <ChannelPicker value={account.channel} onChange={(channel) => upd({ channel })} />
-      <select defaultValue={account.entity} onChange={(e) => upd({ entity: e.target.value })} className={fieldCls}>
-        {ENTITIES.map((en) => <option key={en.id} value={en.id}>{en.label}</option>)}
-      </select>
-      <input
-        defaultValue={account.website ?? ""}
-        placeholder="https://"
-        onBlur={(e) => e.target.value !== (account.website ?? "") && upd({ website: e.target.value || null })}
-        className={fieldCls + " col-span-2 lg:col-span-1 lg:w-40"}
-      />
-      <div className="col-span-2 flex items-center gap-3 lg:contents">
-        <DeckLink kind="account" id={account.id} pageId={account.pageId} />
-        <button
-          type="button"
-          onClick={() => start(async () => { await deleteAccount(account.id); onChanged(); })}
-          className="tap-target ml-auto text-xs text-muted-foreground hover:text-destructive lg:ml-0"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ContactRow({
-  contact,
-  accounts,
-  contacts,
-  onChanged,
-}: {
-  contact: ContactWithAccount;
-  accounts: CrmAccount[];
-  contacts: ContactWithAccount[];
-  onChanged: () => void;
-}) {
-  const [, start] = useTransition();
-  const upd = (patch: Parameters<typeof updateContact>[1]) =>
-    start(async () => { await updateContact(contact.id, patch); onChanged(); });
-  return (
-    <div className="grid grid-cols-2 gap-2 rounded-md border bg-background p-2 lg:flex lg:flex-wrap lg:items-center">
-      {contact.leadScore != null && (
-        <span
-          className="shrink-0 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
-          title={`Lead score ${contact.leadScore}`}
-        >
-          {contact.leadScore}
-        </span>
-      )}
-      <input
-        defaultValue={contact.name}
-        onBlur={(e) => e.target.value !== contact.name && upd({ name: e.target.value })}
-        className={fieldCls + " font-medium lg:min-w-32 lg:flex-1"}
-      />
-      <input
-        defaultValue={contact.email ?? ""}
-        placeholder="email"
-        onBlur={(e) => e.target.value !== (contact.email ?? "") && upd({ email: e.target.value || null })}
-        className={fieldCls + " lg:w-40"}
-      />
-      <Labelled label="Title" className="lg:w-40">
-        <input
-          defaultValue={contact.title ?? ""}
-          placeholder="Title"
-          aria-label="Title"
-          onBlur={(e) => e.target.value !== (contact.title ?? "") && upd({ title: e.target.value || null })}
-          className={fieldCls + " w-full lg:w-40"}
-        />
-      </Labelled>
-      <select
-        defaultValue={contact.accountId ?? ""}
-        onChange={(e) => upd({ accountId: e.target.value || null })}
-        className={fieldCls + " lg:w-40"}
-        aria-label="Account"
-      >
-        <option value="">No account</option>
-        {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select>
-      <select
-        defaultValue={contact.lifecycleStage}
-        onChange={(e) => upd({ lifecycleStage: e.target.value })}
-        className={fieldCls}
-      >
-        {LIFECYCLE_STAGES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-      </select>
-      <ChannelPicker value={contact.channel} onChange={(channel) => upd({ channel })} />
-      <select
-        defaultValue={contact.referredById ?? ""}
-        onChange={(e) => upd({ referredById: e.target.value || null })}
-        className={fieldCls + " lg:w-36"}
-        aria-label="Referred by"
-        title="Referred by"
-      >
-        <option value="">No referrer</option>
-        {contacts
-          .filter((c) => c.id !== contact.id)
-          .map((c) => <option key={c.id} value={c.id}>↩ {c.name}</option>)}
-      </select>
-      <div className="col-span-2 flex items-center gap-3 lg:contents">
-        <DeckLink kind="contact" id={contact.id} pageId={contact.pageId} />
-        <button
-          type="button"
-          onClick={() => start(async () => { await deleteContact(contact.id); onChanged(); })}
-          className="tap-target ml-auto text-xs text-muted-foreground hover:text-destructive lg:ml-0"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Empty({ label, inline }: { label: string; inline?: boolean }) {
-  return (
-    <div className={inline ? "py-6 text-center text-sm text-muted-foreground" : "grid h-full place-items-center text-sm text-muted-foreground"}>
+    <div className="grid h-full place-items-center text-sm text-muted-foreground">
       {label}
     </div>
   );

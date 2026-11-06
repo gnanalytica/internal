@@ -162,14 +162,6 @@ export function monthsForRange(
   });
 }
 
-/** Fractional 0–1 position of a date within the range, clamped, or null. */
-export function dateOffset(range: RoadmapRange, d: DateInput): number | null {
-  const x = toDate(d);
-  if (!x) return null;
-  const total = range.end.getTime() - range.start.getTime();
-  return clamp01((x.getTime() - range.start.getTime()) / total);
-}
-
 /**
  * Group a range's months into quarter columns for the timeline header, each
  * positioned as a percentage of the whole range (so bars from barMetrics line

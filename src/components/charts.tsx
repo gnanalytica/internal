@@ -43,66 +43,6 @@ export function Legend({ data, className }: { data: Slice[]; className?: string 
   );
 }
 
-/** SVG donut. Pass `center` to overlay a stat in the hole. */
-export function Donut({
-  data,
-  size = 132,
-  thickness = 16,
-  center,
-}: {
-  data: Slice[];
-  size?: number;
-  thickness?: number;
-  center?: ReactNode;
-}) {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  const r = (size - thickness) / 2;
-  const circ = 2 * Math.PI * r;
-  let offset = 0;
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          strokeWidth={thickness}
-          className="stroke-foreground/[0.07]"
-        />
-        {total > 0 &&
-          data
-            .filter((d) => d.value > 0)
-            .map((d, i) => {
-              const dash = (d.value / total) * circ;
-              const el = (
-                <circle
-                  key={i}
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={r}
-                  fill="none"
-                  stroke={d.color}
-                  strokeWidth={thickness}
-                  strokeDasharray={`${dash} ${circ - dash}`}
-                  strokeDashoffset={-offset}
-                >
-                  <title>{`${d.label}: ${d.value}`}</title>
-                </circle>
-              );
-              offset += dash;
-              return el;
-            })}
-      </svg>
-      {center && (
-        <div className="absolute inset-0 grid place-items-center text-center leading-tight">
-          {center}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** Vertical column chart (counts or money per category). */
 export function ColumnChart({
   data,

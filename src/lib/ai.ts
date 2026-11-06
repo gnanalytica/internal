@@ -55,24 +55,6 @@ function text(content: Anthropic.ContentBlock[]): string {
     .join("");
 }
 
-/** Call Claude and return the text output. */
-export async function callClaude(opts: {
-  system?: string;
-  prompt: string;
-  maxTokens?: number;
-}): Promise<string> {
-  const res = await client().messages.create({
-    model: MODEL,
-    max_tokens: opts.maxTokens ?? 16000,
-    thinking: { type: "adaptive" },
-    output_config: { effort: EFFORT },
-    ...(opts.system ? { system: opts.system } : {}),
-    messages: [{ role: "user", content: opts.prompt }],
-  });
-  assertComplete(res.stop_reason, res.stop_details);
-  return text(res.content);
-}
-
 /**
  * Call Claude and get back data that matches `schema`.
  *

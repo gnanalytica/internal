@@ -228,10 +228,6 @@ export async function apiSetSubscription(auth: ApiAuth, body: unknown): Promise<
   return on;
 }
 
-export async function apiFollowState(auth: ApiAuth, kind: Kind, id: string) {
-  return memberState(auth.userId, kind, id);
-}
-
 /** The caller's favourites with a display title, hiding what they can't see. */
 export async function apiListFavorites(auth: ApiAuth) {
   if (!auth.userId) return [];

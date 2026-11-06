@@ -254,17 +254,6 @@
   .animate-fade {
     animation: enter-fade 0.2s ease both;
   }
-  /* Children arrive one after another; the first eight are staggered, the rest arrive with the eighth. */
-  .stagger > * {
-    animation: enter 0.28s cubic-bezier(0.2, 0, 0, 1) both;
-  }
-  .stagger > :nth-child(2) { animation-delay: 30ms; }
-  .stagger > :nth-child(3) { animation-delay: 60ms; }
-  .stagger > :nth-child(4) { animation-delay: 90ms; }
-  .stagger > :nth-child(5) { animation-delay: 120ms; }
-  .stagger > :nth-child(6) { animation-delay: 150ms; }
-  .stagger > :nth-child(7) { animation-delay: 180ms; }
-  .stagger > :nth-child(n + 8) { animation-delay: 210ms; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -931,23 +920,5 @@ a.entity-ref {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   textarea {
     font-size: 16px;
-  }
-}
-
-/* A control has to be big enough to hit. WCAG 2.5.8 asks for 24px; touch
-   guidance asks for more. Applied at phone widths only — the desktop rows are
-   deliberately dense and are driven by a mouse. */
-@media (pointer: coarse) {
-  .tap-target {
-    min-height: 2.25rem;
-    min-width: 2.25rem;
-  }
-  /* A 16px checkbox is under WCAG 2.5.8's floor and is the control a bulk
-     assign is made of, so it is the one a thumb misses most expensively.
-     Sized rather than padded: padding would leave the visible box at 16px and
-     the row would look like it had a stray gap. */
-  input[type="checkbox"].tap-box {
-    width: 1.5rem;
-    height: 1.5rem;
   }
 }

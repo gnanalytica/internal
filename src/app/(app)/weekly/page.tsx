@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// "This week" is now a tab on the Projects home.
+// "This week" is now a tab on the Projects home; kept for old bookmarks.
 export default function WeeklyPage() {
-  redirect("/projects");
+  redirect("/projects?tab=week");
 }

@@ -4,7 +4,6 @@ import { FinanceView } from "@/components/finance-view";
 import { Restricted } from "@/components/restricted";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
 import {
-  getAccounts,
   getCurrentUser,
   getExpenses,
   getInvoices,
@@ -29,10 +28,9 @@ export default async function ProjectFinancePage({
   const canView = canSeeConfidential(await getMyRole(ws.id)) || project.ownerId === me.id;
   if (!canView) return <Restricted label="Finance" />;
 
-  const [invoices, expenses, accounts, projects] = await Promise.all([
+  const [invoices, expenses, projects] = await Promise.all([
     getInvoices(ws.id, id),
     getExpenses(ws.id, id),
-    getAccounts(ws.id),
     getProjects(ws.id),
   ]);
 
@@ -41,7 +39,6 @@ export default async function ProjectFinancePage({
       heading={`${project.name} · Finance`}
       scopeProjectId={id}
       projects={projects}
-      accounts={accounts}
       initialInvoices={invoices}
       initialExpenses={expenses}
       defaultCurrency={project.pricingModel?.currency ?? "INR"}

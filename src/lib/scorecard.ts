@@ -8,7 +8,7 @@
  *
  * Weeks run Monday to Sunday, India time, and a week is named by its Monday as
  * yyyy-mm-dd. A typed-in number is stored at that Monday, 00:00 UTC — the same
- * instant `addMetricPoint` gives a yyyy-mm-dd — which falls inside the week in
+ * instant `new Date("yyyy-mm-dd")` gives — which falls inside the week in
  * India time.
  */
 

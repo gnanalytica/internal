@@ -25,7 +25,7 @@ import { WeeklyView } from "@/components/weekly-view";
 import { createProject } from "@/lib/actions";
 import type { RoadmapProject } from "@/lib/data";
 import { enabledDepartments, type DepartmentSlug } from "@/lib/departments";
-import { formatMoney } from "@/lib/matrix-format";
+import { formatCurrency } from "@/lib/currency";
 import type {
   CycleWithCount,
   Project,
@@ -44,6 +44,8 @@ const DEPT_ICONS: Record<DepartmentSlug, React.ReactNode> = {
   strategy: <Target className="size-3.5" />,
 };
 
+export type ProjectsTab = "list" | "timeline" | "week";
+
 export function ProjectsView({
   projects,
   ops,
@@ -51,6 +53,7 @@ export function ProjectsView({
   weeklyProjects,
   cycles,
   nowISO,
+  initialTab = "list",
 }: {
   projects: ProjectSummary[];
   ops: ProjectWithIssueCount[];
@@ -58,6 +61,8 @@ export function ProjectsView({
   weeklyProjects: Project[];
   cycles: CycleWithCount[];
   nowISO: string;
+  /** The tab to open on — `?tab=timeline` and `?tab=week` link straight to those. */
+  initialTab?: ProjectsTab;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -83,7 +88,7 @@ export function ProjectsView({
           </Button>
         }
       />
-      <Tabs defaultValue="list" className="flex min-h-0 flex-1 flex-col">
+      <Tabs key={initialTab} defaultValue={initialTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-2 self-start">
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -140,10 +145,10 @@ export function ProjectsView({
                         )}
                         <div className="mt-3 grid grid-cols-5 gap-2 text-center">
                           <Stat value={String(p.openIssues)} label="Tasks" />
-                          <Stat value={formatMoney(p.pipelineValue)} label={`${p.openDeals} deals`} />
-                          <Stat value={String(p.activeCampaigns)} label="Campaigns" />
-                          <Stat value={formatMoney(p.revenue)} label="Revenue" />
-                          <Stat value={String(p.openTickets)} label="Tickets" />
+                          <Stat value={formatCurrency(p.pipelineValueInr, "INR")} label={`${p.openDeals} deals`} />
+                          <Stat value={String(p.featuresNow)} label="In Now" />
+                          <Stat value={String(p.piecesThisWeek)} label="Posts this week" />
+                          <Stat value={String(p.openTickets)} label="Requests" />
                         </div>
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {enabledDepartments(p.enabledDepartments).map((d) => (

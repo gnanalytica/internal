@@ -1044,7 +1044,7 @@ export const crmAccounts = pgTable(
     website: text("website"),
     industry: text("industry"),
     type: text("type").notNull().default("prospect"), // prospect | customer | partner | churned
-    // How this account reaches us / we reach it. See CRM_CHANNELS.
+    // How this account reaches us / we reach it. direct, rvo, association, lender, referral or inbound.
     channel: text("channel").notNull().default("direct"),
     // The account's deck, pitch or working notes — a page in this workspace.
     pageId: uuid("page_id").references(() => pages.id, { onDelete: "set null" }),
@@ -1074,7 +1074,7 @@ export const crmContacts = pgTable(
     source: text("source"), // where the contact came from (campaign, referral, …)
     // Prospect ranking carried over from lead research — higher is hotter.
     leadScore: integer("lead_score"),
-    // How this person reaches us / we reach them. See CRM_CHANNELS.
+    // How this person reaches us / we reach them. direct, rvo, association, lender, referral or inbound.
     channel: text("channel").notNull().default("direct"),
     // Self-reference: the contact who referred this one. App-managed, like
     // `pages.parentId` — null = not a referral.

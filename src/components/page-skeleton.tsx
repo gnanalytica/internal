@@ -35,24 +35,6 @@ export function CardsSkeleton() {
   );
 }
 
-export function BoardSkeleton() {
-  return (
-    <div className="flex h-full flex-col">
-      <TopbarSkeleton />
-      <div className="flex gap-3 overflow-hidden p-4">
-        {Array.from({ length: 4 }).map((_, c) => (
-          <div key={c} className="w-64 shrink-0 space-y-2">
-            <Skeleton className="h-5 w-24" />
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function TimelineSkeleton() {
   const widths = ["55%", "70%", "40%", "60%", "80%", "50%"];
   return (

@@ -5,8 +5,6 @@ import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
 import {
-  getAccounts,
-  getContacts,
   getDeals,
   getMembers,
   getMyRole,
@@ -22,7 +20,7 @@ import { getTaskContext } from "@/lib/task-context";
 /**
  * The project's sales. For Valytica that is its prospects — the sheet the team
  * works every day — with the deals they turn into beside them. Other products
- * get the deal board, accounts and contacts.
+ * get the deal board and their sales tasks.
  */
 export default async function ProjectSalesPage({
   params,
@@ -49,11 +47,9 @@ export default async function ProjectSalesPage({
   }
 
   const ctx = await getTaskContext(ws.id);
-  const [issues, deals, accounts, contacts, members, projects] = await Promise.all([
+  const [issues, deals, members, projects] = await Promise.all([
     getIssues(ws.id),
     getDeals(ws.id, id),
-    getAccounts(ws.id),
-    getContacts(ws.id),
     getMembers(ws.id),
     getProjects(ws.id),
   ]);
@@ -65,8 +61,6 @@ export default async function ProjectSalesPage({
       projects={projects}
       members={members}
       initialDeals={deals}
-      initialAccounts={accounts}
-      initialContacts={contacts}
       issues={issues.filter((i) => i.projectId === id)}
     />
   );

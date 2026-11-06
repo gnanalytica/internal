@@ -23,8 +23,6 @@ import { ACTIVITY_TYPES, DEAL_STAGES, ENTITIES } from "@/lib/departments";
 import { dateInputValue, formatDate } from "@/lib/matrix-format";
 import type {
   ActivityWithActor,
-  ContactWithAccount,
-  CrmAccount,
   DealWithRelations,
   Member,
   Project,
@@ -36,8 +34,6 @@ const fieldCls =
 type Props = {
   deal: DealWithRelations | null;
   projects: Project[];
-  accounts: CrmAccount[];
-  contacts: ContactWithAccount[];
   members: Member[];
   scopeProjectId: string | null;
   onSaved: () => void;
@@ -65,8 +61,6 @@ export function DealDialog({
 function DealForm({
   deal,
   projects,
-  accounts,
-  contacts,
   members,
   scopeProjectId,
   onSaved,
@@ -75,8 +69,6 @@ function DealForm({
   const isEdit = !!deal;
   const [name, setName] = useState(deal?.name ?? "");
   const [projectId, setProjectId] = useState<string | null>(deal?.projectId ?? scopeProjectId);
-  const [accountId, setAccountId] = useState<string | null>(deal?.accountId ?? null);
-  const [contactId, setContactId] = useState<string | null>(deal?.contactId ?? null);
   const [stage, setStage] = useState(deal?.stage ?? "lead");
   const [value, setValue] = useState(deal?.value ?? 0);
   const [ownerId, setOwnerId] = useState<string | null>(deal?.ownerId ?? null);
@@ -108,8 +100,6 @@ function DealForm({
       if (deal) {
         await updateDeal(deal.id, {
           name,
-          accountId,
-          contactId,
           stage,
           value,
           entity,
@@ -121,8 +111,6 @@ function DealForm({
         await createDeal({
           projectId,
           name,
-          accountId,
-          contactId,
           stage,
           value,
           entity,
@@ -160,10 +148,6 @@ function DealForm({
     });
   }
 
-  const contactOptions = accountId
-    ? contacts.filter((c) => c.accountId === accountId)
-    : contacts;
-
   return (
     <>
       <div className="space-y-3">
@@ -190,37 +174,6 @@ function DealForm({
               {DEAL_STAGES.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
-                </option>
-              ))}
-            </select>
-          </Labeled>
-          <Labeled label="Account">
-            <select
-              className={fieldCls}
-              value={accountId ?? ""}
-              onChange={(e) => {
-                setAccountId(e.target.value || null);
-                setContactId(null);
-              }}
-            >
-              <option value="">—</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </Labeled>
-          <Labeled label="Contact">
-            <select
-              className={fieldCls}
-              value={contactId ?? ""}
-              onChange={(e) => setContactId(e.target.value || null)}
-            >
-              <option value="">—</option>
-              {contactOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
                 </option>
               ))}
             </select>
