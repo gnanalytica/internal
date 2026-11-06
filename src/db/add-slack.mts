@@ -14,7 +14,7 @@ import { db } from "./index";
  * Run it BEFORE the code that reads `users.slack_user_id` deploys: every
  * `select().from(users)` names the column.
  *
- *     pnpm tsx --env-file=.env.local src/db/add-slack.ts
+ *     pnpm tsx --env-file=.env.local src/db/add-slack.mts
  */
 async function main() {
   await db.execute(sql`alter table users add column if not exists slack_user_id text`);

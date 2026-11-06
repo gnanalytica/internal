@@ -10,7 +10,7 @@ first post (as Linear does), and lets people act on tasks from Slack.
    code deploys — every read of `users` names the new `slack_user_id` column:
 
    ```bash
-   pnpm tsx --env-file=.env.local src/db/add-slack.ts
+   pnpm tsx --env-file=.env.local src/db/add-slack.mts
    ```
 
    It is idempotent (all `IF NOT EXISTS`), so running it twice is harmless.
@@ -81,7 +81,7 @@ src/lib/slack/
     unfurl.ts                  link_shared previews                        (next)
     thread-sync.ts             thread replies ↔ comments                   (next)
     ai.ts                      the AI bot                                  (next)
-src/db/add-slack.ts                  apply script
+src/db/add-slack.mts                 apply script (ES module: its state-pg import is ESM-only)
 slack/manifest.json                  the Slack app
 ```
 

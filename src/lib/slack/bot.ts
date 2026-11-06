@@ -23,7 +23,7 @@ import type { SlackBot } from "./types";
  * `@chat-adapter/state-pg`. The app's Drizzle client uses Neon's HTTP driver,
  * which has no sessions or transactions, so the state adapter gets its own
  * small node-postgres pool over the same (pooled) DATABASE_URL. The tables are
- * created by src/db/add-slack.ts, not on connect, so a cold start never runs
+ * created by src/db/add-slack.mts, not on connect, so a cold start never runs
  * DDL.
  *
  * Each feature registers its handlers from its own module under handlers/, so
