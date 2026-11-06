@@ -50,6 +50,7 @@ import {
   projectStatusUpdates,
   references,
   savedViews,
+  slackComments,
   subscriptions,
   projects,
   supportAnswers,
@@ -1231,7 +1232,7 @@ export async function getIssueTimeline(
   issueId: string,
 ): Promise<TimelineItem[]> {
   const me = await getCurrentUser();
-  const [cs, as] = await Promise.all([
+  const [cs, as, fromSlack] = await Promise.all([
     db.query.comments.findMany({
       where: eq(comments.issueId, issueId),
       with: { author: true, reactions: true },
@@ -1240,7 +1241,15 @@ export async function getIssueTimeline(
       where: eq(activity.issueId, issueId),
       with: { actor: true },
     }),
+    // Comments made by replying in the task's Slack thread. A missing table
+    // (before src/db/add-slack-comments.ts has run) just means none.
+    db
+      .select({ commentId: slackComments.commentId, authorName: slackComments.authorName })
+      .from(slackComments)
+      .where(eq(slackComments.issueId, issueId))
+      .catch(() => [] as { commentId: string; authorName: string | null }[]),
   ]);
+  const slackOf = new Map(fromSlack.map((s) => [s.commentId, s.authorName]));
   const items: TimelineItem[] = [
     ...cs.map((c) => {
       // Aggregate reactions by emoji, preserving first-seen order.
@@ -1256,6 +1265,7 @@ export async function getIssueTimeline(
         id: c.id,
         createdAt: c.createdAt,
         author: c.author,
+        ...(slackOf.has(c.id) ? { viaSlack: { name: slackOf.get(c.id) ?? null } } : {}),
         body: c.body,
         reactions: [...byEmoji.entries()].map(([emoji, v]) => ({
           emoji,

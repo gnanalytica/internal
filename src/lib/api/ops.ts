@@ -446,6 +446,10 @@ export async function apiCreateComment(
   userId: string | null,
   issueId: string,
   body: string,
+  opts: {
+    /** Runs between the insert and the announcement — e.g. Slack marking a comment as its own (src/lib/slack/threads.ts). */
+    beforeAnnounce?: (commentId: string) => Promise<void>;
+  } = {},
 ): Promise<string> {
   const text = body?.trim();
   if (!text) throw new ApiInputError("`body` is required.");
@@ -460,6 +464,7 @@ export async function apiCreateComment(
     .values({ workspaceId, issueId, authorId: userId, body: text })
     .returning();
   apiInvalidate(workspaceId, "issues");
+  if (opts.beforeAnnounce) await opts.beforeAnnounce(created.id);
   await dispatchWebhook(workspaceId, "issue.commented", {
     issueId,
     commentId: created.id,

@@ -552,12 +552,15 @@ export async function addComment(issueId: string, body: string) {
   if (!text) return;
   const ws = await getWorkspace();
   const me = await getCurrentUser();
-  await db.insert(comments).values({
-    workspaceId: ws.id,
-    issueId,
-    authorId: me.id,
-    body: text,
-  });
+  const [created] = await db
+    .insert(comments)
+    .values({
+      workspaceId: ws.id,
+      issueId,
+      authorId: me.id,
+      body: text,
+    })
+    .returning({ id: comments.id });
 
   // Notify mentioned members, plus the issue's assignee and creator
   // (excluding the comment author). A mention takes precedence over the
@@ -606,7 +609,7 @@ export async function addComment(issueId: string, body: string) {
     });
   }
 
-  await dispatchWebhook(ws.id, "issue.commented", { issueId, body: text });
+  await dispatchWebhook(ws.id, "issue.commented", { issueId, commentId: created?.id, body: text });
 
   invalidate(ws.id, "issues");
 }
