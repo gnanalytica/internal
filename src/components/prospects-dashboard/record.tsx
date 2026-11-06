@@ -14,7 +14,7 @@ import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS
 import type { Related } from "@/lib/prospects/related";
 import { addDays } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, Bar, Chips, DatePicker, DueChip, Owner, OwnerPicker, Segmented, StageBar, StageDot } from "./bits";
+import { BandBadge, Bar, CHANNEL_TONE, Chips, DatePicker, DueChip, KindDot, outcomeTone, Owner, OwnerPicker, Segmented, StageBar, StageDot, ToneChip } from "./bits";
 import { STAGE_COACHING } from "./playbook-content";
 import { useStageMove, type StageSubject } from "./stage-check";
 import { fillTemplate, GENERAL_ANGLE, TEMPLATE_ANGLES, type TemplateChannel } from "./templates";
@@ -580,7 +580,7 @@ function ActivityTable({ items, limit }: { items: ActivityEntry[]; limit?: numbe
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full min-w-[640px] text-[13px]">
-        <thead className="bg-muted/30 text-left text-xs text-muted-foreground">
+        <thead className="bg-muted/40 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
           <tr>
             <th className="px-3 py-2 font-normal">Date</th>
             <th className="px-3 py-2 font-normal">Channel</th>
@@ -592,13 +592,15 @@ function ActivityTable({ items, limit }: { items: ActivityEntry[]; limit?: numbe
         </thead>
         <tbody>
           {shown.map((a) => (
-            <tr key={a.id || a.loggedAt} className="border-t border-border/60 align-top">
+            <tr key={a.id || a.loggedAt} className="border-t border-border/60 align-top hover:bg-muted/30">
               <td className="px-3 py-2 font-mono text-xs whitespace-nowrap text-muted-foreground">{shortStamp(a)}</td>
               <td className="px-3 py-2 whitespace-nowrap">
-                {a.channel}
-                {a.durationMin ? <span className="text-muted-foreground"> · {a.durationMin} min</span> : null}
+                <ToneChip t={CHANNEL_TONE[a.channel as Channel] ?? "gray"}>{a.channel || "—"}</ToneChip>
+                {a.durationMin ? <span className="text-xs text-muted-foreground"> · {a.durationMin} min</span> : null}
               </td>
-              <td className="px-3 py-2 font-medium whitespace-nowrap">{a.outcome}</td>
+              <td className="px-3 py-2 whitespace-nowrap">
+                <ToneChip t={outcomeTone(a.outcome)}>{a.outcome || "—"}</ToneChip>
+              </td>
               <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{a.statusAfter || "—"}</td>
               <td className="px-3 py-2 whitespace-nowrap">{a.by.split(/\s+/)[0]}</td>
               <td className="px-3 py-2 text-muted-foreground">{a.summary || "—"}</td>
@@ -1054,7 +1056,8 @@ export function RecordPage({
         </Button>
         <div className="flex flex-wrap items-start gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="text-[13px] text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
+              <KindDot kind={sel.kind} />
               {KIND_LABEL[sel.kind].one}
               {r.city ? ` · ${r.city}` : r.state ? ` · ${r.state}` : ""} · <span className="font-mono text-xs">{r.id}</span>
             </p>

@@ -11,7 +11,6 @@ import {
   ChevronRight,
   CircleDot,
   CircleUser,
-  Contact,
   Folder,
   KeyRound,
   LogOut,
@@ -34,7 +33,7 @@ import {
 import { UserAvatar } from "@/components/glyphs";
 import { GitHubIcon } from "@/components/auth/provider-icons";
 import { NewIssueDialog } from "@/components/new-issue-dialog";
-import { ThemeToggleItem } from "@/components/theme-toggle";
+import { ThemeButton, ThemeToggleItem } from "@/components/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -404,24 +403,7 @@ export function Sidebar({
           }
         >
           {products.map((p) => (
-            <div key={p.id}>
-              <ProductNavItem project={p} active={productActive(p)} />
-              {p.key === PROSPECTS_PRODUCT_KEY && (
-                <Link
-                  href="/prospects"
-                  aria-current={pathname.startsWith("/prospects") ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-sm transition-colors",
-                    pathname.startsWith("/prospects")
-                      ? "bg-sidebar-accent font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-                  )}
-                >
-                  <Contact className="size-3.5 shrink-0" />
-                  <span className="truncate">Prospects</span>
-                </Link>
-              )}
-            </div>
+            <ProductNavItem key={p.id} project={p} active={productActive(p)} />
           ))}
         </Section>
 
@@ -497,6 +479,7 @@ export function Sidebar({
           <div className="truncate text-sm font-semibold">{currentUser.name}</div>
           <div className="truncate text-[11px] text-muted-foreground">{currentUser.email}</div>
         </div>
+        <ThemeButton />
         <Link
           href="/settings"
           aria-label="Settings"
@@ -723,7 +706,7 @@ function PageTreeItem({
         <button
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            "grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:bg-black/5",
+            "grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:bg-foreground/5",
             !hasChildren && "invisible",
           )}
           aria-label={open ? "Collapse" : "Expand"}
@@ -739,7 +722,7 @@ function PageTreeItem({
         </Link>
         <button
           onClick={() => onAddChild(node.id)}
-          className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-black/5 hover:text-foreground group-hover/page:opacity-100"
+          className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-foreground/5 hover:text-foreground group-hover/page:opacity-100"
           aria-label="Add sub-page"
         >
           <Plus className="size-3.5" />

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { FileText, Plus } from "lucide-react";
@@ -8,7 +7,7 @@ import { FileText, Plus } from "lucide-react";
 import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
 import { Topbar } from "@/components/topbar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Labelled, ScrollTabsList } from "@/components/responsive";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -56,11 +55,8 @@ export function SalesView({
   initialAccounts,
   initialContacts,
   issues,
-  prospectsHref,
 }: {
   heading: string;
-  /** Where this product's prospects are worked, when it has them. */
-  prospectsHref?: string;
   scopeProjectId: string | null;
   projects: Project[];
   members: Member[];
@@ -144,11 +140,6 @@ export function SalesView({
             <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:inline">
               Open {formatMoney(openValue)} · Won {formatMoney(wonValue)}
             </span>
-            {prospectsHref && (
-              <Link href={prospectsHref} className={buttonVariants({ size: "sm", variant: "outline" })}>
-                Prospects →
-              </Link>
-            )}
             <Button size="sm" className="gap-1.5" onClick={openNew}>
               <Plus className="size-4" /> New deal
             </Button>

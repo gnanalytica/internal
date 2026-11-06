@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 
 import type { ActivityEntry } from "@/lib/prospects/parse";
-import { KIND_LABEL, PROSPECT_KINDS, type ProspectKind } from "@/lib/prospects/schema";
+import { KIND_LABEL, PROSPECT_KINDS, type Channel, type ProspectKind } from "@/lib/prospects/schema";
+import { tone } from "@/lib/tones";
+import { cn } from "@/lib/utils";
 import { buildOverview, type Period, type ProspectRow } from "@/lib/prospects/stats";
-import { Bar, Card, Empty, FilterMenu, PATH, Segmented, StageDot } from "./bits";
+import { Bar, Card, CHANNEL_TONE, Empty, FilterMenu, PATH, Segmented, StageDot, stageTone } from "./bits";
 
 function Kpi({ label, value, note, tone }: { label: string; value: React.ReactNode; note?: string; tone?: "bad" }) {
   return (
@@ -52,7 +54,7 @@ export function Overview({ rows, activity, today, me, team, onGotoPlaybook }: { 
                   <span className="inline-flex items-center gap-1.5">
                     <StageDot stage={i} /> {f.stage}
                   </span>
-                  <Bar value={f.count} max={maxFunnel} />
+                  <Bar value={f.count} max={maxFunnel} fill={stageTone(i).bar} />
                   <span className="text-right font-mono text-xs tabular-nums">{f.count.toLocaleString("en-IN")}</span>
                   <span className="text-right font-mono text-[11px] text-muted-foreground tabular-nums" title="Share that moved on to the next stage">
                     {f.movedOn === null ? "" : `${f.movedOn}%`}
@@ -66,8 +68,11 @@ export function Overview({ rows, activity, today, me, team, onGotoPlaybook }: { 
             <div className="flex flex-col gap-1">
               {o.channels.map((c) => (
                 <div key={c.channel} className="grid grid-cols-[84px_1fr_88px] items-center gap-3 py-1 text-[13px]">
-                  <span>{c.channel}</span>
-                  <Bar value={c.rate} max={100} />
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden className={cn("size-[7px] rounded-full", tone(CHANNEL_TONE[c.channel as Channel] ?? "gray").dot)} />
+                    {c.channel}
+                  </span>
+                  <Bar value={c.rate} max={100} fill={tone(CHANNEL_TONE[c.channel as Channel] ?? "gray").bar} />
                   <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">{c.outbound ? `${c.engaged}/${c.outbound} · ${c.rate}%` : "—"}</span>
                 </div>
               ))}

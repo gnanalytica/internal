@@ -10,7 +10,7 @@ import { saveProspect } from "@/lib/prospects/actions";
 import { KIND_LABEL, PROSPECT_KINDS, STAGES, UNSCORED_KINDS, type ProspectKind } from "@/lib/prospects/schema";
 import { SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, DatePicker, DueChip, FilterMenu, Owner, OwnerPicker, StageDot, StagePill } from "./bits";
+import { BandBadge, DatePicker, DueChip, FilterMenu, KindDot, Owner, OwnerPicker, StageDot, StagePill } from "./bits";
 import { applyFilters, FilterBar, NO_FILTERS, type Filters } from "./pipeline";
 
 const PAGE = 100;
@@ -126,9 +126,12 @@ export function ListView({
               setChecked(new Set());
               setLimit(PAGE);
             }}
-            className={cn("h-8 shrink-0 rounded-md px-2.5 text-[13px] whitespace-nowrap", t.value === kind ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
+            className={cn("h-8 shrink-0 rounded-md px-2.5 text-[13px] whitespace-nowrap", t.value === kind ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}
           >
-            {t.label} <span className="font-mono text-[11px] text-muted-foreground/70">{t.n.toLocaleString("en-IN")}</span>
+            <span className="inline-flex items-center gap-1.5">
+              {t.value && <KindDot kind={t.value} />}
+              {t.label} <span className="font-mono text-[11px] text-muted-foreground/70">{t.n.toLocaleString("en-IN")}</span>
+            </span>
           </button>
         ))}
       </div>
@@ -173,7 +176,7 @@ export function ListView({
 
       <div className="overflow-x-auto max-md:hidden">
         <table className="w-full min-w-[900px] table-fixed text-[13px]">
-          <thead className="text-left text-xs text-muted-foreground">
+          <thead className="bg-muted/40 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
             <tr className="border-b">
               <th className="w-9 py-2 pl-1 font-normal">
                 <input type="checkbox" aria-label="Select all on this page" checked={allOn} onChange={() => setChecked(allOn ? new Set() : new Set(page.map(keyOf)))} className="accent-foreground" />
@@ -189,7 +192,7 @@ export function ListView({
           </thead>
           <tbody>
             {page.map((r) => (
-              <tr key={keyOf(r)} onClick={() => onOpen(r)} className={cn("h-10 cursor-pointer border-b border-border/60 hover:bg-muted/40", (checked.has(keyOf(r)) || openKey === keyOf(r)) && "bg-muted/60")}>
+              <tr key={keyOf(r)} onClick={() => onOpen(r)} className={cn("group h-11 cursor-pointer border-b border-border/60 even:bg-muted/15 hover:bg-brand/[0.04]", (checked.has(keyOf(r)) || openKey === keyOf(r)) && "bg-brand/[0.07] even:bg-brand/[0.07]")}>
                 <td className="pl-1" onClick={(e) => e.stopPropagation()}>
                   <input type="checkbox" aria-label={`Select ${r.name}`} checked={checked.has(keyOf(r))} onChange={() => toggle(r)} className="accent-foreground" />
                 </td>

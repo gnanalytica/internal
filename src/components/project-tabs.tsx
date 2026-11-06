@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { TabIndicator } from "@/components/tab-indicator";
 import { WatchButton } from "@/components/watch-button";
 import { visibleDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
@@ -43,7 +44,7 @@ export function ProjectTabs({
           { href: `${base}/docs`, label: "Docs" },
         ];
   return (
-    <div className="flex items-center gap-1 border-b px-4 pt-2.5">
+    <div className="no-scrollbar relative flex items-center gap-1 overflow-x-auto border-b px-4 pt-2.5">
       <div className="mr-3 flex items-center gap-2">
         <span className="size-3 rounded-full" style={{ backgroundColor: project.color }} />
         <span className="text-sm font-semibold">{project.name}</span>
@@ -54,11 +55,10 @@ export function ProjectTabs({
           <Link
             key={t.href}
             href={t.href}
+            data-active={active ? "" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-3 py-1.5 text-sm transition-colors",
-              active
-                ? "border-brand font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+              "shrink-0 rounded-t-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
+              active ? "font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
             )}
           >
             {t.label}
@@ -67,6 +67,7 @@ export function ProjectTabs({
       })}
       {/* Sits with the project, not a department, because what you follow here
           is the project's status updates. */}
+      <TabIndicator activeKey={pathname} />
       <div className="ml-auto pl-2">
         <WatchButton kind="project" targetId={project.id} initial={watching} />
       </div>

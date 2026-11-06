@@ -104,7 +104,7 @@ function DocRow({
         </Link>
         <button
           onClick={() => onAddChild(node.id)}
-          className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-black/5 hover:text-foreground group-hover:opacity-100"
+          className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-foreground/5 hover:text-foreground group-hover:opacity-100"
           aria-label="Add sub-page"
         >
           <Plus className="size-3.5" />

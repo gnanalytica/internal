@@ -6,27 +6,56 @@ import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { displayDate } from "@/lib/prospects/parse";
-import { STAGES } from "@/lib/prospects/schema";
+import { STAGES, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays, dueBucket, isAssignedTo, type Due } from "@/lib/prospects/stats";
+import { tone, type Tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 
 /** The stages the pipeline walks through; Lost (index 6) sits outside it. */
 export const PATH = STAGES.slice(0, 6);
 
-const STAGE_DOT = ["bg-zinc-300 dark:bg-zinc-600", "bg-zinc-400 dark:bg-zinc-500", "bg-zinc-500 dark:bg-zinc-400", "bg-brand", "bg-brand", "bg-emerald-600", "bg-red-500"];
+/**
+ * One hue per stage, cool to warm as a prospect moves: grey before anyone has
+ * spoken to them, blue and violet while we learn, indigo at the demo, amber
+ * while a pilot runs, green for Won and red for Lost.
+ */
+export const STAGE_TONE: Tone[] = ["gray", "blue", "violet", "indigo", "amber", "green", "red"];
+export const stageTone = (stage: number) => tone(STAGE_TONE[stage] ?? "gray");
 
-export function StageDot({ stage, className }: { stage: number; className?: string }) {
-  return <span aria-hidden className={cn("inline-block size-[7px] shrink-0 rounded-full", STAGE_DOT[stage] ?? STAGE_DOT[0], className)} />;
+/** Each kind of prospect keeps its hue wherever it appears (tabs, related rows, search). */
+export const KIND_TONE: Record<ProspectKind, Tone> = { valuer: "blue", firm: "violet", rvo: "teal", panel: "orange", bank: "pink" };
+
+export const CHANNEL_TONE: Record<Channel, Tone> = { WhatsApp: "green", Email: "violet", Call: "blue", Meeting: "amber", Other: "gray" };
+
+/** Good news green, a door closing red, everything in between neutral. */
+export function outcomeTone(o: string): Tone {
+  if ((["Replied", "Connected", "Demo booked", "Meeting held"] as Outcome[]).includes(o as Outcome)) return "green";
+  if ((["Not interested", "Wrong number"] as Outcome[]).includes(o as Outcome)) return "red";
+  if ((["No answer", "Busy — call back"] as Outcome[]).includes(o as Outcome)) return "amber";
+  return "gray";
 }
 
-/** A stage as a dot and its name — quiet enough to sit in every row. */
+export function StageDot({ stage, className }: { stage: number; className?: string }) {
+  return <span aria-hidden className={cn("inline-block size-[7px] shrink-0 rounded-full", stageTone(stage).dot, className)} />;
+}
+
+/** A stage as a tinted chip with its dot, so the column reads at a glance. */
 export function StagePill({ stage, className }: { stage: number; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-[13px] whitespace-nowrap", className)}>
+    <span className={cn("inline-flex h-5 items-center gap-1.5 rounded-full pr-2 pl-1.5 text-xs font-medium whitespace-nowrap", stageTone(stage).chip, className)}>
       <StageDot stage={stage} />
       {STAGES[stage] ?? STAGES[0]}
     </span>
   );
+}
+
+/** A small tinted chip: a channel, an outcome, a kind. */
+export function ToneChip({ t, children, className }: { t: Tone; children: React.ReactNode; className?: string }) {
+  return <span className={cn("inline-flex h-5 items-center rounded-md px-1.5 text-xs font-medium whitespace-nowrap", tone(t).chip, className)}>{children}</span>;
+}
+
+export function KindDot({ kind, className }: { kind: ProspectKind; className?: string }) {
+  return <span aria-hidden className={cn("inline-block size-[7px] shrink-0 rounded-[2px]", tone(KIND_TONE[kind]).dot, className)} />;
 }
 
 /** Six segments for the six open stages; a Lost record shows them all muted. */
@@ -36,7 +65,7 @@ export function StageBar({ stage, labels, className }: { stage: number; labels?:
     <div role="img" aria-label={lost ? "Stage: Lost" : `Stage: ${STAGES[stage]}, ${stage + 1} of ${PATH.length}`} className={cn("grid grid-cols-6 gap-1", className)}>
       {PATH.map((s, i) => (
         <div key={s} className="flex min-w-0 flex-col gap-1.5">
-          <span className={cn("h-1 rounded-full", !lost && i <= stage ? "bg-foreground" : "bg-muted-foreground/20")} />
+          <span className={cn("h-1 rounded-full transition-colors duration-300", !lost && i <= stage ? stageTone(stage).bar : "bg-muted-foreground/20")} />
           {labels && <span className={cn("truncate text-xs", i === stage && !lost ? "font-medium text-foreground" : "text-muted-foreground/70")}>{s}</span>}
         </div>
       ))}
@@ -52,7 +81,7 @@ export function BandBadge({ band, score, className }: { band: string; score?: nu
     <span
       className={cn(
         "inline-flex h-5 items-center rounded px-1.5 font-mono text-[11px] font-medium whitespace-nowrap tabular-nums",
-        band === "A" ? "bg-brand/10 text-brand" : band === "Disqualified" ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300" : "bg-muted text-muted-foreground",
+        band === "A" ? tone("green").chip : band === "B" ? tone("blue").chip : band === "C" ? tone("amber").chip : band === "Disqualified" ? tone("red").chip : "bg-muted text-muted-foreground",
         className,
       )}
     >
@@ -62,8 +91,8 @@ export function BandBadge({ band, score, className }: { band: string; score?: nu
 }
 
 const DUE_CLASS: Record<Due, string> = {
-  overdue: "text-red-700 dark:text-red-400",
-  today: "font-medium text-foreground",
+  overdue: cn("rounded-md px-1.5 py-0.5 font-medium", tone("red").chip),
+  today: cn("rounded-md px-1.5 py-0.5 font-medium", tone("amber").chip),
   soon: "text-foreground",
   later: "text-muted-foreground",
   none: "text-muted-foreground",
@@ -90,11 +119,11 @@ export function DueChip({ date, today, className }: { date: string | null; today
 }
 
 /** A horizontal bar for a single magnitude; one hue, the value always written beside it. */
-export function Bar({ value, max, className }: { value: number; max: number; className?: string }) {
+export function Bar({ value, max, className, fill = "bg-foreground/80" }: { value: number; max: number; className?: string; fill?: string }) {
   const w = max > 0 ? Math.max(value > 0 ? 2 : 0, Math.round((value / max) * 100)) : 0;
   return (
     <div className={cn("h-2 w-full rounded-r bg-muted", className)}>
-      <div className="h-full rounded-r bg-foreground/80" style={{ width: `${w}%` }} />
+      <div className={cn("h-full rounded-r transition-[width] duration-500 ease-out", fill)} style={{ width: `${w}%` }} />
     </div>
   );
 }
