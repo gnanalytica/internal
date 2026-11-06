@@ -76,6 +76,7 @@ import type {
   FlatIssue,
   FeatureWithRelations,
   InvoiceWithRelations,
+  IssueListItem,
   IssueWithRelations,
   Label,
   Member,
@@ -112,6 +113,7 @@ export type {
   FlatIssue,
   FlatPage,
   Issue,
+  IssueListItem,
   IssueWithRelations,
   Label,
   Member,
@@ -481,9 +483,31 @@ export async function getLabels(workspaceId: string): Promise<Label[]> {
     .orderBy(asc(labels.name));
 }
 
+// What a task list loads per issue: everything but the description, and the
+// relations trimmed to the `IssueListItem` refs. Shared by every list getter so
+// the shape can't drift between them.
+const USER_REF_COLUMNS = { id: true, name: true, email: true, avatarColor: true } as const;
+const ISSUE_LIST_QUERY = {
+  columns: { description: false },
+  with: {
+    project: { columns: { id: true, key: true, name: true, color: true } },
+    cycle: { columns: { id: true, name: true, number: true, startDate: true, endDate: true } },
+    assignee: { columns: USER_REF_COLUMNS },
+    labels: { with: { label: true } },
+    milestone: { columns: { id: true, name: true } },
+    assignees: { with: { user: { columns: USER_REF_COLUMNS } } },
+  },
+} as const;
+
+/**
+ * Every issue in the workspace, as task lists render them. Lists filter this in
+ * memory (by project, department, assignee), so it stays one cache entry per
+ * workspace — and stays slim, because it ships to the client on every task
+ * surface. The issue page reads the full row through `getIssue`.
+ */
 export async function getIssues(
   workspaceId: string,
-): Promise<IssueWithRelations[]> {
+): Promise<IssueListItem[]> {
   "use cache";
   cacheTag(...wsTags(workspaceId, "issues", "labels"));
   cacheLife("minutes");
@@ -491,14 +515,7 @@ export async function getIssues(
   const rows = await db.query.issues.findMany({
     where: eq(issues.workspaceId, workspaceId),
     orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
-    with: {
-      project: true,
-      cycle: true,
-      assignee: true,
-      labels: { with: { label: true } },
-      milestone: { columns: { id: true, name: true } },
-      assignees: { with: { user: true } },
-    },
+    ...ISSUE_LIST_QUERY,
   });
   return rows.map((r) => ({
     ...r,

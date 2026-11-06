@@ -1,5 +1,5 @@
 import { issueIdentifier } from "@/lib/types";
-import type { IssueWithRelations } from "@/lib/types";
+import type { IssueListItem } from "@/lib/types";
 
 function cell(value: string | number | null | undefined): string {
   const s = value == null ? "" : String(value);
@@ -22,7 +22,7 @@ const HEADERS = [
   "Labels",
 ] as const;
 
-export function issuesToCsv(issues: IssueWithRelations[]): string {
+export function issuesToCsv(issues: IssueListItem[]): string {
   const rows = issues.map((i) =>
     [
       issueIdentifier(i),

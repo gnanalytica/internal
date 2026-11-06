@@ -1,6 +1,6 @@
 import { IssuesView } from "@/components/issues-view";
 import type { GroupBy } from "@/lib/issue-filters";
-import type { IssueWithRelations, TaskContext } from "@/lib/types";
+import type { IssueListItem, TaskContext } from "@/lib/types";
 
 /**
  * The task tool embedded in a document-style page (a milestone, a feature, an
@@ -21,7 +21,7 @@ export function TaskPanel({
   defaultGroupBy,
 }: {
   heading: string;
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   ctx: TaskContext;
   projectId?: string | null;
   storageScope?: string;

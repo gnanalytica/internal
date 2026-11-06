@@ -17,7 +17,7 @@ import {
 import { UserAvatar } from "@/components/glyphs";
 import { PRIORITIES, STATUSES } from "@/lib/constants";
 import { deleteIssue, setIssueAssignees, updateIssue } from "@/lib/actions";
-import type { IssueWithRelations, Member } from "@/lib/types";
+import type { IssueListItem, Member } from "@/lib/types";
 
 /**
  * Right-click menu for an issue (list rows + board cards). Wraps a single
@@ -29,7 +29,7 @@ export function IssueContextMenu({
   members,
   children,
 }: {
-  issue: IssueWithRelations;
+  issue: IssueListItem;
   members: Member[];
   children: React.ReactElement;
 }) {

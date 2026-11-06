@@ -1,5 +1,5 @@
 import { ISSUE_TYPES, PRIORITIES, STATUSES } from "@/lib/constants";
-import type { Cycle, IssueWithRelations, Member, Milestone, Project } from "@/lib/types";
+import type { Cycle, IssueListItem, Member, Milestone, Project } from "@/lib/types";
 
 /** Active issue filters. Empty set = no constraint for that dimension. */
 export type IssueFilters = {
@@ -67,7 +67,7 @@ export function activeFilterCount(f: IssueFilters): number {
 /** Whether a single issue passes all active filter dimensions (AND across dimensions). */
 export function matchesFilters(
   issue: Pick<
-    IssueWithRelations,
+    IssueListItem,
     "status" | "priority" | "type" | "assigneeId" | "labels" | "cycleId" | "milestoneId"
   > & {
     assignees?: { id: string }[];
@@ -96,7 +96,7 @@ export function matchesFilters(
   return true;
 }
 
-export function filterIssues<T extends IssueWithRelations>(
+export function filterIssues<T extends IssueListItem>(
   issues: T[],
   f: IssueFilters,
 ): T[] {
@@ -147,7 +147,7 @@ export type IssueGroup = {
   color?: string;
   /** Secondary text beside the group name, e.g. a cycle's date range. */
   hint?: string;
-  items: IssueWithRelations[];
+  items: IssueListItem[];
 };
 
 /**
@@ -155,8 +155,8 @@ export type IssueGroup = {
  * order. Used to build groups when the caller has no ordered lookup list.
  */
 function derive(
-  issues: IssueWithRelations[],
-  pick: (i: IssueWithRelations) => { id: string; name: string } | null,
+  issues: IssueListItem[],
+  pick: (i: IssueListItem) => { id: string; name: string } | null,
 ): { id: string; name: string; hint?: string }[] {
   const seen = new Map<string, { id: string; name: string }>();
   for (const i of issues) {
@@ -168,7 +168,7 @@ function derive(
 
 /** Partition issues into ordered, non-empty groups by the chosen dimension. */
 export function groupIssues(
-  issues: IssueWithRelations[],
+  issues: IssueListItem[],
   groupBy: GroupBy,
   ctx: GroupContext,
 ): IssueGroup[] {
@@ -177,7 +177,7 @@ export function groupIssues(
     label: string;
     color?: string;
     hint?: string;
-    match: (i: IssueWithRelations) => boolean;
+    match: (i: IssueListItem) => boolean;
   }[];
 
   switch (groupBy) {
@@ -202,7 +202,7 @@ export function groupIssues(
           key: m.id,
           label: m.name,
           color: m.avatarColor,
-          match: (i: IssueWithRelations) => i.assigneeId === m.id,
+          match: (i: IssueListItem) => i.assigneeId === m.id,
         })),
         { key: "none", label: "Unassigned", match: (i) => !i.assigneeId },
       ];
@@ -213,7 +213,7 @@ export function groupIssues(
           key: p.id,
           label: p.name,
           color: p.color,
-          match: (i: IssueWithRelations) => i.projectId === p.id,
+          match: (i: IssueListItem) => i.projectId === p.id,
         })),
         { key: "none", label: "No project", match: (i) => !i.projectId },
       ];
@@ -225,7 +225,7 @@ export function groupIssues(
           key: c.id,
           label: c.name,
           hint: c.hint,
-          match: (i: IssueWithRelations) => i.cycleId === c.id,
+          match: (i: IssueListItem) => i.cycleId === c.id,
         })),
         { key: "none", label: "No cycle", match: (i) => !i.cycleId },
       ];
@@ -237,7 +237,7 @@ export function groupIssues(
         ...list.map((m) => ({
           key: m.id,
           label: m.name,
-          match: (i: IssueWithRelations) => i.milestoneId === m.id,
+          match: (i: IssueListItem) => i.milestoneId === m.id,
         })),
         { key: "none", label: "No milestone", match: (i) => !i.milestoneId },
       ];
@@ -268,7 +268,7 @@ export function groupIssues(
 
 export function issueComparator(
   sort: SortId,
-): (a: IssueWithRelations, b: IssueWithRelations) => number {
+): (a: IssueListItem, b: IssueListItem) => number {
   switch (sort) {
     case "priority":
       return (a, b) =>

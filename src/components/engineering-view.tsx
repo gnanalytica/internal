@@ -2,7 +2,7 @@
 
 import { IssuesView } from "@/components/issues-view";
 import { Topbar } from "@/components/topbar";
-import type { IssueWithRelations, TaskContext } from "@/lib/types";
+import type { IssueListItem, TaskContext } from "@/lib/types";
 
 /**
  * A project's Engineering surface: the build board.
@@ -20,7 +20,7 @@ export function EngineeringView({
 }: {
   heading: string;
   projectId: string;
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   ctx: TaskContext;
 }) {
   return (

@@ -229,6 +229,34 @@ export type IssueParentRef = {
   project: Project | null;
 };
 
+/**
+ * The slices of an issue's relations that a task list renders. Lists ship every
+ * workspace issue to the client, so they carry these refs rather than full
+ * rows: a full project row per issue was a third of the payload.
+ */
+export type IssueProjectRef = Pick<Project, "id" | "key" | "name" | "color">;
+export type IssueCycleRef = Pick<Cycle, "id" | "name" | "number" | "startDate" | "endDate">;
+export type IssueUserRef = Pick<Member, "id" | "name" | "email" | "avatarColor">;
+
+/**
+ * An issue as a list, board or timeline shows it (`getIssues`): no description
+ * — editor JSON only the issue page reads, through `getIssue` — and slim
+ * relations. `IssueWithRelations` is a superset, so a full row goes anywhere a
+ * list item can.
+ */
+export type IssueListItem = Omit<Issue, "description"> & {
+  project: IssueProjectRef | null;
+  cycle: IssueCycleRef | null;
+  // Primary assignee (issues.assigneeId) — drives sort/group/board avatar.
+  assignee: IssueUserRef | null;
+  // Full assignee set (includes the primary). Empty when unassigned.
+  assignees: IssueUserRef[];
+  labels: Label[];
+  milestone: { id: string; name: string } | null;
+  /** See `IssueWithRelations.blockedBy`. */
+  blockedBy?: number;
+};
+
 export type IssueWithRelations = Issue & {
   project: Project | null;
   cycle: Cycle | null;

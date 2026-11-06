@@ -29,7 +29,7 @@ import {
 import {
   PROJECT_HEALTH,
   type BacklinkItem,
-  type IssueWithRelations,
+  type IssueListItem,
   type Member,
   type ProjectDetail as ProjectDetailType,
   type ProjectHealth,
@@ -50,7 +50,7 @@ export function ProjectDetail({
 }: {
   project: ProjectDetailType;
   /** This operation's tasks, in board order. */
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   members: Member[];
   ctx: TaskContext;
   isAdmin: boolean;
