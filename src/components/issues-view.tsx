@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import {
   ArrowUpDown,
   Bookmark,
@@ -63,7 +63,7 @@ import {
   type SortId,
 } from "@/lib/issue-filters";
 import { cycleSubtitle } from "@/lib/cycle-format";
-import { nestGroup, subIssueProgress } from "@/lib/issue-tree";
+import { FIRST_PAINT_ROWS, GROUP_PAGE, nestGroup, pageGroups, subIssueProgress } from "@/lib/issue-tree";
 import { issueIdentifier } from "@/lib/types";
 import type {
   Cycle,
@@ -78,6 +78,11 @@ import type {
 import { cn } from "@/lib/utils";
 
 type View = "list" | "board" | "timeline";
+
+// False for the server render and hydration, true from then on (and on every
+// client-side render), without a mount effect.
+const subscribeNothing = () => () => {};
+const useIsLive = () => useSyncExternalStore(subscribeNothing, () => true, () => false);
 
 /** Distinct non-null refs in first-seen order, for menus built from the tasks. */
 function dedupeBy(refs: ({ id: string; name: string } | null)[]) {
@@ -162,6 +167,11 @@ export function IssuesView({
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroupBy);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Top-level rows shown per list group, after "Show more"; GROUP_PAGE otherwise.
+  const [shown, setShown] = useState<Record<string, number>>({});
+  const showMore = (key: string) =>
+    setShown((prev) => ({ ...prev, [key]: (prev[key] ?? GROUP_PAGE) + GROUP_PAGE }));
+  const live = useIsLive();
   const toggleCollapse = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -416,6 +426,20 @@ export function IssuesView({
     ...g,
     items: g.items.slice().sort(compare),
   }));
+
+  // The list renders a page of each group, and the server's HTML only the
+  // first screen of rows: every task is already here, so the rest render in
+  // the browser once the list is live. Filters, search and grouping work on
+  // the whole set either way.
+  const listGroups = grouped.map((g) => ({ ...g, rows: nestGroup(g.items).rows }));
+  const pages = pageGroups(
+    listGroups.map((g) => ({
+      key: g.key,
+      sizes: g.rows.map((r) => 1 + (collapsed.has(r.issue.id) ? 0 : r.children.length)),
+    })),
+    shown,
+    live ? Infinity : FIRST_PAINT_ROWS,
+  );
 
   function clearFilters() {
     setFStatus(new Set());
@@ -679,7 +703,7 @@ export function IssuesView({
         </div>
       ) : view === "list" ? (
         <div className="scrollbar-thin flex-1 overflow-y-auto">
-          {grouped.map((g) => (
+          {listGroups.map((g, gi) => (
             <div key={g.key}>
               <div className="sticky top-0 z-10 flex items-center gap-2 bg-muted/60 px-4 py-1.5 backdrop-blur">
                 {groupBy === "status" ? (
@@ -693,7 +717,7 @@ export function IssuesView({
                 )}
                 <span className="text-xs text-muted-foreground">{g.items.length}</span>
               </div>
-              {nestGroup(g.items).rows.map(({ issue, children }) => {
+              {g.rows.slice(0, pages[gi]).map(({ issue, children }) => {
                 const isCollapsed = collapsed.has(issue.id);
                 return (
                   <div key={issue.id}>
@@ -734,6 +758,14 @@ export function IssuesView({
                   </div>
                 );
               })}
+              {live && g.rows.length > pages[gi] && (
+                <button
+                  onClick={() => showMore(g.key)}
+                  className="w-full border-b border-border/60 px-4 py-2 text-left text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                >
+                  Show {Math.min(GROUP_PAGE, g.rows.length - pages[gi])} more
+                </button>
+              )}
             </div>
           ))}
         </div>

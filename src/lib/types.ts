@@ -238,13 +238,24 @@ export type IssueProjectRef = Pick<Project, "id" | "key" | "name" | "color">;
 export type IssueCycleRef = Pick<Cycle, "id" | "name" | "number" | "startDate" | "endDate">;
 export type IssueUserRef = Pick<Member, "id" | "name" | "email" | "avatarColor">;
 
+/** Issue columns a task list never reads, so `getIssues` leaves them out. */
+export type IssueListOmitted =
+  | "workspaceId"
+  | "creatorId"
+  | "githubUrl"
+  | "githubNumber"
+  | "externalSource"
+  | "externalId"
+  | "externalUrl";
+
 /**
  * An issue as a list, board or timeline shows it (`getIssues`): no description
- * — editor JSON only the issue page reads, through `getIssue` — and slim
- * relations. `IssueWithRelations` is a superset, so a full row goes anywhere a
- * list item can.
+ * — editor JSON only the issue page reads, through `getIssue` — no columns
+ * no list reads (workspace, creator, GitHub and import links), and slim
+ * relations. `IssueWithRelations` is a superset, so a full row goes
+ * anywhere a list item can.
  */
-export type IssueListItem = Omit<Issue, "description"> & {
+export type IssueListItem = Omit<Issue, "description" | IssueListOmitted> & {
   project: IssueProjectRef | null;
   cycle: IssueCycleRef | null;
   // Primary assignee (issues.assigneeId) — drives sort/group/board avatar.

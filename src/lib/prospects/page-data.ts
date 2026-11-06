@@ -2,21 +2,22 @@ import "server-only";
 
 import type { WorkspaceData } from "@/components/prospects-dashboard/workspace";
 import { getCurrentUser, getMembers } from "@/lib/data";
-import { loadWorkbook } from "./read";
+import { loadProspectSnapshot } from "./read";
 import { prospectsSheetUrl } from "./schema";
-import { inFocus, todayIST, toRow } from "./stats";
+import { inFocus, todayIST, type ProspectRow } from "./stats";
 
 /** Everything the prospects workspace renders, read from the sheet for one workspace. */
 export async function loadProspectsWorkspace(workspaceId: string, scope: "focus" | "all"): Promise<WorkspaceData> {
-  const [me, members, wb] = await Promise.all([getCurrentUser(workspaceId), getMembers(workspaceId), loadWorkbook()]);
-  const scoped = (list: typeof wb.valuers) => list.filter((r) => scope === "all" || inFocus(r)).map(toRow);
+  const [me, members, snap] = await Promise.all([getCurrentUser(workspaceId), getMembers(workspaceId), loadProspectSnapshot()]);
+  const { rows } = snap;
+  const scoped = (list: ProspectRow[]) => (scope === "all" ? list : list.filter(inFocus));
   return {
-    rows: { valuer: scoped(wb.valuers), firm: scoped(wb.firms), rvo: scoped(wb.rvos), panel: scoped(wb.panels), bank: scoped(wb.banks) },
-    totals: { valuer: wb.valuers.length, firm: wb.firms.length, rvo: wb.rvos.length, panel: wb.panels.length, bank: wb.banks.length },
-    activity: wb.activity,
+    rows: { valuer: scoped(rows.valuer), firm: scoped(rows.firm), rvo: scoped(rows.rvo), panel: scoped(rows.panel), bank: scoped(rows.bank) },
+    totals: { valuer: rows.valuer.length, firm: rows.firm.length, rvo: rows.rvo.length, panel: rows.panel.length, bank: rows.bank.length },
+    activity: snap.activity,
     today: todayIST(),
-    readAt: wb.readAt,
-    warnings: wb.warnings,
+    readAt: snap.readAt,
+    warnings: snap.warnings,
     sheetUrl: prospectsSheetUrl(),
     me: (me.name || me.email || "").trim(),
     team: members.map((m) => (m.name || m.email || "").trim()).filter(Boolean),

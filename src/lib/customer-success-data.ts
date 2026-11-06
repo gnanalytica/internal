@@ -5,7 +5,7 @@ import { getDeals, getFeedback, getSupportAnswers, getTickets } from "@/lib/data
 import { themeNames } from "@/lib/product-roadmap";
 import { prospectRef } from "@/lib/prospects/deal-plan";
 import type { ActivityEntry } from "@/lib/prospects/parse";
-import { loadWorkbook } from "@/lib/prospects/read";
+import { loadProspectSnapshot } from "@/lib/prospects/read";
 import { PROSPECT_KINDS, prospectsSheetUrl, type ProspectKind } from "@/lib/prospects/schema";
 import { todayIST } from "@/lib/prospects/stats";
 import { sentByRef } from "@/lib/send-to-product";
@@ -78,14 +78,13 @@ export async function loadCustomerSuccess(input: { workspaceId: string; projectI
     getTickets(workspaceId, projectId),
     getSupportAnswers(workspaceId, projectId),
     getFeedback(workspaceId, projectId),
-    fromSheet ? loadWorkbook() : null,
+    fromSheet ? loadProspectSnapshot() : null,
   ]);
   const byRef = new Map(deals.filter((d) => d.prospectRef).map((d) => [d.prospectRef!, d]));
 
   const customers: Customer[] = [];
   if (wb) {
-    const lists: Record<ProspectKind, typeof wb.valuers> = { valuer: wb.valuers, firm: wb.firms, rvo: wb.rvos, panel: wb.panels, bank: wb.banks };
-    const records = PROSPECT_KINDS.flatMap((k) => lists[k]).filter((r) => isCustomerStage(r.stage));
+    const records = PROSPECT_KINDS.flatMap((k) => wb.rows[k]).filter((r) => isCustomerStage(r.stage));
     const ids = new Set(records.map((r) => r.id));
     const activityById = new Map<string, ActivityEntry[]>();
     for (const a of wb.activity) {

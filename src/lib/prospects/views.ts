@@ -1,14 +1,17 @@
 import { recordsOf, type ProspectRecord, type ProspectsWorkbook } from "./parse";
 import { PROSPECT_KINDS, type ProspectKind } from "./schema";
-import { inFocus, myTasks, toRow, type ProspectRow } from "./stats";
+import { snapshotOf, type ProspectsSnapshot } from "./snapshot";
+import { inFocus, myTasks, type ProspectRow } from "./stats";
 
 /**
  * Read models for the API: the same slices the web page renders, built from
- * the workbook with no session involved. Pure, so the shapes a phone receives
+ * the sheet with no session involved. Pure, so the shapes a phone receives
  * are tested rather than trusted.
  */
 
 export type Scope = "focus" | "all";
+
+type Rows = Pick<ProspectsSnapshot, "rows">;
 
 export const parseScope = (v: string | null | undefined): Scope => (v === "all" ? "all" : "focus");
 
@@ -17,18 +20,16 @@ export function parseKind(v: string | null | undefined): ProspectKind | null {
 }
 
 /** One kind's rows, as the web's list shows them: focus states only unless the scope is all India. */
-export function scopedRows(wb: ProspectsWorkbook, kind: ProspectKind, scope: Scope): ProspectRow[] {
-  return recordsOf(wb, kind)
-    .filter((r) => scope === "all" || inFocus(r))
-    .map(toRow);
+export function scopedRows(snap: Rows, kind: ProspectKind, scope: Scope): ProspectRow[] {
+  return snap.rows[kind].filter((r) => scope === "all" || inFocus(r));
 }
 
 /** Rows in scope per kind (the switch's counts) and before the state filter (the "All India" count). */
-export function kindCounts(wb: ProspectsWorkbook, scope: Scope): { counts: Record<ProspectKind, number>; totals: Record<ProspectKind, number> } {
+export function kindCounts(snap: Rows, scope: Scope): { counts: Record<ProspectKind, number>; totals: Record<ProspectKind, number> } {
   const counts = {} as Record<ProspectKind, number>;
   const totals = {} as Record<ProspectKind, number>;
   for (const k of PROSPECT_KINDS) {
-    const all = recordsOf(wb, k);
+    const all = snap.rows[k];
     totals[k] = all.length;
     counts[k] = scope === "all" ? all.length : all.filter(inFocus).length;
   }
@@ -36,8 +37,8 @@ export function kindCounts(wb: ProspectsWorkbook, scope: Scope): { counts: Recor
 }
 
 /** Every kind's rows in scope, which is what a person's queue is drawn from. */
-export function everyRow(wb: ProspectsWorkbook, scope: Scope): ProspectRow[] {
-  return PROSPECT_KINDS.flatMap((k) => scopedRows(wb, k, scope));
+export function everyRow(snap: Rows, scope: Scope): ProspectRow[] {
+  return PROSPECT_KINDS.flatMap((k) => scopedRows(snap, k, scope));
 }
 
 export type MyWorkItem = {
@@ -57,7 +58,7 @@ export type MyWorkItem = {
 export function myWork(wb: ProspectsWorkbook, person: string, today: string, scope: Scope): MyWorkItem[] {
   const byKey = new Map<string, ProspectRecord>();
   for (const k of PROSPECT_KINDS) for (const r of recordsOf(wb, k)) byKey.set(`${k}:${r.id}`, r);
-  return myTasks(everyRow(wb, scope), person, today).map(({ row, reason }) => {
+  return myTasks(everyRow(snapshotOf(wb), scope), person, today).map(({ row, reason }) => {
     const r = byKey.get(`${row.kind}:${row.id}`)!;
     return { reason, row, drafts: r.drafts, phone: r.phone, email: r.email, pitchAngle: r.pitchAngle, lenders: r.lenders.length, casesPerMonth: r.casesPerMonth, software: r.software };
   });
