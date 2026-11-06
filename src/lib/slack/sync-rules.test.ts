@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { commentFromWebhook, inboundVerdict, isDoneReaction, mirrorTargets, mirrorText, viaSlackLabel } from "./sync-rules";
+import {
+  aiConversationKey,
+  commentFromWebhook,
+  inboundVerdict,
+  isAiParticipant,
+  isDoneReaction,
+  mirrorTargets,
+  mirrorText,
+  viaSlackLabel,
+} from "./sync-rules";
 
 const reply = { isMe: false, isBot: false, isMention: false, text: "on it", ts: "2.0", threadTs: "1.0" };
 
@@ -12,6 +21,15 @@ describe("inboundVerdict (the Slack → app loop guard)", () => {
   it("never reads back the bot's own posts or other bots", () => {
     expect(inboundVerdict({ ...reply, isMe: true })).toBe("self");
     expect(inboundVerdict({ ...reply, isBot: true })).toBe("bot");
+  });
+
+  it("skips follow-ups to the AI bot from people in its conversation", () => {
+    expect(inboundVerdict({ ...reply, inAiConversation: true })).toBe("ai_followup");
+    expect(aiConversationKey("slack:C1:1.0")).toBe("ai:conv:slack:C1:1.0");
+    expect(isAiParticipant({ participants: ["U1"], startedAt: 1 }, "U1")).toBe(true);
+    expect(isAiParticipant({ participants: ["U1"], startedAt: 1 }, "U2")).toBe(false);
+    expect(isAiParticipant(null, "U1")).toBe(false);
+    expect(isAiParticipant({ participants: "U1" }, "U1")).toBe(false);
   });
 
   it("skips thread roots, talk to the bot, and empty messages", () => {

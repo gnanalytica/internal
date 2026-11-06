@@ -9,7 +9,7 @@ import { apiUpdateIssue } from "@/lib/api/ops";
 import { audienceFor, notify } from "@/lib/notify";
 import { actorIn } from "../actor";
 import { mentionedSlackUsers, slackToMarkdown } from "../parse";
-import { inboundVerdict, isDoneReaction } from "../sync-rules";
+import { aiConversationKey, inboundVerdict, isAiParticipant, isDoneReaction } from "../sync-rules";
 import { alreadySynced, commentFromSlack, issuesForThread } from "../threads";
 import type { SlackBot } from "../types";
 import { appUserForSlack } from "../users";
@@ -32,8 +32,9 @@ import { appUserForSlack } from "../users";
  * before it is announced so it isn't echoed into its own thread.
  *
  * Not synced: edits and deletes (a Slack edit doesn't change the comment, nor
- * the reverse), files, and replies that @-mention the bot (those are talking
- * to the AI). Replies are seen when the thread routes to `onNewMessage` or
+ * the reverse), files, and anything said to the AI bot — a reply that
+ * @-mentions it, or a follow-up from someone already in its conversation in
+ * that thread (`ai:conv:<threadId>`, see ai/conversation.ts). Replies are seen when the thread routes to `onNewMessage` or
  * `onSubscribedMessage`; one the SDK drops because another handler holds the
  * thread's lock (a long AI reply in progress) is missed.
  */
@@ -45,15 +46,19 @@ async function syncReply(bot: SlackBot, thread: Thread, message: Message): Promi
   const slack = bot.getAdapter("slack");
   const { channel, threadTs } = slack.decodeThreadId(thread.id);
   const ts = raw.ts ?? message.id;
-  const verdict = inboundVerdict({
+  const base = {
     isMe: message.author.isMe === true,
     isBot: message.author.isBot === true || Boolean(raw.bot_id),
     isMention: message.isMention === true,
     text: message.text,
     ts,
     threadTs: raw.thread_ts ?? threadTs,
-  });
-  if (verdict !== "sync") return;
+  };
+  // Cheap checks first: most channel messages are roots and stop here.
+  if (inboundVerdict(base) !== "sync") return;
+  // A follow-up from someone talking to the AI bot here is an instruction to it, not a task comment.
+  const conv = await bot.getState().get(aiConversationKey(thread.id)).catch(() => null);
+  if (inboundVerdict({ ...base, inAiConversation: isAiParticipant(conv, message.author.userId) }) !== "sync") return;
 
   const linked = await issuesForThread(channel, raw.thread_ts ?? threadTs);
   if (linked.length === 0) return;

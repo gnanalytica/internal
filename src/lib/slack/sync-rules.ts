@@ -22,20 +22,37 @@ export type InboundMessage = {
   /** The message's own ts and the thread's root ts. */
   ts: string;
   threadTs: string;
+  /** The author is in a conversation with the AI bot in this thread, so a follow-up is meant for it. */
+  inAiConversation?: boolean;
 };
 
-export type InboundVerdict = "sync" | "self" | "bot" | "root" | "mention" | "empty";
+export type InboundVerdict = "sync" | "self" | "bot" | "root" | "mention" | "ai_followup" | "empty";
 
 export function inboundVerdict(m: InboundMessage): InboundVerdict {
   if (m.isMe) return "self";
   if (m.isBot) return "bot";
   if (!m.threadTs || m.threadTs === m.ts) return "root";
   if (m.isMention) return "mention";
+  if (m.inAiConversation) return "ai_followup";
   if (!m.text.trim()) return "empty";
   return "sync";
 }
 
-export type LinkedThread = { channel: string; ts: string; createdAt: Date };
+/**
+ * The AI bot's record of who it is talking to in a thread (Chat state), and
+ * whether a person is one of them. Mirrors `conversationKey` and the
+ * participant half of `shouldAnswer` in src/lib/slack/ai/conversation.ts —
+ * keep the two in step.
+ */
+export const aiConversationKey = (threadId: string): string => `ai:conv:${threadId}`;
+
+export function isAiParticipant(conv: unknown, slackUserId: string): boolean {
+  if (!conv || typeof conv !== "object") return false;
+  const participants = (conv as { participants?: unknown }).participants;
+  return Array.isArray(participants) && participants.includes(slackUserId);
+}
+
+export type LinkedThread ={ channel: string; ts: string; createdAt: Date };
 
 /**
  * The threads a new comment is posted into: every linked thread for the task,
