@@ -44,7 +44,6 @@ const TABS = [
   { id: "pipeline", label: "Pipeline" },
   { id: "list", label: "Prospects" },
   { id: "deals", label: "Deals" },
-  { id: "tasks", label: "Tasks" },
   { id: "insights", label: "Insights" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"] | "playbook";
@@ -122,7 +121,7 @@ function ProspectPicker({ rows, onPick, open, onOpenChange, children, placeholde
  * Google Sheet; everything changed here is written back to it. View state
  * lives in the URL so any view, list or record can be shared as a link.
  */
-export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData; deals?: DealWithRelations[]; tasks?: React.ReactNode }) {
+export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals?: DealWithRelations[] }) {
   const router = useRouter();
   const params = useSearchParams();
   const get = (k: string) => params.get(k);
@@ -263,11 +262,11 @@ export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData
 
   const everyone = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
   const showFull = Boolean(sel);
-  const tabs = TABS.filter((t) => (t.id === "deals" ? deals : t.id === "tasks" ? tasks : true));
+  const tabs = TABS.filter((t) => t.id !== "deals" || deals);
   const current: Tab = tab === "playbook" || tabs.some((t) => t.id === tab) ? tab : "today";
   const backLabel = current === "playbook" ? "Playbook" : tabs.find((t) => t.id === current)!.label;
-  // The deal board and the task list fill the page and scroll themselves.
-  const fullBleed = !showFull && (current === "deals" || current === "tasks");
+  // The deal board fills the page and scrolls itself.
+  const fullBleed = !showFull && current === "deals";
 
   return (
     <div className="flex h-full flex-col">
@@ -336,7 +335,7 @@ export function ProspectsWorkspace({ data, deals, tasks }: { data: WorkspaceData
       </header>
 
       {fullBleed ? (
-        <div key={current} className="animate-fade min-h-0 flex-1">{current === "deals" ? <DealsTab deals={deals ?? []} onOpen={open} /> : tasks}</div>
+        <div key={current} className="animate-fade min-h-0 flex-1"><DealsTab deals={deals ?? []} onOpen={open} /></div>
       ) : (
       <div data-prospects-scroll className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         <div key={showFull && sel ? `rec:${sel.kind}:${sel.id}` : current} className="animate-enter">
