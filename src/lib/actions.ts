@@ -81,6 +81,15 @@ import { generateApiKey } from "@/lib/api/keys";
 import { cycleSubtitle } from "@/lib/cycle-format";
 import { ticketToIssueFields } from "@/lib/ticket-to-issue";
 import {
+  isMetricSource,
+  isMonday,
+  isScorecardArea,
+  SUGGESTED_METRICS,
+  suggestedSortKey,
+  weekBounds,
+  weekPeriodDate,
+} from "@/lib/scorecard";
+import {
   audienceFor,
   notify,
   subscribe,
@@ -100,6 +109,7 @@ import {
   newWebhookSecret,
 } from "@/lib/api/webhooks";
 import { docToText } from "@/lib/markdown";
+import type { ContentDetails } from "@/lib/marketing";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import {
   PRESENCE_STALE_MS,
@@ -3134,6 +3144,8 @@ export async function createContent(input: {
   url?: string | null;
   notes?: string | null;
   publishDate?: string | null;
+  format?: string | null;
+  details?: ContentDetails | null;
 }) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
@@ -3149,6 +3161,8 @@ export async function createContent(input: {
       url: input.url ?? null,
       notes: input.notes ?? null,
       publishDate: toDate(input.publishDate),
+      format: input.format ?? null,
+      details: input.details ?? null,
       ownerId: me.id,
     })
     .returning();
@@ -3166,6 +3180,11 @@ export async function updateContent(
     url: string | null;
     notes: string | null;
     publishDate: string | null;
+    format: string | null;
+    details: ContentDetails | null;
+    views: number | null;
+    clicks: number | null;
+    ownerId: string | null;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -3373,6 +3392,7 @@ export async function createFeature(input: {
   projectId: string | null;
   title?: string;
   status?: string;
+  summary?: string | null;
 }) {
   const ws = await getWorkspace();
   const [created] = await db
@@ -3381,10 +3401,13 @@ export async function createFeature(input: {
       workspaceId: ws.id,
       projectId: input.projectId,
       title: input.title?.trim() || "New feature",
+      summary: input.summary?.trim() || null,
       status: input.status ?? "idea",
       sortKey: `z${Date.now()}`,
     })
     .returning();
+  // `features` is not in the matrix set; the roadmap reads it.
+  invalidate(ws.id, "features");
   invalidateMatrix(ws.id);
   return created;
 }
@@ -3400,6 +3423,7 @@ export async function updateFeature(
     pageId: string | null;
     ownerId: string | null;
     milestoneId: string | null;
+    summary: string | null;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -3407,6 +3431,7 @@ export async function updateFeature(
     .update(features)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(features.id, id), eq(features.workspaceId, ws.id)));
+  invalidate(ws.id, "features");
   invalidateMatrix(ws.id);
 }
 
@@ -3489,6 +3514,10 @@ export async function createMetric(input: {
   unit?: string | null;
   cadence?: string;
   isNorthStar?: boolean;
+  target?: number | null;
+  targetDirection?: string;
+  source?: string;
+  area?: string;
 }) {
   const ws = await getWorkspace();
   const [created] = await db
@@ -3497,9 +3526,13 @@ export async function createMetric(input: {
       workspaceId: ws.id,
       projectId: input.projectId,
       name: input.name?.trim() || "New metric",
-      unit: input.unit ?? null,
+      unit: input.unit?.trim() || null,
       cadence: input.cadence ?? "monthly",
       isNorthStar: input.isNorthStar ?? false,
+      target: input.target != null && Number.isFinite(input.target) ? input.target : null,
+      targetDirection: input.targetDirection === "below" ? "below" : "above",
+      source: input.source && isMetricSource(input.source) ? input.source : "manual",
+      area: input.area && isScorecardArea(input.area) ? input.area : "product",
       sortKey: `z${Date.now()}`,
     })
     .returning();
@@ -3516,9 +3549,16 @@ export async function updateMetric(
     target: number | null;
     targetDirection: string;
     isNorthStar: boolean;
+    source: string;
+    area: string;
   }>,
 ) {
   const ws = await getWorkspace();
+  if (patch.source !== undefined && !isMetricSource(patch.source)) return;
+  if (patch.area !== undefined && !isScorecardArea(patch.area)) return;
+  if (patch.targetDirection !== undefined && patch.targetDirection !== "above" && patch.targetDirection !== "below") return;
+  if (patch.target != null && !Number.isFinite(patch.target)) return;
+  if (patch.name !== undefined && !patch.name.trim()) return;
   await db.update(metrics).set(patch).where(and(eq(metrics.id, id), eq(metrics.workspaceId, ws.id)));
   invalidateMatrix(ws.id);
 }
@@ -3562,12 +3602,98 @@ export async function deleteMetricPoint(id: string) {
   invalidateMatrix(ws.id);
 }
 
+/**
+ * Set a typed-in metric's number for one scorecard week (its Monday,
+ * yyyy-mm-dd, India time), or clear it with null. The week keeps a single
+ * point, stored at its Monday; any other point already in the week (one
+ * entered on a weekday before the scorecard, say) is folded into it.
+ */
+export async function setMetricWeekValue(input: {
+  metricId: string;
+  weekStart: string;
+  value: number | null;
+}): Promise<{ ok: boolean; message?: string }> {
+  const ws = await getWorkspace();
+  if (!isMonday(input.weekStart)) return { ok: false, message: "That week doesn't start on a Monday." };
+  if (input.value !== null && !Number.isFinite(input.value)) return { ok: false, message: "That isn't a number." };
+  const owner = await db.query.metrics.findFirst({
+    where: and(eq(metrics.id, input.metricId), eq(metrics.workspaceId, ws.id)),
+    columns: { id: true, source: true },
+  });
+  if (!owner) return { ok: false, message: "That metric no longer exists." };
+  if (owner.source !== "manual") return { ok: false, message: "The app counts this one itself." };
+
+  const { from, to } = weekBounds(input.weekStart);
+  const inWeek = await db
+    .select({ id: metricPoints.id })
+    .from(metricPoints)
+    .where(and(eq(metricPoints.metricId, owner.id), gte(metricPoints.periodDate, from), lt(metricPoints.periodDate, to)));
+  // Neon's HTTP driver has no transactions: write the new number before
+  // removing any extras, so a failure part way never loses the week.
+  const [keep, ...extra] = inWeek;
+  if (input.value === null) {
+    if (inWeek.length) await db.delete(metricPoints).where(inArray(metricPoints.id, inWeek.map((p) => p.id)));
+  } else {
+    if (keep) {
+      await db
+        .update(metricPoints)
+        .set({ value: input.value, periodDate: weekPeriodDate(input.weekStart) })
+        .where(eq(metricPoints.id, keep.id));
+    } else {
+      await db.insert(metricPoints).values({ metricId: owner.id, periodDate: weekPeriodDate(input.weekStart), value: input.value });
+    }
+    if (extra.length) await db.delete(metricPoints).where(inArray(metricPoints.id, extra.map((p) => p.id)));
+  }
+  invalidateMatrix(ws.id);
+  return { ok: true };
+}
+
+/** Add the scorecard's suggested metrics to a project, skipping any it already has by name. */
+export async function addSuggestedMetrics(projectId: string): Promise<{ added: number }> {
+  const ws = await getWorkspace();
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, projectId)));
+  if (!project) return { added: 0 };
+  const existing = await db
+    .select({ name: metrics.name })
+    .from(metrics)
+    .where(and(eq(metrics.workspaceId, ws.id), eq(metrics.projectId, projectId)));
+  const have = new Set(existing.map((m) => m.name.trim().toLowerCase()));
+  const rows = SUGGESTED_METRICS.flatMap((m, i) =>
+    have.has(m.name.toLowerCase())
+      ? []
+      : [
+          {
+            workspaceId: ws.id,
+            projectId,
+            name: m.name,
+            unit: m.unit,
+            cadence: "weekly",
+            target: m.target,
+            targetDirection: m.targetDirection,
+            source: m.source,
+            area: m.area,
+            sortKey: suggestedSortKey(i),
+          },
+        ],
+  );
+  if (rows.length) await db.insert(metrics).values(rows);
+  invalidateMatrix(ws.id);
+  return { added: rows.length };
+}
+
 // ---- Product: feedback (discovery) ----
 export async function createFeedback(input: {
   projectId: string | null;
   title?: string;
   source?: string;
   status?: string;
+  body?: string | null;
+  contact?: string | null;
+  theme?: string | null;
+  featureId?: string | null;
 }) {
   const ws = await getWorkspace();
   const [created] = await db
@@ -3578,6 +3704,10 @@ export async function createFeedback(input: {
       title: input.title?.trim() || "New feedback",
       source: input.source ?? "customer",
       status: input.status ?? "new",
+      body: input.body?.trim() || null,
+      contact: input.contact?.trim() || null,
+      theme: input.theme?.trim() || null,
+      featureId: input.featureId ?? null,
       sortKey: `z${Date.now()}`,
     })
     .returning();
@@ -3595,6 +3725,7 @@ export async function updateFeedback(
     votes: number;
     contact: string | null;
     featureId: string | null;
+    theme: string | null;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -3602,6 +3733,17 @@ export async function updateFeedback(
     .update(feedback)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(feedback.id, id), eq(feedback.workspaceId, ws.id)));
+  invalidateMatrix(ws.id);
+}
+
+/** Link several feedback items (a whole theme) to one feature, or unlink them with null. */
+export async function linkFeedbackToFeature(ids: string[], featureId: string | null) {
+  if (ids.length === 0) return;
+  const ws = await getWorkspace();
+  await db
+    .update(feedback)
+    .set({ featureId, updatedAt: new Date() })
+    .where(and(eq(feedback.workspaceId, ws.id), inArray(feedback.id, ids)));
   invalidateMatrix(ws.id);
 }
 

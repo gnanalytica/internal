@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import type { CycleCadence } from "@/lib/cycle-cadence";
+import type { ContentDetails } from "@/lib/marketing";
 import type { PricingModel } from "@/lib/pricing";
 import type { StrategyModel } from "@/lib/strategy";
 import {
@@ -1218,6 +1219,13 @@ export const contentItems = pgTable(
     url: text("url"),
     notes: text("notes"),
     publishDate: timestamp("publish_date", { withTimezone: true }),
+    // What kind of piece it is (post|reel|article|email|pdf|webinar|message);
+    // the fields it asks for live in `details` (see src/lib/marketing.ts).
+    format: text("format"),
+    details: jsonb("details").$type<ContentDetails | null>(),
+    // Results, typed in by hand after it goes out.
+    views: integer("views"),
+    clicks: integer("clicks"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1589,6 +1597,8 @@ export const features = pgTable(
       onDelete: "set null",
     }),
     title: text("title").notNull(),
+    // One line on why this feature is on the roadmap (shown on its card).
+    summary: text("summary"),
     status: text("status").notNull().default("idea"), // idea|planned|building|shipped|archived
     startDate: timestamp("start_date", { withTimezone: true }),
     targetDate: timestamp("target_date", { withTimezone: true }),
@@ -1641,6 +1651,12 @@ export const metrics = pgTable(
     target: real("target"),
     targetDirection: text("target_direction").notNull().default("above"), // above | below
     isNorthStar: boolean("is_north_star").notNull().default(false),
+    // Where the weekly number comes from: "manual" (typed in on the scorecard)
+    // or an auto key the app counts at read time (see AUTO_SOURCES in
+    // src/lib/scorecard.ts). Auto values are never stored as points.
+    source: text("source").notNull().default("manual"),
+    // Which scorecard group it sits in: sales | marketing | product | reliability.
+    area: text("area").notNull().default("product"),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1695,6 +1711,9 @@ export const feedback = pgTable(
     status: text("status").notNull().default("new"), // new|reviewing|planned|declined|shipped
     votes: integer("votes").notNull().default(1),
     contact: text("contact"), // who / where it came from
+    // What it is about, in a few words. Items sharing a theme are read (and
+    // linked to a feature) together on the Product › Feedback tab.
+    theme: text("theme"),
     featureId: uuid("feature_id").references(() => features.id, { onDelete: "set null" }),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

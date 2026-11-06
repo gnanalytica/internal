@@ -94,6 +94,7 @@ import type {
   ProjectSummary,
   ProjectWithIssueCount,
   Role,
+  ScorecardSignals,
   SupportAnswer,
   TicketWithRelations,
   TimelineItem,
@@ -2347,6 +2348,90 @@ export async function getMetrics(
       previous: n > 1 ? r.points[n - 2].value : null,
     };
   });
+}
+
+/** Label names that mark a task as a defect, compared lower-cased. */
+const DEFECT_LABELS = ["bug", "bugs", "defect", "defects"];
+
+/**
+ * What the scorecard's auto sources count from, for one project (the sales
+ * facts from the prospects sheet are read separately). See `autoValues` in
+ * src/lib/scorecard.ts for how each number is made.
+ */
+export async function getScorecardSignals(
+  workspaceId: string,
+  projectId: string,
+): Promise<ScorecardSignals> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "crm", "campaigns", "issues", "labels"));
+  cacheLife("minutes");
+
+  const labelledDefects = db
+    .select({ id: issueLabels.issueId })
+    .from(issueLabels)
+    .innerJoin(labels, eq(labels.id, issueLabels.labelId))
+    .where(inArray(sql`lower(${labels.name})`, DEFECT_LABELS));
+
+  const [won, published, defectRows] = await Promise.all([
+    db
+      .select({ updatedAt: deals.updatedAt })
+      .from(deals)
+      .where(and(eq(deals.workspaceId, workspaceId), eq(deals.projectId, projectId), eq(deals.stage, "won"))),
+    db
+      .select({ publishDate: contentItems.publishDate })
+      .from(contentItems)
+      .where(
+        and(
+          eq(contentItems.workspaceId, workspaceId),
+          eq(contentItems.projectId, projectId),
+          eq(contentItems.status, "published"),
+          isNotNull(contentItems.publishDate),
+        ),
+      ),
+    // ISSUE_TYPES has no "bug" today; matching it too means adding one later just works.
+    db
+      .select({ id: issues.id, status: issues.status, createdAt: issues.createdAt, updatedAt: issues.updatedAt })
+      .from(issues)
+      .where(
+        and(
+          eq(issues.workspaceId, workspaceId),
+          eq(issues.projectId, projectId),
+          inArray(issues.priority, ["urgent", "high"]),
+          or(eq(issues.type, "bug"), inArray(issues.id, labelledDefects)),
+        ),
+      ),
+  ]);
+
+  // A closed defect closed when its status last moved to done or canceled;
+  // one closed before status changes were logged falls back to its last update.
+  const closedIds = defectRows.filter((d) => d.status === "done" || d.status === "canceled").map((d) => d.id);
+  const closedAt = new Map<string, Date>();
+  if (closedIds.length > 0) {
+    const moves = await db
+      .select({ issueId: activity.issueId, data: activity.data, createdAt: activity.createdAt })
+      .from(activity)
+      .where(and(inArray(activity.issueId, closedIds), eq(activity.type, "status")))
+      .orderBy(asc(activity.createdAt));
+    for (const m of moves) {
+      const to = (m.data as { to?: string } | null)?.to;
+      if (to === "done" || to === "canceled") closedAt.set(m.issueId, m.createdAt);
+    }
+  }
+
+  return {
+    dealsWon: won.map((d) => ({ wonAt: d.updatedAt.toISOString() })),
+    published: published.flatMap((p) => (p.publishDate ? [{ publishDate: p.publishDate.toISOString() }] : [])),
+    defects:
+      defectRows.length === 0
+        ? null
+        : defectRows.map((d) => {
+            const open = d.status !== "done" && d.status !== "canceled";
+            return {
+              createdAt: d.createdAt.toISOString(),
+              closedAt: open ? null : (closedAt.get(d.id) ?? d.updatedAt).toISOString(),
+            };
+          }),
+  };
 }
 
 /**
