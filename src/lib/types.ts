@@ -211,6 +211,9 @@ export type MetricWithRelations = Metric & {
   previous: number | null;
 };
 
+/** What the scorecard's auto sources count from; see src/lib/scorecard.ts. */
+export type { ScorecardSignals } from "@/lib/scorecard";
+
 // ---- Product: feedback (discovery) ----
 export type Feedback = typeof feedback.$inferSelect;
 

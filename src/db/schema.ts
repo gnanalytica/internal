@@ -1610,6 +1610,12 @@ export const metrics = pgTable(
     target: real("target"),
     targetDirection: text("target_direction").notNull().default("above"), // above | below
     isNorthStar: boolean("is_north_star").notNull().default(false),
+    // Where the weekly number comes from: "manual" (typed in on the scorecard)
+    // or an auto key the app counts at read time (see AUTO_SOURCES in
+    // src/lib/scorecard.ts). Auto values are never stored as points.
+    source: text("source").notNull().default("manual"),
+    // Which scorecard group it sits in: sales | marketing | product | reliability.
+    area: text("area").notNull().default("product"),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
