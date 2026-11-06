@@ -35,6 +35,104 @@ export function CardsSkeleton() {
   );
 }
 
+/** A department tab under the project tab bar: its toolbar, then rows. */
+export function ProjectTabSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <TopbarSkeleton />
+      <div className="space-y-2 p-4">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full rounded-lg" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The Pulse home: a strip, a section heading, then project cards. */
+export function HomeSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <TopbarSkeleton />
+      <div className="space-y-4 p-4">
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-4 w-24" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A narrow feed of rows (the inbox). */
+export function FeedSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <TopbarSkeleton />
+      <div className="mx-auto w-full max-w-2xl space-y-3 px-2 py-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 px-2">
+            <Skeleton className="size-7 shrink-0 rounded-full" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3.5 w-3/4" />
+              <Skeleton className="h-3 w-1/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DocLines() {
+  const widths = ["92%", "85%", "96%", "60%", "88%", "74%"];
+  return (
+    <div className="space-y-2.5">
+      {widths.map((w, i) => (
+        <Skeleton key={i} className="h-3.5" style={{ width: w }} />
+      ))}
+    </div>
+  );
+}
+
+/** A document page: title, then body text in a reading column. */
+export function DocSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <TopbarSkeleton />
+      <div className="mx-auto w-full max-w-3xl space-y-6 px-12 py-12">
+        <Skeleton className="h-9 w-2/3" />
+        <DocLines />
+      </div>
+    </div>
+  );
+}
+
+/** An issue: title and body beside the properties panel. */
+export function DetailSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <TopbarSkeleton />
+      <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row">
+        <div className="flex-1">
+          <div className="mx-auto w-full max-w-3xl space-y-6 px-5 py-8 md:px-10 md:py-10">
+            <Skeleton className="h-8 w-3/4" />
+            <DocLines />
+          </div>
+        </div>
+        <div className="w-full shrink-0 space-y-3 border-b bg-muted/20 p-4 md:w-64 md:border-b-0 md:border-l">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-6 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TimelineSkeleton() {
   const widths = ["55%", "70%", "40%", "60%", "80%", "50%"];
   return (
