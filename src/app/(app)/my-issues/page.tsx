@@ -4,8 +4,11 @@ import { getTaskContext } from "@/lib/task-context";
 
 export default async function MyIssuesPage() {
   const ws = await getWorkspace();
-  const me = await getCurrentUser(ws.id);
-  const [allIssues, ctx] = await Promise.all([getIssues(ws.id), getTaskContext(ws.id)]);
+  const [me, allIssues, ctx] = await Promise.all([
+    getCurrentUser(ws.id),
+    getIssues(ws.id),
+    getTaskContext(ws.id),
+  ]);
 
   // Issues where I'm the primary assignee or one of the co-assignees.
   const mine = allIssues.filter(

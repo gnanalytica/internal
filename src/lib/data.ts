@@ -324,34 +324,38 @@ export async function getPortfolio(workspaceId: string): Promise<PortfolioRow[]>
   cacheTag(...wsTags(workspaceId, "projects", "issues", "milestones", "status-updates", "members"));
   cacheLife("minutes");
 
-  const [projs, members] = await Promise.all([
+  // Independent reads, so one round trip's worth of latency rather than five.
+  const [projs, members, issueResult, healthResult, msResult] = await Promise.all([
     db.select().from(projects).where(eq(projects.workspaceId, workspaceId)).orderBy(asc(projects.name)),
     getMembers(workspaceId),
+    // Issue counts per project (done / total, canceled excluded).
+    db.execute(sql`
+      SELECT project_id AS pid,
+             count(*) FILTER (WHERE status <> 'canceled')::int AS total,
+             count(*) FILTER (WHERE status = 'done')::int AS done
+      FROM issues WHERE workspace_id = ${workspaceId} AND project_id IS NOT NULL
+      GROUP BY project_id`),
+    // Latest health per project.
+    db.execute(sql`
+      SELECT DISTINCT ON (project_id) project_id AS pid, health
+      FROM project_status_updates WHERE workspace_id = ${workspaceId}
+      ORDER BY project_id, created_at DESC`),
+    // Current milestone per project: next-upcoming target, else the latest.
+    db.execute(sql`
+      SELECT project_id AS pid, name, target_date AS target
+      FROM milestones WHERE workspace_id = ${workspaceId}
+      ORDER BY project_id, target_date ASC NULLS LAST`),
   ]);
   const ownerName = (id: string | null) =>
     id ? (members.find((m) => m.id === id)?.name ?? null) : null;
 
-  // Issue counts per project (done / total, canceled excluded).
-  const issueRows = (await db.execute(sql`
-    SELECT project_id AS pid,
-           count(*) FILTER (WHERE status <> 'canceled')::int AS total,
-           count(*) FILTER (WHERE status = 'done')::int AS done
-    FROM issues WHERE workspace_id = ${workspaceId} AND project_id IS NOT NULL
-    GROUP BY project_id`)).rows as { pid: string; total: number; done: number }[];
+  const issueRows = issueResult.rows as { pid: string; total: number; done: number }[];
   const counts = new Map(issueRows.map((r) => [r.pid, r]));
 
-  // Latest health per project.
-  const healthRows = (await db.execute(sql`
-    SELECT DISTINCT ON (project_id) project_id AS pid, health
-    FROM project_status_updates WHERE workspace_id = ${workspaceId}
-    ORDER BY project_id, created_at DESC`)).rows as { pid: string; health: string }[];
+  const healthRows = healthResult.rows as { pid: string; health: string }[];
   const healthByProject = new Map(healthRows.map((r) => [r.pid, r.health]));
 
-  // Current milestone per project: next-upcoming target, else the latest.
-  const msRows = (await db.execute(sql`
-    SELECT project_id AS pid, name, target_date AS target
-    FROM milestones WHERE workspace_id = ${workspaceId}
-    ORDER BY project_id, target_date ASC NULLS LAST`)).rows as {
+  const msRows = msResult.rows as {
     pid: string;
     name: string;
     target: string | null;
@@ -1644,8 +1648,10 @@ export async function getNotifications(
 
 export async function getUnreadCount(workspaceId: string): Promise<number> {
   const me = await getCurrentUser(workspaceId);
-  const rows = await db
-    .select({ id: notifications.id })
+  // Count in the database: this runs in the app layout on every page, and
+  // fetching every unread row just to take its length grows with the backlog.
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
     .from(notifications)
     .where(
       and(
@@ -1654,7 +1660,7 @@ export async function getUnreadCount(workspaceId: string): Promise<number> {
         isNull(notifications.read),
       ),
     );
-  return rows.length;
+  return row?.n ?? 0;
 }
 
 // ---- CRM / Sales / Marketing (Project × Department matrix) ----
@@ -2059,19 +2065,34 @@ export async function getMilestones(
     .orderBy(asc(milestones.sortKey), asc(milestones.targetDate));
   if (ms.length === 0) return [];
 
-  // Features assigned to these milestones (id → milestoneId).
-  const feats = await db
-    .select({ id: features.id, milestoneId: features.milestoneId })
-    .from(features)
-    .where(
-      and(
-        eq(features.workspaceId, workspaceId),
-        inArray(
-          features.milestoneId,
-          ms.map((m) => m.id),
+  const [feats, directCounts] = await Promise.all([
+    // Features assigned to these milestones (id → milestoneId).
+    db
+      .select({ id: features.id, milestoneId: features.milestoneId })
+      .from(features)
+      .where(
+        and(
+          eq(features.workspaceId, workspaceId),
+          inArray(
+            features.milestoneId,
+            ms.map((m) => m.id),
+          ),
         ),
       ),
-    );
+    // Tasks attached directly to a milestone (no feature) also count toward it.
+    db
+      .select({ milestoneId: issues.milestoneId, status: issues.status })
+      .from(issues)
+      .where(
+        and(
+          eq(issues.workspaceId, workspaceId),
+          inArray(
+            issues.milestoneId,
+            ms.map((m) => m.id),
+          ),
+        ),
+      ),
+  ]);
   const milestoneOfFeature = new Map(feats.map((f) => [f.id, f.milestoneId]));
   const featureCount = new Map<string, number>();
   for (const f of feats) {
@@ -2103,19 +2124,6 @@ export async function getMilestones(
     }
   }
 
-  // Tasks attached directly to a milestone (no feature) also count toward it.
-  const directCounts = await db
-    .select({ milestoneId: issues.milestoneId, status: issues.status })
-    .from(issues)
-    .where(
-      and(
-        eq(issues.workspaceId, workspaceId),
-        inArray(
-          issues.milestoneId,
-          ms.map((m) => m.id),
-        ),
-      ),
-    );
   for (const c of directCounts) {
     if (!c.milestoneId || c.status === "canceled") continue;
     const e = prog.get(c.milestoneId) ?? { done: 0, total: 0 };
@@ -2147,22 +2155,38 @@ export async function getMilestone(
   cacheTag(...wsTags(workspaceId, "milestones", "features", "issues"));
   cacheLife("minutes");
 
-  const row = await db.query.milestones.findFirst({
-    where: and(eq(milestones.workspaceId, workspaceId), eq(milestones.id, id)),
-    with: { project: true },
-  });
+  // The milestone, its features and its direct tasks only need the id, so
+  // they go out together.
+  const [row, featRows, directIssueRows] = await Promise.all([
+    db.query.milestones.findFirst({
+      where: and(eq(milestones.workspaceId, workspaceId), eq(milestones.id, id)),
+      with: { project: true },
+    }),
+    db.query.features.findMany({
+      where: and(eq(features.workspaceId, workspaceId), eq(features.milestoneId, id)),
+      orderBy: [asc(features.sortKey), desc(features.createdAt)],
+      with: {
+        project: true,
+        milestone: { columns: { id: true, name: true } },
+        owner: true,
+        page: { columns: { id: true, title: true, icon: true } },
+      },
+    }),
+    // Tasks attached straight to the milestone (no feature).
+    db.query.issues.findMany({
+      where: and(eq(issues.workspaceId, workspaceId), eq(issues.milestoneId, id)),
+      orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
+      with: {
+        project: true,
+        cycle: true,
+        assignee: true,
+        milestone: { columns: { id: true, name: true } },
+        labels: { with: { label: true } },
+        assignees: { with: { user: true } },
+      },
+    }),
+  ]);
   if (!row) return null;
-
-  const featRows = await db.query.features.findMany({
-    where: and(eq(features.workspaceId, workspaceId), eq(features.milestoneId, id)),
-    orderBy: [asc(features.sortKey), desc(features.createdAt)],
-    with: {
-      project: true,
-      milestone: { columns: { id: true, name: true } },
-      owner: true,
-      page: { columns: { id: true, title: true, icon: true } },
-    },
-  });
 
   // Roll up linked-issue progress per feature (canceled excluded).
   const counts = featRows.length
@@ -2200,19 +2224,6 @@ export async function getMilestone(
     };
   });
 
-  // Tasks attached straight to the milestone (no feature).
-  const directIssueRows = await db.query.issues.findMany({
-    where: and(eq(issues.workspaceId, workspaceId), eq(issues.milestoneId, id)),
-    orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
-    with: {
-      project: true,
-      cycle: true,
-      assignee: true,
-      milestone: { columns: { id: true, name: true } },
-      labels: { with: { label: true } },
-      assignees: { with: { user: true } },
-    },
-  });
   const directIssues = directIssueRows.map((r) => ({
     ...r,
     labels: r.labels.map((l) => l.label),

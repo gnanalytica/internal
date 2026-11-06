@@ -42,11 +42,10 @@ export default async function ProjectRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  const [project, myRole] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id)]);
   if (!project) notFound();
 
   // Confidential projects (Finance, People & HR) are founders-only.
-  const myRole = await getMyRole(ws.id);
   if (project.confidential && !canSeeConfidential(myRole)) {
     return <Restricted label={project.name} />;
   }

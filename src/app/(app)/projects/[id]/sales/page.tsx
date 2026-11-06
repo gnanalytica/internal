@@ -4,15 +4,7 @@ import { ProspectsWorkspace } from "@/components/prospects-dashboard/workspace";
 import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
-import {
-  getDeals,
-  getMembers,
-  getMyRole,
-  getIssues,
-  getProject,
-  getProjects,
-  getWorkspace,
-} from "@/lib/data";
+import { getDeals, getMyRole, getIssues, getProject, getWorkspace } from "@/lib/data";
 import { loadProspectsWorkspace } from "@/lib/prospects/page-data";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { getTaskContext } from "@/lib/task-context";
@@ -31,11 +23,11 @@ export default async function ProjectSalesPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  const [project, role] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id)]);
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
 
-  if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Sales" />;
+  if (!canSeeConfidential(role)) return <Restricted label="Sales" />;
 
   if (project.key === PROSPECTS_PRODUCT_KEY) {
     const sp = await searchParams;
@@ -46,20 +38,19 @@ export default async function ProjectSalesPage({
     return <ProspectsWorkspace data={data} deals={deals} />;
   }
 
-  const ctx = await getTaskContext(ws.id);
-  const [issues, deals, members, projects] = await Promise.all([
+  const [ctx, issues, deals] = await Promise.all([
+    getTaskContext(ws.id),
     getIssues(ws.id),
     getDeals(ws.id, id),
-    getMembers(ws.id),
-    getProjects(ws.id),
   ]);
   return (
     <SalesView
       ctx={ctx}
       heading={`${project.name} · Deals`}
       scopeProjectId={id}
-      projects={projects}
-      members={members}
+      // The task context already carries the workspace's projects and members.
+      projects={ctx.projects}
+      members={ctx.members}
       initialDeals={deals}
       issues={issues.filter((i) => i.projectId === id)}
     />

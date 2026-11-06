@@ -20,12 +20,15 @@ export default async function ProjectFinancePage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  const [project, me, role] = await Promise.all([
+    getProject(ws.id, id),
+    getCurrentUser(ws.id),
+    getMyRole(ws.id),
+  ]);
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "finance")) notFound();
   // Founders see every product's Finance; a product's owner sees their own.
-  const me = await getCurrentUser(ws.id);
-  const canView = canSeeConfidential(await getMyRole(ws.id)) || project.ownerId === me.id;
+  const canView = canSeeConfidential(role) || project.ownerId === me.id;
   if (!canView) return <Restricted label="Finance" />;
 
   const [invoices, expenses, projects] = await Promise.all([
