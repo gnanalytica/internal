@@ -18,8 +18,10 @@ import {
   dayOf,
   FORMATS,
   formatOf,
+  lateLabel,
   monthLabel,
   monthWeeks,
+  overdue as overdueOf,
   PIECE_STATUSES,
   rowOf,
   statusOf,
@@ -33,9 +35,11 @@ import {
 import type { Member } from "@/lib/types";
 import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
-import { ChannelDot, firstName, type Piece, type PiecePatch } from "./bits";
+import { ChannelDot, firstName, StatusChip, type Piece, type PiecePatch } from "./bits";
 
 type Mode = "week" | "month";
+
+const OVERDUE_CAP = 5;
 
 /**
  * The content calendar: a week of channels by days (or a month of days),
@@ -70,6 +74,8 @@ export function CalendarTab({
   const paceWeek = mode === "week" ? start : thisWeek;
   const pace = useMemo(() => weekPace(items, paceWeek), [items, paceWeek]);
   const ideas = useMemo(() => items.filter((p) => !p.publishDate), [items]);
+  const late = useMemo(() => overdueOf(items, today), [items, today]);
+  const [allLate, setAllLate] = useState(false);
   const onCurrent = mode === "week" ? start === thisWeek : month === today.slice(0, 7);
 
   const shift = (n: number) => setCursor(mode === "week" ? addDays(cursor, 7 * n) : `${addMonths(month, n)}-01`);
@@ -186,6 +192,35 @@ export function CalendarTab({
                 </Link>
               )}
             </section>
+
+            {late.length > 0 && (
+              <section aria-labelledby="overdue-h" className="flex flex-col gap-1.5">
+                <div className="flex items-baseline gap-1.5">
+                  <h2 id="overdue-h" className="flex-1 text-sm font-semibold">
+                    Overdue, not posted
+                  </h2>
+                  <span className={cn("font-mono text-xs", tone("orange").text)}>{late.length}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Their day has passed. Give each a new date, or send it back to the ideas.</p>
+                <ul className="flex flex-col gap-1.5">
+                  {(allLate ? late : late.slice(0, OVERDUE_CAP)).map((p) => (
+                    <OverdueRow
+                      key={p.id}
+                      p={p}
+                      today={today}
+                      onOpen={onOpen}
+                      onReschedule={(day) => onSave(p.id, { publishDate: atDay(day, p.publishDate) })}
+                      onUnschedule={() => onSave(p.id, { publishDate: null })}
+                    />
+                  ))}
+                </ul>
+                {late.length > OVERDUE_CAP && (
+                  <button type="button" aria-expanded={allLate} onClick={() => setAllLate(!allLate)} className="self-start rounded px-1 text-xs text-muted-foreground hover:text-foreground">
+                    {allLate ? "Show fewer" : `Show all ${late.length}`}
+                  </button>
+                )}
+              </section>
+            )}
 
             <section aria-labelledby="ideas-h" className="flex flex-col gap-1.5">
               <div className="flex items-baseline gap-1.5">
@@ -343,6 +378,35 @@ function IdeaRow({ p, today, onOpen, onSchedule }: { p: Piece; today: string; on
           Schedule…
         </button>
       </DatePicker>
+    </li>
+  );
+}
+
+/** A piece whose day went by unposted: open it, give it a new day (keeping its time), or send it back to the ideas. */
+function OverdueRow({ p, today, onOpen, onReschedule, onUnschedule }: { p: Piece; today: string; onOpen: (p: Piece) => void; onReschedule: (day: string) => void; onUnschedule: () => void }) {
+  const day = dayOf(p.publishDate);
+  return (
+    <li className="flex flex-col gap-1 rounded-md border bg-background py-1.5 pr-1 pl-2.5">
+      <div className="flex min-w-0 items-center gap-2 pr-1.5">
+        <button type="button" onClick={() => onOpen(p)} className="flex min-w-0 flex-1 items-center gap-2 rounded text-left text-[13px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50">
+          <ChannelDot channel={p.channel} />
+          <span className="min-w-0 flex-1 truncate">{p.title}</span>
+        </button>
+        <StatusChip status={p.status} className="h-[18px] shrink-0 text-[11px]" />
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1 pl-4">
+        <span title={day ? `Was due ${dayLabel(day)}` : undefined} className={cn("flex-1 text-[11px] font-medium whitespace-nowrap", tone("orange").text)}>
+          {lateLabel(p.publishDate, today)}
+        </span>
+        <DatePicker value={day} today={today} allowClear={false} onPick={(iso) => iso && onReschedule(iso)}>
+          <button type="button" aria-label={`Reschedule ${p.title}`} className="h-7 shrink-0 rounded px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground">
+            Reschedule…
+          </button>
+        </DatePicker>
+        <button type="button" aria-label={`Move ${p.title} back to ideas`} onClick={onUnschedule} className="h-7 shrink-0 rounded px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground">
+          Back to ideas
+        </button>
+      </div>
     </li>
   );
 }

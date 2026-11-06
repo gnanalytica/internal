@@ -16,7 +16,9 @@ export function ProjectTabs({
   isOwner = false,
   watching = false,
 }: {
-  project: Project;
+  /** Only what the strip renders — this is a client component, so every field
+   *  passed here ships on every project page. */
+  project: Pick<Project, "id" | "name" | "color" | "kind" | "enabledDepartments">;
   isAdmin?: boolean;
   isOwner?: boolean;
   /** Whether the signed-in user follows this project's status updates. */

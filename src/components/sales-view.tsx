@@ -16,7 +16,7 @@ import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
 import { DEAL_STAGES, OPEN_DEAL_STAGES } from "@/lib/departments";
 import { formatMoney } from "@/lib/matrix-format";
 import type {
-  IssueWithRelations,
+  IssueListItem,
   DealWithRelations,
   Member,
   Project,
@@ -37,7 +37,7 @@ export function SalesView({
   projects: Project[];
   members: Member[];
   initialDeals: DealWithRelations[];
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   ctx: TaskContext;
 }) {
   const router = useRouter();

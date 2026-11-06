@@ -15,16 +15,16 @@ export default async function ProjectProductPage({
   const { id } = await params;
   const { tab } = await searchParams;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
-  if (!project) notFound();
-  if (!isDepartmentEnabled(project.enabledDepartments, "product")) notFound();
-
-  const ctx = await getTaskContext(ws.id);
-  const [issues, feedback, features] = await Promise.all([
+  // One round: none of these depend on each other, and all are cached reads.
+  const [project, ctx, issues, feedback, features] = await Promise.all([
+    getProject(ws.id, id),
+    getTaskContext(ws.id),
     getIssues(ws.id),
     getFeedback(ws.id, id),
     getFeatures(ws.id, id),
   ]);
+  if (!project) notFound();
+  if (!isDepartmentEnabled(project.enabledDepartments, "product")) notFound();
 
   // A feature's tickets can live in another project (an Engineering one), so
   // they are picked from the whole workspace by feature rather than by project.

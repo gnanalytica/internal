@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { applyCadenceToCycle, deleteCycle, rollOverCycle, updateCycle } from "@/lib/actions";
-import type { Cycle, IssueWithRelations, TaskContext } from "@/lib/types";
+import type { Cycle, IssueListItem, TaskContext } from "@/lib/types";
 import { cycleStatus } from "@/lib/types";
 
 export function CycleDetail({
@@ -26,7 +26,7 @@ export function CycleDetail({
   burndownPoints,
   totalPoints,
 }: {
-  cycle: Cycle & { issues: IssueWithRelations[] };
+  cycle: Cycle & { issues: IssueListItem[] };
   ctx: TaskContext;
   burndownPoints: { date: string; remaining: number; ideal: number }[];
   totalPoints: number;

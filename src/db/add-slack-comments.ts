@@ -10,7 +10,7 @@ import { db } from "./index";
  * transactions), so it is safe to run twice or to re-run after a failure.
  *
  * Purely additive: nothing outside the Slack handlers reads it except the
- * task timeline, which tolerates its absence. Run it after add-slack.ts.
+ * task timeline, which tolerates its absence. Run it after add-slack.mts. A plain .ts: it imports nothing ESM-only.
  *
  *     pnpm tsx --env-file=.env.local src/db/add-slack-comments.ts
  */

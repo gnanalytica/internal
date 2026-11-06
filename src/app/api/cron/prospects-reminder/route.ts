@@ -53,7 +53,9 @@ export async function GET(req: Request) {
   }
 
   const targets = await db
-    .selectDistinct({ id: workspaces.id, name: workspaces.name })
+    // The product's id too: the link goes straight to its Sales tab rather
+    // than through the /prospects redirect.
+    .selectDistinct({ id: workspaces.id, name: workspaces.name, productId: projects.id })
     .from(workspaces)
     .innerJoin(projects, and(eq(projects.workspaceId, workspaces.id), eq(projects.key, PROSPECTS_PRODUCT_KEY)))
     .where(isNotNull(workspaces.slackWebhookUrl));
@@ -75,7 +77,7 @@ export async function GET(req: Request) {
   const results: { workspace: string; people: number; posted: boolean; quiet?: true }[] = [];
   for (const ws of targets) {
     const reminder = buildReminder({ rows, people: await teamNames(ws.id), today });
-    const text = reminderText(reminder, baseUrl);
+    const text = reminderText(reminder, `${baseUrl}/projects/${ws.productId}/sales`);
     if (!text) {
       results.push({ workspace: ws.name, people: 0, posted: false, quiet: true });
       continue;

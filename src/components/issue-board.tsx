@@ -28,7 +28,7 @@ import { LabelChips } from "@/components/label-chips";
 import { AvatarStack } from "@/components/pickers";
 import { STATUSES, type StatusId, type PriorityId } from "@/lib/constants";
 import { formatDue, isOverdue } from "@/lib/issue-dates";
-import type { IssueWithRelations, Member } from "@/lib/types";
+import type { IssueListItem, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -40,9 +40,9 @@ export function IssueBoard({
   onChange,
   persist,
 }: {
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   members: Member[];
-  onChange: (next: IssueWithRelations[]) => void;
+  onChange: (next: IssueListItem[]) => void;
   persist: (changed: Changed[]) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function IssueBoard({
   );
 
   const columns = useMemo(() => {
-    const map: Record<string, IssueWithRelations[]> = {};
+    const map: Record<string, IssueListItem[]> = {};
     for (const s of STATUSES) map[s.id] = [];
     for (const it of issues) (map[it.status] ??= []).push(it);
     for (const k of Object.keys(map))
@@ -76,7 +76,7 @@ export function IssueBoard({
     if (!activeStatus || !overStatus) return;
 
     // Build a working copy of columns.
-    const cols: Record<string, IssueWithRelations[]> = {};
+    const cols: Record<string, IssueListItem[]> = {};
     for (const s of STATUSES) cols[s.id] = [...columns[s.id]];
 
     const fromIdx = cols[activeStatus].findIndex((i) => i.id === active.id);
@@ -90,7 +90,7 @@ export function IssueBoard({
 
     // Recompute sort keys for affected columns and collect changes.
     const changed: Changed[] = [];
-    const nextIssues: IssueWithRelations[] = [];
+    const nextIssues: IssueListItem[] = [];
     for (const s of STATUSES) {
       cols[s.id].forEach((it, i) => {
         const sortKey = String(i).padStart(6, "0");
@@ -145,9 +145,9 @@ function BoardColumn({
 }: {
   status: StatusId;
   label: string;
-  items: IssueWithRelations[];
+  items: IssueListItem[];
   members: Member[];
-  allIssues: IssueWithRelations[];
+  allIssues: IssueListItem[];
 }) {
   const { setNodeRef } = useSortable({ id: status, data: { type: "column" } });
   // A child whose parent is in this same column nests under it; others stay
@@ -196,9 +196,9 @@ function SortableCard({
   members,
   allIssues,
 }: {
-  issue: IssueWithRelations;
+  issue: IssueListItem;
   members: Member[];
-  allIssues?: IssueWithRelations[];
+  allIssues?: IssueListItem[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: issue.id });
@@ -221,10 +221,10 @@ function BoardCard({
   overlay,
   allIssues,
 }: {
-  issue: IssueWithRelations;
+  issue: IssueListItem;
   members: Member[];
   overlay?: boolean;
-  allIssues?: IssueWithRelations[];
+  allIssues?: IssueListItem[];
 }) {
   const progress = allIssues ? subIssueProgress(issue.id, allIssues) : { done: 0, total: 0 };
   const card = (

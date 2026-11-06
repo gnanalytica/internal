@@ -7,10 +7,14 @@ import {
   CHANNELS,
   CONTENT_FORMATS,
   dayOf,
+  daysLate,
   fieldsFor,
   formatOf,
   fromIstInput,
+  isOverdue,
+  lateLabel,
   monthWeeks,
+  overdue,
   statusOf,
   toIstInput,
   weekDays,
@@ -115,6 +119,43 @@ describe("weeklyPosted", () => {
     ];
     const w = weeklyPosted(items, "2026-11-09", 4);
     expect(w.get("linkedin")).toEqual([0, 0, 2, 1]);
+  });
+});
+
+describe("overdue", () => {
+  const today = "2026-11-06";
+
+  it("is a past India day that hasn't been posted", () => {
+    expect(isOverdue(piece("blog", "2026-10-25T04:30:00Z", "draft"), today)).toBe(true);
+    expect(isOverdue(piece("blog", "2026-10-25T04:30:00Z", "scheduled"), today)).toBe(true);
+    expect(isOverdue(piece("blog", "2026-10-25T04:30:00Z", "published"), today)).toBe(false);
+    expect(isOverdue(piece("blog", "2026-11-07T04:30:00Z", "idea"), today)).toBe(false);
+    expect(isOverdue(piece("blog", null, "idea"), today)).toBe(false); // an idea has no day to miss
+  });
+
+  it("isn't late on its own day, by India time", () => {
+    // 18:45 UTC on the 5th is 00:15 IST on the 6th: today, not yesterday.
+    expect(isOverdue(piece("blog", "2026-11-05T18:45:00Z", "draft"), today)).toBe(false);
+    expect(isOverdue(piece("blog", "2026-11-06T18:00:00Z", "draft"), today)).toBe(false); // 23:30 IST today
+    // 18:15 UTC on the 5th is 23:45 IST on the 5th: yesterday.
+    expect(isOverdue(piece("blog", "2026-11-05T18:15:00Z", "draft"), today)).toBe(true);
+    expect(daysLate("2026-11-05T18:15:00Z", today)).toBe(1);
+    expect(daysLate("2026-11-05T18:45:00Z", today)).toBe(0);
+  });
+
+  it("lists the longest-running first, leaving posted pieces and ideas out", () => {
+    const a = piece("blog", "2026-09-01T04:30:00Z", "draft");
+    const b = piece("linkedin", "2026-08-12T04:30:00Z", "idea");
+    const items = [a, piece("blog", "2026-08-01T04:30:00Z", "published"), piece("blog", null), b, piece("blog", "2026-11-20T04:30:00Z")];
+    expect(overdue(items, today)).toEqual([b, a]);
+  });
+
+  it("says how late in days, then months", () => {
+    expect(lateLabel("2026-11-05T04:30:00Z", today)).toBe("1 day late");
+    expect(lateLabel("2026-10-25T04:30:00Z", today)).toBe("12 days late");
+    expect(lateLabel("2026-10-08T04:30:00Z", today)).toBe("29 days late");
+    expect(lateLabel("2026-10-07T04:30:00Z", today)).toBe("1 month late");
+    expect(lateLabel("2026-09-01T04:30:00Z", today)).toBe("2 months late");
   });
 });
 
