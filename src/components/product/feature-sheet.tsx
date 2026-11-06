@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { STATUS_MAP, type StatusId } from "@/lib/constants";
 import { quoteText, ROADMAP_COLUMNS, ticketsLabel, type Progress, type RoadmapStatus } from "@/lib/product-roadmap";
-import type { FeatureWithRelations, FeedbackWithRelations, IssueWithRelations, TaskContext } from "@/lib/types";
+import type { FeatureWithRelations, FeedbackWithRelations, IssueListItem, TaskContext } from "@/lib/types";
 import { FeedbackDialog, type FeedbackDialogTarget } from "./feedback-dialog";
 import { SourceDot } from "./source-dot";
 import { TicketBar } from "./roadmap-board";
@@ -64,7 +64,7 @@ function FeatureForm({
 }: {
   feature: FeatureWithRelations;
   feedback: FeedbackWithRelations[];
-  tickets: IssueWithRelations[];
+  tickets: IssueListItem[];
   progress: Progress;
   ctx: TaskContext;
   onPatch: (patch: FeaturePatch) => void;
@@ -244,7 +244,7 @@ export function FeatureSheet({
 }: {
   feature: FeatureWithRelations | null;
   feedback: FeedbackWithRelations[];
-  tickets: IssueWithRelations[];
+  tickets: IssueListItem[];
   progress: Progress;
   ctx: TaskContext;
   onOpenChange: (open: boolean) => void;

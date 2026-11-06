@@ -15,7 +15,7 @@ import { IssueContextMenu } from "@/components/issue-context-menu";
 import { LabelChips } from "@/components/label-chips";
 import { setIssueAssignees, updateIssue } from "@/lib/actions";
 import { formatDue, isOverdue } from "@/lib/issue-dates";
-import type { IssueWithRelations, Member } from "@/lib/types";
+import type { IssueListItem, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 import type { PriorityId, StatusId } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -30,7 +30,7 @@ export function IssueRow({
   subProgress,
   expandToggle,
 }: {
-  issue: IssueWithRelations;
+  issue: IssueListItem;
   members: Member[];
   selected?: boolean;
   onToggleSelect?: () => void;

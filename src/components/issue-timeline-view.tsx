@@ -7,7 +7,7 @@ import { RoadmapChart, type GanttGroup } from "@/components/roadmap-chart";
 import { todayISO } from "@/lib/roadmap";
 import { updateIssue } from "@/lib/actions";
 import { STATUSES } from "@/lib/constants";
-import type { IssueWithRelations, Member } from "@/lib/types";
+import type { IssueListItem, Member } from "@/lib/types";
 import { issueIdentifier } from "@/lib/types";
 
 /**
@@ -19,7 +19,7 @@ export function IssueTimelineView({
   issues,
   members,
 }: {
-  issues: IssueWithRelations[];
+  issues: IssueListItem[];
   members: Member[];
 }) {
   const router = useRouter();

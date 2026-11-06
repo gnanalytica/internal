@@ -12,12 +12,15 @@ export default async function ProjectDocsPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  const [project, role, tree] = await Promise.all([
+    getProject(ws.id, id),
+    getMyRole(ws.id),
+    getPageTree(ws.id, id),
+  ]);
   if (!project) notFound();
-  if (project.confidential && !canSeeConfidential(await getMyRole(ws.id))) {
+  if (project.confidential && !canSeeConfidential(role)) {
     return <Restricted label={project.name} />;
   }
 
-  const tree = await getPageTree(ws.id, id);
   return <DocsView projectId={id} heading={`${project.name} · Docs`} tree={tree} />;
 }

@@ -10,11 +10,14 @@ export function AppShell({
   sidebar,
   workspaceName,
   unreadCount,
+  salesHref,
   children,
 }: {
   sidebar: React.ReactNode;
   workspaceName: string;
   unreadCount: number;
+  /** Where the phone nav's Sales tab goes; see `BottomNav`. */
+  salesHref: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -87,7 +90,7 @@ export function AppShell({
           {children}
         </main>
 
-        <BottomNav unreadCount={unreadCount} onMore={() => setOpen(true)} />
+        <BottomNav unreadCount={unreadCount} salesHref={salesHref} onMore={() => setOpen(true)} />
       </div>
     </>
   );

@@ -18,13 +18,12 @@ export default async function ProjectCyclesPage({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
-  if (!project) notFound();
-
-  const [cycles, allIssues] = await Promise.all([
+  const [project, cycles, allIssues] = await Promise.all([
+    getProject(ws.id, id),
     getCycles(ws.id, id),
     getIssues(ws.id),
   ]);
+  if (!project) notFound();
 
   // What velocity has left to chew through: this project's unfinished work,
   // weighted the way burndown weights it (no estimate = one point).

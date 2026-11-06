@@ -6,6 +6,13 @@
  * namespaced per workspace so one workspace's writes never invalidate another's
  * cache entries.
  *
+ * The workspace-wide reads nearly every page loads (projects, members, labels,
+ * the issue list, the task context set, the portfolio, the page tree) use
+ * `"use cache: remote"`: on Vercel that is the shared runtime cache, so a cold
+ * function instance gets a hit instead of a fresh query. The tags work the same
+ * for both — `updateTag` / `revalidateTag` expire remote entries too. Off
+ * Vercel (local dev), remote falls back to the same in-memory cache.
+ *
  * Only user-independent reads are cached. Anything that resolves the signed-in
  * user (`getWorkspace`, `getMyRole`, `getFavorites`, `getUnreadCount`, …) stays
  * uncached — a cache keyed on `workspaceId` alone would serve one member's data

@@ -22,10 +22,9 @@ export default async function PageRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const page = await getPage(ws.id, id);
-  if (!page) notFound();
-  const [allIssues, favorited, watching, mentionItems, backlinks, comments, versions, members] =
+  const [page, allIssues, favorited, watching, mentionItems, backlinks, comments, versions, members] =
     await Promise.all([
+      getPage(ws.id, id),
       getIssuesFlat(ws.id),
       isFavorite(ws.id, "page", id),
       isSubscribed(ws.id, "page", id),
@@ -35,6 +34,7 @@ export default async function PageRoute({
       getPageVersions(ws.id, id),
       getMembers(ws.id),
     ]);
+  if (!page) notFound();
 
   return (
     <PageView

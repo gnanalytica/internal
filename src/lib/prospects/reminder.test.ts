@@ -4,7 +4,7 @@ import { buildReminder, escapeMrkdwn, reminderText, shortDate, TOP_ITEMS } from 
 import type { ProspectRow } from "./stats";
 
 const TODAY = "2026-11-05";
-const BASE = "https://internal.example.com";
+const BASE = "https://internal.example.com/projects/val-id/sales";
 
 function row(p: Partial<ProspectRow> & { id: string }): ProspectRow {
   return {
@@ -118,12 +118,12 @@ describe("reminderText", () => {
     expect(text).toContain("• Rao Associates _(today)_");
     expect(text).toContain("_+2 more_");
     expect(text).toContain("*Unassigned* — 1 overdue, nobody's name on them yet");
-    expect(text).toContain(`<${BASE}/prospects|Open Today in Prospects →>`);
+    expect(text).toContain(`<${BASE}|Open Today in Prospects →>`);
   });
 
   it("links to All India when something due is outside the focus states", () => {
     const r = buildReminder({ today: TODAY, people: ["Priya"], rows: [row({ id: "a", assigned: "Priya", nextStepDate: TODAY, state: "Kerala" })] });
-    expect(reminderText(r, BASE)).toContain(`<${BASE}/prospects?scope=all|`);
+    expect(reminderText(r, BASE)).toContain(`<${BASE}?scope=all|`);
   });
 
   it("uses the mention renderer for each person", () => {

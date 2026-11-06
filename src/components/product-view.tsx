@@ -13,7 +13,7 @@ import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { createFeature, linkFeedbackToFeature, updateFeature } from "@/lib/actions";
 import { progressByFeature, themeNames, voicesByFeature, type RoadmapStatus } from "@/lib/product-roadmap";
-import type { FeatureWithRelations, FeedbackWithRelations, IssueWithRelations, TaskContext } from "@/lib/types";
+import type { FeatureWithRelations, FeedbackWithRelations, IssueListItem, TaskContext } from "@/lib/types";
 
 type Tab = "roadmap" | "feedback";
 const TAB_IDS: Tab[] = ["roadmap", "feedback"];
@@ -43,7 +43,7 @@ export function ProductView({
   initialTab?: string;
   scopeProjectId: string;
   /** Every ticket linked to one of this project's features. */
-  tickets: IssueWithRelations[];
+  tickets: IssueListItem[];
   features: FeatureWithRelations[];
   feedback: FeedbackWithRelations[];
   ctx: TaskContext;

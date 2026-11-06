@@ -2,7 +2,7 @@
 
 import { and, asc, desc, eq, gt, gte, ilike, inArray, isNull, lt, max, notInArray, or } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
-import { refresh, updateTag } from "next/cache";
+import { refresh, revalidateTag, updateTag } from "next/cache";
 import { cookies } from "next/headers";
 
 import { db } from "@/db";
@@ -132,6 +132,35 @@ import { snippetAround } from "@/lib/snippet";
 function invalidate(workspaceId: string, ...entities: CacheEntity[]): void {
   for (const tag of wsTags(workspaceId, ...entities)) updateTag(tag);
   refresh();
+}
+
+/**
+ * Expire cached reads without re-rendering the route, for hot writes whose
+ * author already has the result on screen (a debounced doc autosave).
+ *
+ * Not `updateTag`: in this Next version `updateTag` itself marks the action as
+ * having revalidated the path (see `revalidate()` in
+ * next/dist/server/web/spec-extension/revalidate.js), so the action re-renders
+ * and ships the whole route back, and — without `refresh()` downgrading that —
+ * the client drops its entire prefetch cache. On every pause in typing.
+ *
+ * `revalidateTag` with a non-zero `expire` profile leaves the path alone. The
+ * entries go stale at once and expire a second later: a read inside that second
+ * gets the previous value while it refetches, any later read waits for fresh
+ * data — so reopening a page after a save shows the save, unlike `"max"`, which
+ * would serve one stale read whenever the next visit comes.
+ */
+function expireQuietly(workspaceId: string, ...entities: CacheEntity[]): void {
+  for (const tag of wsTags(workspaceId, ...entities)) revalidateTag(tag, { expire: 1 });
+}
+
+/** Whether two document bodies mention/reference the same set of targets. */
+function sameReferences(a: unknown, b: unknown): boolean {
+  const key = (doc: unknown) =>
+    new Set(extractReferences(doc).map((r) => `${r.targetType}:${r.targetId}`));
+  const x = key(a);
+  const y = key(b);
+  return x.size === y.size && [...x].every((k) => y.has(k));
 }
 
 /** Rewrite the reference graph for a body (issue/page) from its document JSON. */
@@ -789,7 +818,11 @@ export async function updateIssue(
   void _omitDesc;
   await dispatchWebhook(ws.id, "issue.updated", { id, ...changed });
 
-  invalidate(ws.id, "issues");
+  // The description editor autosaves through here on every pause. Its author
+  // already sees the new body, so a description-only save expires the cached
+  // reads but skips re-rendering (and re-sending) the whole issue page.
+  if (Object.keys(changed).length === 0) expireQuietly(ws.id, "issues");
+  else invalidate(ws.id, "issues");
 }
 
 export async function deleteIssue(id: string) {
@@ -939,6 +972,9 @@ export async function updatePage(
   if (patch.icon !== undefined) values.icon = patch.icon;
 
   let conflict = false;
+  // What this save can change beyond the page itself (see the end).
+  let referencesChanged = false;
+  let snapshotted = false;
 
   // A content save is the interesting case: it drives versioning + the
   // last-write-wins conflict check. Read the current row once for both.
@@ -988,9 +1024,11 @@ export async function updatePage(
           cause: conflict ? "conflict" : "auto",
         });
         await prunePageVersions(id);
+        snapshotted = true;
       }
     }
 
+    referencesChanged = !current || !sameReferences(current.content, patch.content);
     await syncReferences(ws.id, "page", id, patch.content);
   }
 
@@ -999,7 +1037,18 @@ export async function updatePage(
     .set(values)
     .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
 
-  invalidate(ws.id, "pages", "issues");
+  // Every save expires the page reads (tree, page, mentions, backlinks — all
+  // tagged "pages"). Issue reads only see a page through its title/icon (an
+  // issue's linked pages) or through what the body references, so "issues" is
+  // expired only when one of those moved, not on every autosave.
+  const renamed = patch.title !== undefined || patch.icon !== undefined;
+  const entities: CacheEntity[] = renamed || referencesChanged ? ["pages", "issues"] : ["pages"];
+  // A title/icon change re-renders (the sidebar tree shows it), and so does a
+  // save that recorded a version (the History list) — the old full invalidate.
+  // A plain content save is the autosave: its author already sees the content,
+  // so it expires the reads without re-rendering the route (see expireQuietly).
+  if (renamed || snapshotted) invalidate(ws.id, ...entities);
+  else expireQuietly(ws.id, ...entities);
   return { conflict };
 }
 

@@ -67,7 +67,7 @@ import { nestGroup, subIssueProgress } from "@/lib/issue-tree";
 import { issueIdentifier } from "@/lib/types";
 import type {
   Cycle,
-  IssueWithRelations,
+  IssueListItem,
   Label,
   Member,
   Milestone,
@@ -101,7 +101,7 @@ export function IssuesView({
   embedded = false,
   storageScope,
 }: {
-  initialIssues: IssueWithRelations[];
+  initialIssues: IssueListItem[];
   projects: Project[];
   members: Member[];
   labels: Label[];
@@ -330,7 +330,7 @@ export function IssuesView({
   }
 
   // Merge board drag results back into the full set (preserve filtered-out issues).
-  function onBoardChange(next: IssueWithRelations[]) {
+  function onBoardChange(next: IssueListItem[]) {
     setIssues((prev) => {
       const map = new Map(next.map((i) => [i.id, i]));
       return prev.map((i) => map.get(i.id) ?? i);

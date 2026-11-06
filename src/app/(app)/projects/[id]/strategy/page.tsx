@@ -52,16 +52,23 @@ export default async function ProjectStrategyPage({
     );
   }
 
-  // Derivation context: milestone burn-up + won deals this quarter. Two plain
-  // reads (Neon HTTP — no transactions), reduced in JS.
-  const msRows = await db
-    .select({ id: milestones.id, name: milestones.name })
-    .from(milestones)
-    .where(eq(milestones.projectId, id));
-  const issueRows = await db
-    .select({ milestoneId: issues.milestoneId, status: issues.status })
-    .from(issues)
-    .where(eq(issues.projectId, id));
+  // Derivation context: milestone burn-up + won deals this quarter. Plain,
+  // independent reads (Neon HTTP — no transactions), sent together and reduced
+  // in JS.
+  const [msRows, issueRows, wonRows] = await Promise.all([
+    db
+      .select({ id: milestones.id, name: milestones.name })
+      .from(milestones)
+      .where(eq(milestones.projectId, id)),
+    db
+      .select({ milestoneId: issues.milestoneId, status: issues.status })
+      .from(issues)
+      .where(eq(issues.projectId, id)),
+    db
+      .select({ id: deals.id })
+      .from(deals)
+      .where(and(eq(deals.projectId, id), eq(deals.stage, "won"), gte(deals.updatedAt, quarterStart()))),
+  ]);
   const msProgress = msRows.map((m) => {
     const rows = issueRows.filter((i) => i.milestoneId === m.id);
     return {
@@ -71,11 +78,6 @@ export default async function ProjectStrategyPage({
       closed: rows.filter((i) => i.status === "done").length,
     };
   });
-  const wonRows = await db
-    .select({ id: deals.id })
-    .from(deals)
-    .where(and(eq(deals.projectId, id), eq(deals.stage, "won"), gte(deals.updatedAt, quarterStart())));
-
   const ctx: DeriveCtx = {
     pricingModel: project.pricingModel ?? null,
     milestones: msProgress,
