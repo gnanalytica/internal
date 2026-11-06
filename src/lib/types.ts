@@ -21,6 +21,7 @@ import type {
   orgRoles,
   pages,
   projects,
+  supportAnswers,
   ticketComments,
   tickets,
   users,
@@ -144,6 +145,9 @@ export type TicketWithRelations = Ticket & {
 };
 
 export type TicketCommentWithAuthor = TicketComment & { author: Member | null };
+
+/** A saved question → answer pair, for replying to customer requests in one click. */
+export type SupportAnswer = typeof supportAnswers.$inferSelect;
 
 /** A project plus the rollup counts shown on the projects hub cards. */
 export type ProjectSummary = Project & {

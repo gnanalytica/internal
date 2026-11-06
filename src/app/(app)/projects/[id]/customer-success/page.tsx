@@ -1,20 +1,18 @@
 import { notFound } from "next/navigation";
 
-import { SupportView } from "@/components/support-view";
-import { isDepartmentEnabled } from "@/lib/departments";
-import {
-  getAccounts,
-  getContacts,
-  getMembers,
-  getIssues,
-  getProject,
-  getProjects,
-  getTickets,
-  getWorkspace,
-} from "@/lib/data";
-import { getTaskContext } from "@/lib/task-context";
+import { CustomerSuccessView } from "@/components/customer-success/view";
+import { loadCustomerSuccess } from "@/lib/customer-success-data";
+import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
+import { getMyRole, getProject, getWorkspace } from "@/lib/data";
+import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 
-export default async function ProjectSupportPage({
+/**
+ * The project's Customer Success, customer first. For Valytica the customers
+ * are its prospects at Pilot running or Won, read from the prospects sheet,
+ * each with an onboarding checklist, requests and check-ins. Deal values show
+ * only to those who can see Sales.
+ */
+export default async function ProjectCustomerSuccessPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -25,27 +23,11 @@ export default async function ProjectSupportPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "customer-success")) notFound();
 
-  const ctx = await getTaskContext(ws.id);
-  const [issues, tickets, accounts, contacts, members, projects] = await Promise.all([
-    getIssues(ws.id),
-    getTickets(ws.id, id),
-    getAccounts(ws.id),
-    getContacts(ws.id),
-    getMembers(ws.id),
-    getProjects(ws.id),
-  ]);
-
-  return (
-    <SupportView
-      ctx={ctx}
-      heading={`${project.name} · Customer Success`}
-      scopeProjectId={id}
-      projects={projects}
-      members={members}
-      accounts={accounts}
-      contacts={contacts}
-      initialTickets={tickets}
-      issues={issues.filter((i) => i.projectId === id)}
-    />
-  );
+  const data = await loadCustomerSuccess({
+    workspaceId: ws.id,
+    projectId: id,
+    fromSheet: project.key === PROSPECTS_PRODUCT_KEY,
+    showValue: canSeeConfidential(await getMyRole(ws.id)),
+  });
+  return <CustomerSuccessView data={data} />;
 }

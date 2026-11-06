@@ -51,6 +51,7 @@ import {
   savedViews,
   subscriptions,
   projects,
+  supportAnswers,
   ticketComments,
   tickets,
   users,
@@ -94,6 +95,7 @@ import type {
   ProjectWithIssueCount,
   Role,
   ScorecardSignals,
+  SupportAnswer,
   TicketWithRelations,
   TimelineItem,
   Workspace,
@@ -2007,6 +2009,26 @@ export async function getTicketComments(workspaceId: string, ticketId: string) {
     orderBy: [asc(ticketComments.createdAt)],
     with: { author: { columns: { id: true, name: true } } },
   });
+}
+
+/**
+ * Customer Success's saved answers for one project, most recently touched
+ * first. Tagged with "tickets": answers are written alongside requests, by the
+ * same people, and expire with them.
+ */
+export async function getSupportAnswers(
+  workspaceId: string,
+  projectId: string,
+): Promise<SupportAnswer[]> {
+  "use cache";
+  cacheTag(...wsTags(workspaceId, "tickets"));
+  cacheLife("minutes");
+
+  return db
+    .select()
+    .from(supportAnswers)
+    .where(and(eq(supportAnswers.workspaceId, workspaceId), eq(supportAnswers.projectId, projectId)))
+    .orderBy(desc(supportAnswers.updatedAt));
 }
 
 /** Features with relations. Pass `projectId` for the project lens. */
