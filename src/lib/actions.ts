@@ -2,7 +2,7 @@
 
 import { and, asc, desc, eq, gt, gte, ilike, inArray, isNull, lt, max, notInArray, or } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
-import { refresh, updateTag } from "next/cache";
+import { refresh, revalidateTag, updateTag } from "next/cache";
 import { cookies } from "next/headers";
 
 import { db } from "@/db";
@@ -130,18 +130,28 @@ import { snippetAround } from "@/lib/snippet";
  * deliberately never cache (favourites, notifications, anything per-user).
  */
 function invalidate(workspaceId: string, ...entities: CacheEntity[]): void {
-  expire(workspaceId, ...entities);
+  for (const tag of wsTags(workspaceId, ...entities)) updateTag(tag);
   refresh();
 }
 
 /**
- * `invalidate` without the router refresh, for hot writes whose author already
- * has the result on screen (a debounced doc autosave). A refresh makes the
- * action re-render and ship the whole current route back — on every keystroke
- * pause — for a view that wouldn't change.
+ * Expire cached reads without re-rendering the route, for hot writes whose
+ * author already has the result on screen (a debounced doc autosave).
+ *
+ * Not `updateTag`: in this Next version `updateTag` itself marks the action as
+ * having revalidated the path (see `revalidate()` in
+ * next/dist/server/web/spec-extension/revalidate.js), so the action re-renders
+ * and ships the whole route back, and — without `refresh()` downgrading that —
+ * the client drops its entire prefetch cache. On every pause in typing.
+ *
+ * `revalidateTag` with a non-zero `expire` profile leaves the path alone. The
+ * entries go stale at once and expire a second later: a read inside that second
+ * gets the previous value while it refetches, any later read waits for fresh
+ * data — so reopening a page after a save shows the save, unlike `"max"`, which
+ * would serve one stale read whenever the next visit comes.
  */
-function expire(workspaceId: string, ...entities: CacheEntity[]): void {
-  for (const tag of wsTags(workspaceId, ...entities)) updateTag(tag);
+function expireQuietly(workspaceId: string, ...entities: CacheEntity[]): void {
+  for (const tag of wsTags(workspaceId, ...entities)) revalidateTag(tag, { expire: 1 });
 }
 
 /** Whether two document bodies mention/reference the same set of targets. */
@@ -811,7 +821,7 @@ export async function updateIssue(
   // The description editor autosaves through here on every pause. Its author
   // already sees the new body, so a description-only save expires the cached
   // reads but skips re-rendering (and re-sending) the whole issue page.
-  if (Object.keys(changed).length === 0) expire(ws.id, "issues");
+  if (Object.keys(changed).length === 0) expireQuietly(ws.id, "issues");
   else invalidate(ws.id, "issues");
 }
 
@@ -1031,14 +1041,14 @@ export async function updatePage(
   // tagged "pages"). Issue reads only see a page through its title/icon (an
   // issue's linked pages) or through what the body references, so "issues" is
   // expired only when one of those moved, not on every autosave.
-  const touchesIssues =
-    patch.title !== undefined || patch.icon !== undefined || referencesChanged;
-  if (touchesIssues) expire(ws.id, "pages", "issues");
-  else expire(ws.id, "pages");
-  // The editor already shows its own content, so a plain content save skips the
-  // router refresh. A title/icon change still refreshes (the sidebar tree shows
-  // it), and so does a save that recorded a version (the History list).
-  if (patch.title !== undefined || patch.icon !== undefined || snapshotted) refresh();
+  const renamed = patch.title !== undefined || patch.icon !== undefined;
+  const entities: CacheEntity[] = renamed || referencesChanged ? ["pages", "issues"] : ["pages"];
+  // A title/icon change re-renders (the sidebar tree shows it), and so does a
+  // save that recorded a version (the History list) — the old full invalidate.
+  // A plain content save is the autosave: its author already sees the content,
+  // so it expires the reads without re-rendering the route (see expireQuietly).
+  if (renamed || snapshotted) invalidate(ws.id, ...entities);
+  else expireQuietly(ws.id, ...entities);
   return { conflict };
 }
 
