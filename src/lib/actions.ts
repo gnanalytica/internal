@@ -130,8 +130,27 @@ import { snippetAround } from "@/lib/snippet";
  * deliberately never cache (favourites, notifications, anything per-user).
  */
 function invalidate(workspaceId: string, ...entities: CacheEntity[]): void {
-  for (const tag of wsTags(workspaceId, ...entities)) updateTag(tag);
+  expire(workspaceId, ...entities);
   refresh();
+}
+
+/**
+ * `invalidate` without the router refresh, for hot writes whose author already
+ * has the result on screen (a debounced doc autosave). A refresh makes the
+ * action re-render and ship the whole current route back — on every keystroke
+ * pause — for a view that wouldn't change.
+ */
+function expire(workspaceId: string, ...entities: CacheEntity[]): void {
+  for (const tag of wsTags(workspaceId, ...entities)) updateTag(tag);
+}
+
+/** Whether two document bodies mention/reference the same set of targets. */
+function sameReferences(a: unknown, b: unknown): boolean {
+  const key = (doc: unknown) =>
+    new Set(extractReferences(doc).map((r) => `${r.targetType}:${r.targetId}`));
+  const x = key(a);
+  const y = key(b);
+  return x.size === y.size && [...x].every((k) => y.has(k));
 }
 
 /** Rewrite the reference graph for a body (issue/page) from its document JSON. */
@@ -789,7 +808,11 @@ export async function updateIssue(
   void _omitDesc;
   await dispatchWebhook(ws.id, "issue.updated", { id, ...changed });
 
-  invalidate(ws.id, "issues");
+  // The description editor autosaves through here on every pause. Its author
+  // already sees the new body, so a description-only save expires the cached
+  // reads but skips re-rendering (and re-sending) the whole issue page.
+  if (Object.keys(changed).length === 0) expire(ws.id, "issues");
+  else invalidate(ws.id, "issues");
 }
 
 export async function deleteIssue(id: string) {
@@ -939,6 +962,9 @@ export async function updatePage(
   if (patch.icon !== undefined) values.icon = patch.icon;
 
   let conflict = false;
+  // What this save can change beyond the page itself (see the end).
+  let referencesChanged = false;
+  let snapshotted = false;
 
   // A content save is the interesting case: it drives versioning + the
   // last-write-wins conflict check. Read the current row once for both.
@@ -988,9 +1014,11 @@ export async function updatePage(
           cause: conflict ? "conflict" : "auto",
         });
         await prunePageVersions(id);
+        snapshotted = true;
       }
     }
 
+    referencesChanged = !current || !sameReferences(current.content, patch.content);
     await syncReferences(ws.id, "page", id, patch.content);
   }
 
@@ -999,7 +1027,18 @@ export async function updatePage(
     .set(values)
     .where(and(eq(pages.workspaceId, ws.id), eq(pages.id, id)));
 
-  invalidate(ws.id, "pages", "issues");
+  // Every save expires the page reads (tree, page, mentions, backlinks — all
+  // tagged "pages"). Issue reads only see a page through its title/icon (an
+  // issue's linked pages) or through what the body references, so "issues" is
+  // expired only when one of those moved, not on every autosave.
+  const touchesIssues =
+    patch.title !== undefined || patch.icon !== undefined || referencesChanged;
+  if (touchesIssues) expire(ws.id, "pages", "issues");
+  else expire(ws.id, "pages");
+  // The editor already shows its own content, so a plain content save skips the
+  // router refresh. A title/icon change still refreshes (the sidebar tree shows
+  // it), and so does a save that recorded a version (the History list).
+  if (patch.title !== undefined || patch.icon !== undefined || snapshotted) refresh();
   return { conflict };
 }
 
