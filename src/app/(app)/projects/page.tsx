@@ -1,5 +1,5 @@
 import { todayISO } from "@/lib/roadmap";
-import { ProjectsView } from "@/components/projects-view";
+import { ProjectsView, type ProjectsTab } from "@/components/projects-view";
 import {
   getCycles,
   getProjectSummaries,
@@ -9,7 +9,15 @@ import {
   getWorkspace,
 } from "@/lib/data";
 
-export default async function ProjectsPage() {
+const TABS: ProjectsTab[] = ["list", "timeline", "week"];
+
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { tab } = await searchParams;
+  const initialTab = TABS.find((t) => t === tab) ?? "list";
   const ws = await getWorkspace();
   const [projects, all, roadmapProjects, allProjects, cycles] = await Promise.all([
     getProjectSummaries(ws.id),
@@ -27,6 +35,7 @@ export default async function ProjectsPage() {
       weeklyProjects={allProjects.filter((p) => p.kind === "project")}
       cycles={cycles}
       nowISO={todayISO()}
+      initialTab={initialTab}
     />
   );
 }

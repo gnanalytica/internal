@@ -1,18 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  ACCOUNT_TYPES,
-  ALL_DEPARTMENT_SLUGS,
   DEAL_STAGES,
   DEPARTMENTS,
+  INVOICE_STATUSES,
   OPEN_DEAL_STAGES,
-  OPEN_TICKET_STATUSES,
   canSeeConfidentialDept,
   enabledDepartments,
   isConfidentialDepartment,
-  isDealStage,
   isDepartmentEnabled,
-  isTicketStatus,
   optionMeta,
   visibleDepartments,
 } from "@/lib/departments";
@@ -42,11 +38,6 @@ describe("DEPARTMENTS", () => {
 });
 
 describe("deal stages", () => {
-  it("validates stage ids", () => {
-    expect(isDealStage("proposal")).toBe(true);
-    expect(isDealStage("nonsense")).toBe(false);
-  });
-
   it("treats only pre-close stages as open", () => {
     expect(OPEN_DEAL_STAGES).toContain("negotiation");
     expect(OPEN_DEAL_STAGES).not.toContain("won");
@@ -62,14 +53,6 @@ describe("deal stages", () => {
       "won",
       "lost",
     ]);
-  });
-});
-
-describe("ticket statuses", () => {
-  it("validates status ids and open set", () => {
-    expect(isTicketStatus("pending")).toBe(true);
-    expect(isTicketStatus("archived")).toBe(false);
-    expect(OPEN_TICKET_STATUSES).toEqual(["open", "pending"]);
   });
 });
 
@@ -105,7 +88,7 @@ describe("per-project department config", () => {
 
 describe("confidential department visibility", () => {
   const slugs = (role: string, isOwner: boolean) =>
-    visibleDepartments(ALL_DEPARTMENT_SLUGS, role, isOwner).map((d) => d.slug);
+    visibleDepartments(DEPARTMENTS.map((d) => d.slug), role, isOwner).map((d) => d.slug);
 
   it("hides Finance from plain members, but not Sales", () => {
     const s = slugs("member", false);
@@ -136,10 +119,10 @@ describe("confidential department visibility", () => {
 
 describe("optionMeta", () => {
   it("returns the matching option", () => {
-    expect(optionMeta(ACCOUNT_TYPES, "customer").label).toBe("Customer");
+    expect(optionMeta(INVOICE_STATUSES, "paid").label).toBe("Paid");
   });
 
   it("falls back to the raw id when unknown", () => {
-    expect(optionMeta(ACCOUNT_TYPES, "mystery")).toEqual({ label: "mystery" });
+    expect(optionMeta(INVOICE_STATUSES, "mystery")).toEqual({ label: "mystery" });
   });
 });

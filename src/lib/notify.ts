@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import { notifications, subscriptions } from "@/db/schema";
@@ -146,26 +146,4 @@ export async function audienceFor(
 ): Promise<string[]> {
   const following = await subscriberIds(workspaceId, target.kind, target.id, actorId);
   return [...new Set([...following, ...alsoNotify])].filter((id) => id && id !== actorId);
-}
-
-/** Whether these users are already following a target (for bulk UI checks). */
-export async function subscribedSet(
-  workspaceId: string,
-  userIds: string[],
-  kind: string,
-  targetId: string,
-): Promise<Set<string>> {
-  if (userIds.length === 0) return new Set();
-  const rows = await db
-    .select({ userId: subscriptions.userId })
-    .from(subscriptions)
-    .where(
-      and(
-        eq(subscriptions.workspaceId, workspaceId),
-        eq(subscriptions.kind, kind),
-        eq(subscriptions.targetId, targetId),
-        inArray(subscriptions.userId, userIds),
-      ),
-    );
-  return new Set(rows.map((r) => r.userId));
 }

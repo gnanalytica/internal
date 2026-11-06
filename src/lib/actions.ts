@@ -10,13 +10,10 @@ import {
   activity,
   apiKeys,
   attachments,
-  campaigns,
   commentReactions,
   comments,
   contentItems,
-  crmAccounts,
   crmActivities,
-  crmContacts,
   cycles,
   databaseFields,
   databaseRows,
@@ -2754,180 +2751,6 @@ function invalidateMatrix(workspaceId: string) {
 
 const toDate = (v?: string | null): Date | null => (v ? new Date(v) : null);
 
-// ---- CRM: accounts ----
-export async function createAccount(input: {
-  name?: string;
-  website?: string | null;
-  industry?: string | null;
-  type?: string;
-  entity?: string;
-}) {
-  const ws = await getWorkspace();
-  const me = await getCurrentUser(ws.id);
-  const [created] = await db
-    .insert(crmAccounts)
-    .values({
-      workspaceId: ws.id,
-      name: input.name?.trim() || "New account",
-      website: input.website ?? null,
-      industry: input.industry ?? null,
-      type: input.type ?? "prospect",
-      entity: input.entity ?? "Global",
-      ownerId: me.id,
-    })
-    .returning();
-  invalidateMatrix(ws.id);
-  return created;
-}
-
-export async function updateAccount(
-  id: string,
-  patch: Partial<{
-    name: string;
-    website: string | null;
-    industry: string | null;
-    type: string;
-    channel: string;
-    pageId: string | null;
-    entity: string;
-    ownerId: string | null;
-  }>,
-) {
-  const ws = await getWorkspace();
-  await db
-    .update(crmAccounts)
-    .set(patch)
-    .where(and(eq(crmAccounts.id, id), eq(crmAccounts.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
-export async function deleteAccount(id: string) {
-  const ws = await getWorkspace();
-  await db
-    .delete(crmAccounts)
-    .where(and(eq(crmAccounts.id, id), eq(crmAccounts.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
-// ---- CRM: contacts ----
-export async function createContact(input: {
-  name?: string;
-  email?: string | null;
-  title?: string | null;
-  phone?: string | null;
-  accountId?: string | null;
-  lifecycleStage?: string;
-  source?: string | null;
-  entity?: string;
-}) {
-  const ws = await getWorkspace();
-  const me = await getCurrentUser(ws.id);
-  const [created] = await db
-    .insert(crmContacts)
-    .values({
-      workspaceId: ws.id,
-      name: input.name?.trim() || "New contact",
-      email: input.email ?? null,
-      title: input.title ?? null,
-      phone: input.phone ?? null,
-      accountId: input.accountId ?? null,
-      lifecycleStage: input.lifecycleStage ?? "lead",
-      source: input.source ?? null,
-      entity: input.entity ?? "Global",
-      ownerId: me.id,
-    })
-    .returning();
-  invalidateMatrix(ws.id);
-  return created;
-}
-
-export async function updateContact(
-  id: string,
-  patch: Partial<{
-    name: string;
-    email: string | null;
-    title: string | null;
-    phone: string | null;
-    accountId: string | null;
-    lifecycleStage: string;
-    source: string | null;
-    channel: string;
-    referredById: string | null;
-    pageId: string | null;
-    leadScore: number | null;
-    entity: string;
-  }>,
-) {
-  const ws = await getWorkspace();
-  await db
-    .update(crmContacts)
-    .set(patch)
-    .where(and(eq(crmContacts.id, id), eq(crmContacts.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
-export async function deleteContact(id: string) {
-  const ws = await getWorkspace();
-  await db
-    .delete(crmContacts)
-    .where(and(eq(crmContacts.id, id), eq(crmContacts.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
-/**
- * The collateral page for one record — a deck for an account or contact, a
- * brief for a campaign. Returns the page already attached if there is one,
- * otherwise creates it named after the record and links it, so the caller can
- * navigate straight there.
- */
-export async function attachCrmPage(
-  kind: "account" | "contact" | "campaign",
-  id: string,
-): Promise<{ pageId: string }> {
-  const ws = await getWorkspace();
-  const me = await getCurrentUser(ws.id);
-  const table =
-    kind === "account" ? crmAccounts : kind === "contact" ? crmContacts : campaigns;
-  const [row] = await db
-    .select({ name: table.name, pageId: table.pageId })
-    .from(table)
-    .where(and(eq(table.id, id), eq(table.workspaceId, ws.id)))
-    .limit(1);
-  if (!row) throw new Error(`${kind} not found`);
-  if (row.pageId) return { pageId: row.pageId };
-
-  // A campaign belongs to a project, so its brief belongs in that project's
-  // Docs. Accounts and contacts are workspace-wide, so theirs sit in the wiki.
-  let scope: string | null = null;
-  if (kind === "campaign") {
-    const [c] = await db
-      .select({ projectId: campaigns.projectId })
-      .from(campaigns)
-      .where(eq(campaigns.id, id))
-      .limit(1);
-    scope = c?.projectId ?? null;
-  }
-
-  const [page] = await db
-    .insert(pages)
-    .values({
-      workspaceId: ws.id,
-      projectId: scope,
-      title: kind === "campaign" ? `${row.name} — brief` : `${row.name} — deck & notes`,
-      icon: kind === "account" ? "🏢" : kind === "contact" ? "👤" : "📣",
-      creatorId: me.id,
-      position: `a${Date.now()}`,
-    })
-    .returning({ id: pages.id });
-  await db
-    .update(table)
-    .set({ pageId: page.id })
-    .where(and(eq(table.id, id), eq(table.workspaceId, ws.id)));
-  invalidate(ws.id, "pages");
-  invalidateMatrix(ws.id);
-  return { pageId: page.id };
-}
-
 // ---- Sales: deals ----
 export async function createDeal(input: {
   projectId: string | null;
@@ -3048,90 +2871,6 @@ export async function loadDealActivities(dealId: string) {
     orderBy: (a, { desc }) => [desc(a.createdAt)],
     with: { actor: true },
   });
-}
-
-export async function toggleActivityDone(id: string, done: boolean) {
-  const ws = await getWorkspace();
-  await db
-    .update(crmActivities)
-    .set({ done })
-    .where(and(eq(crmActivities.id, id), eq(crmActivities.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
-// ---- Marketing: campaigns ----
-export async function createCampaign(input: {
-  projectId: string | null;
-  name?: string;
-  channel?: string;
-  status?: string;
-  budget?: number;
-  reach?: number;
-  replies?: number;
-  conversions?: number;
-  entity?: string;
-  startDate?: string | null;
-  endDate?: string | null;
-}) {
-  const ws = await getWorkspace();
-  const me = await getCurrentUser(ws.id);
-  const [created] = await db
-    .insert(campaigns)
-    .values({
-      workspaceId: ws.id,
-      projectId: input.projectId,
-      name: input.name?.trim() || "New campaign",
-      channel: input.channel ?? "email",
-      status: input.status ?? "planned",
-      budget: input.budget ?? 0,
-      reach: input.reach ?? 0,
-      replies: input.replies ?? 0,
-      conversions: input.conversions ?? 0,
-      entity: input.entity ?? "Global",
-      startDate: toDate(input.startDate),
-      endDate: toDate(input.endDate),
-      ownerId: me.id,
-    })
-    .returning();
-  invalidateMatrix(ws.id);
-  return created;
-}
-
-export async function updateCampaign(
-  id: string,
-  patch: Partial<{
-    name: string;
-    channel: string;
-    status: string;
-    budget: number;
-    reach: number;
-    replies: number;
-    conversions: number;
-    pageId: string | null;
-    entity: string;
-    startDate: string | null;
-    endDate: string | null;
-  }>,
-) {
-  const ws = await getWorkspace();
-  const { startDate, endDate, ...rest } = patch;
-  await db
-    .update(campaigns)
-    .set({
-      ...rest,
-      ...(startDate !== undefined ? { startDate: toDate(startDate) } : {}),
-      ...(endDate !== undefined ? { endDate: toDate(endDate) } : {}),
-    })
-    .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
-export async function deleteCampaign(id: string) {
-  const ws = await getWorkspace();
-  await db
-    .delete(campaigns)
-    .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
 }
 
 // ---- Marketing: content calendar ----
@@ -3329,63 +3068,6 @@ export async function deleteExpense(id: string) {
   invalidateMatrix(ws.id);
 }
 
-// ---- Support: tickets ----
-export async function createTicket(input: {
-  projectId: string | null;
-  subject?: string;
-  body?: string | null;
-  status?: string;
-  priority?: string;
-  accountId?: string | null;
-  contactId?: string | null;
-  assigneeId?: string | null;
-  requesterEmail?: string | null;
-  entity?: string;
-}) {
-  const ws = await getWorkspace();
-  const [created] = await db
-    .insert(tickets)
-    .values({
-      workspaceId: ws.id,
-      projectId: input.projectId,
-      subject: input.subject?.trim() || "New ticket",
-      body: input.body ?? null,
-      status: input.status ?? "open",
-      priority: input.priority ?? "normal",
-      accountId: input.accountId ?? null,
-      contactId: input.contactId ?? null,
-      assigneeId: input.assigneeId ?? null,
-      requesterEmail: input.requesterEmail ?? null,
-      entity: input.entity ?? "Global",
-      sortKey: `z${Date.now()}`,
-    })
-    .returning();
-  invalidateMatrix(ws.id);
-  return created;
-}
-
-export async function updateTicket(
-  id: string,
-  patch: Partial<{
-    subject: string;
-    body: string | null;
-    status: string;
-    priority: string;
-    accountId: string | null;
-    contactId: string | null;
-    assigneeId: string | null;
-    requesterEmail: string | null;
-    entity: string;
-  }>,
-) {
-  const ws = await getWorkspace();
-  await db
-    .update(tickets)
-    .set({ ...patch, updatedAt: new Date() })
-    .where(and(eq(tickets.id, id), eq(tickets.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
 // ---- Features department ----
 
 export async function createFeature(input: {
@@ -3480,15 +3162,6 @@ export async function updateMilestone(
   invalidateMatrix(ws.id);
 }
 
-export async function deleteMilestone(id: string) {
-  const ws = await getWorkspace();
-  // Features keep existing; their milestone_id is cleared (FK ON DELETE SET NULL).
-  await db
-    .delete(milestones)
-    .where(and(eq(milestones.id, id), eq(milestones.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
 // ---- Company-level: quarterly "bets" shown on the Overview home ----
 export async function updateCompanyBets(bets: string[]) {
   const ws = await getWorkspace();
@@ -3566,39 +3239,6 @@ export async function updateMetric(
 export async function deleteMetric(id: string) {
   const ws = await getWorkspace();
   await db.delete(metrics).where(and(eq(metrics.id, id), eq(metrics.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
-/** Record (or overwrite) a metric value for a period. */
-export async function addMetricPoint(input: {
-  metricId: string;
-  periodDate: string;
-  value: number;
-}) {
-  const ws = await getWorkspace();
-  // Guard: the metric must belong to this workspace.
-  const owner = await db.query.metrics.findFirst({
-    where: and(eq(metrics.id, input.metricId), eq(metrics.workspaceId, ws.id)),
-    columns: { id: true },
-  });
-  if (!owner) return;
-  const date = new Date(input.periodDate);
-  // One point per period: replace an existing same-date point.
-  const existing = await db.query.metricPoints.findFirst({
-    where: and(eq(metricPoints.metricId, input.metricId), eq(metricPoints.periodDate, date)),
-    columns: { id: true },
-  });
-  if (existing) {
-    await db.update(metricPoints).set({ value: input.value }).where(eq(metricPoints.id, existing.id));
-  } else {
-    await db.insert(metricPoints).values({ metricId: input.metricId, periodDate: date, value: input.value });
-  }
-  invalidateMatrix(ws.id);
-}
-
-export async function deleteMetricPoint(id: string) {
-  const ws = await getWorkspace();
-  await db.delete(metricPoints).where(eq(metricPoints.id, id));
   invalidateMatrix(ws.id);
 }
 
@@ -3753,26 +3393,6 @@ export async function deleteFeedback(id: string) {
   invalidateMatrix(ws.id);
 }
 
-/** Persist ticket board drag-and-drop: a batch of {id, status, sortKey}. */
-export async function moveTickets(changed: { id: string; status: string; sortKey: string }[]) {
-  const ws = await getWorkspace();
-  await Promise.all(
-    changed.map((c) =>
-      db
-        .update(tickets)
-        .set({ status: c.status, sortKey: c.sortKey, updatedAt: new Date() })
-        .where(and(eq(tickets.id, c.id), eq(tickets.workspaceId, ws.id))),
-    ),
-  );
-  invalidateMatrix(ws.id);
-}
-
-export async function deleteTicket(id: string) {
-  const ws = await getWorkspace();
-  await db.delete(tickets).where(and(eq(tickets.id, id), eq(tickets.workspaceId, ws.id)));
-  invalidateMatrix(ws.id);
-}
-
 export async function loadTicketComments(ticketId: string) {
   const ws = await getWorkspace();
   return db.query.ticketComments.findMany({
@@ -3783,23 +3403,6 @@ export async function loadTicketComments(ticketId: string) {
     orderBy: (c, { asc }) => [asc(c.createdAt)],
     with: { author: true },
   });
-}
-
-export async function addTicketComment(ticketId: string, body: string) {
-  const text = body?.trim();
-  if (!text) return;
-  const ws = await getWorkspace();
-  const me = await getCurrentUser(ws.id);
-  await db.insert(ticketComments).values({
-    workspaceId: ws.id,
-    ticketId,
-    authorId: me.id,
-    body: text,
-  });
-  await db
-    .update(tickets)
-    .set({ updatedAt: new Date() })
-    .where(and(eq(tickets.id, ticketId), eq(tickets.workspaceId, ws.id)));
 }
 
 // ---- Editor: link preview (bookmark cards) ----

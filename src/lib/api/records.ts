@@ -407,10 +407,6 @@ const RESOURCE_ENTITIES = {
   "page-comments": [],
 } satisfies Record<ResourceName, CacheEntity[]>;
 
-export function isResource(name: string): name is ResourceName {
-  return Object.hasOwn(RESOURCES, name);
-}
-
 /** The writable field names for a resource (used in error messages and docs). */
 export function writableFields(name: ResourceName): string[] {
   return Object.keys(RESOURCES[name].fields);

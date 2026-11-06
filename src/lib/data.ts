@@ -7,9 +7,11 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { auth } from "@/lib/auth/server";
-import { issueAttachmentsTag, wsTags } from "@/lib/cache-tags";
+import { wsTags } from "@/lib/cache-tags";
+import { convert, entityCurrency } from "@/lib/currency";
 import { countOpenByDepartment } from "@/lib/departments";
 import { featureProgress } from "@/lib/feature-progress";
+import { dayOf, todayIST, weekDays, weekStart } from "@/lib/marketing";
 import { cursorBounds } from "@/lib/api/pagination";
 import { db } from "@/db";
 import {
@@ -20,7 +22,6 @@ import {
   comments,
   contentItems,
   crmAccounts,
-  crmActivities,
   crmContacts,
   cycles,
   deals,
@@ -61,7 +62,6 @@ import {
 } from "@/db/schema";
 
 import type {
-  AccountDetail,
   CampaignWithRelations,
   ContactWithAccount,
   ContentItemWithCampaign,
@@ -1037,29 +1037,6 @@ export async function getPageVersions(
   }));
 }
 
-/** Full content of a single version (for the read-only preview). */
-export async function getPageVersion(
-  workspaceId: string,
-  versionId: string,
-): Promise<{ id: string; title: string; content: unknown } | null> {
-  "use cache";
-  cacheTag(...wsTags(workspaceId, "pages"));
-  cacheLife("minutes");
-
-  const [row] = await db
-    .select({
-      id: pageVersions.id,
-      title: pageVersions.title,
-      content: pageVersions.content,
-    })
-    .from(pageVersions)
-    .where(
-      and(eq(pageVersions.workspaceId, workspaceId), eq(pageVersions.id, versionId)),
-    )
-    .limit(1);
-  return row ?? null;
-}
-
 // ---- Cycles ----
 
 export async function getCycles(
@@ -1433,31 +1410,6 @@ export async function getFavorites(
   return items;
 }
 
-// ---- Attachments ----
-
-export async function getAttachments(
-  issueId: string,
-): Promise<import("@/lib/types").Attachment[]> {
-  "use cache";
-  cacheTag(issueAttachmentsTag(issueId));
-  cacheLife("minutes");
-
-  const rows = await db.query.attachments.findMany({
-    where: eq(attachments.issueId, issueId),
-    orderBy: [desc(attachments.createdAt)],
-    with: { uploader: true },
-  });
-  return rows.map((a) => ({
-    id: a.id,
-    name: a.name,
-    url: a.url,
-    contentType: a.contentType,
-    size: a.size,
-    createdAt: a.createdAt,
-    uploader: a.uploader,
-  }));
-}
-
 // ---- API keys ----
 
 export type ApiKeyRow = {
@@ -1753,31 +1705,6 @@ export async function getContacts(
   });
 }
 
-export async function getAccount(
-  workspaceId: string,
-  id: string,
-): Promise<AccountDetail | null> {
-  "use cache";
-  cacheTag(...wsTags(workspaceId, "crm"));
-  cacheLife("minutes");
-
-  const row = await db.query.crmAccounts.findFirst({
-    where: and(eq(crmAccounts.workspaceId, workspaceId), eq(crmAccounts.id, id)),
-    with: {
-      owner: true,
-      contacts: { orderBy: [asc(crmContacts.name)] },
-      deals: { orderBy: [asc(deals.sortKey)] },
-    },
-  });
-  if (!row) return null;
-  const activities = await db.query.crmActivities.findMany({
-    where: eq(crmActivities.accountId, id),
-    orderBy: [desc(crmActivities.createdAt)],
-    with: { actor: true },
-  });
-  return { ...row, activities };
-}
-
 /** Campaigns with content counts. Pass `projectId` for the project lens. */
 export async function getCampaigns(
   workspaceId: string,
@@ -1825,10 +1752,10 @@ export async function getProjectSummaries(
   workspaceId: string,
 ): Promise<ProjectSummary[]> {
   "use cache";
-  cacheTag(...wsTags(workspaceId, "projects", "issues", "milestones", "metrics", "campaigns", "crm", "tickets"));
+  cacheTag(...wsTags(workspaceId, "projects", "issues", "milestones", "metrics", "campaigns", "crm", "tickets", "features", "feedback"));
   cacheLife("minutes");
 
-  const [projects, allDeals, allIssues, labelledIssues, allCampaigns, allInvoices, allTickets, allMilestones, allMetrics] =
+  const [projects, allDeals, allIssues, labelledIssues, allCampaigns, allInvoices, allTickets, allMilestones, allMetrics, allFeatures, allFeedback, allContent] =
     await Promise.all([
     getProjects(workspaceId),
     db
@@ -1836,6 +1763,7 @@ export async function getProjectSummaries(
         projectId: deals.projectId,
         stage: deals.stage,
         value: deals.value,
+        entity: deals.entity,
       })
       .from(deals)
       .where(eq(deals.workspaceId, workspaceId)),
@@ -1878,12 +1806,27 @@ export async function getProjectSummaries(
       .select({ projectId: metrics.projectId })
       .from(metrics)
       .where(eq(metrics.workspaceId, workspaceId)),
+    db
+      .select({ projectId: features.projectId, status: features.status })
+      .from(features)
+      .where(eq(features.workspaceId, workspaceId)),
+    db
+      .select({ projectId: feedback.projectId })
+      .from(feedback)
+      .where(eq(feedback.workspaceId, workspaceId)),
+    db
+      .select({ projectId: contentItems.projectId, publishDate: contentItems.publishDate })
+      .from(contentItems)
+      .where(and(eq(contentItems.workspaceId, workspaceId), isNotNull(contentItems.publishDate))),
   ]);
 
   const openStages = new Set(["lead", "qualified", "proposal", "negotiation"]);
   const openTicketStatuses = new Set(["open", "pending"]);
   // A gate is open until it is achieved or formally missed.
   const openMilestoneStatuses = new Set(["planned", "on_track", "at_risk", "off_track"]);
+  // The content calendar's week: Monday to Sunday, India days. Cached for
+  // minutes, so the count rolls over within minutes of Monday 00:00 IST.
+  const thisWeek = new Set(weekDays(weekStart(todayIST())));
   return projects
     .filter((p) => p.kind === "project")
     .map((p) => {
@@ -1893,6 +1836,10 @@ export async function getProjectSummaries(
       ...p,
       openDeals: open.length,
       pipelineValue: open.reduce((sum, d) => sum + (d.value ?? 0), 0),
+      pipelineValueInr: open.reduce(
+        (sum, d) => sum + convert(d.value ?? 0, entityCurrency(d.entity), "INR"),
+        0,
+      ),
       openIssues: allIssues.filter(
         (i) => i.projectId === p.id && i.status !== "done" && i.status !== "canceled",
       ).length,
@@ -1910,6 +1857,11 @@ export async function getProjectSummaries(
         (m) => m.projectId === p.id && openMilestoneStatuses.has(m.status),
       ).length,
       metricCount: allMetrics.filter((m) => m.projectId === p.id).length,
+      featuresNow: allFeatures.filter((f) => f.projectId === p.id && f.status === "building").length,
+      feedbackCount: allFeedback.filter((f) => f.projectId === p.id).length,
+      piecesThisWeek: allContent.filter(
+        (c) => c.projectId === p.id && thisWeek.has(dayOf(c.publishDate) ?? ""),
+      ).length,
     };
   });
 }

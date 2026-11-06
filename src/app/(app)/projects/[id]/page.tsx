@@ -16,7 +16,6 @@ import {
   issueBelongsToDepartment,
 } from "@/lib/departments";
 import {
-  getAccounts,
   getBacklinks,
   getCurrentUser,
   getDatabases,
@@ -34,7 +33,7 @@ import {
   isFavorite,
 } from "@/lib/data";
 import { getTaskContext } from "@/lib/task-context";
-import { formatMoney } from "@/lib/matrix-format";
+import { formatCurrency } from "@/lib/currency";
 
 export default async function ProjectRoute({
   params,
@@ -74,9 +73,8 @@ export default async function ProjectRoute({
   // Finance is the company finance home: invoices + expenses across projects
   // (founders-only — guarded by the confidential check above).
   if (project.kind !== "project" && project.key === "FIN") {
-    const [projects, accounts, invoicesList, expensesList] = await Promise.all([
+    const [projects, invoicesList, expensesList] = await Promise.all([
       getProjects(ws.id),
-      getAccounts(ws.id),
       getInvoices(ws.id),
       getExpenses(ws.id),
     ]);
@@ -85,7 +83,6 @@ export default async function ProjectRoute({
         heading={project.name}
         scopeProjectId={null}
         projects={projects.filter((p) => p.kind === "project")}
-        accounts={accounts}
         initialInvoices={invoicesList}
         initialExpenses={expensesList}
       />
@@ -130,12 +127,9 @@ export default async function ProjectRoute({
   if (!summary) notFound();
   const owner = members.find((m) => m.id === summary.ownerId) ?? null;
 
-  // Each department's own open task count, routed by the same labels its
-  // surface uses. A department is more than its tasks, so the count sits
-  // alongside whatever else that department runs on.
-  const tasks = (slug: string) => summary.openIssuesByDepartment[slug] ?? 0;
-  const withTasks = (slug: string, stat: string) =>
-    tasks(slug) > 0 ? `${tasks(slug)} tasks · ${stat}` : stat;
+  // One headline number per department, from what that department's page
+  // now shows. Counts only: nothing here reads the prospects sheet.
+  const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
   const cards = [
     {
@@ -143,51 +137,48 @@ export default async function ProjectRoute({
       href: `/projects/${id}/product`,
       icon: <Compass className="size-4" />,
       label: "Product",
-      stat: withTasks("product", `${summary.openMilestones} open gates`),
-      tool: "Milestones & tasks",
+      stat: `${count(summary.featuresNow, "feature")} in Now · ${summary.feedbackCount} feedback`,
+      tool: "Roadmap & feedback",
     },
     {
       slug: "engineering" as const,
       href: `/projects/${id}/engineering`,
       icon: <CircleDot className="size-4" />,
       label: "Engineering",
-      stat: `${tasks("engineering")} open tasks`,
-      tool: "Linear-style tasks",
+      stat: count(summary.openIssuesByDepartment.engineering ?? 0, "open ticket"),
+      tool: "Tickets",
     },
     {
       slug: "analytics" as const,
       href: `/projects/${id}/analytics`,
       icon: <BarChart3 className="size-4" />,
       label: "Analytics",
-      stat: `${summary.metricCount} metrics`,
-      tool: "KPIs & north-star",
+      stat: count(summary.metricCount, "metric"),
+      tool: "Weekly scorecard",
     },
     {
       slug: "marketing" as const,
       href: `/projects/${id}/marketing`,
       icon: <Megaphone className="size-4" />,
       label: "Marketing",
-      stat: withTasks("marketing", `${summary.activeCampaigns} active campaigns`),
-      tool: "Campaigns & content calendar",
+      stat: `${count(summary.piecesThisWeek, "piece")} this week`,
+      tool: "Content calendar",
     },
     {
       slug: "sales" as const,
       href: `/projects/${id}/sales`,
       icon: <TrendingUp className="size-4" />,
       label: "Sales",
-      stat: withTasks(
-        "sales",
-        `${formatMoney(summary.pipelineValue)} · ${summary.openDeals} open deals`,
-      ),
-      tool: "Apollo / HubSpot-style pipeline",
+      stat: `${count(summary.openDeals, "open deal")} · ${formatCurrency(summary.pipelineValueInr, "INR")}`,
+      tool: "Prospects & deals",
     },
     {
       slug: "customer-success" as const,
       href: `/projects/${id}/customer-success`,
       icon: <LifeBuoy className="size-4" />,
       label: "Customer Success",
-      stat: withTasks("customer-success", `${summary.openTickets} open tickets`),
-      tool: "Zendesk-style ticket queue",
+      stat: count(summary.openTickets, "open request"),
+      tool: "Customers & requests",
     },
   ]
     .filter((c) => isDepartmentEnabled(summary.enabledDepartments, c.slug))

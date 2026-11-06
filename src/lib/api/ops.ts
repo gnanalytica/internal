@@ -1,25 +1,20 @@
 import "server-only";
 
-import { and, desc, eq, ilike, inArray, isNull, max, notInArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, max, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   activity,
   comments,
-  crmAccounts,
-  crmContacts,
   cycles,
-  deals,
   features,
   issueAssignees,
   issueLabels,
   issues,
   labels,
   milestones,
-  pageVersions,
   pages,
   projects,
-  tickets,
   users,
   workspaceMembers,
 } from "@/db/schema";
@@ -33,8 +28,6 @@ import { ApiInputError, isUniqueViolation } from "@/lib/api/errors";
 import { apiInvalidate } from "@/lib/api/invalidate";
 import { dispatchWebhook } from "@/lib/api/webhooks";
 import { docToText, markdownToDoc } from "@/lib/markdown";
-import { shouldSnapshot, VERSION_RETENTION } from "@/lib/page-collab";
-import { canSeeProject, canSeeSales, UNRESTRICTED, type ApiScope } from "@/lib/api/scope";
 
 /** API clients send Markdown; the editor stores TipTap JSON. */
 function textToDoc(text: string): unknown {
@@ -565,80 +558,6 @@ export async function apiCreatePage(
   return created.id;
 }
 
-export async function apiUpdatePage(
-  workspaceId: string,
-  id: string,
-  patch: { title?: string; icon?: string; content?: string },
-  userId: string | null = null,
-): Promise<boolean> {
-  const now = new Date();
-  const values: Record<string, unknown> = { updatedAt: now };
-  if (typeof patch.title === "string") values.title = patch.title.trim() || "Untitled";
-  if (typeof patch.icon === "string" && patch.icon.trim()) values.icon = patch.icon.trim();
-  if (typeof patch.content === "string") {
-    const doc = textToDoc(patch.content);
-    values.content = doc;
-    values.contentText = docToText(doc).slice(0, 20000);
-
-    // Snapshot the pre-update state, throttled the same way the editor does,
-    // so an agent's rewrite is recoverable from version history.
-    const [current] = await db
-      .select({ title: pages.title, content: pages.content })
-      .from(pages)
-      .where(and(eq(pages.workspaceId, workspaceId), eq(pages.id, id)))
-      .limit(1);
-    if (current) {
-      const [last] = await db
-        .select({ createdAt: pageVersions.createdAt })
-        .from(pageVersions)
-        .where(eq(pageVersions.pageId, id))
-        .orderBy(desc(pageVersions.createdAt))
-        .limit(1);
-      if (shouldSnapshot(last?.createdAt ?? null, now)) {
-        await db.insert(pageVersions).values({
-          workspaceId,
-          pageId: id,
-          title: current.title,
-          content: current.content,
-          authorId: userId,
-          cause: "auto",
-        });
-        const keep = await db
-          .select({ id: pageVersions.id })
-          .from(pageVersions)
-          .where(eq(pageVersions.pageId, id))
-          .orderBy(desc(pageVersions.createdAt))
-          .limit(VERSION_RETENTION);
-        if (keep.length === VERSION_RETENTION)
-          await db
-            .delete(pageVersions)
-            .where(
-              and(
-                eq(pageVersions.pageId, id),
-                notInArray(
-                  pageVersions.id,
-                  keep.map((k) => k.id),
-                ),
-              ),
-            );
-      }
-    }
-  }
-
-  const res = await db
-    .update(pages)
-    .set(values)
-    .where(
-      and(eq(pages.workspaceId, workspaceId), eq(pages.id, id), isNull(pages.deletedAt)),
-    )
-    .returning({ id: pages.id, title: pages.title });
-  if (res.length > 0) {
-    apiInvalidate(workspaceId, "pages");
-    await dispatchWebhook(workspaceId, "page.updated", { id, title: res[0].title });
-  }
-  return res.length > 0;
-}
-
 /**
  * Move a page (and its descendants) to the trash. Soft delete, matching the
  * in-app behaviour so an agent's mistake stays recoverable from /trash.
@@ -681,103 +600,6 @@ export async function apiDeletePage(
   apiInvalidate(workspaceId, "pages");
   await dispatchWebhook(workspaceId, "page.deleted", { id, count: ids.length });
   return true;
-}
-
-export type ApiSearchHit = { type: string; id: string; title: string; url: string };
-
-export async function apiSearch(
-  workspaceId: string,
-  q: string,
-  scope: ApiScope = UNRESTRICTED,
-): Promise<ApiSearchHit[]> {
-  const term = `%${q.trim()}%`;
-  if (!q.trim()) return [];
-  const base = process.env.NEXT_PUBLIC_APP_URL || "";
-  const [
-    issueRows,
-    pageRows,
-    projectRows,
-    ticketRows,
-    dealRows,
-    accountRows,
-    contactRows,
-    milestoneRows,
-    featureRows,
-  ] = await Promise.all([
-    db
-      .select({ id: issues.id, title: issues.title, projectId: issues.projectId })
-      .from(issues)
-      .where(and(eq(issues.workspaceId, workspaceId), ilike(issues.title, term)))
-      .orderBy(desc(issues.createdAt))
-      .limit(10),
-    db
-      .select({ id: pages.id, title: pages.title, projectId: pages.projectId })
-      .from(pages)
-      .where(
-        and(
-          eq(pages.workspaceId, workspaceId),
-          or(ilike(pages.title, term), ilike(pages.contentText, term)),
-        ),
-      )
-      .limit(10),
-    db
-      .select({ id: projects.id, name: projects.name })
-      .from(projects)
-      .where(and(eq(projects.workspaceId, workspaceId), ilike(projects.name, term)))
-      .limit(10),
-    db
-      .select({ id: tickets.id, subject: tickets.subject, projectId: tickets.projectId })
-      .from(tickets)
-      .where(and(eq(tickets.workspaceId, workspaceId), ilike(tickets.subject, term)))
-      .limit(10),
-    db
-      .select({ id: deals.id, name: deals.name })
-      .from(deals)
-      .where(and(eq(deals.workspaceId, workspaceId), ilike(deals.name, term)))
-      .limit(10),
-    db
-      .select({ id: crmAccounts.id, name: crmAccounts.name })
-      .from(crmAccounts)
-      .where(
-        and(eq(crmAccounts.workspaceId, workspaceId), ilike(crmAccounts.name, term)),
-      )
-      .limit(10),
-    db
-      .select({ id: crmContacts.id, name: crmContacts.name })
-      .from(crmContacts)
-      .where(
-        and(
-          eq(crmContacts.workspaceId, workspaceId),
-          or(ilike(crmContacts.name, term), ilike(crmContacts.email, term)),
-        ),
-      )
-      .limit(10),
-    db
-      .select({ id: milestones.id, name: milestones.name, projectId: milestones.projectId })
-      .from(milestones)
-      .where(
-        and(eq(milestones.workspaceId, workspaceId), ilike(milestones.name, term)),
-      )
-      .limit(10),
-    db
-      .select({ id: features.id, title: features.title, projectId: features.projectId })
-      .from(features)
-      .where(and(eq(features.workspaceId, workspaceId), ilike(features.title, term)))
-      .limit(10),
-  ]);
-  const see = (projectId: string | null | undefined) => canSeeProject(scope, projectId);
-
-  return [
-    ...issueRows.filter((r) => see(r.projectId)).map((r) => ({ type: "issue", id: r.id, title: r.title, url: `${base}/issues/${r.id}` })),
-    ...pageRows.filter((r) => see(r.projectId)).map((r) => ({ type: "page", id: r.id, title: r.title || "Untitled", url: `${base}/pages/${r.id}` })),
-    ...projectRows.filter((r) => see(r.id)).map((r) => ({ type: "project", id: r.id, title: r.name, url: `${base}/projects/${r.id}` })),
-    ...ticketRows.filter((r) => see(r.projectId)).map((r) => ({ type: "ticket", id: r.id, title: r.subject, url: `${base}/tickets/${r.id}` })),
-    ...(canSeeSales(scope) ? dealRows : []).map((r) => ({ type: "deal", id: r.id, title: r.name, url: `${base}/deals/${r.id}` })),
-    ...accountRows.map((r) => ({ type: "account", id: r.id, title: r.name, url: `${base}/accounts/${r.id}` })),
-    ...contactRows.map((r) => ({ type: "contact", id: r.id, title: r.name, url: `${base}/contacts/${r.id}` })),
-    ...milestoneRows.filter((r) => see(r.projectId)).map((r) => ({ type: "milestone", id: r.id, title: r.name, url: `${base}/milestones/${r.id}` })),
-    ...featureRows.filter((r) => see(r.projectId)).map((r) => ({ type: "feature", id: r.id, title: r.title, url: `${base}/features/${r.id}` })),
-  ];
 }
 
 // ---- Planning: milestones, features, cycles, labels ----
