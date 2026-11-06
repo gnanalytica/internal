@@ -32,7 +32,6 @@ export default async function ProjectProductPage({
       ctx={ctx}
       heading={`${project.name} · Product`}
       scopeProjectId={id}
-      issues={issues.filter((i) => i.projectId === id)}
       tickets={issues.filter((i) => i.featureId && featureIds.has(i.featureId))}
       features={features}
       feedback={feedback}
