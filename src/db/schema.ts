@@ -1117,6 +1117,10 @@ export const deals = pgTable(
     // prospects sync creates, so a prospect never gets two. See
     // src/lib/prospects/deals.ts.
     prospectRef: text("prospect_ref"),
+    // Customer Success: the onboarding steps done since this deal's prospect
+    // became a customer, as step id → ISO date done. The steps are in
+    // src/lib/customer-success.ts.
+    onboarding: jsonb("onboarding").$type<Record<string, string>>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1419,6 +1423,10 @@ export const tickets = pgTable(
     // The task this ticket was converted into, so support work that became
     // engineering work keeps the thread back to who reported it.
     issueId: uuid("issue_id").references(() => issues.id, { onDelete: "set null" }),
+    // Customer Success: the customer (their deal) a request came from, and how
+    // it reached us — whatsapp|call|email|visit.
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    via: text("via"),
     entity: text("entity").notNull().default("Global"),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1463,6 +1471,7 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
   }),
   assignee: one(users, { fields: [tickets.assigneeId], references: [users.id] }),
   issue: one(issues, { fields: [tickets.issueId], references: [issues.id] }),
+  deal: one(deals, { fields: [tickets.dealId], references: [deals.id] }),
   comments: many(ticketComments),
 }));
 
@@ -1470,6 +1479,28 @@ export const ticketCommentsRelations = relations(ticketComments, ({ one }) => ({
   ticket: one(tickets, { fields: [ticketComments.ticketId], references: [tickets.id] }),
   author: one(users, { fields: [ticketComments.authorId], references: [users.id] }),
 }));
+
+/**
+ * Customer Success's saved answers: a question customers ask and the reply
+ * that works, so the next request like it is answered in one click.
+ */
+export const supportAnswers = pgTable(
+  "support_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    question: text("question").notNull(),
+    answer: text("answer").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("support_answers_project_idx").on(t.projectId)],
+);
 
 /**
  * ---- Milestones (project phases: MVP / v1.0 / Phase 1) ----

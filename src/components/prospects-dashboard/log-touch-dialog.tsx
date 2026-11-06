@@ -48,13 +48,13 @@ export function defaultNextStep(outcome: Outcome, current: string): string {
 }
 
 /** Log a call, message or meeting: short by default, with what was learnt one click away. */
-export function LogTouchDialog({ target, today, open, onOpenChange, onSaved }: { target: LogTarget | null; today: string; open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void }) {
+export function LogTouchDialog({ target, today, open, onOpenChange, onSaved, title = "Log a touch" }: { target: LogTarget | null; today: string; open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void; title?: string }) {
   if (!target) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-xl">
         {/* Keyed so each record starts from a clean form. */}
-        <LogForm key={`${target.kind}:${target.id}:${target.channel ?? ""}:${target.outcome ?? ""}`} target={target} today={today} onDone={() => onOpenChange(false)} onSaved={onSaved} />
+        <LogForm key={`${target.kind}:${target.id}:${target.channel ?? ""}:${target.outcome ?? ""}`} target={target} today={today} title={title} onDone={() => onOpenChange(false)} onSaved={onSaved} />
       </DialogContent>
     </Dialog>
   );
@@ -75,7 +75,7 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; 
   );
 }
 
-function LogForm({ target, today, onDone, onSaved }: { target: LogTarget; today: string; onDone: () => void; onSaved: () => void }) {
+function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget; today: string; title: string; onDone: () => void; onSaved: () => void }) {
   const [channel, setChannelState] = useState<Channel>(target.channel ?? "Call");
   const [outcome, setOutcome] = useState<Outcome>(target.outcome ?? OUTCOMES_BY_CHANNEL[target.channel ?? "Call"][0]);
   const [summary, setSummary] = useState("");
@@ -131,7 +131,7 @@ function LogForm({ target, today, onDone, onSaved }: { target: LogTarget; today:
   return (
     <>
       <DialogHeader className="gap-0.5 px-5 pt-5 pb-1">
-        <DialogTitle>Log a touch</DialogTitle>
+        <DialogTitle>{title}</DialogTitle>
         <DialogDescription>
           {target.name} · {STAGES[target.stage]}
         </DialogDescription>
