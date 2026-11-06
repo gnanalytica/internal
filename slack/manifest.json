@@ -23,8 +23,8 @@
       {
         "command": "/internal",
         "url": "https://internal.gnanalytica.com/api/slack/webhook",
-        "description": "Find or create tasks in Internal",
-        "usage_hint": "[search] | new [title] | help",
+        "description": "Find, create and open tasks and prospects in Internal",
+        "usage_hint": "new [title] | search <text> | mine | VAL-123 | prospect <name> | help",
         "should_escape": false
       }
     ],
@@ -69,7 +69,8 @@
         "link_shared",
         "message.channels",
         "message.groups",
-        "message.im"
+        "message.im",
+        "reaction_added"
       ]
     },
     "interactivity": {

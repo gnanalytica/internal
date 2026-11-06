@@ -406,6 +406,8 @@ export type CommentItem = {
   id: string;
   createdAt: Date;
   author: Member | null;
+  /** Written as a reply in the task's Slack thread; `name` is kept when the Slack author isn't linked. */
+  viaSlack?: { name: string | null };
   body: string;
   reactions: ReactionSummary[];
 };

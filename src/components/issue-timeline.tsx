@@ -159,13 +159,18 @@ export function IssueTimeline({
           item.kind === "comment" ? (
             <div key={item.id} className="group flex gap-2.5">
               <UserAvatar
-                name={item.author?.name ?? "?"}
+                name={item.author?.name ?? item.viaSlack?.name ?? "?"}
                 color={item.author?.avatarColor ?? "#94a3b8"}
                 className="mt-0.5 size-6 text-[9px]"
               />
               <div className="min-w-0 flex-1 rounded-lg border bg-muted/30 px-3 py-2">
                 <div className="mb-0.5 flex items-center gap-2">
-                  <span className="text-xs font-medium">{item.author?.name ?? "Unknown"}</span>
+                  <span className="text-xs font-medium">
+                    {item.author?.name ?? item.viaSlack?.name ?? "Unknown"}
+                  </span>
+                  {item.viaSlack ? (
+                    <span className="text-[11px] text-muted-foreground">via Slack</span>
+                  ) : null}
                   <span className="text-[11px] text-muted-foreground">
                     <RelativeTime date={item.createdAt} />
                   </span>

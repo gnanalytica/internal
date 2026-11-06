@@ -639,6 +639,38 @@ export const slackThreads = pgTable(
   ],
 );
 
+/**
+ * Task comments that came from a reply in a linked Slack thread. Kept beside
+ * `comments` rather than as columns on it, so reading comments never depends
+ * on this table existing. It marks the comment as Slack's (so it isn't echoed
+ * back into the thread it came from), dedupes a redelivered message (one row
+ * per message and task), and — when the Slack author isn't linked to an app
+ * user, so `comments.author_id` is null — keeps the name shown as
+ * "Name via Slack".
+ */
+export const slackComments = pgTable(
+  "slack_comments",
+  {
+    commentId: uuid("comment_id")
+      .primaryKey()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    slackChannelId: text("slack_channel_id").notNull(),
+    slackThreadTs: text("slack_thread_ts").notNull(),
+    slackTs: text("slack_ts").notNull(),
+    slackUserId: text("slack_user_id"),
+    // The Slack display name, for comments whose author isn't linked.
+    authorName: text("author_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("slack_comments_message_issue_idx").on(t.slackChannelId, t.slackTs, t.issueId)],
+);
+
 /** Named, workspace-shared issue views (filters + sort + grouping + layout). */
 export const savedViews = pgTable(
   "saved_views",

@@ -19,6 +19,7 @@ import {
   type SlackEventInput,
   type SlackRule,
 } from "./events";
+import { emitCommentMirror } from "./mirror";
 import { eventContext, factsOf, loadSnapshot, userNames } from "./records";
 import type { SlackBot } from "./types";
 
@@ -51,6 +52,8 @@ export function emitSlackEvent(workspaceId: string, ev: SlackEventInput): void {
 export function emitSlackForWebhook(workspaceId: string, event: string, data: unknown): void {
   if (!isSlackConfigured()) return;
   for (const ev of slackEventsFromWebhook(event, data)) emitSlackEvent(workspaceId, ev);
+  // A comment also goes into every thread already linked to the task (thread sync).
+  emitCommentMirror(workspaceId, event, data);
 }
 
 /** Cache keys for the last value announced per record and field (see isNewsworthyChange). */
@@ -82,7 +85,17 @@ async function deliver(workspaceId: string, ev: SlackEventInput): Promise<void> 
   const type = recordTypeOf(ev.type);
   const snap = await loadSnapshot(workspaceId, type, ev.recordId, ev.prospect);
   if (!snap) return;
-  const channels = channelsFor(rules, factsOf(ev, snap));
+  let channels = channelsFor(rules, factsOf(ev, snap));
+  if (ev.type === "issue.commented" && channels.length > 0) {
+    // A channel that already has the task's thread hears comments through
+    // thread sync (mirror.ts), as "Name: text"; only channels without one get
+    // a card here.
+    const linked = await db
+      .select({ channel: slackThreads.slackChannelId })
+      .from(slackThreads)
+      .where(and(eq(slackThreads.recordType, "issue"), eq(slackThreads.recordId, snap.id), inArray(slackThreads.slackChannelId, channels)));
+    channels = channels.filter((c) => !linked.some((l) => l.channel === c));
+  }
   if (channels.length === 0) return;
 
   const [ctx, bot] = await Promise.all([eventContext(workspaceId, ev), getReadyBot()]);
