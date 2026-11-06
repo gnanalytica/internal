@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -786,8 +786,12 @@ export async function getPageTree(
   cacheTag(...wsTags(workspaceId, "pages"));
   cacheLife("minutes");
 
+  // Every column but the body (content + its text index).
+  const { content: _content, contentText: _contentText, ...treeColumns } = getTableColumns(pages);
+  void _content;
+  void _contentText;
   const all = await db
-    .select()
+    .select(treeColumns)
     .from(pages)
     .where(
       and(
@@ -799,7 +803,7 @@ export async function getPageTree(
     )
     .orderBy(asc(pages.position), asc(pages.createdAt));
 
-  const byParent = new Map<string | null, Page[]>();
+  const byParent = new Map<string | null, typeof all>();
   for (const p of all) {
     const key = p.parentId;
     if (!byParent.has(key)) byParent.set(key, []);

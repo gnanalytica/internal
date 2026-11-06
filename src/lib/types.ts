@@ -452,7 +452,9 @@ export type PresenceUser = {
   blockId: string | null;
 };
 
-export type PageNode = Page & { children: PageNode[] };
+/** A page as the tree (sidebar, Docs) shows it: no body — that ships with every
+ *  page load and sits in the shared cache, and only the page itself reads it. */
+export type PageNode = Omit<Page, "content" | "contentText"> & { children: PageNode[] };
 
 export type FlatIssue = {
   id: string;
