@@ -331,6 +331,38 @@ export function weekPace(items: Dated[], start: string): Pace[] {
     .filter((r) => r.plan > 0);
 }
 
+// ---- Overdue ----
+
+/**
+ * A piece whose India day has passed and that still hasn't gone out. One dated
+ * today isn't late yet — it can still go out tonight. Ideas have no date, so
+ * they are never overdue.
+ */
+export function isOverdue(p: { publishDate: When; status: string }, today: string): boolean {
+  const day = dayOf(p.publishDate);
+  return day !== null && day < today && p.status !== "published";
+}
+
+/** Overdue pieces, the latest-running first. */
+export function overdue<T extends { publishDate: When; status: string }>(items: T[], today: string): T[] {
+  return items.filter((p) => isOverdue(p, today)).sort((a, b) => (toMs(a.publishDate) ?? 0) - (toMs(b.publishDate) ?? 0));
+}
+
+/** Whole India days from a piece's day to `today`; 0 when it isn't behind. */
+export function daysLate(publishDate: When, today: string): number {
+  const day = dayOf(publishDate);
+  if (!day || day >= today) return 0;
+  return Math.round((utc(today).getTime() - utc(day).getTime()) / 86_400_000);
+}
+
+/** "1 day late", "12 days late", then "1 month late", "2 months late" once it runs past four weeks. */
+export function lateLabel(publishDate: When, today: string): string {
+  const days = daysLate(publishDate, today);
+  if (days < 30) return `${days} ${days === 1 ? "day" : "days"} late`;
+  const months = Math.floor(days / 30);
+  return `${months} ${months === 1 ? "month" : "months"} late`;
+}
+
 /** Posted pieces per row for the `weeks` weeks ending with the one starting `lastStart`, oldest first. */
 export function weeklyPosted(items: Dated[], lastStart: string, weeks = 8): Map<string, number[]> {
   const starts = Array.from({ length: weeks }, (_, i) => addDays(lastStart, (i - weeks + 1) * 7));
