@@ -5,7 +5,6 @@ import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { DepartmentHeader, type DepartmentTab } from "@/components/department-header";
-import { DepartmentTasks } from "@/components/department-tasks";
 import { FeatureSheet, type FeaturePatch } from "@/components/product/feature-sheet";
 import { FeedbackDialog, type FeedbackDialogTarget } from "@/components/product/feedback-dialog";
 import { FeedbackThemes } from "@/components/product/feedback-themes";
@@ -16,22 +15,22 @@ import { createFeature, linkFeedbackToFeature, updateFeature } from "@/lib/actio
 import { progressByFeature, themeNames, voicesByFeature, type RoadmapStatus } from "@/lib/product-roadmap";
 import type { FeatureWithRelations, FeedbackWithRelations, IssueWithRelations, TaskContext } from "@/lib/types";
 
-type Tab = "roadmap" | "feedback" | "tasks";
+type Tab = "roadmap" | "feedback";
 
 const NO_PROGRESS = { done: 0, total: 0, pct: 0 };
 
 /**
  * The Product department: Roadmap (features in Now / Next / Later, each tied
  * to the feedback behind it and the Engineering tickets that build it),
- * Feedback (what people said, by theme) and Tasks (Product's own work).
+ * and Feedback (what people said, by theme).
  *
- * The roadmap holds features, not tasks. Tickets attach to a feature through
- * `issues.featureId`; feedback through `feedback.featureId`.
+ * The roadmap holds features, not tasks. Tickets live on Engineering's board
+ * and attach to a feature through `issues.featureId`; feedback through
+ * `feedback.featureId`.
  */
 export function ProductView({
   heading,
   scopeProjectId,
-  issues,
   tickets,
   features,
   feedback,
@@ -39,8 +38,6 @@ export function ProductView({
 }: {
   heading: string;
   scopeProjectId: string;
-  /** This project's tasks, for the Tasks tab. */
-  issues: IssueWithRelations[];
   /** Every ticket linked to one of this project's features. */
   tickets: IssueWithRelations[];
   features: FeatureWithRelations[];
@@ -127,7 +124,6 @@ export function ProductView({
   const tabs: DepartmentTab<Tab>[] = [
     { id: "roadmap", label: "Roadmap" },
     { id: "feedback", label: "Feedback", count: feedback.length || undefined },
-    { id: "tasks", label: "Tasks" },
   ];
 
   return (
@@ -145,35 +141,29 @@ export function ProductView({
         }
       />
 
-      {tab === "tasks" ? (
-        <div role="tabpanel" aria-label="Tasks" className="min-h-0 flex-1 overflow-hidden">
-          <DepartmentTasks issues={issues} department="product" ctx={ctx} projectId={scopeProjectId} emptyLabel="No product, PM or risk tasks yet. Label a task product, pm or risk and it shows here." />
+      <div role="tabpanel" aria-label={tab === "roadmap" ? "Roadmap" : "Feedback"} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-3 px-3 py-4 sm:px-5">
+          {tab === "roadmap" ? (
+            <>
+              <p className="text-[13px] text-muted-foreground">Features, not tasks. Each one links to the feedback behind it and the Engineering tickets that build it.</p>
+              <RoadmapBoard features={shownFeatures} voices={voices} progress={progress} onOpen={setOpenId} onMove={move} onAdd={addFeature} adding={adding} />
+            </>
+          ) : (
+            <>
+              <p className="text-[13px] text-muted-foreground">What people said, grouped by theme. Link a theme to the feature it argues for and it counts as a voice on the roadmap.</p>
+              <FeedbackThemes
+                feedback={shownFeedback}
+                features={shownFeatures}
+                onAdd={() => setDialog({ mode: "new" })}
+                onEdit={(item) => setDialog({ mode: "edit", item })}
+                onLinkTheme={linkTheme}
+                onCreateFeatureFromTheme={featureFromTheme}
+                onOpenFeature={setOpenId}
+              />
+            </>
+          )}
         </div>
-      ) : (
-        <div role="tabpanel" aria-label={tab === "roadmap" ? "Roadmap" : "Feedback"} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-3 px-3 py-4 sm:px-5">
-            {tab === "roadmap" ? (
-              <>
-                <p className="text-[13px] text-muted-foreground">Features, not tasks. Each one links to the feedback behind it and the Engineering tickets that build it.</p>
-                <RoadmapBoard features={shownFeatures} voices={voices} progress={progress} onOpen={setOpenId} onMove={move} onAdd={addFeature} adding={adding} />
-              </>
-            ) : (
-              <>
-                <p className="text-[13px] text-muted-foreground">What people said, grouped by theme. Link a theme to the feature it argues for and it counts as a voice on the roadmap.</p>
-                <FeedbackThemes
-                  feedback={shownFeedback}
-                  features={shownFeatures}
-                  onAdd={() => setDialog({ mode: "new" })}
-                  onEdit={(item) => setDialog({ mode: "edit", item })}
-                  onLinkTheme={linkTheme}
-                  onCreateFeatureFromTheme={featureFromTheme}
-                  onOpenFeature={setOpenId}
-                />
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      </div>
 
       <FeatureSheet
         feature={open}
