@@ -37,7 +37,6 @@ export default async function ProjectProductPage({
       // "In Product" links from a sent touch or request land on ?tab=feedback.
       initialTab={typeof tab === "string" ? tab : undefined}
       scopeProjectId={id}
-      issues={issues.filter((i) => i.projectId === id)}
       tickets={issues.filter((i) => i.featureId && featureIds.has(i.featureId))}
       features={features}
       feedback={feedback}
