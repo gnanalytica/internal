@@ -11,6 +11,7 @@ import { getFeedback, getWorkspace } from "@/lib/data";
 import { themeNames, themeToSave, titleFromQuote } from "@/lib/product-roadmap";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { SEND_SOURCES, sentByRef } from "@/lib/send-to-product";
+import { emitSlackEvent } from "@/lib/slack/notify";
 
 /**
  * "Send to Product" writes: one remark from a touch or a request becomes a
@@ -95,7 +96,10 @@ export async function sendToProduct(input: SendToProductInput): Promise<{ id: st
     .onConflictDoNothing({ target: [feedback.workspaceId, feedback.sourceRef], where: sql`source_ref is not null` })
     .returning({ id: feedback.id });
   updateTag(wsTag(ws.id, "feedback"));
-  if (made) return { id: made.id, projectId: v.projectId, created: true };
+  if (made) {
+    emitSlackEvent(ws.id, { type: "feedback.created", recordId: made.id });
+    return { id: made.id, projectId: v.projectId, created: true };
+  }
   const raced = await find();
   if (!raced) throw new Error("Couldn't send that to Product. Try again.");
   return raced;

@@ -35,14 +35,23 @@ export const workspaces = pgTable("workspaces", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  // Tailwind-ish color token used to render the avatar fallback.
-  avatarColor: text("avatar_color").notNull().default("#6366f1"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    // Tailwind-ish color token used to render the avatar fallback.
+    avatarColor: text("avatar_color").notNull().default("#6366f1"),
+    // The Slack member id (U…) this person acts as from Slack. Matched by email
+    // on their first Slack interaction, or linked in Settings › Slack. See
+    // src/lib/slack/users.ts.
+    slackUserId: text("slack_user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Nulls never collide, so unlinked people are unaffected.
+  (t) => [uniqueIndex("users_slack_user_id_idx").on(t.slackUserId)],
+);
 
 export const workspaceMembers = pgTable(
   "workspace_members",
@@ -578,6 +587,56 @@ export const webhooks = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("webhooks_workspace_idx").on(t.workspaceId)],
+);
+
+/**
+ * Which Slack channel hears about which events: one row per channel and scope.
+ * `projectId` null means every project. `events` are ids from
+ * src/lib/slack/events.ts; `filters` narrows some of them (e.g. prospects only
+ * from "Demo done" on).
+ */
+export const slackChannelRules = pgTable(
+  "slack_channel_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    slackChannelId: text("slack_channel_id").notNull(),
+    // As it read when the rule was saved, for display; Slack's id is the key.
+    slackChannelName: text("slack_channel_name").notNull(),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    events: text("events").array().notNull().default(sql`'{}'::text[]`),
+    filters: jsonb("filters").$type<{ minProspectStage?: string }>().notNull().default({}),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("slack_channel_rules_ws_idx").on(t.workspaceId)],
+);
+
+/**
+ * The Slack thread an app record was first announced in, per channel, so later
+ * events for the same record reply in that thread (as Linear does). `recordId`
+ * is text because prospects live in the sheet as "<kind>:<id>", not as uuids.
+ */
+export const slackThreads = pgTable(
+  "slack_threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    recordType: text("record_type").notNull(), // issue | prospect | deal | ticket | feedback | content
+    recordId: text("record_id").notNull(),
+    slackChannelId: text("slack_channel_id").notNull(),
+    slackThreadTs: text("slack_thread_ts").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("slack_threads_record_channel_idx").on(t.recordType, t.recordId, t.slackChannelId),
+    // Reverse lookup for thread sync: which record is this Slack thread about?
+    index("slack_threads_channel_ts_idx").on(t.slackChannelId, t.slackThreadTs),
+  ],
 );
 
 /** Named, workspace-shared issue views (filters + sort + grouping + layout). */

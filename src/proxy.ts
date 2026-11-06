@@ -61,7 +61,10 @@ export const config = {
   // would 307 it to the sign-in page and the schedule would be silently dead
   // (the route's own secret check never runs). Each of those routes fails
   // closed on its own secret instead.
+  //
+  // `api/slack` is Slack calling in. It carries Slack's request signature, not
+  // a session, and the adapter rejects anything unsigned.
   matcher: [
-    "/((?!api/auth|api/oauth|api/v1|api/cron|api/sheet-sync|auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-|icon.png|apple-icon).*)",
+    "/((?!api/auth|api/oauth|api/v1|api/cron|api/sheet-sync|api/slack|auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-|icon.png|apple-icon).*)",
   ],
 };

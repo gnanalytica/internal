@@ -6,6 +6,7 @@ import { after } from "next/server";
 
 import { db } from "@/db";
 import { webhooks } from "@/db/schema";
+import { emitSlackForWebhook } from "@/lib/slack/notify";
 import { MAX_ATTEMPTS, backoffMs, shouldRetry } from "./webhook-retry";
 
 export const WEBHOOK_EVENTS = [
@@ -48,12 +49,17 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * 20s "Create issue" click. Retries are handed to `after()` instead, which runs
  * them once the response has been sent and, on Vercel, keeps the function alive
  * to finish them.
+ *
+ * Every task event passes through here from the web app and the API alike, so
+ * this is also where Slack hears about them (src/lib/slack/notify.ts) — queued
+ * for after the response, whether or not any webhook is registered.
  */
 export async function dispatchWebhook(
   workspaceId: string,
   event: WebhookEvent,
   data: unknown,
 ): Promise<void> {
+  emitSlackForWebhook(workspaceId, event, data);
   let hooks;
   try {
     hooks = await db

@@ -14,6 +14,7 @@ import { recordsOf } from "@/lib/prospects/parse";
 import { loadWorkbook } from "@/lib/prospects/read";
 import { PROSPECT_KINDS, type ProspectKind } from "@/lib/prospects/schema";
 import { todayIST } from "@/lib/prospects/stats";
+import { emitSlackEvent } from "@/lib/slack/notify";
 
 /**
  * Customer Success writes: onboarding ticks on a customer's deal, requests
@@ -121,6 +122,7 @@ export async function createRequest(input: z.input<typeof requestSchema>): Promi
       sortKey: `z${Date.now()}`,
     })
     .returning({ id: tickets.id });
+  emitSlackEvent(ws.id, { type: "ticket.created", recordId: created.id, actorId: me.id });
   invalidate(ws.id, "tickets", "projects", "crm");
   return created;
 }

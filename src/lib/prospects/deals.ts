@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { deals, projects } from "@/db/schema";
 import { apiInvalidate } from "@/lib/api/invalidate";
+import { emitDealsWon, emitProspectStage } from "@/lib/slack/notify";
 import { dealStageForChange, planDealStep, prospectDealName, prospectRef } from "./deal-plan";
 import { PROSPECTS_PRODUCT_KEY, type ProspectKind } from "./schema";
 
@@ -33,6 +34,8 @@ export type ProspectStatusChange = {
  */
 export async function syncProspectDeal(ctx: DealContext | null, change: ProspectStatusChange): Promise<void> {
   if (!ctx) return;
+  // Every stage move is news to Slack, deal or no deal (see src/lib/slack).
+  emitProspectStage(ctx, change);
   const target = dealStageForChange(change.before.status ?? null, change.status);
   if (!target) return;
   const ref = prospectRef(change.kind, change.id);
@@ -50,6 +53,7 @@ export async function syncProspectDeal(ctx: DealContext | null, change: Prospect
         .update(deals)
         .set({ stage: step.stage, updatedAt: new Date() })
         .where(and(eq(deals.id, deal!.id), eq(deals.workspaceId, ctx.workspaceId)));
+      if (step.stage === "won") emitDealsWon(ctx.workspaceId, [deal!.id], ctx.userId);
     } else {
       const [product] = await db
         .select({ id: projects.id })
@@ -60,7 +64,7 @@ export async function syncProspectDeal(ctx: DealContext | null, change: Prospect
         console.warn(`[prospects] no ${PROSPECTS_PRODUCT_KEY} project in workspace ${ctx.workspaceId}; no deal opened for ${ref}.`);
         return;
       }
-      await db
+      const [made] = await db
         .insert(deals)
         .values({
           workspaceId: ctx.workspaceId,
@@ -74,7 +78,9 @@ export async function syncProspectDeal(ctx: DealContext | null, change: Prospect
           sortKey: `z${Date.now()}`,
           prospectRef: ref,
         })
-        .onConflictDoNothing({ target: [deals.workspaceId, deals.prospectRef] });
+        .onConflictDoNothing({ target: [deals.workspaceId, deals.prospectRef] })
+        .returning({ id: deals.id });
+      if (made && step.stage === "won") emitDealsWon(ctx.workspaceId, [made.id], ctx.userId);
     }
     apiInvalidate(ctx.workspaceId, "crm");
   } catch (err) {
