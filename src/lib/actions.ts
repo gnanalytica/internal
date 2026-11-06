@@ -100,6 +100,7 @@ import {
   newWebhookSecret,
 } from "@/lib/api/webhooks";
 import { docToText } from "@/lib/markdown";
+import type { ContentDetails } from "@/lib/marketing";
 import { findMentionedMemberIds } from "@/lib/mentions";
 import {
   PRESENCE_STALE_MS,
@@ -3134,6 +3135,8 @@ export async function createContent(input: {
   url?: string | null;
   notes?: string | null;
   publishDate?: string | null;
+  format?: string | null;
+  details?: ContentDetails | null;
 }) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
@@ -3149,6 +3152,8 @@ export async function createContent(input: {
       url: input.url ?? null,
       notes: input.notes ?? null,
       publishDate: toDate(input.publishDate),
+      format: input.format ?? null,
+      details: input.details ?? null,
       ownerId: me.id,
     })
     .returning();
@@ -3166,6 +3171,11 @@ export async function updateContent(
     url: string | null;
     notes: string | null;
     publishDate: string | null;
+    format: string | null;
+    details: ContentDetails | null;
+    views: number | null;
+    clicks: number | null;
+    ownerId: string | null;
   }>,
 ) {
   const ws = await getWorkspace();

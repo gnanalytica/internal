@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import type { CycleCadence } from "@/lib/cycle-cadence";
+import type { ContentDetails } from "@/lib/marketing";
 import type { PricingModel } from "@/lib/pricing";
 import type { StrategyModel } from "@/lib/strategy";
 import {
@@ -1214,6 +1215,13 @@ export const contentItems = pgTable(
     url: text("url"),
     notes: text("notes"),
     publishDate: timestamp("publish_date", { withTimezone: true }),
+    // What kind of piece it is (post|reel|article|email|pdf|webinar|message);
+    // the fields it asks for live in `details` (see src/lib/marketing.ts).
+    format: text("format"),
+    details: jsonb("details").$type<ContentDetails | null>(),
+    // Results, typed in by hand after it goes out.
+    views: integer("views"),
+    clicks: integer("clicks"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
