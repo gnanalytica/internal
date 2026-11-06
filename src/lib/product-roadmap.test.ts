@@ -11,6 +11,7 @@ import {
   themeKey,
   themeNames,
   themeOf,
+  themeToSave,
   ticketsLabel,
   titleFromQuote,
   voicesByFeature,
@@ -115,10 +116,17 @@ describe("source buckets", () => {
 });
 
 describe("themes", () => {
-  it("falls back to the title when an item has no theme", () => {
-    expect(themeOf({ title: "Slow PDF", theme: null })).toBe("Slow PDF");
-    expect(themeOf({ title: "Slow PDF", theme: "  " })).toBe("Slow PDF");
-    expect(themeOf({ title: "x", theme: " Trust " })).toBe("Trust");
+  it("reads an item with no theme as Unsorted", () => {
+    expect(themeOf({ theme: null })).toBe("Unsorted");
+    expect(themeOf({ theme: "  " })).toBe("Unsorted");
+    expect(themeOf({ theme: " Trust " })).toBe("Trust");
+  });
+  it("saves an existing theme's spelling, and blank or Unsorted as none", () => {
+    expect(themeToSave("trust  in ai", ["Trust in AI"])).toBe("Trust in AI");
+    expect(themeToSave(" New one ", ["Trust in AI"])).toBe("New one");
+    expect(themeToSave("  ", ["Trust in AI"])).toBeNull();
+    expect(themeToSave(undefined, [])).toBeNull();
+    expect(themeToSave("unsorted", [])).toBeNull();
   });
   it("matches themes regardless of case and spacing", () => {
     expect(themeKey("  Willingness   to Pay ")).toBe("willingness to pay");
@@ -131,9 +139,15 @@ describe("themes", () => {
       fb("4", "Trust in AI", null),
     ]);
     expect(groups.map((g) => [g.name, g.items.map((i) => i.id)])).toEqual([
-      ["Trust in AI", ["2", "3", "4"]],
+      ["Trust in AI", ["2", "3"]],
       ["Pricing", ["1"]],
+      ["Unsorted", ["4"]],
     ]);
+  });
+  it("puts Unsorted last however big it is, and never offers it as a theme", () => {
+    const items = [fb("1", "a", null), fb("2", "b", null), fb("3", "c", "Pricing")];
+    expect(groupByTheme(items).map((g) => g.name)).toEqual(["Pricing", "Unsorted"]);
+    expect(themeNames(items)).toEqual(["Pricing"]);
   });
   it("orders equal-sized themes by name", () => {
     expect(groupByTheme([fb("1", "x", "Zeta"), fb("2", "y", "Alpha")]).map((g) => g.name)).toEqual(["Alpha", "Zeta"]);

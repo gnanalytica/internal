@@ -19,6 +19,7 @@ import type { MyWorkItem } from "./views";
 
 // The log dialog imports the server actions; the rules under test never call them.
 vi.mock("@/lib/prospects/actions", () => ({}));
+vi.mock("@/lib/send-to-product-actions", () => ({}));
 
 const TODAY = "2026-09-28";
 

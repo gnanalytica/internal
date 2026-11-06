@@ -97,8 +97,11 @@ export function countBySourceBucket(items: { source: string }[]): Record<SourceB
 
 type ThemeInput = { id: string; title: string; theme: string | null; featureId: string | null };
 
-/** An item's theme: its own, or its title before themes existed. */
-export const themeOf = (i: { title: string; theme: string | null }) => (i.theme?.trim() || i.title.trim() || "Untitled");
+/** Where items with no theme are read: sent from a touch without one, say. */
+export const UNSORTED = "Unsorted";
+
+/** An item's theme, or "Unsorted" when it has none. */
+export const themeOf = (i: { theme: string | null }) => i.theme?.trim() || UNSORTED;
 
 /** The words of a quote: its body, or its title for items logged before bodies were used. */
 export const quoteText = (f: { body: string | null; title: string }) => f.body?.trim() || f.title.trim();
@@ -115,6 +118,18 @@ export function titleFromQuote(quote: string): string {
 /** Themes match whatever the case and spacing, so "Pricing" and "pricing " are one. */
 export const themeKey = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 
+export const isUnsorted = (name: string) => themeKey(name) === themeKey(UNSORTED);
+
+/**
+ * The theme to store for what was typed: an existing theme keeps its first
+ * spelling, so "pricing" lands in "Pricing"; blank or "Unsorted" is none.
+ */
+export function themeToSave(typed: string | null | undefined, names: string[]): string | null {
+  const t = typed?.trim().replace(/\s+/g, " ") ?? "";
+  if (!t || isUnsorted(t)) return null;
+  return names.find((n) => themeKey(n) === themeKey(t)) ?? t;
+}
+
 export type ThemeGroup<T> = {
   key: string;
   /** As first written. */
@@ -127,8 +142,9 @@ export type ThemeGroup<T> = {
 };
 
 /**
- * Group feedback into themes, biggest first (ties by name). Items keep the
- * order given within a theme, so pass them sorted the way quotes should read.
+ * Group feedback into themes, biggest first (ties by name), with Unsorted
+ * last whatever its size. Items keep the order given within a theme, so pass
+ * them sorted the way quotes should read.
  */
 export function groupByTheme<T extends ThemeInput>(items: T[]): ThemeGroup<T>[] {
   const groups = new Map<string, { name: string; items: T[] }>();
@@ -147,12 +163,14 @@ export function groupByTheme<T extends ThemeInput>(items: T[]): ThemeGroup<T>[] 
       const mixed = featureId !== null && g.items.some((i) => i.featureId !== featureId);
       return { key, name: g.name, items: g.items, featureId, mixed };
     })
-    .sort((a, b) => b.items.length - a.items.length || a.name.localeCompare(b.name));
+    .sort((a, b) => Number(isUnsorted(a.name)) - Number(isUnsorted(b.name)) || b.items.length - a.items.length || a.name.localeCompare(b.name));
 }
 
-/** Distinct theme names, for the Add feedback picker; most used first. */
+/** Distinct theme names, for the theme pickers; most used first. Unsorted is not a theme. */
 export function themeNames(items: ThemeInput[]): string[] {
-  return groupByTheme(items).map((g) => g.name);
+  return groupByTheme(items)
+    .map((g) => g.name)
+    .filter((n) => !isUnsorted(n));
 }
 
 /** Existing themes matching what's been typed (all of them when nothing has). */

@@ -7,10 +7,13 @@ import { getTaskContext } from "@/lib/task-context";
 
 export default async function ProjectProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const ws = await getWorkspace();
   const project = await getProject(ws.id, id);
   if (!project) notFound();
@@ -31,6 +34,8 @@ export default async function ProjectProductPage({
     <ProductView
       ctx={ctx}
       heading={`${project.name} · Product`}
+      // "In Product" links from a sent touch or request land on ?tab=feedback.
+      initialTab={typeof tab === "string" ? tab : undefined}
       scopeProjectId={id}
       tickets={issues.filter((i) => i.featureId && featureIds.has(i.featureId))}
       features={features}

@@ -1,12 +1,15 @@
 import "server-only";
 
 import { checkInCount, customerSince, isCustomerStage, touchesSince, type CustomerSince, type Onboarding } from "@/lib/customer-success";
-import { getDeals, getSupportAnswers, getTickets } from "@/lib/data";
+import { getDeals, getFeedback, getSupportAnswers, getTickets } from "@/lib/data";
+import { themeNames } from "@/lib/product-roadmap";
 import { prospectRef } from "@/lib/prospects/deal-plan";
 import type { ActivityEntry } from "@/lib/prospects/parse";
 import { loadWorkbook } from "@/lib/prospects/read";
 import { PROSPECT_KINDS, prospectsSheetUrl, type ProspectKind } from "@/lib/prospects/schema";
 import { todayIST } from "@/lib/prospects/stats";
+import { sentByRef } from "@/lib/send-to-product";
+import type { ProductFeedbackContext } from "@/lib/send-to-product-actions";
 import type { SupportAnswer, TicketWithRelations } from "@/lib/types";
 
 /** A customer's deal, as the page needs it. `value` is null for people who may not see deal values. */
@@ -57,6 +60,8 @@ export type CustomerSuccessData = {
   sheetUrl: string;
   /** Whether the viewer may see deal values — the same people who can open Sales. */
   showValue: boolean;
+  /** For "Send to Product" on check-ins and requests: this project's themes and what's already been sent. */
+  feedback: ProductFeedbackContext;
 };
 
 const latest = (a: string | null, b: string | null) => (!a ? b : !b ? a : a > b ? a : b);
@@ -68,10 +73,11 @@ const latest = (a: string | null, b: string | null) => (!a ? b : !b ? a : a > b 
  */
 export async function loadCustomerSuccess(input: { workspaceId: string; projectId: string; fromSheet: boolean; showValue: boolean }): Promise<CustomerSuccessData> {
   const { workspaceId, projectId, fromSheet, showValue } = input;
-  const [deals, requests, answers, wb] = await Promise.all([
+  const [deals, requests, answers, feedback, wb] = await Promise.all([
     getDeals(workspaceId, projectId),
     getTickets(workspaceId, projectId),
     getSupportAnswers(workspaceId, projectId),
+    getFeedback(workspaceId, projectId),
     fromSheet ? loadWorkbook() : null,
   ]);
   const byRef = new Map(deals.filter((d) => d.prospectRef).map((d) => [d.prospectRef!, d]));
@@ -135,5 +141,6 @@ export async function loadCustomerSuccess(input: { workspaceId: string; projectI
     warnings: wb?.warnings ?? [],
     sheetUrl: prospectsSheetUrl(),
     showValue,
+    feedback: { projectId, themes: themeNames(feedback), sent: sentByRef(feedback) },
   };
 }

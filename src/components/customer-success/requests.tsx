@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
+import { SendToProductButton, type ProductFeedback } from "@/components/product/send-to-product";
 import { Segmented } from "@/components/prospects-dashboard/bits";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { convertTicketToIssue, loadTicketComments } from "@/lib/actions";
 import { ageLabel, REQUEST_STATES, REQUEST_VIA, requestState, requestStateMeta, viaLabel, type RequestState, type RequestVia } from "@/lib/customer-success";
 import { createAnswer, createRequest, replyToRequest, setRequestState } from "@/lib/customer-success-actions";
+import { requestQuote, ticketSourceRef, touchContact } from "@/lib/send-to-product";
 import { tone } from "@/lib/tones";
 import type { SupportAnswer, TicketWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,8 @@ export type RequestCtx = {
   now: number;
   answers: SupportAnswer[];
   onChanged: () => void;
+  /** Where "Send to Product" sends, and what has already gone. */
+  fb: ProductFeedback;
 };
 
 /* ---------- one request ---------- */
@@ -104,7 +108,7 @@ function EngineeringButton({ request, ctx }: { request: TicketWithRelations; ctx
   );
 }
 
-export function RequestCard({ request, ctx, customerName, onOpenCustomer }: { request: TicketWithRelations; ctx: RequestCtx; customerName?: string | null; onOpenCustomer?: () => void }) {
+export function RequestCard({ request, ctx, contact, customerName, onOpenCustomer }: { request: TicketWithRelations; ctx: RequestCtx; contact: string | null; customerName?: string | null; onOpenCustomer?: () => void }) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const answered = requestState(request.status) === "answered";
@@ -145,6 +149,8 @@ export function RequestCard({ request, ctx, customerName, onOpenCustomer }: { re
         <Button variant="ghost" size="sm" onClick={() => setSaveOpen(true)}>
           Save as an answer
         </Button>
+        <span className="flex-1" />
+        <SendToProductButton fb={ctx.fb} payload={{ body: requestQuote(request), contact, source: "support", sourceRef: ticketSourceRef(request.id) }} />
       </div>
       <ReplyDialog request={request} ctx={ctx} open={replyOpen} onOpenChange={setReplyOpen} />
       <SaveAnswerDialog request={request} ctx={ctx} open={saveOpen} onOpenChange={setSaveOpen} />
@@ -420,7 +426,8 @@ export function RequestsTab({ requests, customers, dealNames, ctx, onOpenCustome
         <div className="flex flex-col gap-2">
           {shown.map((r) => {
             const c = r.dealId ? byDeal.get(r.dealId) : undefined;
-            return <RequestCard key={r.id} request={r} ctx={ctx} customerName={c?.name ?? (r.dealId ? dealNames[r.dealId] ?? null : null)} onOpenCustomer={c ? () => onOpenCustomer(c.ref) : undefined} />;
+            const name = c?.name ?? (r.dealId ? dealNames[r.dealId] ?? null : null);
+            return <RequestCard key={r.id} request={r} ctx={ctx} contact={c ? touchContact(c.name, c.stage) : name} customerName={name} onOpenCustomer={c ? () => onOpenCustomer(c.ref) : undefined} />;
           })}
         </div>
       ) : (

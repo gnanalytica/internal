@@ -6,12 +6,14 @@ import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
+import { SendToProductButton, type ProductFeedback } from "@/components/product/send-to-product";
 import { CHANNEL_TONE, KindDot, outcomeTone, StagePill, ToneChip } from "@/components/prospects-dashboard/bits";
 import { Button } from "@/components/ui/button";
 import { CHECK_INS_NEEDED, daysAgo, onboardingProgress, onboardingSteps, toggleStep, type Onboarding, type OnboardingStepId } from "@/lib/customer-success";
 import { setOnboardingStep } from "@/lib/customer-success-actions";
 import { entityCurrency, formatCurrency } from "@/lib/currency";
 import { KIND_LABEL, type Channel } from "@/lib/prospects/schema";
+import { canSendTouch, touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 import { dayMonth, HealthChip, HealthDot, type CustomerView } from "./bits";
@@ -160,20 +162,23 @@ function OnboardingChecklist({ c, today, onChanged }: { c: CustomerView; today: 
   );
 }
 
-function CheckIns({ c }: { c: CustomerView }) {
+function CheckIns({ c, fb }: { c: CustomerView; fb: ProductFeedback }) {
   return (
     <Section id={`ci-${c.ref}`} title="Check-ins" aside={c.touches.length ? String(c.touches.length) : undefined}>
       {c.touches.length ? (
         <ul className="flex flex-col">
           {c.touches.map((a) => (
-            <li key={a.id || a.loggedAt} className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 gap-y-1 border-t border-border/60 py-2.5 text-[13px] first:border-t-0 sm:grid-cols-[64px_96px_minmax(0,1fr)_auto]">
+            <li key={a.id || a.loggedAt} className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 gap-y-1 border-t border-border/60 py-2.5 text-[13px] first:border-t-0 sm:grid-cols-[64px_96px_minmax(0,1fr)_auto_auto]">
               <span className="font-mono text-xs text-muted-foreground">{a.date ? dayMonth(a.date) : "—"}</span>
               <span className="max-sm:justify-self-start">
                 <ToneChip t={CHANNEL_TONE[a.channel as Channel] ?? "gray"}>{a.channel || "—"}</ToneChip>
               </span>
-              <span className="col-span-3 leading-relaxed max-sm:row-start-2 sm:col-span-1">{a.summary || <span className="text-muted-foreground">No notes</span>}</span>
+              <span className="col-span-2 leading-relaxed max-sm:row-start-2 sm:col-span-1">{a.summary || <span className="text-muted-foreground">No notes</span>}</span>
               <span className="justify-self-end max-sm:col-start-3 max-sm:row-start-1">
                 <ToneChip t={outcomeTone(a.outcome)}>{a.outcome || "—"}</ToneChip>
+              </span>
+              <span className="self-center justify-self-end max-sm:col-start-3 max-sm:row-start-2">
+                {canSendTouch(a) && <SendToProductButton fb={fb} payload={{ body: a.summary, contact: touchContact(c.name, c.stage), source: touchSource(c.stage), sourceRef: touchSourceRef(c.kind, c.id, a) }} />}
               </span>
             </li>
           ))}
@@ -255,7 +260,7 @@ function CustomerRecord({ c, ctx, salesHref, today, onLog, onChanged, showValue 
             {requests.length ? (
               <div className="flex flex-col gap-2">
                 {requests.map((r) => (
-                  <RequestCard key={r.id} request={r} ctx={ctx} />
+                  <RequestCard key={r.id} request={r} ctx={ctx} contact={touchContact(c.name, c.stage)} />
                 ))}
               </div>
             ) : (
@@ -265,7 +270,7 @@ function CustomerRecord({ c, ctx, salesHref, today, onLog, onChanged, showValue 
         </div>
       </div>
 
-      <CheckIns c={c} />
+      <CheckIns c={c} fb={ctx.fb} />
       <NewRequestDialog open={newOpen} onOpenChange={setNewOpen} ctx={ctx} customers={[c]} fixedRef={c.ref} />
     </section>
   );
