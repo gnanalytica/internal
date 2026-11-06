@@ -35,6 +35,9 @@ export function NewIssueDialog({
   trigger,
   open: controlledOpen,
   onOpenChange,
+  featureId = null,
+  defaultLabelIds = [],
+  onCreated,
 }: {
   projects: Project[];
   members: Member[];
@@ -43,6 +46,12 @@ export function NewIssueDialog({
   trigger?: React.ReactElement;
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
+  /** Links the new task to this roadmap feature (Product › Roadmap). */
+  featureId?: string | null;
+  /** Labels to start with, e.g. an Engineering track. */
+  defaultLabelIds?: string[];
+  /** When set, called instead of opening the new task's page. */
+  onCreated?: (id: string) => void;
 }) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -56,7 +65,7 @@ export function NewIssueDialog({
   const [type, setType] = useState<IssueTypeId>("engineering");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId);
-  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [labelIds, setLabelIds] = useState<string[]>(defaultLabelIds);
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [pending, startTransition] = useTransition();
@@ -69,7 +78,7 @@ export function NewIssueDialog({
     setType("engineering");
     setAssigneeId(null);
     setProjectId(defaultProjectId);
-    setLabelIds([]);
+    setLabelIds(defaultLabelIds);
     setStartDate("");
     setDueDate("");
   }
@@ -88,6 +97,7 @@ export function NewIssueDialog({
         type,
         assigneeId,
         labelIds,
+        featureId,
         startDate: startDate || null,
         dueDate: dueDate || null,
       });
@@ -109,7 +119,8 @@ export function NewIssueDialog({
       toast.success("Task created");
       setOpen(false);
       reset();
-      router.push(`/issues/${created.id}`);
+      if (onCreated) onCreated(created.id);
+      else router.push(`/issues/${created.id}`);
       router.refresh();
     });
   }

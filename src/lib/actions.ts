@@ -3373,6 +3373,7 @@ export async function createFeature(input: {
   projectId: string | null;
   title?: string;
   status?: string;
+  summary?: string | null;
 }) {
   const ws = await getWorkspace();
   const [created] = await db
@@ -3381,10 +3382,13 @@ export async function createFeature(input: {
       workspaceId: ws.id,
       projectId: input.projectId,
       title: input.title?.trim() || "New feature",
+      summary: input.summary?.trim() || null,
       status: input.status ?? "idea",
       sortKey: `z${Date.now()}`,
     })
     .returning();
+  // `features` is not in the matrix set; the roadmap reads it.
+  invalidate(ws.id, "features");
   invalidateMatrix(ws.id);
   return created;
 }
@@ -3400,6 +3404,7 @@ export async function updateFeature(
     pageId: string | null;
     ownerId: string | null;
     milestoneId: string | null;
+    summary: string | null;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -3407,6 +3412,7 @@ export async function updateFeature(
     .update(features)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(features.id, id), eq(features.workspaceId, ws.id)));
+  invalidate(ws.id, "features");
   invalidateMatrix(ws.id);
 }
 
@@ -3568,6 +3574,10 @@ export async function createFeedback(input: {
   title?: string;
   source?: string;
   status?: string;
+  body?: string | null;
+  contact?: string | null;
+  theme?: string | null;
+  featureId?: string | null;
 }) {
   const ws = await getWorkspace();
   const [created] = await db
@@ -3578,6 +3588,10 @@ export async function createFeedback(input: {
       title: input.title?.trim() || "New feedback",
       source: input.source ?? "customer",
       status: input.status ?? "new",
+      body: input.body?.trim() || null,
+      contact: input.contact?.trim() || null,
+      theme: input.theme?.trim() || null,
+      featureId: input.featureId ?? null,
       sortKey: `z${Date.now()}`,
     })
     .returning();
@@ -3595,6 +3609,7 @@ export async function updateFeedback(
     votes: number;
     contact: string | null;
     featureId: string | null;
+    theme: string | null;
   }>,
 ) {
   const ws = await getWorkspace();
@@ -3602,6 +3617,17 @@ export async function updateFeedback(
     .update(feedback)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(feedback.id, id), eq(feedback.workspaceId, ws.id)));
+  invalidateMatrix(ws.id);
+}
+
+/** Link several feedback items (a whole theme) to one feature, or unlink them with null. */
+export async function linkFeedbackToFeature(ids: string[], featureId: string | null) {
+  if (ids.length === 0) return;
+  const ws = await getWorkspace();
+  await db
+    .update(feedback)
+    .set({ featureId, updatedAt: new Date() })
+    .where(and(eq(feedback.workspaceId, ws.id), inArray(feedback.id, ids)));
   invalidateMatrix(ws.id);
 }
 

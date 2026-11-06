@@ -1558,6 +1558,8 @@ export const features = pgTable(
       onDelete: "set null",
     }),
     title: text("title").notNull(),
+    // One line on why this feature is on the roadmap (shown on its card).
+    summary: text("summary"),
     status: text("status").notNull().default("idea"), // idea|planned|building|shipped|archived
     startDate: timestamp("start_date", { withTimezone: true }),
     targetDate: timestamp("target_date", { withTimezone: true }),
@@ -1664,6 +1666,9 @@ export const feedback = pgTable(
     status: text("status").notNull().default("new"), // new|reviewing|planned|declined|shipped
     votes: integer("votes").notNull().default(1),
     contact: text("contact"), // who / where it came from
+    // What it is about, in a few words. Items sharing a theme are read (and
+    // linked to a feature) together on the Product › Feedback tab.
+    theme: text("theme"),
     featureId: uuid("feature_id").references(() => features.id, { onDelete: "set null" }),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
