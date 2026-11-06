@@ -2,28 +2,34 @@
 
 import { useMemo } from "react";
 
-import { CONTENT_FORMATS, dayLabel, dayOf, FORMATS, formatOf, timeOf, type ContentFormat } from "@/lib/marketing";
+import { CONTENT_FORMATS, dayLabel, dayOf, FORMATS, formatOf, isOverdue, lateLabel, timeOf, type ContentFormat } from "@/lib/marketing";
+import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 import { ChannelDot, formatChannelLabel, StatusChip, type Piece } from "./bits";
 
 const num = (n: number | null) => (n === null ? "—" : n.toLocaleString("en-IN"));
+
+/** A format, every piece (""), or the pieces whose day went by unposted. */
+export type PieceFilter = ContentFormat | "" | "overdue";
 
 function goesOut(p: Piece): string {
   const d = dayOf(p.publishDate);
   return d ? `${dayLabel(d)} · ${timeOf(p.publishDate)}` : "No date";
 }
 
-/** Every piece in one table, filtered by format, each opening its editor. */
+/** Every piece in one table, filtered by format or to the overdue ones, each opening its editor. */
 export function PiecesTab({
   items,
+  today,
   format,
   setFormat,
   openId,
   onOpen,
 }: {
   items: Piece[];
-  format: ContentFormat | "";
-  setFormat: (f: ContentFormat | "") => void;
+  today: string;
+  format: PieceFilter;
+  setFormat: (f: PieceFilter) => void;
   openId: string | null;
   onOpen: (p: Piece) => void;
 }) {
@@ -35,22 +41,36 @@ export function PiecesTab({
     }
     return c;
   }, [items]);
-  const shown = format ? items.filter((p) => formatOf(p) === format) : items;
-  const emptyText = items.length === 0 ? "No pieces yet. Use New piece to add the first one — a title is enough to start." : `No ${FORMATS[format as ContentFormat]?.plural.toLowerCase()} yet. Use New piece while this filter is on to start one.`;
+  const late = useMemo(() => new Set(items.filter((p) => isOverdue(p, today)).map((p) => p.id)), [items, today]);
+  const shown = format === "overdue" ? items.filter((p) => late.has(p.id)) : format ? items.filter((p) => formatOf(p) === format) : items;
+  const emptyText =
+    items.length === 0
+      ? "No pieces yet. Use New piece to add the first one — a title is enough to start."
+      : format === "overdue"
+        ? "Nothing is overdue. Every dated piece has gone out or is still to come."
+        : `No ${FORMATS[format as ContentFormat]?.plural.toLowerCase()} yet. Use New piece while this filter is on to start one.`;
+  const tabs: { value: PieceFilter; label: string; n: number }[] = [{ value: "", label: "All", n: items.length }, ...CONTENT_FORMATS.map((f) => ({ value: f, label: FORMATS[f].plural, n: counts.get(f) ?? 0 })), { value: "overdue", label: "Overdue", n: late.size }];
+  const lateNote = (p: Piece) => (late.has(p.id) ? lateLabel(p.publishDate, today) : null);
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="tablist" aria-label="Format" className="no-scrollbar -mx-3 flex gap-0.5 overflow-x-auto px-3 sm:mx-0 sm:px-0">
-        {[{ value: "" as const, label: "All", n: items.length }, ...CONTENT_FORMATS.map((f) => ({ value: f, label: FORMATS[f].plural, n: counts.get(f) ?? 0 }))].map((t) => (
+      <div role="tablist" aria-label="Filter" className="no-scrollbar -mx-3 flex gap-0.5 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+        {tabs.map((t) => (
           <button
             key={t.value || "all"}
             type="button"
             role="tab"
             aria-selected={t.value === format}
             onClick={() => setFormat(t.value)}
-            className={cn("h-8 shrink-0 rounded-md px-2.5 text-[13px] whitespace-nowrap", t.value === format ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground", t.n === 0 && t.value !== format && "opacity-60")}
+            className={cn(
+              "h-8 shrink-0 rounded-md px-2.5 text-[13px] whitespace-nowrap",
+              t.value === "overdue" && "ml-1.5 inline-flex items-center gap-1.5",
+              t.value === format ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              t.n === 0 && t.value !== format && "opacity-60",
+            )}
           >
-            {t.label} <span className="font-mono text-[11px] text-muted-foreground/70">{t.n}</span>
+            {t.value === "overdue" && t.n > 0 && <span aria-hidden className={cn("size-1.5 rounded-full", tone("orange").dot)} />}
+            {t.label} <span className={cn("font-mono text-[11px]", t.value === "overdue" && t.n > 0 ? tone("orange").text : "text-muted-foreground/70")}>{t.n}</span>
           </button>
         ))}
       </div>
@@ -66,7 +86,10 @@ export function PiecesTab({
               <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
                 <StatusChip status={p.status} />
                 <span>{formatChannelLabel(p)}</span>
-                <span className="font-mono">{goesOut(p)}</span>
+                <span className={cn("font-mono", late.has(p.id) && tone("orange").text)}>
+                  {goesOut(p)}
+                  {late.has(p.id) && <span className="font-sans font-medium"> · {lateNote(p)}</span>}
+                </span>
               </span>
             </button>
           </li>
@@ -113,7 +136,10 @@ export function PiecesTab({
                 <td className="px-3">
                   <StatusChip status={p.status} />
                 </td>
-                <td className={cn("truncate px-3 font-mono text-xs", !p.publishDate && "text-muted-foreground")}>{goesOut(p)}</td>
+                <td className={cn("px-3 font-mono text-xs", !p.publishDate && "text-muted-foreground", late.has(p.id) && tone("orange").text)}>
+                  <span className="block truncate">{goesOut(p)}</span>
+                  {late.has(p.id) && <span className="block truncate font-sans text-[11px] font-medium">{lateNote(p)}</span>}
+                </td>
                 <td className="px-3 text-right font-mono text-xs tabular-nums">{num(p.views)}</td>
                 <td className="px-3 text-right font-mono text-xs tabular-nums">{num(p.clicks)}</td>
               </tr>
