@@ -19,12 +19,16 @@ export default async function ProjectLayout({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const project = await getProject(ws.id, id);
+  // Independent once the workspace is known — one round of lookups, not four.
+  const [project, role, me, watching] = await Promise.all([
+    getProject(ws.id, id),
+    getMyRole(ws.id),
+    getCurrentUser(ws.id),
+    isSubscribed(ws.id, "project", id),
+  ]);
   if (!project) notFound();
-  const isAdmin = canSeeConfidential(await getMyRole(ws.id));
-  const me = await getCurrentUser(ws.id);
+  const isAdmin = canSeeConfidential(role);
   const isOwner = project.ownerId === me.id;
-  const watching = await isSubscribed(ws.id, "project", id);
 
   return (
     <div className="flex h-full flex-col">

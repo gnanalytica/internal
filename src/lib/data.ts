@@ -5,6 +5,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { cache } from "react";
 
 import { auth } from "@/lib/auth/server";
 import { wsTags } from "@/lib/cache-tags";
@@ -129,8 +130,14 @@ export type {
 } from "@/lib/types";
 export { issueIdentifier } from "@/lib/types";
 
+// The per-user lookups below are wrapped in React `cache()`: a page's layouts,
+// page and data helpers each ask for the session user, workspace and role, and
+// without it every ask was its own session read + query (about ten a page).
+// `cache()` dedupes within one request only — nothing is shared between users
+// or requests, which is why these stay out of `"use cache"`.
+
 /** Resolve the app user from the Neon Auth session (create on first sign-in). */
-async function resolveSessionUser(): Promise<Member> {
+const resolveSessionUser = cache(async (): Promise<Member> => {
   // Stop prerendering before the session is read. This is the entry point for
   // every authenticated read, so without it the build walks into
   // `auth.getSession()` on every route and the Neon Auth SDK logs the
@@ -156,10 +163,10 @@ async function resolveSessionUser(): Promise<Member> {
     })
     .returning();
   return created;
-}
+});
 
 /** All workspaces the current user is a member of, with their role. */
-export async function getMyWorkspaces(): Promise<WorkspaceWithRole[]> {
+export const getMyWorkspaces = cache(async (): Promise<WorkspaceWithRole[]> => {
   const me = await resolveSessionUser();
   const rows = await db
     .select({
@@ -176,19 +183,19 @@ export async function getMyWorkspaces(): Promise<WorkspaceWithRole[]> {
     .where(eq(workspaceMembers.userId, me.id))
     .orderBy(asc(workspaces.name));
   return rows.map(({ role, ...ws }) => ({ ...ws, role }));
-}
+});
 
 /**
  * The active workspace for the current user, chosen by the `active_ws` cookie
  * (validated against membership) or the first workspace they belong to.
  * Users with no workspace are sent to onboarding.
  */
-export async function getWorkspace(): Promise<Workspace> {
+export const getWorkspace = cache(async (): Promise<Workspace> => {
   const mine = await getMyWorkspaces();
   if (mine.length === 0) redirect("/onboarding");
   const activeId = (await cookies()).get("active_ws")?.value;
   return mine.find((w) => w.id === activeId) ?? mine[0];
-}
+});
 
 export async function getMembers(workspaceId: string): Promise<Member[]> {
   "use cache";
@@ -289,20 +296,11 @@ export async function getOrgRoles(workspaceId: string): Promise<OrgRoleNode[]> {
 }
 
 /** The current user's role in the workspace ("admin" | "member"). */
-export async function getMyRole(workspaceId: string): Promise<Role> {
-  const me = await getCurrentUser(workspaceId);
-  const [m] = await db
-    .select({ role: workspaceMembers.role })
-    .from(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, me.id),
-      ),
-    )
-    .limit(1);
+export const getMyRole = cache(async (workspaceId: string): Promise<Role> => {
+  // getMyWorkspaces already loaded the membership row, role included.
+  const m = (await getMyWorkspaces()).find((w) => w.id === workspaceId);
   return m?.role === "admin" ? "admin" : "member";
-}
+});
 
 export async function getProjects(workspaceId: string): Promise<Project[]> {
   "use cache";
