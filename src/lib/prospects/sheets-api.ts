@@ -64,17 +64,15 @@ export async function readTabs(spreadsheetId: string, titles: string[]): Promise
 }
 
 /**
- * Column-level formula map for a tab, learned from a sample of its leading
- * data rows: a column whose sampled cells carry a formula is treated as
- * derived whatever the mapping says. Returns the set of 0-based column
- * indexes that hold formulas.
+ * Column-level formula map for a tab, learned from the given rows (1-based) in
+ * one call: a column where any of those cells carries a formula is treated as
+ * derived whatever the mapping says. Returns the set of 0-based column indexes
+ * that hold formulas.
  */
-export async function formulaColumns(spreadsheetId: string, title: string, headerRow0: number, sampleRows = 4): Promise<Set<number>> {
-  const from = headerRow0 + 2;
-  const to = headerRow0 + 1 + sampleRows;
-  const range = `${quote(title)}!${from}:${to}`;
+export async function formulaColumnsInRows(spreadsheetId: string, title: string, rows: number[]): Promise<Set<number>> {
+  const qs = [...new Set(rows)].map((r) => `ranges=${encodeURIComponent(`${quote(title)}!${r}:${r}`)}`).join("&");
   const json = await call<{ sheets?: { data?: { rowData?: { values?: { userEnteredValue?: { formulaValue?: string } }[] }[] }[] }[] }>(
-    `${spreadsheetId}?ranges=${encodeURIComponent(range)}&includeGridData=true&fields=sheets.data.rowData.values.userEnteredValue.formulaValue`,
+    `${spreadsheetId}?${qs}&includeGridData=true&fields=sheets.data.rowData.values.userEnteredValue.formulaValue`,
   );
   const set = new Set<number>();
   for (const sheet of json.sheets ?? [])
@@ -84,6 +82,15 @@ export async function formulaColumns(spreadsheetId: string, title: string, heade
           if (cell.userEnteredValue?.formulaValue) set.add(i);
         });
   return set;
+}
+
+/** Several ranges in one call, in the order asked; read like `readRange`. */
+export async function readRanges(spreadsheetId: string, a1Ranges: string[]): Promise<unknown[][][]> {
+  const qs = a1Ranges.map((r) => `ranges=${encodeURIComponent(r)}`).join("&");
+  const json = await call<{ valueRanges: { values?: unknown[][] }[] }>(
+    `${spreadsheetId}/values:batchGet?${qs}&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING&majorDimension=ROWS`,
+  );
+  return a1Ranges.map((_, i) => json.valueRanges[i]?.values ?? []);
 }
 
 /** Read one range (e.g. a key column or the leading rows of a tab). */
