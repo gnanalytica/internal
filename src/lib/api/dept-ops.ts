@@ -20,6 +20,7 @@ import {
   workspaceMembers,
 } from "@/db/schema";
 import { pickColor } from "@/lib/data";
+import { emitSlackEvent } from "@/lib/slack/notify";
 
 /**
  * Create helpers for the department surfaces that had no API: analytics
@@ -164,6 +165,7 @@ export async function apiCreateFeedback(
     })
     .returning({ id: feedback.id });
   apiInvalidate(workspaceId, "feedback");
+  emitSlackEvent(workspaceId, { type: "feedback.created", recordId: created.id });
   return created.id;
 }
 
@@ -200,6 +202,7 @@ export async function apiCreateContent(
     })
     .returning({ id: contentItems.id });
   apiInvalidate(workspaceId, "campaigns");
+  if (input.status === "published") emitSlackEvent(workspaceId, { type: "content.published", recordId: created.id });
   return created.id;
 }
 

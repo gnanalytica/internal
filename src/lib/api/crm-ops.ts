@@ -1,6 +1,7 @@
 import "server-only";
 
 import { apiInvalidate } from "@/lib/api/invalidate";
+import { emitSlackEvent } from "@/lib/slack/notify";
 
 import { and, eq } from "drizzle-orm";
 
@@ -203,6 +204,7 @@ export async function apiCreateTicket(
     })
     .returning({ id: tickets.id });
   apiInvalidate(workspaceId, "tickets");
+  emitSlackEvent(workspaceId, { type: "ticket.created", recordId: created.id, actorId: _userId });
   return created.id;
 }
 

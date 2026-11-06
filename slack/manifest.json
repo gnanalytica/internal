@@ -1,0 +1,84 @@
+{
+  "_metadata": {
+    "major_version": 2,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "Internal",
+    "description": "Tasks, deals, prospects and requests from internal.gnanalytica.com, in Slack.",
+    "long_description": "Internal posts what happens in the Gnanalytica workspace to the channels that care: new tasks and status changes, deals won, prospects moving through the pipeline, customer requests and product feedback. Later events for the same record reply in its thread. Assign tasks to yourself and change their status from Slack.",
+    "background_color": "#18181b"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "Internal",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/internal",
+        "url": "https://internal.gnanalytica.com/api/slack/webhook",
+        "description": "Find or create tasks in Internal",
+        "usage_hint": "[search] | new [title] | help",
+        "should_escape": false
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Create task",
+        "type": "message",
+        "callback_id": "create_task_from_message",
+        "description": "Turn this message into a task in Internal"
+      }
+    ],
+    "unfurl_domains": ["internal.gnanalytica.com"]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "channels:read",
+        "chat:write",
+        "commands",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "im:read",
+        "im:write",
+        "links:read",
+        "links:write",
+        "reactions:read",
+        "reactions:write",
+        "users:read",
+        "users:read.email"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://internal.gnanalytica.com/api/slack/webhook",
+      "bot_events": [
+        "app_home_opened",
+        "app_mention",
+        "link_shared",
+        "message.channels",
+        "message.groups",
+        "message.im"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://internal.gnanalytica.com/api/slack/webhook",
+      "message_menu_options_url": "https://internal.gnanalytica.com/api/slack/webhook"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

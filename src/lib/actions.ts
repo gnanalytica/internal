@@ -167,6 +167,7 @@ async function syncReferences(
 }
 import { isBlobConfigured, MAX_ATTACHMENT_BYTES } from "@/lib/blob";
 import { notifySlack } from "@/lib/slack";
+import { contentTurningPosted, dealsTurningWon, emitDealsWon, emitSlackEvent } from "@/lib/slack/notify";
 import { createGithubIssue, verifyGithubRepo } from "@/lib/github";
 
 // ---- Slack ----
@@ -2799,6 +2800,7 @@ export async function updateDeal(
 ) {
   const ws = await getWorkspace();
   const { expectedClose, ...rest } = patch;
+  const won = await dealsTurningWon(ws.id, [{ id, stage: patch.stage }]);
   await db
     .update(deals)
     .set({
@@ -2807,12 +2809,15 @@ export async function updateDeal(
       updatedAt: new Date(),
     })
     .where(and(eq(deals.id, id), eq(deals.workspaceId, ws.id)));
+  emitDealsWon(ws.id, won);
   invalidateMatrix(ws.id);
 }
 
 /** Persist pipeline drag-and-drop: a batch of {id, stage, sortKey}. */
 export async function moveDeals(changed: { id: string; stage: string; sortKey: string }[]) {
   const ws = await getWorkspace();
+  const won = await dealsTurningWon(ws.id, changed);
+  emitDealsWon(ws.id, won);
   await Promise.all(
     changed.map((c) =>
       db
@@ -2905,6 +2910,8 @@ export async function createContent(input: {
       ownerId: me.id,
     })
     .returning();
+  if (created.status === "published")
+    emitSlackEvent(ws.id, { type: "content.published", recordId: created.id, actorId: me.id });
   invalidateMatrix(ws.id);
   return created;
 }
@@ -2928,6 +2935,7 @@ export async function updateContent(
 ) {
   const ws = await getWorkspace();
   const { publishDate, ...rest } = patch;
+  const posted = await contentTurningPosted(ws.id, id, patch.status);
   await db
     .update(contentItems)
     .set({
@@ -2935,6 +2943,7 @@ export async function updateContent(
       ...(publishDate !== undefined ? { publishDate: toDate(publishDate) } : {}),
     })
     .where(and(eq(contentItems.id, id), eq(contentItems.workspaceId, ws.id)));
+  if (posted) emitSlackEvent(ws.id, { type: "content.published", recordId: id });
   invalidateMatrix(ws.id);
 }
 
@@ -3351,6 +3360,7 @@ export async function createFeedback(input: {
       sortKey: `z${Date.now()}`,
     })
     .returning();
+  emitSlackEvent(ws.id, { type: "feedback.created", recordId: created.id });
   invalidateMatrix(ws.id);
   return created;
 }
