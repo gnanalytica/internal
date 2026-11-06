@@ -491,7 +491,17 @@ export async function getLabels(workspaceId: string): Promise<Label[]> {
 // the shape can't drift between them.
 const USER_REF_COLUMNS = { id: true, name: true, email: true, avatarColor: true } as const;
 const ISSUE_LIST_QUERY = {
-  columns: { description: false },
+  // Kept in step with `IssueListOmitted`.
+  columns: {
+    description: false,
+    workspaceId: false,
+    creatorId: false,
+    githubUrl: false,
+    githubNumber: false,
+    externalSource: false,
+    externalId: false,
+    externalUrl: false,
+  },
   with: {
     project: { columns: { id: true, key: true, name: true, color: true } },
     cycle: { columns: { id: true, name: true, number: true, startDate: true, endDate: true } },
@@ -520,10 +530,35 @@ export async function getIssues(
     orderBy: [asc(issues.sortKey), desc(issues.createdAt)],
     ...ISSUE_LIST_QUERY,
   });
+  const shared = sharedRefs();
   return rows.map((r) => ({
     ...r,
-    labels: r.labels.map((l) => l.label), assignees: r.assignees.map((a) => a.user),
+    project: shared("project", r.project),
+    cycle: shared("cycle", r.cycle),
+    milestone: shared("milestone", r.milestone),
+    assignee: shared("user", r.assignee),
+    assignees: r.assignees.map((a) => shared("user", a.user)),
+    labels: r.labels.map((l) => shared("label", l.label)),
   }));
+}
+
+/**
+ * One object per project, cycle, milestone, user and label across a list.
+ * React's server serialiser writes an object it has already sent as a short
+ * reference to the first copy, so a ref shared by many tasks crosses to the
+ * client (and into the cache entry) once rather than once per task. Read-only
+ * data: nothing mutates these in place.
+ */
+function sharedRefs() {
+  const seen = new Map<string, unknown>();
+  return <T extends { id: string } | null>(kind: string, ref: T): T => {
+    if (!ref) return ref;
+    const key = `${kind}:${ref.id}`;
+    const first = seen.get(key) as T | undefined;
+    if (first) return first;
+    seen.set(key, ref);
+    return ref;
+  };
 }
 
 /**
