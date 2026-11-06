@@ -198,7 +198,7 @@ export const getWorkspace = cache(async (): Promise<Workspace> => {
 });
 
 export async function getMembers(workspaceId: string): Promise<Member[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "members"));
   cacheLife("hours");
 
@@ -303,7 +303,7 @@ export const getMyRole = cache(async (workspaceId: string): Promise<Role> => {
 });
 
 export async function getProjects(workspaceId: string): Promise<Project[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "projects"));
   cacheLife("minutes");
 
@@ -320,7 +320,7 @@ export async function getProjects(workspaceId: string): Promise<Project[]> {
  * One pass over projects + a few aggregate queries (no per-project round-trips).
  */
 export async function getPortfolio(workspaceId: string): Promise<PortfolioRow[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "projects", "issues", "milestones", "status-updates", "members"));
   cacheLife("minutes");
 
@@ -474,7 +474,7 @@ export async function getProject(
 }
 
 export async function getLabels(workspaceId: string): Promise<Label[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "labels"));
   cacheLife("hours");
 
@@ -510,7 +510,7 @@ const ISSUE_LIST_QUERY = {
 export async function getIssues(
   workspaceId: string,
 ): Promise<IssueListItem[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "issues", "labels"));
   cacheLife("minutes");
 
@@ -537,7 +537,7 @@ export async function getIssues(
  * surfaces that render tasks pull it once via `getTaskContext`.
  */
 export async function getBlockedIssueIds(workspaceId: string): Promise<string[]> {
-  "use cache";
+  "use cache: remote";
   // Relations are invalidated under the "issues" tag, as is any status change
   // that clears a blocker.
   cacheTag(...wsTags(workspaceId, "issues"));
@@ -782,7 +782,7 @@ export async function getPageTree(
   workspaceId: string,
   projectId?: string,
 ): Promise<PageNode[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "pages"));
   cacheLife("minutes");
 
@@ -1134,7 +1134,7 @@ export async function getCycle(
 
 /** Cycles as a flat list for pickers. */
 export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "cycles"));
   cacheLife("minutes");
 
@@ -1152,7 +1152,7 @@ export async function getCyclesFlat(workspaceId: string): Promise<Cycle[]> {
  * a task list by milestone lands in roadmap order rather than alphabetically.
  */
 export async function getMilestonesFlat(workspaceId: string): Promise<Milestone[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "milestones"));
   cacheLife("minutes");
 
@@ -1482,7 +1482,7 @@ export async function getWebhooks(workspaceId: string): Promise<WebhookRow[]> {
 export async function getSavedViews(
   workspaceId: string,
 ): Promise<import("@/lib/types").SavedView[]> {
-  "use cache";
+  "use cache: remote";
   cacheTag(...wsTags(workspaceId, "saved-views"));
   cacheLife("minutes");
 
