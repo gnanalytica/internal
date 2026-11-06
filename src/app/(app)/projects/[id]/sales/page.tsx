@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { DepartmentTasks } from "@/components/department-tasks";
 import { ProspectsWorkspace } from "@/components/prospects-dashboard/workspace";
 import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
@@ -22,8 +21,8 @@ import { getTaskContext } from "@/lib/task-context";
 
 /**
  * The project's sales. For Valytica that is its prospects — the sheet the team
- * works every day — with the deals they turn into and the sales tasks beside
- * them. Other products get the deal board, accounts and contacts.
+ * works every day — with the deals they turn into beside them. Other products
+ * get the deal board, accounts and contacts.
  */
 export default async function ProjectSalesPage({
   params,
@@ -39,32 +38,17 @@ export default async function ProjectSalesPage({
   if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
 
   if (!canSeeConfidential(await getMyRole(ws.id))) return <Restricted label="Sales" />;
-  const ctx = await getTaskContext(ws.id);
 
   if (project.key === PROSPECTS_PRODUCT_KEY) {
     const sp = await searchParams;
-    const [data, deals, issues] = await Promise.all([
+    const [data, deals] = await Promise.all([
       loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus"),
       getDeals(ws.id, id),
-      getIssues(ws.id),
     ]);
-    return (
-      <ProspectsWorkspace
-        data={data}
-        deals={deals}
-        tasks={
-          <DepartmentTasks
-            issues={issues.filter((i) => i.projectId === id)}
-            department="sales"
-            ctx={ctx}
-            projectId={id}
-            emptyLabel="No sales tasks yet."
-          />
-        }
-      />
-    );
+    return <ProspectsWorkspace data={data} deals={deals} />;
   }
 
+  const ctx = await getTaskContext(ws.id);
   const [issues, deals, accounts, contacts, members, projects] = await Promise.all([
     getIssues(ws.id),
     getDeals(ws.id, id),
