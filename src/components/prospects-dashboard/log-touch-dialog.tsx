@@ -4,11 +4,14 @@ import { ChevronRight } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { ThemeField, useProductFeedback } from "@/components/product/send-to-product";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { logTouch } from "@/lib/prospects/actions";
 import { CHANNELS, OBJECTIONS, PITCH_ANGLES, STAGES, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays } from "@/lib/prospects/stats";
+import { touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
+import { sendToProduct } from "@/lib/send-to-product-actions";
 import { cn } from "@/lib/utils";
 import { Chips, DatePicker, Segmented, shortDate } from "./bits";
 
@@ -88,7 +91,11 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
   const [objection, setObjection] = useState("");
   const [pitch, setPitch] = useState("");
   const [stageOverride, setStageOverride] = useState<number | null>(null);
+  const [toProduct, setToProduct] = useState(false);
+  const [theme, setTheme] = useState("");
   const [pending, start] = useTransition();
+  // Only read Product's themes once someone asks to send there.
+  const fb = useProductFeedback({ enabled: toProduct });
 
   const setChannel = (c: Channel) => {
     setChannelState(c);
@@ -121,11 +128,30 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
           ...(tracksPitch && pitch ? { pitch_angle: pitch } : {}),
         },
       });
-      if (res.ok) {
-        toast.success(res.message);
-        onSaved();
-        onDone();
-      } else toast.error(res.message);
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(res.message);
+      const said = summary.trim();
+      if (toProduct && said && fb.ctx && res.activityId) {
+        // The touch is saved either way; a send that fails says so and can be retried from the record.
+        try {
+          await sendToProduct({
+            projectId: fb.ctx.projectId,
+            body: said,
+            contact: touchContact(target.name, stage),
+            source: touchSource(stage),
+            sourceRef: touchSourceRef(target.kind, target.id, { id: res.activityId, date: null, loggedAt: "", summary: said }),
+            theme,
+          });
+          toast.success("Sent to Product");
+        } catch {
+          toast.error("The touch is saved, but it didn't reach Product. Send it from the record's activity.");
+        }
+      }
+      onSaved();
+      onDone();
     });
 
   return (
@@ -152,6 +178,11 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
             placeholder="e.g. Works with 4 banks; the SBI format takes longest. Wants to see it on a live case."
             className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
+          <label htmlFor="log-product" className="flex cursor-pointer items-center gap-2 text-[13px] text-muted-foreground">
+            <input id="log-product" type="checkbox" checked={toProduct} onChange={(e) => setToProduct(e.target.checked)} className="size-4 shrink-0 accent-primary" />
+            Also send what they said to Product
+          </label>
+          {toProduct && (fb.ctx ? <ThemeField value={theme} onChange={setTheme} themes={fb.ctx.themes} /> : <p className="text-xs text-muted-foreground">Finding Product&apos;s themes…</p>)}
         </Field>
         <Field label="Follow up">
           <div className="flex flex-wrap gap-1.5">

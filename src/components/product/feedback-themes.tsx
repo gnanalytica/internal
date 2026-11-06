@@ -4,7 +4,7 @@ import { ChevronDown, Link2, Plus, Unlink } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { countBySourceBucket, groupByTheme, quoteText, SOURCE_BUCKETS, sourceBucket, type SourceBucketId, type ThemeGroup } from "@/lib/product-roadmap";
+import { countBySourceBucket, groupByTheme, isUnsorted, quoteText, SOURCE_BUCKETS, sourceBucket, type SourceBucketId, type ThemeGroup } from "@/lib/product-roadmap";
 import { tone } from "@/lib/tones";
 import type { FeatureWithRelations, FeedbackWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -108,22 +108,27 @@ function ThemeCard({ group, features, onEdit, onLink, onCreateFeature, onOpenFea
           {all ? "Show fewer" : `Show all ${group.items.length}`}
         </button>
       )}
-      <div className="flex items-center gap-2 border-t pt-2">
-        <span className="min-w-0 flex-1 text-xs">
-          {linked ? (
-            <>
-              <span className="text-muted-foreground">Linked to: </span>
-              <button type="button" onClick={() => onOpenFeature(linked.id)} className={cn("font-medium hover:underline", tone("indigo").text)}>
-                {linked.title}
-              </button>
-              {group.mixed && <span className="text-muted-foreground"> · not all of them</span>}
-            </>
-          ) : (
-            <span className="text-muted-foreground">Not linked to a feature yet</span>
-          )}
-        </span>
-        <LinkPicker group={group} features={features} onLink={onLink} onCreateFeature={onCreateFeature} />
-      </div>
+      {isUnsorted(group.name) ? (
+        // Not a theme, so nothing to link: each item wants a theme of its own first.
+        <p className="border-t pt-2 text-xs text-muted-foreground">No theme yet. Open one to give it a theme and it moves there.</p>
+      ) : (
+        <div className="flex items-center gap-2 border-t pt-2">
+          <span className="min-w-0 flex-1 text-xs">
+            {linked ? (
+              <>
+                <span className="text-muted-foreground">Linked to: </span>
+                <button type="button" onClick={() => onOpenFeature(linked.id)} className={cn("font-medium hover:underline", tone("indigo").text)}>
+                  {linked.title}
+                </button>
+                {group.mixed && <span className="text-muted-foreground"> · not all of them</span>}
+              </>
+            ) : (
+              <span className="text-muted-foreground">Not linked to a feature yet</span>
+            )}
+          </span>
+          <LinkPicker group={group} features={features} onLink={onLink} onCreateFeature={onCreateFeature} />
+        </div>
+      )}
     </section>
   );
 }

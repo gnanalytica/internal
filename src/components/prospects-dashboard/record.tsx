@@ -4,6 +4,7 @@ import { ArrowLeft, Check, ChevronDown, Copy, Mail, MessageCircle, Pencil, Phone
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { SendToProductButton, useProductFeedback, type ProductFeedback } from "@/components/product/send-to-product";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,6 +14,7 @@ import { displayDate, isDoNotContact, parseNoteLines } from "@/lib/prospects/par
 import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, UNSCORED_KINDS, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
 import type { Related } from "@/lib/prospects/related";
 import { addDays } from "@/lib/prospects/stats";
+import { canSendTouch, touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { cn } from "@/lib/utils";
 import { BandBadge, Bar, CHANNEL_TONE, Chips, DatePicker, DueChip, KindDot, outcomeTone, Owner, OwnerPicker, Segmented, StageBar, StageDot, ToneChip } from "./bits";
 import { STAGE_COACHING } from "./playbook-content";
@@ -574,7 +576,20 @@ function shortStamp(a: ActivityEntry): string {
   return a.date ? displayDate(a.date) : a.loggedAt.slice(0, 10);
 }
 
-function ActivityTable({ items, limit }: { items: ActivityEntry[]; limit?: number }) {
+/** A touch's "what they said", with the button that sends it to Product. */
+function SaidCell({ a, r, fb }: { a: ActivityEntry; r: ProspectRecord; fb: ProductFeedback }) {
+  if (!canSendTouch(a)) return <td className="px-3 py-2 text-muted-foreground">—</td>;
+  return (
+    <td className="py-1.5 pr-1.5 pl-3">
+      <div className="flex items-start gap-1">
+        <span className="min-w-0 flex-1 pt-0.5 text-muted-foreground">{a.summary}</span>
+        <SendToProductButton fb={fb} payload={{ body: a.summary, contact: touchContact(r.name, r.stage), source: touchSource(r.stage), sourceRef: touchSourceRef(r.kind, r.id, a) }} />
+      </div>
+    </td>
+  );
+}
+
+function ActivityTable({ items, limit, r, fb }: { items: ActivityEntry[]; limit?: number; r: ProspectRecord; fb: ProductFeedback }) {
   const shown = limit ? items.slice(0, limit) : items;
   if (!shown.length) return <p className="rounded-lg border border-dashed px-4 py-5 text-[13px] text-muted-foreground">Nothing logged yet. Every call or message logged here lands in this table and in the sheet&apos;s Activity tab.</p>;
   return (
@@ -603,7 +618,7 @@ function ActivityTable({ items, limit }: { items: ActivityEntry[]; limit?: numbe
               </td>
               <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{a.statusAfter || "—"}</td>
               <td className="px-3 py-2 whitespace-nowrap">{a.by.split(/\s+/)[0]}</td>
-              <td className="px-3 py-2 text-muted-foreground">{a.summary || "—"}</td>
+              <SaidCell a={a} r={r} fb={fb} />
             </tr>
           ))}
         </tbody>
@@ -658,7 +673,7 @@ function RelatedSection({ ctx }: { ctx: Ctx }) {
   );
 }
 
-function OverviewTab({ ctx, r, activity, onTab }: { ctx: Ctx; r: ProspectRecord; activity: ActivityEntry[]; onTab: (t: RecordTab) => void }) {
+function OverviewTab({ ctx, r, activity, fb, onTab }: { ctx: Ctx; r: ProspectRecord; activity: ActivityEntry[]; fb: ProductFeedback; onTab: (t: RecordTab) => void }) {
   const has = (col: string) => WRITABLE[ctx.kind].has(col);
   const keyFacts = [
     { label: "Phone", value: r.phone || "Not known yet", missing: !r.phone },
@@ -683,7 +698,7 @@ function OverviewTab({ ctx, r, activity, onTab }: { ctx: Ctx; r: ProspectRecord;
             ) : undefined
           }
         >
-          <ActivityTable items={activity} limit={3} />
+          <ActivityTable items={activity} limit={3} r={r} fb={fb} />
         </Section>
       </div>
       <div className="flex min-w-0 flex-col gap-8">
@@ -725,7 +740,7 @@ function OverviewTab({ ctx, r, activity, onTab }: { ctx: Ctx; r: ProspectRecord;
 
 /* ---------- activity tab ---------- */
 
-function ActivityTab({ ctx, r, activity }: { ctx: Ctx; r: ProspectRecord; activity: ActivityEntry[] }) {
+function ActivityTab({ ctx, r, activity, fb }: { ctx: Ctx; r: ProspectRecord; activity: ActivityEntry[]; fb: ProductFeedback }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const notes = r.notes.split("\n").filter((l) => l.trim());
@@ -739,7 +754,7 @@ function ActivityTab({ ctx, r, activity }: { ctx: Ctx; r: ProspectRecord; activi
           </SmallButton>
         }
       >
-        <ActivityTable items={activity} />
+        <ActivityTable items={activity} r={r} fb={fb} />
       </Section>
       <Section
         title="Notes"
@@ -1037,6 +1052,8 @@ export function RecordPage({
 }) {
   const r = detail.data?.record;
   const ctx: Ctx = { kind: sel.kind, id: sel.id, today, me, team, onChanged, onLog, onOpen };
+  // Read again when a touch is added: logging one can send it to Product too.
+  const fb = useProductFeedback({ version: detail.data?.activity.length ?? 0 });
   if (!r || !detail.data) {
     return (
       <div className="flex flex-col gap-3">
@@ -1101,7 +1118,7 @@ export function RecordPage({
       </nav>
 
       <div className="pb-10">
-        {tab === "overview" ? <OverviewTab ctx={ctx} r={r} activity={activity} onTab={setTab} /> : tab === "activity" ? <ActivityTab ctx={ctx} r={r} activity={activity} /> : tab === "research" ? <ResearchTab ctx={ctx} r={r} /> : <DetailsTab ctx={ctx} r={r} />}
+        {tab === "overview" ? <OverviewTab ctx={ctx} r={r} activity={activity} fb={fb} onTab={setTab} /> : tab === "activity" ? <ActivityTab ctx={ctx} r={r} activity={activity} fb={fb} /> : tab === "research" ? <ResearchTab ctx={ctx} r={r} /> : <DetailsTab ctx={ctx} r={r} />}
       </div>
     </div>
   );

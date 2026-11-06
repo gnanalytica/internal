@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createFeedback, deleteFeedback, updateFeedback } from "@/lib/actions";
-import { matchThemes, quoteText, sourceBucket, themeKey, themeOf, titleFromQuote } from "@/lib/product-roadmap";
+import { matchThemes, quoteText, sourceBucket, themeKey, themeToSave, titleFromQuote } from "@/lib/product-roadmap";
 import { tone } from "@/lib/tones";
 import type { FeatureWithRelations, FeedbackWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,7 @@ function FeedbackForm({ target, projectId, themes, features, onDone }: { target:
   const [quote, setQuote] = useState(editing ? quoteText(editing) : "");
   const [who, setWho] = useState(editing?.contact ?? "");
   const [source, setSource] = useState<string>(editing?.source ?? "sales");
-  const [theme, setTheme] = useState(editing ? themeOf(editing) : "");
+  const [theme, setTheme] = useState(editing?.theme?.trim() ?? "");
   const [featureId, setFeatureId] = useState(editing ? (editing.featureId ?? "") : target.mode === "new" ? (target.featureId ?? "") : "");
   const [pending, start] = useTransition();
 
@@ -64,8 +64,7 @@ function FeedbackForm({ target, projectId, themes, features, onDone }: { target:
       toast.error("Write down what they said");
       return;
     }
-    // An existing theme keeps its first spelling, so "pricing" lands in "Pricing".
-    const t = existing ?? (theme.trim() || null);
+    const t = themeToSave(theme, themes);
     start(async () => {
       try {
         if (editing) {

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import type { CycleCadence } from "@/lib/cycle-cadence";
 import type { ContentDetails } from "@/lib/marketing";
 import type { PricingModel } from "@/lib/pricing";
@@ -1715,6 +1715,10 @@ export const feedback = pgTable(
     // linked to a feature) together on the Product › Feedback tab.
     theme: text("theme"),
     featureId: uuid("feature_id").references(() => features.id, { onDelete: "set null" }),
+    // What was sent here with "Send to Product", e.g. "touch:valuer:IBBI/RV/…:A12"
+    // or "ticket:<id>". Set only on items sent from a touch or a request, so
+    // the same remark can't land twice. See src/lib/send-to-product.ts.
+    sourceRef: text("source_ref"),
     sortKey: text("sort_key").notNull().default("a0"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1722,6 +1726,7 @@ export const feedback = pgTable(
   (t) => [
     index("feedback_ws_idx").on(t.workspaceId),
     index("feedback_project_idx").on(t.projectId),
+    uniqueIndex("feedback_source_ref_idx").on(t.workspaceId, t.sourceRef).where(sql`${t.sourceRef} is not null`),
   ],
 );
 

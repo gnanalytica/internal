@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { DepartmentHeader } from "@/components/department-header";
+import { useProductFeedbackState } from "@/components/product/send-to-product";
 import { LogTouchDialog, type LogTarget } from "@/components/prospects-dashboard/log-touch-dialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -90,6 +91,7 @@ export function CustomerSuccessView({ data }: { data: CustomerSuccessData }) {
     sync({ tab: null, c: ref });
   };
   const onChanged = useCallback(() => router.refresh(), [router]);
+  const fb = useProductFeedbackState(data.feedback);
 
   const customers: CustomerView[] = useMemo(() => {
     const list = data.customers.map((c) => {
@@ -100,7 +102,7 @@ export function CustomerSuccessView({ data }: { data: CustomerSuccessData }) {
     return list.sort((a, b) => HEALTH[a.health].rank - HEALTH[b.health].rank || a.name.localeCompare(b.name));
   }, [data]);
 
-  const ctx: RequestCtx = { projectId: data.projectId, now: data.now, answers: data.answers, onChanged };
+  const ctx: RequestCtx = { projectId: data.projectId, now: data.now, answers: data.answers, onChanged, fb };
   const openRequests = data.requests.filter((r) => requestState(r.status) !== "answered").length;
   const current = customers.find((c) => c.ref === selected) ?? customers[0] ?? null;
 

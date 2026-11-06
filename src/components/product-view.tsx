@@ -17,6 +17,7 @@ import { progressByFeature, themeNames, voicesByFeature, type RoadmapStatus } fr
 import type { FeatureWithRelations, FeedbackWithRelations, IssueWithRelations, TaskContext } from "@/lib/types";
 
 type Tab = "roadmap" | "feedback" | "tasks";
+const TAB_IDS: Tab[] = ["roadmap", "feedback", "tasks"];
 
 const NO_PROGRESS = { done: 0, total: 0, pct: 0 };
 
@@ -30,6 +31,7 @@ const NO_PROGRESS = { done: 0, total: 0, pct: 0 };
  */
 export function ProductView({
   heading,
+  initialTab,
   scopeProjectId,
   issues,
   tickets,
@@ -38,6 +40,8 @@ export function ProductView({
   ctx,
 }: {
   heading: string;
+  /** The tab to open on, from the URL's ?tab=. */
+  initialTab?: string;
   scopeProjectId: string;
   /** This project's tasks, for the Tasks tab. */
   issues: IssueWithRelations[];
@@ -47,7 +51,7 @@ export function ProductView({
   feedback: FeedbackWithRelations[];
   ctx: TaskContext;
 }) {
-  const [tab, setTab] = useState<Tab>("roadmap");
+  const [tab, setTab] = useState<Tab>(() => ((TAB_IDS as string[]).includes(initialTab ?? "") ? (initialTab as Tab) : "roadmap"));
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<FeedbackDialogTarget | null>(null);
   const [adding, startAdding] = useTransition();

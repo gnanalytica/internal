@@ -21,7 +21,7 @@ import { appendActivity, writeRecord } from "./write";
  * fails to write never fails the sheet write.
  */
 
-export type ProspectResult = { ok: true; message: string; written: string[] } | { ok: false; message: string };
+export type ProspectResult = { ok: true; message: string; written: string[]; activityId?: string } | { ok: false; message: string };
 
 /** Expire the cached workbook after a write, so the writer sees their own change. */
 export type Invalidate = () => void;
@@ -103,7 +103,7 @@ export async function logProspectTouch(input: TouchInput, by: string, invalidate
       summary: t.summary,
     });
     invalidate();
-    return { ok: true, written: [...written, `Activity ${activityId}`], message: `Saved to the sheet: ${written.join(", ")} · Activity ${activityId}.` };
+    return { ok: true, written: [...written, `Activity ${activityId}`], activityId, message: `Saved to the sheet: ${written.join(", ")} · Activity ${activityId}.` };
   } catch (err) {
     return { ok: false, message: errorMessage(err) };
   }
