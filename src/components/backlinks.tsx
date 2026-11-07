@@ -8,7 +8,7 @@ export function Backlinks({ items }: { items: BacklinkItem[] }) {
   if (items.length === 0) return null;
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <CornerDownRight className="size-3.5" />
         Referenced by
       </h3>

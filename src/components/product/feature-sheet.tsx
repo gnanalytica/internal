@@ -44,7 +44,7 @@ const inputClass = "h-8 w-full min-w-0 rounded-md border bg-background px-2 text
 function SectionHead({ title, aside }: { title: string; aside?: React.ReactNode }) {
   return (
     <div className="flex items-baseline gap-2">
-      <h3 className="flex-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
+      <h3 className="flex-1 text-xs font-medium text-muted-foreground">{title}</h3>
       {aside && <span className="text-xs text-muted-foreground">{aside}</span>}
     </div>
   );

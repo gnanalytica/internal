@@ -147,7 +147,7 @@ export function InitiativesTraction({
             />
           </div>
         </div>
-        <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="mt-2.5 text-xs font-medium text-muted-foreground">
           Proof inventory
         </p>
         {(model.proofMetrics ?? []).map((m, idx) => {

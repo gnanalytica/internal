@@ -13,6 +13,7 @@ import {
 import type { Label, Member, Project } from "@/lib/types";
 
 const GO_TO: Record<string, string> = {
+  h: "/",
   i: "/issues",
   m: "/my-issues",
   p: "/projects",
@@ -23,8 +24,9 @@ const GO_TO: Record<string, string> = {
 const HELP = [
   { keys: "C", label: "Create task" },
   { keys: "⌘K", label: "Search / command palette" },
-  { keys: "G then I", label: "Go to Tasks" },
-  { keys: "G then M", label: "Go to My Issues" },
+  { keys: "G then H", label: "Go to Home (my work)" },
+  { keys: "G then M", label: "Go to My tasks" },
+  { keys: "G then I", label: "Go to All tasks" },
   { keys: "G then P", label: "Go to Projects" },
   { keys: "G then N", label: "Go to Inbox" },
   { keys: "G then A", label: "Go to Ask AI" },

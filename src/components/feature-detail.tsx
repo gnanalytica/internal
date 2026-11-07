@@ -149,7 +149,7 @@ export function FeatureDetailView({
 
           {/* Inline spec / PRD */}
           <div className="mt-6">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="mb-2 text-xs font-medium text-muted-foreground">
               Spec
             </h3>
             <RichEditor
@@ -165,7 +165,7 @@ export function FeatureDetailView({
             room for its toolbar and titles, which a reading measure denies it. */}
         <div className="mx-auto w-full max-w-6xl px-8 pb-10">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="text-xs font-medium text-muted-foreground">
               Issues
             </h3>
             <span className="text-xs text-muted-foreground">

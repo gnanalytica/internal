@@ -39,7 +39,7 @@ import { cycleStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const triggerCls =
-  "inline-flex items-center gap-1.5 rounded-md border border-transparent px-1.5 py-1 text-xs text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors";
+  "relative inline-flex items-center gap-1.5 rounded-md border border-transparent px-1.5 py-1 text-xs text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors";
 
 function Dot({ color }: { color: string }) {
   return (
@@ -71,7 +71,7 @@ export function StatusPicker({
           <DropdownMenuItem
             key={st.id}
             onClick={() => onChange(st.id)}
-            className="gap-2 text-xs"
+            className="gap-2"
           >
             <StatusIcon status={st.id} />
             <span className="flex-1">{st.label}</span>
@@ -104,7 +104,7 @@ export function PriorityPicker({
           <DropdownMenuItem
             key={pr.id}
             onClick={() => onChange(pr.id)}
-            className="gap-2 text-xs"
+            className="gap-2"
           >
             <PriorityIcon priority={pr.id} />
             <span className="flex-1">{pr.label}</span>
@@ -317,7 +317,7 @@ export function ProjectPicker({
         {!compact && <span>{p ? p.name : "No project"}</span>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2">
           <span className="size-2.5 rounded-full border border-dashed border-muted-foreground/60" />
           <span className="flex-1">No project</span>
           {!value && <Check className="size-3.5 opacity-70" />}
@@ -326,7 +326,7 @@ export function ProjectPicker({
           <DropdownMenuItem
             key={proj.id}
             onClick={() => onChange(proj.id)}
-            className="gap-2 text-xs"
+            className="gap-2"
           >
             <Dot color={proj.color} />
             <span className="flex-1">{proj.name}</span>
@@ -358,7 +358,7 @@ export function FeaturePicker({
         {!compact && <span>{f ? f.title : "No feature"}</span>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2">
           <span className="flex-1">No feature</span>
           {!value && <Check className="size-3.5 opacity-70" />}
         </DropdownMenuItem>
@@ -366,7 +366,7 @@ export function FeaturePicker({
           <DropdownMenuItem
             key={feat.id}
             onClick={() => onChange(feat.id)}
-            className="gap-2 text-xs"
+            className="gap-2"
           >
             <span className="flex-1 truncate">{feat.title}</span>
             {value === feat.id && <Check className="size-3.5 opacity-70" />}
@@ -396,7 +396,7 @@ export function TypePicker({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
         {ISSUE_TYPES.map((it) => (
-          <DropdownMenuItem key={it.id} onClick={() => onChange(it.id)} className="gap-2 text-xs">
+          <DropdownMenuItem key={it.id} onClick={() => onChange(it.id)} className="gap-2">
             <Dot color={it.color} />
             <span className="flex-1">{it.label}</span>
             {value === it.id && <Check className="size-3.5 opacity-70" />}
@@ -427,12 +427,12 @@ export function MilestonePicker({
         {!compact && <span>{m ? m.name : "No milestone"}</span>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2">
           <span className="flex-1">No milestone</span>
           {!value && <Check className="size-3.5 opacity-70" />}
         </DropdownMenuItem>
         {milestones.map((ms) => (
-          <DropdownMenuItem key={ms.id} onClick={() => onChange(ms.id)} className="gap-2 text-xs">
+          <DropdownMenuItem key={ms.id} onClick={() => onChange(ms.id)} className="gap-2">
             <Target className="size-3.5 text-brand" />
             <span className="flex-1 truncate">{ms.name}</span>
             {value === ms.id && <Check className="size-3.5 opacity-70" />}
@@ -450,15 +450,9 @@ export function MilestonePicker({
 export function TypeChip({ type }: { type: string }) {
   const t = ISSUE_TYPE_MAP[type as IssueTypeId];
   if (!t) return null;
+  // Same shape as a label chip: neutral outline, the colour carried by the dot.
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
-      style={{
-        borderColor: `color-mix(in oklch, ${t.color} 40%, transparent)`,
-        color: t.color,
-        backgroundColor: `color-mix(in oklch, ${t.color} 12%, transparent)`,
-      }}
-    >
+    <span className="inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[11px] text-muted-foreground">
       <span className="size-1.5 rounded-full" style={{ backgroundColor: t.color }} />
       {t.label}
     </span>
@@ -501,7 +495,7 @@ export function MilestoneStatusPicker({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-40">
         {MILESTONE_STATUSES.map((s) => (
-          <DropdownMenuItem key={s.id} onClick={() => onChange(s.id)} className="gap-2 text-xs">
+          <DropdownMenuItem key={s.id} onClick={() => onChange(s.id)} className="gap-2">
             <Dot color={s.color} />
             <span className="flex-1">{s.label}</span>
             {value === s.id && <Check className="size-3.5 opacity-70" />}
@@ -556,7 +550,7 @@ export function LabelPicker({
             key={lb.id}
             closeOnClick={false}
             onClick={() => toggle(lb.id)}
-            className="gap-2 text-xs"
+            className="gap-2"
           >
             <Dot color={lb.color} />
             <span className="flex-1">{lb.name}</span>
@@ -571,7 +565,7 @@ export function LabelPicker({
               onChange([...value, created.id]);
               setQuery("");
             }}
-            className="gap-2 text-xs"
+            className="gap-2"
           >
             <Plus className="size-3.5" />
             Create “{query.trim()}”
@@ -613,7 +607,7 @@ export function CyclePicker({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-xs">
+        <DropdownMenuItem onClick={() => onChange(null)} className="gap-2">
           <Timer className="size-3.5 text-muted-foreground" />
           <span className="flex-1">No cycle</span>
           {!value && <Check className="size-3.5 opacity-70" />}

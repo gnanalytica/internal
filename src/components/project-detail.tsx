@@ -226,7 +226,7 @@ export function ProjectDetail({
 
           {/* Tasks */}
           <div className="mt-8 flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="text-xs font-medium text-muted-foreground">
               Tasks
             </h3>
             <Link
@@ -264,7 +264,7 @@ export function ProjectDetail({
           {databases.length > 0 && (
             <div className="mt-8">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <h2 className="text-xs font-medium text-muted-foreground">
                   Databases
                 </h2>
                 <Link
@@ -335,7 +335,7 @@ function ProjectStatusUpdates({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-xs font-medium text-muted-foreground">
           Status updates
         </h3>
         <Button

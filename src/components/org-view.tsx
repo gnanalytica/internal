@@ -66,7 +66,7 @@ export function OrgView({
           <section className="rounded-xl border">
             <div className="grid md:grid-cols-[1fr_auto_1fr]">
               <div className="p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <p className="text-xs font-medium text-muted-foreground">
                   Builder
                 </p>
                 <p className="mt-0.5 text-sm font-semibold">makes it work</p>
@@ -83,7 +83,7 @@ export function OrgView({
                 </span>
               </div>
               <div className="border-t p-4 md:border-t-0">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <p className="text-xs font-medium text-muted-foreground">
                   Strategist
                 </p>
                 <p className="mt-0.5 text-sm font-semibold">makes it matter</p>
@@ -102,7 +102,7 @@ export function OrgView({
 
           {/* Products × hats — derived from project owners and workspace admins */}
           <section className="rounded-xl border">
-            <div className="grid grid-cols-[1.2fr_1fr_1fr] items-center gap-2 border-b px-4 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <div className="grid grid-cols-[1.2fr_1fr_1fr] items-center gap-2 border-b px-4 py-2 text-xs font-medium text-muted-foreground">
               <span>Product</span>
               <span>Builder</span>
               <span>Strategist</span>
@@ -154,7 +154,7 @@ export function OrgView({
 
           {/* Org chart — same component as People & HR, minus the HR fields */}
           <section className="rounded-xl border p-4">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <p className="mb-3 text-xs font-medium text-muted-foreground">
               Positions
             </p>
             <OrgChart roots={orgRoles} members={members} isAdmin={isAdmin} />

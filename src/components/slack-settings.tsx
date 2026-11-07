@@ -420,7 +420,7 @@ function RuleEditor({
       <div className="grid gap-4 sm:grid-cols-2">
         {SLACK_EVENT_GROUPS.map((g) => (
           <fieldset key={g.id}>
-            <legend className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</legend>
+            <legend className="mb-1.5 text-xs font-medium text-muted-foreground">{g.label}</legend>
             <div className="space-y-1">
               {g.events.map((e) => (
                 <label key={e.id} className="flex items-center gap-2 text-sm">

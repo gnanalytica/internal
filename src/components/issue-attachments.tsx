@@ -39,7 +39,7 @@ export function IssueAttachments({
 
   return (
     <div>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-2 text-xs font-medium text-muted-foreground">
         Attachments {attachments.length > 0 && `(${attachments.length})`}
       </h3>
 

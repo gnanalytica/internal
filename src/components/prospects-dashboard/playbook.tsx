@@ -28,7 +28,7 @@ export function Playbook({ section, setSection }: { section: string; setSection:
         {current.quote && <blockquote className="rounded-lg bg-foreground px-5 py-4 text-lg leading-snug font-medium text-background">“{current.quote}”</blockquote>}
         {current.groups.map((g) => (
           <section key={g.name} className="flex flex-col gap-2">
-            <h3 className="text-xs font-semibold tracking-wider text-brand uppercase">{g.name}</h3>
+            <h3 className="text-xs font-medium text-brand">{g.name}</h3>
             <ul className="flex flex-col gap-1.5">
               {g.items.map((item) => (
                 <li key={item} className="max-w-[70ch] rounded-lg bg-muted/60 px-3 py-2 text-sm leading-relaxed">

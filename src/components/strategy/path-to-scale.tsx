@@ -77,7 +77,7 @@ function StageCard({ stage, projectId }: { stage: Stage; projectId: string }) {
   return (
     <div className="min-w-56 flex-1 rounded-lg border bg-background/40 p-3 transition-transform hover:-translate-y-0.5">
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">
+        <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">
           <Editable value={stage.label} placeholder="Stage name" onSave={(v) => save({ label: v })} />
         </span>
         <button

@@ -30,7 +30,7 @@ export function TaskPanel({
   if (issues.length === 0) return null;
 
   return (
-    <div className="h-[70vh] min-h-[26rem] overflow-hidden rounded-xl border bg-background">
+    <div className="h-[70vh] min-h-[26rem] overflow-hidden rounded-lg border bg-background">
       <IssuesView
         embedded
         heading={heading}

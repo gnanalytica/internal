@@ -373,7 +373,7 @@ export function PageComments({
 
   return (
     <div>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-3 text-xs font-medium text-muted-foreground">
         Comments {comments.length > 0 && `(${comments.length})`}
       </h3>
 

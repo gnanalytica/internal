@@ -46,31 +46,41 @@ export function ProjectTabs({
           { href: `${base}/docs`, label: "Docs" },
         ];
   return (
-    <div className="no-scrollbar relative flex items-center gap-1 overflow-x-auto border-b px-4 pt-2.5">
-      <div className="mr-3 flex items-center gap-2">
-        <span className="size-3 rounded-full" style={{ backgroundColor: project.color }} />
-        <span className="text-sm font-semibold">{project.name}</span>
-      </div>
-      {tabs.map((t) => {
-        const active = pathname === t.href;
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            data-active={active ? "" : undefined}
-            className={cn(
-              "shrink-0 rounded-t-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
-              active ? "font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-2 pl-3 sm:pr-4 sm:pl-4">
+      <nav aria-label="Breadcrumb" className="flex shrink-0 items-center gap-1.5 text-ui">
+        <Link href="/projects" className="hidden text-muted-foreground hover:text-foreground sm:inline">
+          Projects
+        </Link>
+        <span aria-hidden className="hidden text-faint-foreground sm:inline">/</span>
+        <Link href={base} className="flex items-center gap-2 rounded-sm font-medium">
+          <span className="size-2.5 rounded-full" style={{ backgroundColor: project.color }} />
+          {project.name}
+        </Link>
+      </nav>
+      <div className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
+      <nav aria-label={`${project.name} sections`} className="no-scrollbar relative flex h-full min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto">
+        {tabs.map((t) => {
+          const active = pathname === t.href;
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              aria-current={active ? "page" : undefined}
+              data-active={active ? "" : undefined}
+              className={cn(
+                "flex shrink-0 items-center px-2 text-ui whitespace-nowrap transition-colors",
+                active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+        <TabIndicator activeKey={pathname} />
+      </nav>
       {/* Sits with the project, not a department, because what you follow here
           is the project's status updates. */}
-      <TabIndicator activeKey={pathname} />
-      <div className="ml-auto pl-2">
+      <div className="shrink-0 pl-1">
         <WatchButton kind="project" targetId={project.id} initial={watching} />
       </div>
     </div>

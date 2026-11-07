@@ -26,7 +26,7 @@ export function DepartmentHeader<T extends string>({
 }) {
   return (
     <header className="shrink-0 border-b bg-background">
-      <div className="flex items-center gap-1 pr-2 pl-1 sm:pr-4 sm:pl-2">
+      <div className="flex items-center gap-1.5 pr-2 pl-1 sm:pr-4 sm:pl-2">
         <nav role="tablist" aria-label={label} className="no-scrollbar relative flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
           {tabs.map((t) => {
             const active = t.id === current;
@@ -38,10 +38,10 @@ export function DepartmentHeader<T extends string>({
                 aria-selected={active}
                 data-active={active ? "" : undefined}
                 onClick={() => onChange(t.id)}
-                className={cn("h-11 shrink-0 px-2.5 text-sm whitespace-nowrap transition-colors", active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
+                className={cn("h-10 shrink-0 px-2.5 text-ui whitespace-nowrap transition-colors", active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
               >
                 {t.label}
-                {t.count != null && <span className="ml-1.5 font-mono text-[11px] text-muted-foreground/70">{t.count.toLocaleString("en-IN")}</span>}
+                {t.count != null && <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{t.count.toLocaleString("en-IN")}</span>}
               </button>
             );
           })}

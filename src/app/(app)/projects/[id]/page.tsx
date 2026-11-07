@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BarChart3, CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
+import { DepartmentStrip, type DepartmentStat } from "@/components/department-strip";
 import { FinanceView } from "@/components/finance-view";
 import { OwnerPicker } from "@/components/owner-picker";
 import { PeopleHRView } from "@/components/people-hr-view";
@@ -14,6 +14,7 @@ import {
   isConfidentialDepartment,
   isDepartmentEnabled,
   issueBelongsToDepartment,
+  type DepartmentSlug,
 } from "@/lib/departments";
 import {
   getBacklinks,
@@ -130,56 +131,60 @@ export default async function ProjectRoute({
 
   // One headline number per department, from what that department's page
   // now shows. Counts only: nothing here reads the prospects sheet.
-  const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const n = (v: number) => v.toLocaleString("en-IN");
+  const plural = (v: number, one: string, many = `${one}s`) => (v === 1 ? one : many);
 
-  const cards = [
+  const eng = summary.openIssuesByDepartment.engineering ?? 0;
+  const stats: (DepartmentStat & { slug: DepartmentSlug })[] = [
     {
       slug: "product" as const,
       href: `/projects/${id}/product`,
-      icon: <Compass className="size-4" />,
+      icon: <Compass className="size-3.5" />,
       label: "Product",
-      stat: `${count(summary.featuresNow, "feature")} in Now · ${summary.feedbackCount} feedback`,
-      tool: "Roadmap & feedback",
+      value: n(summary.featuresNow),
+      unit: `${plural(summary.featuresNow, "feature")} in Now`,
+      extra: `${n(summary.feedbackCount)} feedback`,
     },
     {
       slug: "engineering" as const,
       href: `/projects/${id}/engineering`,
-      icon: <CircleDot className="size-4" />,
+      icon: <CircleDot className="size-3.5" />,
       label: "Engineering",
-      stat: count(summary.openIssuesByDepartment.engineering ?? 0, "open ticket"),
-      tool: "Tickets",
+      value: n(eng),
+      unit: `open ${plural(eng, "ticket")}`,
     },
     {
       slug: "analytics" as const,
       href: `/projects/${id}/analytics`,
-      icon: <BarChart3 className="size-4" />,
+      icon: <BarChart3 className="size-3.5" />,
       label: "Analytics",
-      stat: count(summary.metricCount, "metric"),
-      tool: "Weekly scorecard",
+      value: n(summary.metricCount),
+      unit: plural(summary.metricCount, "metric"),
     },
     {
       slug: "marketing" as const,
       href: `/projects/${id}/marketing`,
-      icon: <Megaphone className="size-4" />,
+      icon: <Megaphone className="size-3.5" />,
       label: "Marketing",
-      stat: `${count(summary.piecesThisWeek, "piece")} this week`,
-      tool: "Content calendar",
+      value: n(summary.piecesThisWeek),
+      unit: `${plural(summary.piecesThisWeek, "piece")} this week`,
     },
     {
       slug: "sales" as const,
       href: `/projects/${id}/sales`,
-      icon: <TrendingUp className="size-4" />,
+      icon: <TrendingUp className="size-3.5" />,
       label: "Sales",
-      stat: `${count(summary.openDeals, "open deal")} · ${formatCurrency(summary.pipelineValueInr, "INR")}`,
-      tool: "Prospects & deals",
+      value: n(summary.openDeals),
+      unit: `open ${plural(summary.openDeals, "deal")}`,
+      extra: `${formatCurrency(summary.pipelineValueInr, "INR")} pipeline`,
     },
     {
       slug: "customer-success" as const,
       href: `/projects/${id}/customer-success`,
-      icon: <LifeBuoy className="size-4" />,
+      icon: <LifeBuoy className="size-3.5" />,
       label: "Customer Success",
-      stat: count(summary.openTickets, "open request"),
-      tool: "Customers & requests",
+      value: n(summary.openTickets),
+      unit: `open ${plural(summary.openTickets, "request")}`,
     },
   ]
     .filter((c) => isDepartmentEnabled(summary.enabledDepartments, c.slug))
@@ -197,40 +202,27 @@ export default async function ProjectRoute({
     );
 
   return (
-    <div className="overflow-auto p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        {summary.description ? (
-          <p className="max-w-2xl text-sm text-muted-foreground">{summary.description}</p>
-        ) : (
-          <span />
-        )}
-        <div className="flex items-center gap-2">
-          {canSeeConfidential(myRole) ? (
-            <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
+    <div className="scrollbar-thin h-full overflow-y-auto">
+      <div className="mx-auto w-full max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {summary.description ? (
+            <p className="max-w-2xl text-sm text-muted-foreground">{summary.description}</p>
           ) : (
-            <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-              Owner {owner?.name ?? "—"}
-            </span>
+            <span />
           )}
+          <div className="flex items-center gap-2">
+            {canSeeConfidential(myRole) ? (
+              <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
+            ) : (
+              <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                Lead {owner?.name ?? "—"}
+              </span>
+            )}
+          </div>
         </div>
+        <DepartmentStrip stats={stats} />
+        <ProjectSchedule projectId={id} issues={scheduleIssues} ctx={ctx} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((c) => (
-          <Link
-            key={c.href}
-            href={c.href}
-            className="glow hover-lift rounded-xl border bg-background p-4 shadow-sm hover:border-foreground/20"
-          >
-            <div className="flex items-center gap-2 font-medium">
-              {c.icon}
-              {c.label}
-            </div>
-            <div className="mt-2 text-sm">{c.stat}</div>
-            <div className="mt-1 text-[11px] text-muted-foreground">{c.tool}</div>
-          </Link>
-        ))}
-      </div>
-      <ProjectSchedule projectId={id} issues={scheduleIssues} ctx={ctx} />
     </div>
   );
 }

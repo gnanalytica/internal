@@ -176,7 +176,7 @@ export function ListView({
 
       <div className="overflow-x-auto max-md:hidden">
         <table className="w-full min-w-[900px] table-fixed text-[13px]">
-          <thead className="bg-muted/40 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          <thead className="bg-muted/40 text-left text-xs font-medium text-muted-foreground">
             <tr className="border-b">
               <th className="w-9 py-2 pl-1 font-normal">
                 <input type="checkbox" aria-label="Select all on this page" checked={allOn} onChange={() => setChecked(allOn ? new Set() : new Set(page.map(keyOf)))} className="accent-foreground" />

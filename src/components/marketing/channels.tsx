@@ -38,7 +38,7 @@ export function ChannelsTab({ items, today }: { items: Piece[]; today: string })
         <table className="w-full min-w-[760px] text-[13px]">
           <thead className="bg-muted/40 text-left text-[11px] text-muted-foreground">
             <tr className="border-b">
-              <th scope="col" className="w-40 py-2 pl-3 font-normal tracking-wide uppercase">
+              <th scope="col" className="w-40 py-2 pl-3 font-normal">
                 Channel
               </th>
               {starts.map((s) => (
@@ -46,16 +46,16 @@ export function ChannelsTab({ items, today }: { items: Piece[]; today: string })
                   {s === last ? "This wk" : dayLabel(s).split(" ").slice(1).join(" ")}
                 </th>
               ))}
-              <th scope="col" className="px-3 text-right font-normal tracking-wide uppercase">
+              <th scope="col" className="px-3 text-right font-normal">
                 8 wks
               </th>
-              <th scope="col" className="px-3 text-right font-normal tracking-wide uppercase">
+              <th scope="col" className="px-3 text-right font-normal">
                 Posted / all
               </th>
-              <th scope="col" className="px-3 text-right font-normal tracking-wide uppercase">
+              <th scope="col" className="px-3 text-right font-normal">
                 Views
               </th>
-              <th scope="col" className="px-3 text-right font-normal tracking-wide uppercase">
+              <th scope="col" className="px-3 text-right font-normal">
                 Clicks
               </th>
             </tr>
