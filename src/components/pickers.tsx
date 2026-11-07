@@ -450,10 +450,10 @@ export function MilestonePicker({
 export function TypeChip({ type }: { type: string }) {
   const t = ISSUE_TYPE_MAP[type as IssueTypeId];
   if (!t) return null;
-  // Same shape as a label chip: neutral outline, the colour carried by the dot.
+  // A type is a kind of work, not a tag: a flat muted block, so it can't be
+  // mistaken for a label chip (outline + dot) sitting beside it.
   return (
-    <span className="inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[11px] text-muted-foreground">
-      <span className="size-1.5 rounded-full" style={{ backgroundColor: t.color }} />
+    <span className="inline-flex h-5 items-center rounded-sm bg-muted px-1.5 text-[11px] text-muted-foreground" title={`Type: ${t.label}`}>
       {t.label}
     </span>
   );

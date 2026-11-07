@@ -169,7 +169,10 @@ export function IssueRow({
           ) : null}
 
           {/* Surface non-engineering tasks; keep default eng rows uncluttered. */}
-          {issue.type && issue.type !== "engineering" && (
+          {issue.type &&
+            issue.type !== "engineering" &&
+            // A "sales" label already says it; don't repeat it as a type.
+            !issue.labels.some((l) => l.name.toLowerCase() === issue.type) && (
             <span className="hidden md:inline">
               <TypeChip type={issue.type} />
             </span>
@@ -184,15 +187,18 @@ export function IssueRow({
             </span>
           )}
 
-          {due && (
-            <span
-              className={cn("flex items-center gap-1 text-[12px] tabular-nums", DUE_TONE[due.tone])}
-              title={`Due ${new Date(issue.dueDate!).toDateString()}`}
-            >
-              <CalendarClock className="size-3.5 opacity-70" />
-              {due.text}
-            </span>
-          )}
+          {/* Fixed slot so due dates line up down the list. */}
+          <span className="flex w-[5.5rem] justify-start">
+            {due && (
+              <span
+                className={cn("flex items-center gap-1 text-[12px] tabular-nums", DUE_TONE[due.tone])}
+                title={`Due ${new Date(issue.dueDate!).toDateString()}`}
+              >
+                <CalendarClock className="size-3.5 opacity-70" />
+                {due.text}
+              </span>
+            )}
+          </span>
 
           {showProject && issue.project && (
             <span
@@ -206,7 +212,9 @@ export function IssueRow({
 
           {showCreated && (
             <span className="hidden w-16 text-right text-[12px] tabular-nums text-muted-foreground xl:block">
-              <RelativeTime date={issue.createdAt} addSuffix={false} />
+              <span title="Created">
+                <RelativeTime date={issue.createdAt} addSuffix={false} />
+              </span>
             </span>
           )}
 

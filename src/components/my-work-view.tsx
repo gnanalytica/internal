@@ -124,7 +124,7 @@ export function MyWorkView({
                 href="/my-issues"
                 className="inline-flex items-center gap-1 rounded-md text-ui text-muted-foreground hover:text-foreground"
               >
-                All my tasks, board and filters <ArrowRight className="size-3.5" />
+                Open My tasks <ArrowRight className="size-3.5" />
               </Link>
             </header>
 
@@ -132,7 +132,7 @@ export function MyWorkView({
             <div
               role="group"
               aria-label="Focus the list"
-              className="mb-6 grid grid-cols-2 overflow-hidden rounded-lg border sm:grid-cols-4"
+              className="mb-6 grid grid-cols-4 overflow-hidden rounded-lg border"
             >
               {(
                 [
@@ -152,17 +152,15 @@ export function MyWorkView({
                     disabled={n === 0 && !on}
                     onClick={() => setFocus(on ? null : s.id)}
                     className={cn(
-                      "flex flex-col items-start gap-0.5 px-4 py-3 text-left transition-colors disabled:cursor-default",
+                      "flex min-w-0 flex-col items-start gap-0.5 px-2.5 py-2 text-left transition-colors disabled:cursor-default sm:px-4 sm:py-3",
                       i > 0 && "border-l",
-                      i === 2 && "max-sm:border-l-0 max-sm:border-t",
-                      i === 3 && "max-sm:border-t",
                       on ? "bg-selected" : "enabled:hover:bg-muted/60",
                     )}
                   >
-                    <span className="text-xs text-muted-foreground">{s.label}</span>
+                    <span className="w-full truncate text-xs text-muted-foreground">{s.label}</span>
                     <span
                       className={cn(
-                        "text-2xl font-semibold tabular-nums tracking-tight",
+                        "text-xl font-semibold tabular-nums tracking-tight sm:text-2xl",
                         n === 0 ? "text-faint-foreground" : s.tone,
                       )}
                     >
@@ -374,7 +372,7 @@ export function MyWorkView({
             </Panel>
 
             {bets.length > 0 && (
-              <Panel title="Company focus" href="/projects" linkLabel="Projects">
+              <Panel title="Focus this quarter" href="/projects" linkLabel="View">
                 <ol className="space-y-2 px-3 py-3">
                   {bets.map((b, i) => (
                     <li key={i} className="flex gap-2.5 text-ui leading-snug">

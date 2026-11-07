@@ -214,8 +214,8 @@ export default async function ProjectRoute({
             {canSeeConfidential(myRole) ? (
               <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
             ) : (
-              <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
-                Lead {owner?.name ?? "—"}
+              <span className="text-ui text-muted-foreground">
+                Lead <span className="text-foreground">{owner?.name ?? "—"}</span>
               </span>
             )}
           </div>

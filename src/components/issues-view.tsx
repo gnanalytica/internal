@@ -829,6 +829,7 @@ export function IssuesView({
                       selecting={selected.size > 0}
                       now={now}
                       showProject={!defaultProjectId}
+                      showCreated={sort === "created" || sort === "updated"}
                       subProgress={subIssueProgress(issue.id, issues)}
                       expandToggle={
                         children.length > 0 ? (
@@ -857,6 +858,7 @@ export function IssuesView({
                           selecting={selected.size > 0}
                           now={now}
                           showProject={!defaultProjectId}
+                          showCreated={sort === "created" || sort === "updated"}
                           depth={1}
                           subProgress={subIssueProgress(child.id, issues)}
                         />

@@ -24,7 +24,7 @@ export function ProjectSchedule({
   return (
     <section>
       <TaskPanel
-        heading="Schedule"
+        heading="Tasks"
         issues={issues}
         ctx={ctx}
         projectId={projectId}

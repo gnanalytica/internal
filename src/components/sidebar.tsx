@@ -349,7 +349,7 @@ export function Sidebar({
           href="/ask"
           active={pathname.startsWith("/ask")}
           icon={<Sparkles className="size-4" />}
-          label="Ask"
+          label="Ask AI"
         />
 
         {/* Workspace — every project in one view (with its timeline and this

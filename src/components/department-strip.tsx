@@ -41,7 +41,7 @@ export function DepartmentStrip({ stats }: { stats: DepartmentStat[] }) {
             {s.label}
           </span>
           <span className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold tabular-nums tracking-tight">{s.value}</span>
+            <span className={cn("text-2xl font-semibold tabular-nums tracking-tight", s.value === "0" && "text-faint-foreground")}>{s.value}</span>
             <span className="truncate text-xs text-muted-foreground">{s.unit}</span>
           </span>
           {s.extra && <span className="-mt-1 truncate text-xs text-muted-foreground">{s.extra}</span>}

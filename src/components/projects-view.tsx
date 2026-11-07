@@ -185,7 +185,7 @@ export function ProjectsView({
               <>
                 <FocusCard bets={bets} isAdmin={isAdmin} />
 
-                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by health">
+                <div className="no-scrollbar -mx-4 flex items-center gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Filter by health">
                   <span className="mr-1 text-ui text-muted-foreground">Health</span>
                   {counts.map(({ id, n }) => {
                     const h = HEALTH_META[id];
@@ -197,7 +197,7 @@ export function ProjectsView({
                         disabled={n === 0 && !on}
                         onClick={() => setHealth(on ? null : id)}
                         className={cn(
-                          "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-ui transition-colors disabled:opacity-50",
+                          "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-ui transition-colors disabled:opacity-50",
                           on ? "border-brand/40 bg-selected" : "enabled:hover:bg-muted/60",
                         )}
                       >
@@ -224,7 +224,7 @@ export function ProjectsView({
                     <span>Progress</span>
                     <span>Lead</span>
                     <span>Milestone</span>
-                    <span className="w-[164px] text-right">Go to</span>
+                    <span className="w-[164px] text-right" aria-hidden />
                   </div>
                   {products.length > 0 && (
                     <Group label="Products" count={products.length}>
@@ -357,7 +357,7 @@ function Row({ row: r, isAdmin }: { row: ProjectTableRow; isAdmin: boolean }) {
             <span className="truncate">{r.lead.name}</span>
           </>
         ) : (
-          <span className="text-muted-foreground">No lead</span>
+          <span className="text-faint-foreground" title="No lead">—</span>
         )}
       </span>
 
@@ -369,11 +369,11 @@ function Row({ row: r, isAdmin }: { row: ProjectTableRow; isAdmin: boolean }) {
             {target && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{target}</span>}
           </span>
         ) : (
-          <span className="text-muted-foreground">{r.kind === "project" ? "No milestone" : "Ongoing"}</span>
+          <span className="text-faint-foreground" title="No milestone">—</span>
         )}
       </span>
 
-      <div className="relative col-span-2 flex flex-wrap items-center gap-0.5 lg:col-span-1 lg:w-[164px] lg:flex-nowrap lg:justify-end">
+      <div className="relative col-span-2 flex flex-wrap items-center gap-0.5 lg:col-span-1 lg:w-[164px] lg:flex-nowrap lg:justify-end lg:opacity-0 lg:transition-opacity lg:group-hover/row:opacity-100 lg:focus-within:opacity-100">
         {!locked &&
           shortcuts.map((s) => (
             <Link
@@ -415,7 +415,7 @@ function FocusCard({ bets, isAdmin }: { bets: string[]; isAdmin: boolean }) {
         <h2 id="focus-title" className="text-ui font-medium">
           Focus this quarter
         </h2>
-        {isAdmin && <span className="ml-auto text-xs text-muted-foreground">Click a bet to edit</span>}
+        {isAdmin && <span className="ml-auto text-xs text-muted-foreground">Click to edit</span>}
       </header>
       <ol className="grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {(isAdmin ? vals : set).map((b, i) => (
@@ -429,8 +429,8 @@ function FocusCard({ bets, isAdmin }: { bets: string[]; isAdmin: boolean }) {
                 rows={2}
                 onChange={(e) => setVals((p) => p.map((x, j) => (j === i ? e.target.value : x)))}
                 onBlur={() => save(vals)}
-                placeholder={`Bet ${i + 1}…`}
-                aria-label={`Company bet ${i + 1}`}
+                placeholder={`Focus ${i + 1}…`}
+                aria-label={`Quarter focus ${i + 1}`}
                 className="w-full resize-none rounded-sm bg-transparent text-ui leading-snug outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             ) : (
