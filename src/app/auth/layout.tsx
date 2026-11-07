@@ -16,7 +16,7 @@ export default async function AuthLayout({
 
   // If already signed in, skip the auth screens.
   const { data: session } = await auth.getSession();
-  if (session?.user) redirect("/issues");
+  if (session?.user) redirect("/");
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-muted/30 px-4">

@@ -8,13 +8,13 @@ describe("safeNextPath", () => {
     expect(safeNextPath("/projects/abc")).toBe("/projects/abc");
   });
   it("refuses anything that could leave the site", () => {
-    expect(safeNextPath("https://evil.test")).toBe("/issues");
-    expect(safeNextPath("//evil.test")).toBe("/issues");
-    expect(safeNextPath("/\\evil.test")).toBe("/issues");
-    expect(safeNextPath("javascript:alert(1)")).toBe("/issues");
+    expect(safeNextPath("https://evil.test")).toBe("/");
+    expect(safeNextPath("//evil.test")).toBe("/");
+    expect(safeNextPath("/\\evil.test")).toBe("/");
+    expect(safeNextPath("javascript:alert(1)")).toBe("/");
   });
   it("falls back when empty or pointing back into auth", () => {
-    expect(safeNextPath(null)).toBe("/issues");
-    expect(safeNextPath("/auth/sign-in")).toBe("/issues");
+    expect(safeNextPath(null)).toBe("/");
+    expect(safeNextPath("/auth/sign-in")).toBe("/");
   });
 });

@@ -22,7 +22,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
   const pains = model.problem?.pains ?? [];
   return (
     <details className="s-rise rounded-xl border border-dashed px-4">
-      <summary className="cursor-pointer list-none py-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <summary className="cursor-pointer list-none py-3 text-xs font-medium text-muted-foreground">
         <span className="mr-2 inline-grid size-6 place-items-center rounded-md bg-gradient-to-br from-teal-500 to-sky-500 align-middle text-xs font-extrabold text-white">
           6
         </span>
@@ -33,7 +33,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
       </summary>
       <div className="flex flex-wrap gap-3.5 pb-4">
         <div className="min-w-64 flex-1 rounded-lg border bg-background/40 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Problem &amp; why now</p>
+          <p className="text-xs font-medium text-muted-foreground">Problem &amp; why now</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {pains.map((p, i) => (
               <button
@@ -73,7 +73,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
           </p>
         </div>
         <div className="min-w-64 flex-1 rounded-lg border bg-background/40 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             TAM → SAM → SOM <span className="normal-case tracking-normal">(whole · reachable · ours)</span>
           </p>
           <div className="mt-2 space-y-1.5 text-[11px]">
@@ -107,7 +107,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
           </div>
         </div>
         <div className="min-w-64 flex-1 rounded-lg border bg-background/40 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Competitive positioning</p>
+          <p className="text-xs font-medium text-muted-foreground">Competitive positioning</p>
           <svg viewBox="0 0 300 170" className="mt-2 w-full">
             <rect x="30" y="8" width="262" height="130" rx="8" fill="none" stroke="hsl(var(--border))" />
             <line x1="161" y1="8" x2="161" y2="138" stroke="hsl(var(--border))" strokeDasharray="3 4" />
@@ -153,7 +153,7 @@ export function Backdrop({ model, projectId }: { model: StrategyModel; projectId
           />
         </div>
         <div className="min-w-56 flex-[0.8] rounded-lg border bg-background/40 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             Strategic guardrails <span className="normal-case tracking-normal">(ruled out on purpose)</span>
           </p>
           <div className="mt-2 space-y-1 text-[11.5px] text-muted-foreground">

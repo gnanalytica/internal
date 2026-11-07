@@ -55,7 +55,7 @@ export const CommandList = forwardRef<
         return (
           <div key={item.title}>
             {newGroup && (
-              <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground first:pt-1">
+              <div className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground first:pt-1">
                 {item.group}
               </div>
             )}

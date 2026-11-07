@@ -94,7 +94,7 @@ export function MilestoneDetailView({
             the task tool needs room for its toolbar and titles, and cramming it
             into a reading measure made both unreadable. */}
         <div className="mx-auto w-full max-w-6xl px-8 pb-10">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">
             Tasks
           </h3>
           {milestone.directIssues.length === 0 ? (

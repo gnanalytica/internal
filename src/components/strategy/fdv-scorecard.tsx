@@ -127,7 +127,7 @@ function PillarChart({
   if (pillar === "feasibility" && milestones.length) {
     return (
       <div className="mt-2 border-t border-dashed pt-2">
-        <span className="text-[8.5px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           Capability burn-up · auto — Roadmap
         </span>
         <div className="mt-1.5 space-y-1.5">
@@ -179,7 +179,7 @@ export function FdvScorecard({
               <div className="mb-2 flex items-center gap-2.5">
                 <Ring pct={score} label={`${p.label} score`} />
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest">{p.label}</span>
+                  <span className="text-xs font-semibold">{p.label}</span>
                   <span className="text-[10px] text-muted-foreground">{p.question}</span>
                   <span className="text-[10px] text-muted-foreground tabular-nums">
                     {ok} / {total} signals

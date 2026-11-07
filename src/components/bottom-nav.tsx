@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, CircleUser, Contact, Folder, Menu } from "lucide-react";
+import { Bell, Contact, Folder, House, Menu } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -46,10 +46,10 @@ export function BottomNav({
       className="flex shrink-0 border-t bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <Item
-        href="/my-issues"
-        active={pathname === "/my-issues"}
-        label="My tasks"
-        icon={<CircleUser className="size-5" />}
+        href="/"
+        active={pathname === "/" || pathname === "/my-issues"}
+        label="Home"
+        icon={<House className="size-5" />}
       />
       <Item
         href="/inbox"
@@ -77,7 +77,7 @@ export function BottomNav({
         className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-muted-foreground transition-colors hover:text-foreground active:bg-sidebar-accent"
       >
         <Menu className="size-5" />
-        <span className="text-[10px] leading-none">More</span>
+        <span className="text-2xs leading-none font-medium">More</span>
       </button>
     </nav>
   );
@@ -115,7 +115,7 @@ function Item({
           </span>
         )}
       </span>
-      <span className="text-[10px] leading-none">{label}</span>
+      <span className="text-2xs leading-none font-medium">{label}</span>
     </Link>
   );
 }

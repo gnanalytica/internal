@@ -19,7 +19,7 @@ export function ChartCard({
   return (
     <div className={"rounded-xl border bg-background p-4 " + (className ?? "")}>
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-xs font-medium text-muted-foreground">
           {title}
         </h3>
         {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}

@@ -297,7 +297,7 @@ export function RoadmapChart({
           {/* Column header */}
           <div className="sticky top-0 z-20 flex border-b bg-background/95 backdrop-blur">
             <div
-              className="shrink-0 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+              className="shrink-0 px-4 py-2.5 text-xs font-medium text-muted-foreground"
               style={{ width: NAME_W_VAR }}
             >
               {labelHeader}

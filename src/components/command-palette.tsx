@@ -5,13 +5,18 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Bell,
   BookText,
+  CalendarRange,
   CircleDot,
+  CircleUser,
   Database,
   FileText,
   Folder,
+  House,
+  Map,
   Plus,
   Sparkles,
   Timer,
+  Users,
 } from "lucide-react";
 
 import {
@@ -61,10 +66,15 @@ const NAV_GROUPS: {
   {
     heading: "Jump to",
     items: [
-      { label: "Ask AI", href: "/ask", icon: <Sparkles className={ic} /> },
+      { label: "Home", href: "/", icon: <House className={ic} /> },
       { label: "Inbox", href: "/inbox", icon: <Bell className={ic} /> },
-      { label: "Tasks", href: "/issues", icon: <CircleDot className={ic} /> },
+      { label: "My tasks", href: "/my-issues", icon: <CircleUser className={ic} /> },
+      { label: "Ask AI", href: "/ask", icon: <Sparkles className={ic} /> },
       { label: "Projects", href: "/projects", icon: <Folder className={ic} /> },
+      { label: "Roadmap", href: "/projects?tab=timeline", icon: <Map className={ic} /> },
+      { label: "Weekly review", href: "/projects?tab=week", icon: <CalendarRange className={ic} /> },
+      { label: "All tasks", href: "/issues", icon: <CircleDot className={ic} /> },
+      { label: "Team", href: "/org", icon: <Users className={ic} /> },
       { label: "Wiki", href: "/pages", icon: <BookText className={ic} /> },
     ],
   },

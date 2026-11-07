@@ -244,7 +244,7 @@ export function IssueDetail({
             {/* Linked pages */}
             <div className="mt-10 border-t pt-5">
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <h3 className="text-xs font-medium text-muted-foreground">
                   Linked pages
                 </h3>
                 <Popover open={linkOpen} onOpenChange={setLinkOpen}>
@@ -332,7 +332,7 @@ export function IssueDetail({
 
         {/* Properties */}
         <aside className="w-full shrink-0 border-b bg-muted/20 p-4 md:w-64 md:border-b-0 md:border-l">
-          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="mb-3 text-xs font-medium text-muted-foreground">
             Properties
           </h3>
           <div className="space-y-1">
@@ -570,7 +570,7 @@ function IssueRelations({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-xs font-medium text-muted-foreground">
           Relations
         </h3>
         <Popover open={open} onOpenChange={setOpen}>
@@ -701,7 +701,7 @@ function SubIssues({
     <div>
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="text-xs font-medium text-muted-foreground">
             Sub-tasks
           </h3>
           {total > 0 && (

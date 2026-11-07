@@ -4,30 +4,13 @@ import "./strategy.css";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { kpiState, type KpiState, type StageKpi } from "@/lib/strategy";
-
-/** Numbered section header: badge + uppercase title + plain-gloss subtitle. */
-export function Section({
-  n,
-  title,
-  sub,
-  children,
-  className,
-}: {
-  n: number;
-  title: string;
-  sub: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={`s-rise rounded-xl border bg-card p-4 ${className ?? ""}`}>
+import { kpiState, type KpiState, type StageKpi } from "@/lib/strategy"; /** Numbered section header: badge + title + plain-gloss subtitle. */ export function Section({ n, title, sub, children, className, }: { n: number; title: string; sub: string; children: ReactNode; className?: string; }) { return ( <section className={`s-rise rounded-xl border bg-card p-4 ${className ??""}`}>
       <div className="mb-3 flex items-center gap-2.5 border-b pb-2.5">
         <span className="grid size-6 flex-none place-items-center rounded-md bg-gradient-to-br from-teal-500 to-sky-500 text-xs font-extrabold text-white">
           {n}
         </span>
         <div className="flex flex-col">
-          <h2 className="text-[13px] font-bold uppercase tracking-wider">{title}</h2>
+          <h2 className="text-[13px] font-semibold">{title}</h2>
           <span className="text-[10.5px] text-muted-foreground">{sub}</span>
         </div>
       </div>

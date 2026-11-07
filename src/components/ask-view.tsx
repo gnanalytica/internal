@@ -139,7 +139,7 @@ export function AskView({ enabled }: { enabled: boolean }) {
               )}
               {sources.length > 0 && (
                 <div className="mt-3">
-                  <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
                     Sources
                   </h3>
                   <div className="space-y-0.5">

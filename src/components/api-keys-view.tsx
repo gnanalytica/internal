@@ -117,7 +117,7 @@ export function ApiKeysView({
 
           {/* Quick start */}
           <div className="mb-6 rounded-xl border bg-muted/20 p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="mb-2 text-xs font-medium text-muted-foreground">
               Base URL
             </div>
             <code className="block break-all rounded-md bg-muted px-2 py-1.5 text-xs">

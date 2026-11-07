@@ -53,7 +53,7 @@ function TocView({ editor }: NodeViewProps) {
       data-type="toc"
       contentEditable={false}
     >
-      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <ListTree className="size-3" /> Contents
       </div>
       {headings.length === 0 ? (

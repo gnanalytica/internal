@@ -294,7 +294,7 @@ export function PageView({
           {/* Linked tasks */}
           <div className="mt-10 border-t pt-5">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="text-xs font-medium text-muted-foreground">
                 Linked tasks
               </h3>
               <Popover open={linkOpen} onOpenChange={setLinkOpen}>

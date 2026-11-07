@@ -5,7 +5,7 @@ import { applyStrategyOpAction } from "@/lib/strategy-actions";
 export function StrategyEmptyState({ projectId }: { projectId: string }) {
   return (
     <div className="s-rise mx-auto mt-10 max-w-md rounded-xl border bg-card p-6 text-center">
-      <h2 className="text-sm font-bold uppercase tracking-wider">Set up Strategy</h2>
+      <h2 className="text-sm font-semibold">Set up Strategy</h2>
       <p className="mt-2 text-xs text-muted-foreground">
         Vision &amp; path · FDV scorecard · initiatives · traction · unit economics · market backdrop.
         Start from the shape template (three stage-gates, empty pillars) and fill it in-place — nothing

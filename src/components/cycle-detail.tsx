@@ -185,7 +185,7 @@ export function CycleDetail({
         {/* Burndown */}
         <div className="mt-4 max-w-md">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Burndown (points)
             </span>
             <span className="text-[11px] text-muted-foreground">

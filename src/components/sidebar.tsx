@@ -4,17 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
-  Activity,
   Bell,
-  CalendarRange,
   ChevronDown,
   ChevronRight,
   CircleDot,
   CircleUser,
   Folder,
+  House,
   KeyRound,
   LogOut,
-  Map,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
@@ -187,13 +185,12 @@ export function Sidebar({
           <Search className="size-4" />
         </RailButton>
         <div className="my-1 h-px w-6 bg-border" />
+        <RailLink href="/" active={pathname === "/"} label="Home"><House className="size-4" /></RailLink>
         <RailLink href="/inbox" active={pathname.startsWith("/inbox")} label="Inbox"><Bell className="size-4" /></RailLink>
         <RailLink href="/my-issues" active={pathname === "/my-issues"} label="My tasks"><CircleUser className="size-4" /></RailLink>
         <RailLink href="/ask" active={pathname.startsWith("/ask")} label="Ask"><Sparkles className="size-4" /></RailLink>
         <div className="my-1 h-px w-6 bg-border" />
-        <RailLink href="/" active={pathname === "/"} label="Pulse"><Activity className="size-4" /></RailLink>
-        <RailLink href="/projects?tab=week" label="Weekly review"><CalendarRange className="size-4" /></RailLink>
-        <RailLink href="/projects?tab=timeline" label="Roadmap"><Map className="size-4" /></RailLink>
+        <RailLink href="/projects" active={pathname === "/projects"} label="Projects"><Folder className="size-4" /></RailLink>
         <RailLink href="/issues" active={pathname === "/issues"} label="All tasks"><CircleDot className="size-4" /></RailLink>
         <RailLink href="/org" active={pathname === "/org"} label="Team"><Users className="size-4" /></RailLink>
         <div className="my-1 h-px w-6 bg-border" />
@@ -211,13 +208,13 @@ export function Sidebar({
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       {/* Workspace switcher + collapse */}
-      <div className="flex items-center gap-1 px-3 py-2.5">
+      <div className="flex items-center gap-1 px-2.5 pt-2.5 pb-2">
         <DropdownMenu>
           <DropdownMenuTrigger className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1 hover:bg-sidebar-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="grid size-6 shrink-0 place-items-center rounded-md bg-brand text-xs font-bold text-brand-foreground">
               {workspace.name[0]}
             </span>
-            <span className="truncate text-sm font-semibold">{workspace.name}</span>
+            <span className="truncate text-ui font-semibold">{workspace.name}</span>
             <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-60">
@@ -297,7 +294,7 @@ export function Sidebar({
       </div>
 
       {/* New task + search */}
-      <div className="flex items-center gap-1.5 px-3 pb-2">
+      <div className="flex items-center gap-1.5 px-2.5 pb-3">
         <NewIssueDialog
           projects={projects}
           members={members}
@@ -305,11 +302,12 @@ export function Sidebar({
           trigger={
             <Button
               size="sm"
-              className="h-8 flex-1 justify-start gap-2 bg-background text-foreground shadow-sm ring-1 ring-border hover:bg-accent"
+              className="h-8 flex-1 justify-start gap-2 bg-background text-ui text-foreground ring-1 ring-border hover:bg-accent"
               variant="ghost"
             >
               <PenSquare className="size-4 text-brand" />
               New task
+              <kbd className="ml-auto rounded border bg-muted px-1 font-mono text-[10px] leading-4 text-muted-foreground">C</kbd>
             </Button>
           }
         />
@@ -326,7 +324,8 @@ export function Sidebar({
       </div>
 
       <nav aria-label="Main" className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-4">
-        {/* You — what needs me */}
+        {/* You — what needs me. Home is your own work, first thing after sign-in. */}
+        <NavItem href="/" active={pathname === "/"} icon={<House className="size-4" />} label="Home" />
         <NavItem
           href="/inbox"
           active={pathname.startsWith("/inbox")}
@@ -334,7 +333,7 @@ export function Sidebar({
           label="Inbox"
           trailing={
             unreadCount > 0 ? (
-              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground">
+              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold tabular-nums text-brand-foreground">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             ) : undefined
@@ -350,8 +349,16 @@ export function Sidebar({
           href="/ask"
           active={pathname.startsWith("/ask")}
           icon={<Sparkles className="size-4" />}
-          label="Ask"
+          label="Ask AI"
         />
+
+        {/* Workspace — every project in one view (with its timeline and this
+            week's rollup as tabs), every task, and the people. */}
+        <Group title="Workspace">
+          <NavItem href="/projects" active={pathname === "/projects"} icon={<Folder className="size-4" />} label="Projects" />
+          <NavItem href="/issues" active={pathname === "/issues"} icon={<CircleDot className="size-4" />} label="All tasks" />
+          <NavItem href="/org" active={pathname === "/org"} icon={<Users className="size-4" />} label="Team" />
+        </Group>
 
         {favorites.length > 0 && (
           <Section
@@ -376,15 +383,6 @@ export function Sidebar({
             ))}
           </Section>
         )}
-
-        {/* Company — are we working on the right things */}
-        <Group title="Company">
-          <NavItem href="/" active={pathname === "/"} icon={<Activity className="size-4" />} label="Pulse" />
-          <NavItem href="/projects?tab=week" icon={<CalendarRange className="size-4" />} label="Weekly review" />
-          <NavItem href="/projects?tab=timeline" icon={<Map className="size-4" />} label="Roadmap" />
-          <NavItem href="/issues" active={pathname === "/issues"} icon={<CircleDot className="size-4" />} label="All tasks" />
-          <NavItem href="/org" active={pathname === "/org"} icon={<Users className="size-4" />} label="Team" />
-        </Group>
 
         {/* Products — departments live in each product's header tabs, not here */}
         <Section
@@ -454,7 +452,7 @@ export function Sidebar({
           {pageTree.length === 0 ? (
             <button
               onClick={() => newPage(null)}
-              className="w-full rounded px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              className="flex h-7 w-full items-center rounded-md px-2 text-left text-ui text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground"
             >
               Start the handbook
             </button>
@@ -473,11 +471,11 @@ export function Sidebar({
       </nav>
 
       {/* You, and the way into settings */}
-      <div className="flex items-center gap-2 border-t px-3 py-2">
-        <UserAvatar name={currentUser.name} color={currentUser.avatarColor} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold">{currentUser.name}</div>
-          <div className="truncate text-[11px] text-muted-foreground">{currentUser.email}</div>
+      <div className="flex items-center gap-2 border-t px-2.5 py-2">
+        <UserAvatar name={currentUser.name} color={currentUser.avatarColor} className="size-6 text-[10px]" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-ui font-medium">{currentUser.name}</div>
+          <div className="truncate text-2xs text-muted-foreground">{currentUser.email}</div>
         </div>
         <ThemeButton />
         <Link
@@ -548,13 +546,13 @@ function NavItem({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+        "group flex h-7 items-center gap-2 rounded-md px-2 text-ui transition-colors",
         active
           ? "bg-sidebar-accent font-medium text-foreground"
-          : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+          : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-foreground",
       )}
     >
-      <span className={cn("grid size-4 shrink-0 place-items-center", active && "text-brand")}>
+      <span className={cn("grid size-4 shrink-0 place-items-center", active ? "text-brand" : "text-muted-foreground group-hover:text-foreground")}>
         {icon}
       </span>
       <span className="flex-1 truncate">{label}</span>
@@ -576,10 +574,10 @@ function ProductNavItem({ project, active }: { project: Project; active: boolean
             href={base}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+              "group flex h-7 items-center gap-2 rounded-md px-2 text-ui transition-colors",
               active
                 ? "bg-sidebar-accent font-medium text-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-foreground",
             )}
           />
         }
@@ -591,7 +589,7 @@ function ProductNavItem({ project, active }: { project: Project; active: boolean
           />
         </span>
         <span className="flex-1 truncate">{project.name}</span>
-        <span className="font-mono text-[10px] text-muted-foreground">{project.key}</span>
+        <span className="font-mono text-[10px] text-faint-foreground group-hover:text-muted-foreground">{project.key}</span>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={() => router.push(base)}>Open</ContextMenuItem>
@@ -626,8 +624,8 @@ function ProductNavItem({ project, active }: { project: Project; active: boolean
 /** A fixed group of links under a plain heading. */
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-4">
-      <div className="px-2 pb-1 text-xs font-semibold text-muted-foreground">{title}</div>
+    <div className="mt-5">
+      <div className="px-2 pb-1 text-xs font-medium text-muted-foreground">{title}</div>
       {children}
     </div>
   );
@@ -648,12 +646,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mt-4">
+    <div className="mt-5">
       <div className="group flex items-center gap-1 px-2 pb-1">
         <button
           onClick={onToggle}
           aria-expanded={open}
-          className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 rounded text-xs font-medium text-muted-foreground hover:text-foreground"
         >
           {title}
           <ChevronRight
@@ -694,10 +692,10 @@ function PageTreeItem({
         render={
           <div
             className={cn(
-              "group/page flex items-center gap-1 rounded-md pr-1 text-sm transition-colors",
+              "group/page flex h-7 items-center gap-1 rounded-md pr-1 text-ui transition-colors",
               active
                 ? "bg-sidebar-accent font-medium text-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-foreground",
             )}
             style={{ paddingLeft: depth * 12 + 4 }}
           />
@@ -715,7 +713,7 @@ function PageTreeItem({
         </button>
         <Link
           href={href}
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5"
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-1"
         >
           <span className="text-sm leading-none">{node.icon}</span>
           <span className="truncate">{node.title || "Untitled"}</span>

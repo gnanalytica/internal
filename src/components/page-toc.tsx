@@ -16,7 +16,7 @@ export function PageToc({ headings }: { headings: Heading[] }) {
 
   return (
     <nav className="fixed right-6 top-24 hidden w-48 xl:block">
-      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="mb-1.5 text-xs font-medium text-muted-foreground">
         On this page
       </div>
       <div className="space-y-0.5 border-l">

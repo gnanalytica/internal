@@ -69,7 +69,7 @@ export function UnitEconomics({ pricingModel }: { pricingModel: PricingModel | n
               </label>
               <input type="range" min="0" max="40" value={heavyShare} className="w-full" onChange={(e) => setHeavyShare(Number(e.target.value))} />
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">effective margin</span>
+                <span className="text-xs font-medium text-muted-foreground">effective margin</span>
                 <b className={`ml-auto text-xl tabular-nums ${effective != null && effective >= 75 ? "text-teal-500" : effective != null && effective >= 50 ? "text-amber-500" : "text-red-500"}`}>
                   {effective ?? "—"}%
                 </b>

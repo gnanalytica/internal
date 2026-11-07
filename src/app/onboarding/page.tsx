@@ -17,7 +17,7 @@ export default function OnboardingPage() {
     startTransition(async () => {
       try {
         await createWorkspace({ name });
-        router.push("/issues");
+        router.push("/");
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Could not create workspace");

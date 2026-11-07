@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import {
-  ArrowUpDown,
+  ArrowLeft,
   Bookmark,
   Check,
   Columns3,
@@ -11,11 +11,11 @@ import {
   ChevronRight,
   Download,
   GanttChartSquare,
-  Layers,
   List as ListIcon,
   ListFilter,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -37,7 +37,12 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -78,6 +83,22 @@ import type {
 import { cn } from "@/lib/utils";
 
 type View = "list" | "board" | "timeline";
+
+/**
+ * Status groups in a list read started-first — what's moving, then what's
+ * next, then the parked and the closed. The board keeps workflow order
+ * (backlog → done) because there the columns are the workflow.
+ */
+const LIST_STATUS_ORDER = ["in_progress", "in_review", "todo", "backlog", "done", "canceled"];
+
+type FilterOption = { value: string; label: string; color?: string; hint?: string };
+type FilterCategory = {
+  key: string;
+  label: string;
+  options: FilterOption[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+};
 
 // False for the server render and hydration, true from then on (and on every
 // client-side render), without a mount effect.
@@ -167,6 +188,16 @@ export function IssuesView({
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroupBy);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // List groups folded shut. Closed work starts folded: it's there to find,
+  // not to scroll past every time.
+  const [foldedGroups, setFoldedGroups] = useState<Set<string>>(() => new Set(["done", "canceled"]));
+  const toggleGroup = (key: string) =>
+    setFoldedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   // Top-level rows shown per list group, after "Show more"; GROUP_PAGE otherwise.
   const [shown, setShown] = useState<Record<string, number>>({});
   const showMore = (key: string) =>
@@ -393,6 +424,95 @@ export function IssuesView({
     [issues, blocked],
   );
 
+  // Every filter dimension in one place: the Filter menu lists them, and the
+  // chip row under the toolbar says which are on.
+  const filterCategories: FilterCategory[] = [
+    {
+      key: "status",
+      label: "Status",
+      options: STATUSES.map((x) => ({ value: x.id, label: x.label, color: x.color })),
+      selected: fStatus,
+      onChange: setFStatus,
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      options: PRIORITIES.map((x) => ({ value: x.id, label: x.label })),
+      selected: fPriority,
+      onChange: setFPriority,
+    },
+    {
+      key: "assignee",
+      label: "Assignee",
+      options: [
+        { value: "none", label: "Unassigned" },
+        ...members.map((m) => ({ value: m.id, label: m.name, color: m.avatarColor })),
+      ],
+      selected: fAssignee,
+      onChange: setFAssignee,
+    },
+    {
+      key: "type",
+      label: "Type",
+      options: ISSUE_TYPES.map((x) => ({ value: x.id, label: x.label, color: x.color })),
+      selected: fType,
+      onChange: setFType,
+    },
+    ...(labels.length > 0
+      ? [
+          {
+            key: "label",
+            label: "Label",
+            options: labels.map((l) => ({ value: l.id, label: l.name, color: l.color })),
+            selected: fLabel,
+            onChange: setFLabel,
+          },
+        ]
+      : []),
+    ...(cycleOptions.length > 0
+      ? [
+          {
+            key: "cycle",
+            label: "Cycle",
+            options: [
+              { value: "none", label: "No cycle" },
+              ...cycleOptions.map((c) => ({ value: c.id, label: c.name, hint: c.hint })),
+            ],
+            selected: fCycle,
+            onChange: setFCycle,
+          },
+        ]
+      : []),
+    ...(milestoneOptions.length > 0
+      ? [
+          {
+            key: "milestone",
+            label: "Milestone",
+            options: [
+              { value: "none", label: "No milestone" },
+              ...milestoneOptions.map((m) => ({ value: m.id, label: m.name })),
+            ],
+            selected: fMilestone,
+            onChange: setFMilestone,
+          },
+        ]
+      : []),
+    ...(blocked.size > 0
+      ? [
+          {
+            key: "blocked",
+            label: "Blocked",
+            options: [
+              { value: "blocked", label: "Blocked" },
+              { value: "unblocked", label: "Not blocked" },
+            ],
+            selected: fBlocked,
+            onChange: setFBlocked,
+          },
+        ]
+      : []),
+  ];
+
   const visible = useMemo(() => {
     const matched = filterIssues(stamped, {
       status: fStatus,
@@ -417,12 +537,19 @@ export function IssuesView({
 
   const compare = useMemo(() => issueComparator(sort), [sort]);
 
-  const grouped = groupIssues(visible, groupBy, {
+  const rawGroups = groupIssues(visible, groupBy, {
     members,
     projects,
     cycles: cycleOptions,
     milestones: milestoneOptions,
-  }).map((g) => ({
+  });
+  const grouped = (
+    groupBy === "status" && view === "list"
+      ? rawGroups
+          .slice()
+          .sort((a, b) => LIST_STATUS_ORDER.indexOf(a.key) - LIST_STATUS_ORDER.indexOf(b.key))
+      : rawGroups
+  ).map((g) => ({
     ...g,
     items: g.items.slice().sort(compare),
   }));
@@ -466,7 +593,7 @@ export function IssuesView({
               defaultProjectId={defaultProjectId}
               trigger={
                 <Button size="sm" className="h-7 gap-1.5">
-                  <Plus className="size-4" /> New
+                  <Plus className="size-4" /> New task
                 </Button>
               }
             />
@@ -474,198 +601,125 @@ export function IssuesView({
         />
       )}
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-1.5">
-        <span className="text-sm font-medium">{heading}</span>
-        <span className="text-xs text-muted-foreground">{visible.length}</span>
+      {/* Toolbar: find, filter, then how to show it — one line at every width. */}
+      <div className="flex h-11 shrink-0 items-center gap-1.5 border-b px-3 sm:px-4">
+        {embedded && <span className="mr-1 hidden text-ui font-medium sm:inline">{heading}</span>}
+        <span className="mr-1 text-xs tabular-nums text-muted-foreground" aria-live="polite">
+          {visible.length === issues.length ? visible.length : `${visible.length} of ${issues.length}`}
+          <span className="hidden sm:inline"> {issues.length === 1 ? "task" : "tasks"}</span>
+        </span>
 
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search tasks"
+            placeholder="Search"
             aria-label="Search tasks"
-            className="h-7 w-44 rounded-md border bg-background pl-7 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring/40"
+            className="h-7 w-28 rounded-md border bg-background pl-7 pr-2 text-ui placeholder:text-muted-foreground focus:w-44 focus:outline-none focus:ring-2 focus:ring-ring/40 sm:w-40 sm:focus:w-56 transition-[width] duration-150"
           />
         </div>
 
         <FilterMenu
-          label="Status"
-          options={STATUSES.map((s) => ({ value: s.id, label: s.label, color: s.color }))}
-          selected={fStatus}
-          onChange={setFStatus}
+          categories={filterCategories}
+          activeCount={activeFilterCount}
         />
-        <FilterMenu
-          label="Priority"
-          options={PRIORITIES.map((p) => ({ value: p.id, label: p.label }))}
-          selected={fPriority}
-          onChange={setFPriority}
-        />
-        <FilterMenu
-          label="Type"
-          options={ISSUE_TYPES.map((t) => ({ value: t.id, label: t.label, color: t.color }))}
-          selected={fType}
-          onChange={setFType}
-        />
-        <FilterMenu
-          label="Assignee"
-          options={[
-            { value: "none", label: "Unassigned" },
-            ...members.map((m) => ({ value: m.id, label: m.name, color: m.avatarColor })),
-          ]}
-          selected={fAssignee}
-          onChange={setFAssignee}
-        />
-        {labels.length > 0 && (
-          <FilterMenu
-            label="Label"
-            options={labels.map((l) => ({ value: l.id, label: l.name, color: l.color }))}
-            selected={fLabel}
-            onChange={setFLabel}
-          />
-        )}
-        {cycleOptions.length > 0 && (
-          <FilterMenu
-            label="Cycle"
-            options={[
-              { value: "none", label: "No cycle" },
-              ...cycleOptions.map((c) => ({ value: c.id, label: c.name, hint: c.hint })),
-            ]}
-            selected={fCycle}
-            onChange={setFCycle}
-          />
-        )}
-        {milestoneOptions.length > 0 && (
-          <FilterMenu
-            label="Milestone"
-            options={[
-              { value: "none", label: "No milestone" },
-              ...milestoneOptions.map((m) => ({ value: m.id, label: m.name })),
-            ]}
-            selected={fMilestone}
-            onChange={setFMilestone}
-          />
-        )}
-        {blocked.size > 0 && (
-          <FilterMenu
-            label="Blocked"
-            options={[
-              { value: "blocked", label: "Blocked" },
-              { value: "unblocked", label: "Not blocked" },
-            ]}
-            selected={fBlocked}
-            onChange={setFBlocked}
-          />
-        )}
-        {(activeFilterCount > 0 || query) && (
-          <button
-            onClick={clearFilters}
-            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <X className="size-3.5" /> Clear
-          </button>
-        )}
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
+              render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-ui text-muted-foreground hover:text-foreground" />}
+              aria-label="Saved views"
             >
               <Bookmark className="size-3.5" />
-              Views
+              <span className="hidden md:inline">Views</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              {savedViews.length === 0 ? (
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">No saved views</div>
-              ) : (
-                savedViews.map((v) => (
-                  <DropdownMenuItem
-                    key={v.id}
-                    onClick={() => applyView(v.config)}
-                    className="group/v gap-2 text-xs"
-                  >
-                    <Bookmark className="size-3.5 text-muted-foreground" />
-                    <span className="flex-1 truncate">{v.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeView(v.id);
-                      }}
-                      className="text-muted-foreground opacity-0 hover:text-destructive group-hover/v:opacity-100"
-                      aria-label="Delete view"
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Saved views</DropdownMenuLabel>
+                {savedViews.length === 0 ? (
+                  <div className="px-1.5 py-1 text-ui text-muted-foreground">None yet</div>
+                ) : (
+                  savedViews.map((v) => (
+                    <DropdownMenuItem
+                      key={v.id}
+                      onClick={() => applyView(v.config)}
+                      className="group/v gap-2"
                     >
-                      <X className="size-3.5" />
-                    </button>
-                  </DropdownMenuItem>
-                ))
-              )}
-              <DropdownMenuItem onClick={saveView} className="gap-2 text-xs text-brand">
+                      <Bookmark className="size-3.5 text-muted-foreground" />
+                      <span className="flex-1 truncate">{v.name}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeView(v.id);
+                        }}
+                        className="text-muted-foreground opacity-0 hover:text-destructive group-hover/v:opacity-100"
+                        aria-label={`Delete view ${v.name}`}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={saveView} className="gap-2">
                 <Plus className="size-3.5" /> Save current view…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
+              render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-ui text-muted-foreground hover:text-foreground" />}
+              aria-label="Display options"
             >
-              <Layers className="size-3.5" />
-              {GROUP_BYS.find((g) => g.id === groupBy)?.label}
+              <SlidersHorizontal className="size-3.5" />
+              <span className="hidden md:inline">Display</span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {GROUP_BYS.map((g) => (
-                <DropdownMenuItem
-                  key={g.id}
-                  onClick={() => setGroupBy(g.id)}
-                  className="gap-2 text-xs"
-                >
-                  <span className="flex-1">{g.label}</span>
-                  {groupBy === g.id && <Check className="size-3.5 opacity-70" />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
-            >
-              <ArrowUpDown className="size-3.5" />
-              {SORTS.find((s) => s.id === sort)?.label}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {SORTS.map((s) => (
-                <DropdownMenuItem
-                  key={s.id}
-                  onClick={() => setSort(s.id)}
-                  className="gap-2 text-xs"
-                >
-                  <span className="flex-1">{s.label}</span>
-                  {sort === s.id && <Check className="size-3.5 opacity-70" />}
-                </DropdownMenuItem>
-              ))}
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Group by</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
+                  {GROUP_BYS.map((g) => (
+                    <DropdownMenuRadioItem key={g.id} value={g.id}>
+                      {g.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Order by</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={sort} onValueChange={(v) => setSort(v as SortId)}>
+                  {SORTS.map((o) => (
+                    <DropdownMenuRadioItem key={o.id} value={o.id}>
+                      {o.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-2"
+                onClick={() =>
+                  downloadText(`issues-${heading.toLowerCase().replace(/\s+/g, "-")}.csv`, issuesToCsv(visible), "text/csv")
+                }
+              >
+                <Download className="size-3.5" /> Export {visible.length} to CSV
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 text-xs"
-            onClick={() =>
-              downloadText(`issues-${heading.toLowerCase().replace(/\s+/g, "-")}.csv`, issuesToCsv(visible), "text/csv")
-            }
-            title="Export visible issues to CSV"
-          >
-            <Download className="size-3.5" /> Export
-          </Button>
-          <div className="flex items-center rounded-md border p-0.5">
-            <ViewButton active={view === "list"} onClick={() => setView("list")}>
-              <ListIcon className="size-3.5" /> List
+          <div role="radiogroup" aria-label="Layout" className="flex items-center rounded-md border p-0.5">
+            <ViewButton active={view === "list"} onClick={() => setView("list")} label="List">
+              <ListIcon className="size-3.5" />
             </ViewButton>
-            <ViewButton active={view === "board"} onClick={() => setView("board")}>
-              <Columns3 className="size-3.5" /> Board
+            <ViewButton active={view === "board"} onClick={() => setView("board")} label="Board">
+              <Columns3 className="size-3.5" />
             </ViewButton>
-            <ViewButton active={view === "timeline"} onClick={() => setView("timeline")}>
-              <GanttChartSquare className="size-3.5" /> Timeline
+            <ViewButton active={view === "timeline"} onClick={() => setView("timeline")} label="Timeline">
+              <GanttChartSquare className="size-3.5" />
             </ViewButton>
           </div>
           {embedded && (
@@ -675,14 +729,49 @@ export function IssuesView({
               labels={labels}
               defaultProjectId={defaultProjectId}
               trigger={
-                <Button size="sm" className="h-7 gap-1.5">
-                  <Plus className="size-4" /> New
+                <Button size="sm" className="ml-1 h-7 gap-1.5">
+                  <Plus className="size-4" /> <span className="hidden sm:inline">New</span>
                 </Button>
               }
             />
           )}
         </div>
       </div>
+
+      {/* What's filtered, said once, each removable. */}
+      {(activeFilterCount > 0 || query) && (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1.5 sm:px-4">
+          {filterCategories
+            .filter((c) => c.selected.size > 0)
+            .map((c) => (
+              <span
+                key={c.key}
+                className="inline-flex h-6 items-center gap-1 rounded-md border bg-background pl-2 text-xs"
+              >
+                <span className="text-muted-foreground">{c.label}</span>
+                <span className="max-w-48 truncate font-medium">
+                  {c.options
+                    .filter((o) => c.selected.has(o.value))
+                    .map((o) => o.label)
+                    .join(", ")}
+                </span>
+                <button
+                  onClick={() => c.onChange(new Set())}
+                  className="grid size-6 place-items-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label={`Clear ${c.label} filter`}
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
+          <button
+            onClick={clearFilters}
+            className="h-6 rounded-md px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
 
       {issues.length === 0 ? (
         <EmptyState
@@ -705,19 +794,30 @@ export function IssuesView({
         <div className="scrollbar-thin flex-1 overflow-y-auto">
           {listGroups.map((g, gi) => (
             <div key={g.key}>
-              <div className="sticky top-0 z-10 flex items-center gap-2 bg-muted/60 px-4 py-1.5 backdrop-blur">
+              <button
+                type="button"
+                onClick={() => toggleGroup(g.key)}
+                aria-expanded={!foldedGroups.has(g.key)}
+                className="sticky top-0 z-10 flex h-8 w-full items-center gap-2 border-b border-border-subtle bg-surface/95 px-3 text-left backdrop-blur sm:px-4"
+              >
+                <ChevronRight
+                  className={cn(
+                    "size-3.5 shrink-0 text-muted-foreground transition-transform duration-150",
+                    !foldedGroups.has(g.key) && "rotate-90",
+                  )}
+                />
                 {groupBy === "status" ? (
                   <StatusIcon status={g.key as StatusId} />
                 ) : g.color ? (
                   <span className="size-2.5 rounded-full" style={{ backgroundColor: g.color }} />
                 ) : null}
-                <span className="text-xs font-semibold">{g.label}</span>
+                <span className="text-ui font-medium">{g.label}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">{g.items.length}</span>
                 {g.hint && (
-                  <span className="text-[11px] text-muted-foreground">{g.hint}</span>
+                  <span className="truncate text-xs text-muted-foreground">{g.hint}</span>
                 )}
-                <span className="text-xs text-muted-foreground">{g.items.length}</span>
-              </div>
-              {g.rows.slice(0, pages[gi]).map(({ issue, children }) => {
+              </button>
+              {!foldedGroups.has(g.key) && g.rows.slice(0, pages[gi]).map(({ issue, children }) => {
                 const isCollapsed = collapsed.has(issue.id);
                 return (
                   <div key={issue.id}>
@@ -726,6 +826,10 @@ export function IssuesView({
                       members={members}
                       selected={selected.has(issue.id)}
                       onToggleSelect={() => toggleSelect(issue.id)}
+                      selecting={selected.size > 0}
+                      now={now}
+                      showProject={!defaultProjectId}
+                      showCreated={sort === "created" || sort === "updated"}
                       subProgress={subIssueProgress(issue.id, issues)}
                       expandToggle={
                         children.length > 0 ? (
@@ -751,6 +855,10 @@ export function IssuesView({
                           members={members}
                           selected={selected.has(child.id)}
                           onToggleSelect={() => toggleSelect(child.id)}
+                          selecting={selected.size > 0}
+                          now={now}
+                          showProject={!defaultProjectId}
+                          showCreated={sort === "created" || sort === "updated"}
                           depth={1}
                           subProgress={subIssueProgress(child.id, issues)}
                         />
@@ -758,10 +866,10 @@ export function IssuesView({
                   </div>
                 );
               })}
-              {live && g.rows.length > pages[gi] && (
+              {live && !foldedGroups.has(g.key) && g.rows.length > pages[gi] && (
                 <button
                   onClick={() => showMore(g.key)}
-                  className="w-full border-b border-border/60 px-4 py-2 text-left text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                  className="h-8 w-full border-b border-border-subtle px-4 text-left text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground sm:pl-12"
                 >
                   Show {Math.min(GROUP_PAGE, g.rows.length - pages[gi])} more
                 </button>
@@ -802,7 +910,7 @@ export function IssuesView({
                   <DropdownMenuItem
                     key={s.id}
                     onClick={() => bulkApply((id) => updateIssue(id, { status: s.id }))}
-                    className="gap-2 text-xs"
+                    className="gap-2"
                   >
                     <StatusIcon status={s.id} />
                     {s.label}
@@ -828,7 +936,7 @@ export function IssuesView({
                   <DropdownMenuItem
                     key={m.id}
                     onClick={() => bulkApply((id) => setIssueAssignees(id, [m.id]))}
-                    className="gap-2 text-xs"
+                    className="gap-2"
                   >
                     <UserAvatar name={m.name} color={m.avatarColor} className="size-4 text-[8px]" />
                     {m.name}
@@ -861,85 +969,137 @@ export function IssuesView({
   );
 }
 
+/**
+ * One Filter button for every dimension. The first level lists the
+ * dimensions (with how many of each are on); picking one opens its values,
+ * searchable, multi-select. The chips under the toolbar show what's applied.
+ */
 function FilterMenu({
-  label,
-  options,
-  selected,
-  onChange,
+  categories,
+  activeCount,
 }: {
-  label: string;
-  /** `hint` is a secondary line — dates for a cycle, so the code isn't opaque. */
-  options: { value: string; label: string; color?: string; hint?: string }[];
-  selected: Set<string>;
-  onChange: (next: Set<string>) => void;
+  categories: FilterCategory[];
+  activeCount: number;
 }) {
   const [open, setOpen] = useState(false);
-  const count = options.filter((o) => selected.has(o.value)).length;
-  const hasHints = options.some((o) => o.hint);
+  const [catKey, setCatKey] = useState<string | null>(null);
+  const cat = categories.find((c) => c.key === catKey) ?? null;
+  const hasHints = cat?.options.some((o) => o.hint) ?? false;
 
-  function toggle(value: string) {
-    const next = new Set(selected);
+  function toggle(c: FilterCategory, value: string) {
+    const next = new Set(c.selected);
     if (next.has(value)) next.delete(value);
     else next.add(value);
-    onChange(next);
+    c.onChange(next);
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setCatKey(null);
+      }}
+    >
       <PopoverTrigger
         render={
           <Button
-            variant={count > 0 ? "secondary" : "ghost"}
+            variant={activeCount > 0 ? "secondary" : "ghost"}
             size="sm"
-            className="h-7 gap-1.5 text-xs"
+            className="h-7 gap-1.5 px-2 text-ui text-muted-foreground hover:text-foreground data-[popup-open]:text-foreground"
           />
         }
       >
         <ListFilter className="size-3.5" />
-        {label}
-        {count > 0 && (
-          <span className="rounded bg-brand/15 px-1 text-[10px] font-semibold text-brand">
-            {count}
+        <span className="hidden sm:inline">Filter</span>
+        {activeCount > 0 && (
+          <span className="rounded bg-brand/15 px-1 text-[10px] font-semibold tabular-nums text-brand">
+            {activeCount}
           </span>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" className={cn("p-0", hasHints ? "w-72" : "w-56")}>
-        <Command>
-          <CommandInput placeholder={`Filter ${label.toLowerCase()}…`} className="h-9" />
-          <CommandList>
-            <CommandEmpty>None found.</CommandEmpty>
-            <CommandGroup>
-              {options.map((o) => {
-                const checked = selected.has(o.value);
-                return (
-                  <CommandItem
-                    key={o.value}
-                    // Searching a cycle by its dates should find it too.
-                    value={o.hint ? `${o.label} ${o.hint}` : o.label}
-                    onSelect={() => toggle(o.value)}
-                    className="items-start gap-2"
-                  >
-                    {o.color && (
+      <PopoverContent align="start" className={cn("p-0", hasHints ? "w-72" : "w-60")}>
+        {cat ? (
+          <Command key={cat.key}>
+            <div className="flex items-center gap-1 border-b px-1 py-1">
+              <button
+                onClick={() => setCatKey(null)}
+                className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Back to filters"
+              >
+                <ArrowLeft className="size-3.5" />
+              </button>
+              <span className="text-ui font-medium">{cat.label}</span>
+              {cat.selected.size > 0 && (
+                <button
+                  onClick={() => cat.onChange(new Set())}
+                  className="ml-auto rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <CommandInput placeholder={`Filter by ${cat.label.toLowerCase()}…`} className="h-9" />
+            <CommandList>
+              <CommandEmpty>None found.</CommandEmpty>
+              <CommandGroup>
+                {cat.options.map((o) => {
+                  const checked = cat.selected.has(o.value);
+                  return (
+                    <CommandItem
+                      key={o.value}
+                      // Searching a cycle by its dates should find it too.
+                      value={o.hint ? `${o.label} ${o.hint}` : o.label}
+                      onSelect={() => toggle(cat, o.value)}
+                      className="items-start gap-2"
+                    >
                       <span
-                        className="mt-1.5 size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: o.color }}
-                      />
-                    )}
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate">{o.label}</span>
-                      {o.hint && (
-                        <span className="truncate text-[11px] text-muted-foreground">
-                          {o.hint}
-                        </span>
+                        className={cn(
+                          "mt-0.5 grid size-3.5 shrink-0 place-items-center rounded-[4px] border",
+                          checked ? "border-brand bg-brand text-brand-foreground" : "border-input",
+                        )}
+                      >
+                        {checked && <Check className="size-2.5" />}
+                      </span>
+                      {o.color && (
+                        <span
+                          className="mt-1 size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: o.color }}
+                        />
                       )}
-                    </span>
-                    {checked && <Check className="mt-0.5 size-3.5 shrink-0 opacity-70" />}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate">{o.label}</span>
+                        {o.hint && (
+                          <span className="truncate text-[11px] text-muted-foreground">{o.hint}</span>
+                        )}
+                      </span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        ) : (
+          <Command>
+            <CommandInput placeholder="Filter by…" className="h-9" />
+            <CommandList>
+              <CommandEmpty>None found.</CommandEmpty>
+              <CommandGroup>
+                {categories.map((c) => (
+                  <CommandItem key={c.key} value={c.label} onSelect={() => setCatKey(c.key)} className="gap-2">
+                    <span className="flex-1">{c.label}</span>
+                    {c.selected.size > 0 && (
+                      <span className="rounded bg-brand/15 px-1 text-[10px] font-semibold tabular-nums text-brand">
+                        {c.selected.size}
+                      </span>
+                    )}
+                    <ChevronRight className="size-3.5 text-muted-foreground" />
                   </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -948,18 +1108,24 @@ function FilterMenu({
 function ViewButton({
   active,
   onClick,
+  label,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  label: string;
   children: React.ReactNode;
 }) {
   return (
     <button
+      role="radio"
+      aria-checked={active}
+      aria-label={label}
+      title={label}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors",
-        active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+        "grid size-6 place-items-center rounded-[4px] transition-colors",
+        active ? "bg-accent text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}

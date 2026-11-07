@@ -22,9 +22,9 @@ export function ProjectSchedule({
   if (issues.length === 0) return null;
 
   return (
-    <section className="mt-6">
+    <section>
       <TaskPanel
-        heading="Schedule"
+        heading="Tasks"
         issues={issues}
         ctx={ctx}
         projectId={projectId}
