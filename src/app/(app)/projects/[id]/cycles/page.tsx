@@ -1,15 +1,14 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { CyclesView } from "@/components/cycles-view";
 import { Topbar } from "@/components/topbar";
+import { isDepartmentEnabled, projectCyclesHref } from "@/lib/departments";
 import { getCycles, getIssues, getProject, getWorkspace } from "@/lib/data";
 
 /**
- * A project's cycles: the cadence, velocity, and every sprint.
- *
- * Its own surface rather than a tab inside Engineering — a cycle is the whole
- * project's rhythm, not an engineering sub-concern, and burying it two clicks
- * deep made the one thing you check every Monday the hardest thing to reach.
+ * A project's cycles. They are the Cycles view inside Engineering now, so old
+ * links land there. A project without Engineering has nowhere to nest them,
+ * so this page still renders them on their own for it.
  */
 export default async function ProjectCyclesPage({
   params,
@@ -24,6 +23,9 @@ export default async function ProjectCyclesPage({
     getIssues(ws.id),
   ]);
   if (!project) notFound();
+  if (project.kind === "project" && isDepartmentEnabled(project.enabledDepartments, "engineering")) {
+    redirect(projectCyclesHref(id));
+  }
 
   // What velocity has left to chew through: this project's unfinished work,
   // weighted the way burndown weights it (no estimate = one point).

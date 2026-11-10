@@ -1,12 +1,11 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { MetricDialog } from "@/components/analytics/metric-dialog";
-import { DepartmentHeader } from "@/components/department-header";
 import { Button } from "@/components/ui/button";
 import { addSuggestedMetrics, setMetricWeekValue } from "@/lib/actions";
 import {
@@ -39,12 +38,20 @@ const COUNTED = "bg-muted ring-1 ring-inset ring-border";
 
 type Row = ScorecardRow & { now: number | null; status: ScoreStatus };
 
+/** How many rows the compact scorecard shows before "Show all metrics". */
+const COMPACT_ROWS = 6;
+
 /**
- * Analytics: the weekly scorecard. A handful of numbers, each with its target,
- * the last four weeks and this one. Numbers the app counts are read-only;
- * the rest are typed straight into this week's cell.
+ * The weekly scorecard, as the first section of a project's Overview. A
+ * handful of numbers, each with its target, the last four weeks and this one.
+ * Numbers the app counts are read-only; the rest are typed straight into this
+ * week's cell.
+ *
+ * Compact by default: the summary and the metrics that need a look (behind,
+ * or still waiting for this week's number). "Show all metrics" opens the whole
+ * table, and "Enter this week" opens it too when the cell it wants is hidden.
  */
-export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: string; weeks: string[]; rows: ScorecardRow[]; notes: string[] }) {
+export function ScorecardSection({ projectId, weeks, rows, notes, defaultExpanded = false }: { projectId: string; weeks: string[]; rows: ScorecardRow[]; notes: string[]; /** Open on every metric rather than only those that need a look. */ defaultExpanded?: boolean }) {
   const router = useRouter();
   const thisWeek = weeks[weeks.length - 1];
   // Numbers typed this visit, shown at once while the save and refresh land.
@@ -56,23 +63,38 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
   }
   const [dialog, setDialog] = useState<{ open: boolean; metric: ScorecardRow | null }>({ open: false, metric: null });
   const [seeding, startSeed] = useTransition();
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  // Rows typed into this visit stay on the compact view, so a cell doesn't vanish once it has its number.
+  const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
+  // A row to focus as soon as its cell mounts (after "Enter this week" opens the full table).
+  const pendingFocus = useRef<string | null>(null);
   const inputs = useRef(new Map<string, HTMLInputElement>());
 
   const view: Row[] = rows.map((r) => {
     const now = Object.hasOwn(typed, r.id) ? typed[r.id] : r.values[r.values.length - 1];
     return { ...r, values: [...r.values.slice(0, -1), now], now, status: scoreStatus(now, r.target, r.targetDirection) };
   });
-  const groups = SCORECARD_AREAS.map((a) => ({ ...a, rows: view.filter((r) => r.area === a.id) })).filter((g) => g.rows.length > 0);
-  const ordered = groups.flatMap((g) => g.rows);
+  const allGroups = SCORECARD_AREAS.map((a) => ({ ...a, rows: view.filter((r) => r.area === a.id) })).filter((g) => g.rows.length > 0);
+  const ordered = allGroups.flatMap((g) => g.rows);
   const typedRows = ordered.filter((r) => r.source === "manual");
   const counts = summarize(view);
+  // Compact: the rows that need a look by their saved numbers (plus any typed into this visit),
+  // in scorecard order, a screenful at most.
+  const savedStatus = new Map(rows.map((r) => [r.id, scoreStatus(r.values[r.values.length - 1] ?? null, r.target, r.targetDirection)]));
+  const needsLook = (r: Row) => touched.has(r.id) || savedStatus.get(r.id) === "behind" || savedStatus.get(r.id) === "empty";
+  const attention = new Set(ordered.filter(needsLook).slice(0, COMPACT_ROWS).map((r) => r.id));
+  const groups = expanded ? allGroups : allGroups.map((g) => ({ ...g, rows: g.rows.filter((r) => attention.has(r.id)) })).filter((g) => g.rows.length > 0);
+  const hidden = expanded ? 0 : ordered.length - attention.size;
 
-  const focusRow = (id: string | undefined) => {
-    const el = id ? inputs.current.get(id) : undefined;
-    if (!el) return false;
+  const focusEl = (el: HTMLInputElement) => {
     el.scrollIntoView({ block: "center", behavior: "smooth" });
     el.focus({ preventScroll: true });
     el.select();
+  };
+  const focusRow = (id: string | undefined) => {
+    const el = id ? inputs.current.get(id) : undefined;
+    if (!el) return false;
+    focusEl(el);
     return true;
   };
 
@@ -83,11 +105,16 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
     }
     const first = typedRows.find((r) => r.now === null);
     if (!first) toast("Every typed-in number is in for this week.");
-    focusRow((first ?? typedRows[0]).id);
+    const id = (first ?? typedRows[0]).id;
+    if (!focusRow(id)) {
+      pendingFocus.current = id;
+      setExpanded(true);
+    }
   };
 
   const commit = async (row: Row, value: number | null) => {
     setTyped((t) => ({ ...t, [row.id]: value }));
+    setTouched((t) => new Set(t).add(row.id));
     try {
       const res = await setMetricWeekValue({ metricId: row.id, weekStart: thisWeek, value });
       if (!res.ok) throw new Error(res.message);
@@ -103,8 +130,10 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
   };
 
   const next = (id: string) => {
-    const i = typedRows.findIndex((r) => r.id === id);
-    focusRow(typedRows[i + 1]?.id);
+    // Enter walks the typed-in rows on screen, so the compact view doesn't jump open mid-entry.
+    const shown = typedRows.filter((r) => expanded || attention.has(r.id));
+    const i = shown.findIndex((r) => r.id === id);
+    focusRow(shown[i + 1]?.id);
   };
 
   const seed = () =>
@@ -119,26 +148,23 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
     });
 
   return (
-    <div className="flex h-full flex-col">
-      <DepartmentHeader
-        label="Analytics views"
-        tabs={[{ id: "scorecard", label: "Scorecard" }]}
-        current="scorecard"
-        onChange={() => {}}
-        actions={
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="mr-1.5 text-xs text-muted-foreground max-md:hidden">Numbers due every Monday</span>
-            <Button variant="ghost" size="sm" className="h-8" onClick={() => setDialog({ open: true, metric: null })} aria-label="Add a metric">
-              <Plus /> <span className="max-sm:hidden">Add metric</span>
-            </Button>
-            <Button size="sm" className="h-8" onClick={enterThisWeek}>
-              Enter this week
-            </Button>
-          </div>
-        }
-      />
+    <section id="scorecard" aria-labelledby="scorecard-title" className="flex scroll-mt-4 flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <h2 id="scorecard-title" className="mr-auto text-sm font-semibold">
+          Scorecard
+        </h2>
+        <span className="mr-1.5 text-xs text-muted-foreground max-md:hidden">Numbers due every Monday</span>
+        <Button variant="ghost" size="sm" className="h-8" onClick={() => setDialog({ open: true, metric: null })} aria-label="Add a metric">
+          <Plus /> <span className="max-sm:hidden">Add metric</span>
+        </Button>
+        {rows.length > 0 && (
+          <Button size="sm" className="h-8" onClick={enterThisWeek}>
+            Enter this week
+          </Button>
+        )}
+      </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
+      <div className="min-w-0">
         {rows.length === 0 ? (
           <EmptyState onSeed={seed} seeding={seeding} onAdd={() => setDialog({ open: true, metric: null })} />
         ) : (
@@ -150,6 +176,7 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
               <Stat label="Metrics" value={counts.total} dot="bg-foreground" />
             </div>
 
+            {expanded && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <span aria-hidden className={cn("size-2.5 rounded-[3px]", COUNTED)} />
@@ -162,7 +189,13 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
               <span className="flex-1" />
               <span>Weeks start Monday · this week is {weekLabel(thisWeek)}</span>
             </div>
+            )}
 
+            {groups.length === 0 ? (
+              <p className="rounded-xl border border-dashed px-4 py-3 text-[13px] text-muted-foreground">
+                Every metric has this week&apos;s number and none is behind.
+              </p>
+            ) : (
             <div className="overflow-x-auto rounded-xl border">
               <table className="w-full min-w-[860px] border-collapse text-[13px]">
                 <caption className="sr-only">Weekly scorecard: each metric&apos;s target, the last four weeks, this week and its status</caption>
@@ -207,6 +240,10 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
                         inputRef={(el) => {
                           if (el) inputs.current.set(r.id, el);
                           else inputs.current.delete(r.id);
+                          if (el && pendingFocus.current === r.id) {
+                            pendingFocus.current = null;
+                            focusEl(el);
+                          }
                         }}
                       />
                     ))}
@@ -214,8 +251,16 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
                 ))}
               </table>
             </div>
+            )}
 
-            {notes.length > 0 && (
+            {(hidden > 0 || expanded) && (
+              <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" aria-expanded={expanded} onClick={() => setExpanded((e) => !e)}>
+                <ChevronDown className={cn("transition-transform", expanded && "rotate-180")} />
+                {expanded ? "Show only what needs a look" : `Show all ${ordered.length} metrics`}
+              </Button>
+            )}
+
+            {expanded && notes.length > 0 && (
               <div className="flex flex-col gap-1 rounded-lg bg-muted/50 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
                 {notes.map((n) => (
                   <p key={n}>{n}</p>
@@ -227,7 +272,7 @@ export function AnalyticsView({ projectId, weeks, rows, notes }: { projectId: st
       </div>
 
       <MetricDialog projectId={projectId} metric={dialog.metric} open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))} onSaved={() => router.refresh()} />
-    </div>
+    </section>
   );
 }
 
@@ -347,9 +392,9 @@ function Trend({ values, target, bar }: { values: (number | null)[]; target: num
 
 function EmptyState({ onSeed, seeding, onAdd }: { onSeed: () => void; seeding: boolean; onAdd: () => void }) {
   return (
-    <div className="animate-enter mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
-      <div className="flex flex-col gap-1.5">
-        <h2 className="text-base font-medium">No metrics on the scorecard yet</h2>
+    <div className="animate-enter flex flex-col items-center gap-4 rounded-xl border border-dashed px-4 py-8 text-center">
+      <div className="flex max-w-lg flex-col gap-1.5">
+        <h3 className="text-base font-medium">No metrics on the scorecard yet</h3>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Start with the suggested {SUGGESTED_METRICS.length}: sales and marketing numbers the app counts from Prospects, Deals and the content calendar, plus the product and reliability numbers you type in each Monday.
         </p>

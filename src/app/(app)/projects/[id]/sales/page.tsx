@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProspectsWorkspace } from "@/components/prospects-dashboard/workspace";
 import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
+import { loadCustomerSuccess } from "@/lib/customer-success-data";
 import { canSeeDepartment, isDepartmentEnabled } from "@/lib/departments";
 import { getDeals, getMyRole, getIssues, getProject, getWorkspace } from "@/lib/data";
 import { loadProspectsWorkspace } from "@/lib/prospects/page-data";
@@ -11,8 +12,13 @@ import { getTaskContext } from "@/lib/task-context";
 
 /**
  * The project's sales. For Valytica that is its prospects — the sheet the team
- * works every day — with the deals they turn into beside them. Other products
- * get the deal board and their sales tasks.
+ * works every day — with the Deals tab, each deal's value on its prospect's
+ * card on the stage board, and (when Customer Success is on) the Customers tab: the prospects at Pilot
+ * running or Won, with onboarding, requests and check-ins. Other products get
+ * the deal board and their sales tasks.
+ *
+ * Who may open it is the one department rule (`canSeeDepartment("sales")`),
+ * the same one the tab strip uses; the Customers tab follows it too.
  */
 export default async function ProjectSalesPage({
   params,
@@ -32,8 +38,14 @@ export default async function ProjectSalesPage({
   if (!canSeeDepartment("sales", role)) return <Restricted label="Sales" />;
 
   if (project.key === PROSPECTS_PRODUCT_KEY) {
-    const data = await loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus");
-    return <ProspectsWorkspace data={data} deals={deals} />;
+    const [data, customers] = await Promise.all([
+      loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus"),
+      isDepartmentEnabled(project.enabledDepartments, "customer-success")
+        ? // Anyone past the Sales gate sees deal values on Pipeline, so on customers too.
+          loadCustomerSuccess({ workspaceId: ws.id, projectId: id, fromSheet: true, showValue: true })
+        : Promise.resolve(null),
+    ]);
+    return <ProspectsWorkspace data={data} deals={deals} customers={customers} />;
   }
 
   const [ctx, issues] = await Promise.all([getTaskContext(ws.id), getIssues(ws.id)]);

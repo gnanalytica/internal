@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { BarChart3, CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
+import { CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
+import { ScorecardSection } from "@/components/analytics-view";
 import { DepartmentStrip, type DepartmentStat } from "@/components/department-strip";
 import { FinanceView } from "@/components/finance-view";
 import { OwnerPicker } from "@/components/owner-picker";
@@ -11,6 +12,7 @@ import { ProjectSchedule } from "@/components/project-schedule";
 import {
   CONFIDENTIAL_DEPARTMENTS,
   canSeeConfidential,
+  customerRequestsHref,
   isConfidentialDepartment,
   isDepartmentEnabled,
   issueBelongsToDepartment,
@@ -35,6 +37,8 @@ import {
 } from "@/lib/data";
 import { getTaskContext } from "@/lib/task-context";
 import { formatCurrency } from "@/lib/currency";
+import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
+import { loadScorecard } from "@/lib/scorecard-data";
 
 export default async function ProjectRoute({
   params,
@@ -118,16 +122,51 @@ export default async function ProjectRoute({
     );
   }
 
-  // Projects: the department overview hub.
-  const [summaries, allIssues, ctx] = await Promise.all([
+  // Projects: with Analytics on, the first tab is the weekly scorecard and
+  // nothing else (it used to be a tab of its own; the department cards only
+  // repeated the tab bar, and the only tasks left are Engineering's). Without
+  // it, the department cards and every task on a schedule.
+  const withScorecard = isDepartmentEnabled(project.enabledDepartments, "analytics");
+  const [summaries, allIssues, ctx, scorecard] = await Promise.all([
     getProjectSummaries(ws.id),
-    getIssues(ws.id),
+    withScorecard ? Promise.resolve([]) : getIssues(ws.id),
     getTaskContext(ws.id),
+    withScorecard ? loadScorecard(ws.id, { id, key: project.key }, myRole) : Promise.resolve(null),
   ]);
   const members = ctx.members;
   const summary = summaries.find((p) => p.id === id);
   if (!summary) notFound();
   const owner = members.find((m) => m.id === summary.ownerId) ?? null;
+
+  const header = (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      {summary.description ? (
+        <p className="max-w-2xl text-sm text-muted-foreground">{summary.description}</p>
+      ) : (
+        <span />
+      )}
+      <div className="flex items-center gap-2">
+        {canSeeConfidential(myRole) ? (
+          <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
+        ) : (
+          <span className="text-ui text-muted-foreground">
+            Lead <span className="text-foreground">{owner?.name ?? "—"}</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+
+  if (scorecard) {
+    return (
+      <div className="scrollbar-thin h-full overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
+          {header}
+          <ScorecardSection projectId={id} weeks={scorecard.weeks} rows={scorecard.rows} notes={scorecard.notes} defaultExpanded />
+        </div>
+      </div>
+    );
+  }
 
   // One headline number per department, from what that department's page
   // now shows. Counts only: nothing here reads the prospects sheet.
@@ -154,14 +193,6 @@ export default async function ProjectRoute({
       unit: `open ${plural(eng, "ticket")}`,
     },
     {
-      slug: "analytics" as const,
-      href: `/projects/${id}/analytics`,
-      icon: <BarChart3 className="size-3.5" />,
-      label: "Analytics",
-      value: n(summary.metricCount),
-      unit: plural(summary.metricCount, "metric"),
-    },
-    {
       slug: "marketing" as const,
       href: `/projects/${id}/marketing`,
       icon: <Megaphone className="size-3.5" />,
@@ -178,14 +209,20 @@ export default async function ProjectRoute({
       unit: `open ${plural(summary.openDeals, "deal")}`,
       extra: `${formatCurrency(summary.pipelineValueInr, "INR")} pipeline`,
     },
-    {
-      slug: "customer-success" as const,
-      href: `/projects/${id}/customer-success`,
-      icon: <LifeBuoy className="size-3.5" />,
-      label: "Customer Success",
-      value: n(summary.openTickets),
-      unit: `open ${plural(summary.openTickets, "request")}`,
-    },
+    // Customer Success lives in Sales → Customers now, which only Valytica's
+    // prospects workspace has; elsewhere there is no customer list to open.
+    ...(project.key === PROSPECTS_PRODUCT_KEY
+      ? [
+          {
+            slug: "customer-success" as const,
+            href: customerRequestsHref(id),
+            icon: <LifeBuoy className="size-3.5" />,
+            label: "Customers",
+            value: n(summary.openTickets),
+            unit: `open ${plural(summary.openTickets, "request")}`,
+          },
+        ]
+      : []),
   ]
     .filter((c) => isDepartmentEnabled(summary.enabledDepartments, c.slug))
     .filter((c) => canSeeConfidential(myRole) || !isConfidentialDepartment(c.slug));
@@ -204,22 +241,7 @@ export default async function ProjectRoute({
   return (
     <div className="scrollbar-thin h-full overflow-y-auto">
       <div className="mx-auto w-full max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          {summary.description ? (
-            <p className="max-w-2xl text-sm text-muted-foreground">{summary.description}</p>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-2">
-            {canSeeConfidential(myRole) ? (
-              <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
-            ) : (
-              <span className="text-ui text-muted-foreground">
-                Lead <span className="text-foreground">{owner?.name ?? "—"}</span>
-              </span>
-            )}
-          </div>
-        </div>
+        {header}
         <DepartmentStrip stats={stats} />
         <ProjectSchedule projectId={id} issues={scheduleIssues} ctx={ctx} />
       </div>

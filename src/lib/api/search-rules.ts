@@ -3,6 +3,7 @@
  * caller may see, and where each one lives on the web. Kept free of the
  * database so the visibility and shaping rules can be unit-tested.
  */
+import { customerRequestsHref, projectCyclesHref } from "@/lib/departments";
 import { canSeeProject, canSeeSales, type ApiScope } from "./scope-rules";
 
 export const SEARCH_TYPES = [
@@ -47,13 +48,13 @@ export function webPath(type: SearchType, id: string, projectId: string | null):
     case "database":
       return `/databases/${id}`;
     case "cycle":
-      return projectId ? `/projects/${projectId}/cycles` : "/cycles";
+      return projectId ? projectCyclesHref(projectId) : "/cycles";
     case "milestone":
       return projectId ? `/projects/${projectId}/milestones/${id}` : `/milestones/${id}`;
     case "feature":
       return projectId ? `/projects/${projectId}/product/${id}` : `/features/${id}`;
     case "ticket":
-      return projectId ? `/projects/${projectId}/customer-success` : `/tickets/${id}`;
+      return projectId ? customerRequestsHref(projectId) : `/tickets/${id}`;
     case "deal":
       return projectId ? `/projects/${projectId}/sales` : `/deals/${id}`;
     case "account":

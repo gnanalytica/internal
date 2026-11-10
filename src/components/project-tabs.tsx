@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { TabIndicator } from "@/components/tab-indicator";
 import { WatchButton } from "@/components/watch-button";
-import { visibleDepartments } from "@/lib/departments";
+import { isDepartmentEnabled, isTopLevelDepartment, visibleDepartments } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
@@ -35,14 +35,17 @@ export function ProjectTabs({
           { href: `${base}/docs`, label: "Docs" },
         ]
       : [
-          { href: base, label: "Overview" },
+          // With Analytics on, the first tab is the scorecard and nothing else.
+          { href: base, label: isDepartmentEnabled(project.enabledDepartments, "analytics") ? "Scorecard" : "Overview" },
+          // Customer Success (Sales → Customers) and Cycles (Engineering →
+          // Cycles) are views inside these tabs, not tabs of their own.
           ...visibleDepartments(
             project.enabledDepartments,
             isAdmin ? "admin" : "member",
             isOwner,
-          ).map((d) => ({ href: `${base}/${d.slug}`, label: d.label })),
-          // A cycle is the project's rhythm, not a department's.
-          { href: `${base}/cycles`, label: "Cycles" },
+          )
+            .filter((d) => isTopLevelDepartment(d.slug))
+            .map((d) => ({ href: `${base}/${d.slug}`, label: d.label })),
           { href: `${base}/docs`, label: "Docs" },
         ];
   return (
