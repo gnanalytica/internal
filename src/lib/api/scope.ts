@@ -70,7 +70,7 @@ export function assertProjectVisible(auth: ApiAuth, projectId: string | null | u
 }
 
 export function assertSales(auth: ApiAuth): void {
-  if (!canSeeSales(auth.scope)) throw new ApiInputError("Sales is only available to workspace admins.", 403);
+  if (!canSeeSales(auth.scope)) throw new ApiInputError("You don't have access to Sales.", 403);
 }
 
 export function assertFinance(auth: ApiAuth, projectId: string | null | undefined): void {

@@ -135,10 +135,17 @@ export function visibleDepartments(
   role: string,
   isOwner = false,
 ): (typeof DEPARTMENTS)[number][] {
-  const list = enabledDepartments(enabled);
-  return list.filter(
-    (d) => !isConfidentialDepartment(d.slug) || canSeeConfidentialDept(d.slug, role, isOwner),
-  );
+  return enabledDepartments(enabled).filter((d) => canSeeDepartment(d.slug, role, isOwner));
+}
+
+/**
+ * THE access rule for a department: the tab strip, each department's page,
+ * the scorecard, the API and the Slack bot all ask this, so a tab can never
+ * show for someone its page then refuses. Non-confidential departments are
+ * open to every member; confidential ones follow `canSeeConfidentialDept`.
+ */
+export function canSeeDepartment(slug: string, role: string, isOwner = false): boolean {
+  return !isConfidentialDepartment(slug) || canSeeConfidentialDept(slug, role, isOwner);
 }
 
 /**

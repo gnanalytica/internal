@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getMetrics, getScorecardSignals } from "@/lib/data";
+import { canSeeDepartment } from "@/lib/departments";
 import { loadProspectSnapshot } from "@/lib/prospects/read";
 import { PROSPECT_KINDS, PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { buildRows, prospectSignals, scorecardWeeks, type ScorecardRow } from "@/lib/scorecard";
@@ -25,21 +26,22 @@ async function loadProspectSignals() {
 /**
  * A project's weekly scorecard. Auto numbers are counted here, at read time,
  * from the prospects sheet, deals, the content calendar and tasks; typed-in
- * numbers come from metric points. Sales rows are for admins only, like the
+ * numbers come from metric points. Sales rows show to whoever may see the
  * Sales page they count from.
  */
 export async function loadScorecard(
   workspaceId: string,
   project: { id: string; key: string },
-  isAdmin: boolean,
+  role: string,
 ): Promise<ScorecardData> {
+  const canSeeSales = canSeeDepartment("sales", role);
   const [metrics, signals, prospects] = await Promise.all([
     getMetrics(workspaceId, project.id),
     getScorecardSignals(workspaceId, project.id),
-    isAdmin && project.key === PROSPECTS_PRODUCT_KEY ? loadProspectSignals() : Promise.resolve(null),
+    canSeeSales && project.key === PROSPECTS_PRODUCT_KEY ? loadProspectSignals() : Promise.resolve(null),
   ]);
   const weeks = scorecardWeeks(new Date());
-  const rows = buildRows(metrics, weeks, signals, prospects).filter((r) => isAdmin || r.area !== "sales");
+  const rows = buildRows(metrics, weeks, signals, prospects).filter((r) => canSeeSales || r.area !== "sales");
 
   const notes: string[] = [];
   if (!prospects && rows.some((r) => r.source.startsWith("sales.") && r.source !== "sales.dealsWon"))

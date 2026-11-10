@@ -21,8 +21,8 @@ describe("search visibility", () => {
     hit("account", "a1", null),
   ];
 
-  it("hides confidential projects, their contents, and deals from a member", () => {
-    expect(visibleHits(hits, member).map((h) => h.id)).toEqual(["i1", "p1", "eng", "d1", "a1"]);
+  it("hides confidential projects and their contents from a member, but not deals", () => {
+    expect(visibleHits(hits, member).map((h) => h.id)).toEqual(["i1", "p1", "eng", "d1", "deal1", "a1"]);
   });
 
   it("shows admins and integration keys everything, in order", () => {

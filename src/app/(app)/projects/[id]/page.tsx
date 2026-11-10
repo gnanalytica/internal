@@ -124,13 +124,12 @@ export default async function ProjectRoute({
 
   // Projects: the department overview hub, opening with the weekly scorecard
   // when the project has Analytics on (it used to be a tab of its own).
-  const isAdmin = canSeeConfidential(myRole);
   const [summaries, allIssues, ctx, scorecard] = await Promise.all([
     getProjectSummaries(ws.id),
     getIssues(ws.id),
     getTaskContext(ws.id),
     isDepartmentEnabled(project.enabledDepartments, "analytics")
-      ? loadScorecard(ws.id, { id, key: project.key }, isAdmin)
+      ? loadScorecard(ws.id, { id, key: project.key }, myRole)
       : Promise.resolve(null),
   ]);
   const members = ctx.members;

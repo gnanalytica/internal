@@ -7,9 +7,9 @@ import { TOOL_NAMES, TOOL_SPECS, type ToolName } from "./tools";
  *
  * - someone whose Slack account isn't linked to an Internal member may ask
  *   read-only questions about non-confidential work, and nothing else;
- * - a linked member acts as themselves: reads and writes, with confidential
- *   projects (Finance, People & HR) hidden exactly as the web hides them;
- * - Sales — the Valytica prospects — is for admins, as the Sales tab is.
+ * - a linked member acts as themselves: reads and writes, Sales (the Valytica
+ *   prospects) included, with confidential projects (Finance, People & HR)
+ *   hidden exactly as the web hides them.
  *
  * The model is only offered the tools the caller may use, and every call is
  * checked again here before it runs, so a tool name the model invents or
@@ -36,9 +36,6 @@ export function toolAccessError(name: ToolName, caller: Caller): string | null {
   if (access === "anyone") return null;
   if (!isLinked(caller)) {
     return "This person's Slack account isn't linked to Internal, so they can only ask read-only questions. Tell them to link it in Settings › Slack.";
-  }
-  if (access === "admin" && !caller.isAdmin) {
-    return "Prospects and sales are only available to workspace admins, as in the web app. Say so plainly.";
   }
   return null;
 }

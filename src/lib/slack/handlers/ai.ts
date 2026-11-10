@@ -25,7 +25,7 @@ import { conversationKey, CONVERSATION_TTL_MS, LINK_HINT_TTL_MS, linkHintKey, sh
 import { executorFor } from "../ai/execute";
 import { limitReachedText, takeDailySlot } from "../ai/limit";
 import { runAgent } from "../ai/loop";
-import { isLinked, toolsFor } from "../ai/permissions";
+import { isLinked, toolAccessError, toolsFor } from "../ai/permissions";
 import { stripLeadingMention, systemBlocks, transcript, userTurn } from "../ai/prompt";
 import { applyTouch } from "../ai/prospects";
 import { emptyOutbox, type RequestCtx } from "../ai/request";
@@ -257,8 +257,9 @@ async function onConfirm(bot: SlackBot, event: ActionEvent): Promise<void> {
       if (snap && event.thread) await event.thread.post(recordMessage(snap, `*${who}* changed this from Slack`, appUrl())).catch(() => {});
       return;
     }
-    if (!caller.isAdmin) {
-      await edit(`${p.summary}\n_Not logged: prospects are only available to workspace admins._`);
+    // Checked again at confirm time, by the same rule the tool was offered under.
+    if (toolAccessError("log_touch", caller) !== null) {
+      await edit(`${p.summary}\n_Not logged: you don't have access to prospects._`);
       return;
     }
     const res = await applyTouch(p.plan, p.workspaceId, me, appUrl());
