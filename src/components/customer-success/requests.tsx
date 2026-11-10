@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { convertTicketToIssue, loadTicketComments } from "@/lib/actions";
-import { ageLabel, REQUEST_STATES, REQUEST_VIA, requestState, requestStateMeta, viaLabel, type RequestState, type RequestVia } from "@/lib/customer-success";
+import { ageLabel, REQUEST_STATES, REQUEST_VIA, requestState, requestStateMeta, sortRequests, viaLabel, type RequestState, type RequestVia } from "@/lib/customer-success";
 import { createAnswer, createRequest, replyToRequest, setRequestState } from "@/lib/customer-success-actions";
 import { requestQuote, ticketSourceRef, touchContact } from "@/lib/send-to-product";
 import { tone } from "@/lib/tones";
@@ -21,12 +21,6 @@ import { cn } from "@/lib/utils";
 import { dayMonth, type CustomerView } from "./bits";
 
 const field = "w-full rounded-lg border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
-
-/** Waiting on us first, then waiting on them, then answered; newest first within each. */
-export function sortRequests(list: TicketWithRelations[]): TicketWithRelations[] {
-  const rank: Record<RequestState, number> = { "waiting-us": 0, "waiting-them": 1, answered: 2 };
-  return [...list].sort((a, b) => rank[requestState(a.status)] - rank[requestState(b.status)] || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-}
 
 export type RequestCtx = {
   projectId: string;

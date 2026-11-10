@@ -30,7 +30,6 @@ import {
   issuePageLinks,
   issueRelations,
   issues,
-  metricPoints,
   metrics,
   milestones,
   orgRoles,
@@ -75,16 +74,14 @@ import {
 import { callClaudeJson, isAiConfigured } from "@/lib/ai";
 import { normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
+import { writeMetricWeekValue } from "@/lib/api/scorecard-ops";
 import { cycleSubtitle } from "@/lib/cycle-format";
 import { ticketToIssueFields } from "@/lib/ticket-to-issue";
 import {
   isMetricSource,
-  isMonday,
   isScorecardArea,
   SUGGESTED_METRICS,
   suggestedSortKey,
-  weekBounds,
-  weekPeriodDate,
 } from "@/lib/scorecard";
 import {
   audienceFor,
@@ -3315,36 +3312,9 @@ export async function setMetricWeekValue(input: {
   value: number | null;
 }): Promise<{ ok: boolean; message?: string }> {
   const ws = await getWorkspace();
-  if (!isMonday(input.weekStart)) return { ok: false, message: "That week doesn't start on a Monday." };
-  if (input.value !== null && !Number.isFinite(input.value)) return { ok: false, message: "That isn't a number." };
-  const owner = await db.query.metrics.findFirst({
-    where: and(eq(metrics.id, input.metricId), eq(metrics.workspaceId, ws.id)),
-    columns: { id: true, source: true },
-  });
-  if (!owner) return { ok: false, message: "That metric no longer exists." };
-  if (owner.source !== "manual") return { ok: false, message: "The app counts this one itself." };
-
-  const { from, to } = weekBounds(input.weekStart);
-  const inWeek = await db
-    .select({ id: metricPoints.id })
-    .from(metricPoints)
-    .where(and(eq(metricPoints.metricId, owner.id), gte(metricPoints.periodDate, from), lt(metricPoints.periodDate, to)));
-  // Neon's HTTP driver has no transactions: write the new number before
-  // removing any extras, so a failure part way never loses the week.
-  const [keep, ...extra] = inWeek;
-  if (input.value === null) {
-    if (inWeek.length) await db.delete(metricPoints).where(inArray(metricPoints.id, inWeek.map((p) => p.id)));
-  } else {
-    if (keep) {
-      await db
-        .update(metricPoints)
-        .set({ value: input.value, periodDate: weekPeriodDate(input.weekStart) })
-        .where(eq(metricPoints.id, keep.id));
-    } else {
-      await db.insert(metricPoints).values({ metricId: owner.id, periodDate: weekPeriodDate(input.weekStart), value: input.value });
-    }
-    if (extra.length) await db.delete(metricPoints).where(inArray(metricPoints.id, extra.map((p) => p.id)));
-  }
+  // The same write the API's scorecard endpoint (the phone app) makes.
+  const res = await writeMetricWeekValue(ws.id, input);
+  if (!res.ok) return { ok: false, message: res.message };
   invalidateMatrix(ws.id);
   return { ok: true };
 }

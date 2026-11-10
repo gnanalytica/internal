@@ -8,15 +8,14 @@ import { EmptyState } from "@/components/empty-state";
 import { SendToProductButton, type ProductFeedback } from "@/components/product/send-to-product";
 import { CHANNEL_TONE, KindDot, outcomeTone, StagePill, ToneChip } from "@/components/prospects-dashboard/bits";
 import { Button } from "@/components/ui/button";
-import { CHECK_INS_NEEDED, daysAgo, onboardingProgress, onboardingSteps, toggleStep, type Onboarding, type OnboardingStepId } from "@/lib/customer-success";
+import { CHECK_INS_NEEDED, daysAgo, onboardingProgress, onboardingSteps, planLabel, sortRequests, toggleStep, type Onboarding, type OnboardingStepId } from "@/lib/customer-success";
 import { setOnboardingStep } from "@/lib/customer-success-actions";
-import { entityCurrency, formatCurrency } from "@/lib/currency";
 import { KIND_LABEL, type Channel, type ProspectKind } from "@/lib/prospects/schema";
 import { canSendTouch, touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 import { dayMonth, HealthChip, HealthDot, type CustomerView } from "./bits";
-import { NewRequestDialog, RequestCard, sortRequests, type RequestCtx } from "./requests";
+import { NewRequestDialog, RequestCard, type RequestCtx } from "./requests";
 
 /* ---------- the list ---------- */
 
@@ -77,13 +76,6 @@ function CustomerList({ customers, selected, onSelect }: { customers: CustomerVi
 }
 
 /* ---------- one customer ---------- */
-
-function planLabel(c: CustomerView): string {
-  if (!c.deal) return c.stage === 5 ? "Won" : "Pilot";
-  const money = c.deal.value ? formatCurrency(c.deal.value, entityCurrency(c.deal.entity)) : null;
-  if (c.stage === 5) return money ?? "Won, no amount yet";
-  return money ? `Pilot · ${money} deal` : "Pilot";
-}
 
 function Section({ title, aside, action, children, className, id }: { title: string; aside?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string; id: string }) {
   return (

@@ -5,12 +5,12 @@ import { FlatList, Pressable, View } from "react-native";
 import { Divider, Empty, ErrorView, Loading, Segmented, Text } from "@/components/ui";
 import { ticketsQuery } from "@/features/business/api";
 import { Tickets } from "@/features/business/support/tickets";
+import { openCustomer } from "@/features/customers/api";
 import { useTheme } from "@/theme";
 
 import { rowsQuery } from "./api";
 import { DueChip, StagePill } from "./bits";
 import { KIND_LABEL, PROSPECT_KINDS, type ProspectRow } from "./model";
-import { openRecord } from "./my-work";
 
 /** Prospects at these stages are customers (web: CUSTOMER_STAGES — Pilot running, Won). */
 const CUSTOMER_STAGES: readonly number[] = [4, 5];
@@ -21,7 +21,8 @@ export type CustomersShow = "customers" | "requests";
 /**
  * Sales → Customers, Valytica only (it was the Customer Success screen): every
  * prospect at Pilot running or Won, read from the sheet, and the requests
- * logged against the project. A customer opens its prospect record.
+ * logged against the project. A customer opens its own screen (onboarding,
+ * requests, check-ins), which links on to the prospect record.
  */
 export function CustomersView({ projectId, header, initialShow }: { projectId: string; header: React.ReactElement; initialShow?: CustomersShow }) {
   const { c, space } = useTheme();
@@ -76,7 +77,7 @@ export function CustomersView({ projectId, header, initialShow }: { projectId: s
       ListFooterComponent={<View style={{ height: 96 }} />}
       ItemSeparatorComponent={() => <Divider inset={space.lg} />}
       renderItem={({ item: r }: { item: ProspectRow }) => (
-        <Pressable onPress={() => openRecord(r.kind, r.id)} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, backgroundColor: pressed ? c.muted : c.background })}>
+        <Pressable onPress={() => openCustomer(projectId, r.kind, r.id)} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, backgroundColor: pressed ? c.muted : c.background })}>
           <View style={{ flex: 1, gap: 4 }}>
             <Text weight="500" numberOfLines={1}>
               {r.name}
