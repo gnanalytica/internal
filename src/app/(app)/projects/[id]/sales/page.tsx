@@ -12,8 +12,8 @@ import { getTaskContext } from "@/lib/task-context";
 
 /**
  * The project's sales. For Valytica that is its prospects — the sheet the team
- * works every day — with each deal's value on its prospect's Pipeline card,
- * and (when Customer Success is on) the Customers tab: the prospects at Pilot
+ * works every day — with the Deals tab, each deal's value on its prospect's
+ * card on the stage board, and (when Customer Success is on) the Customers tab: the prospects at Pilot
  * running or Won, with onboarding, requests and check-ins. Other products get
  * the deal board and their sales tasks.
  *

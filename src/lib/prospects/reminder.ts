@@ -3,7 +3,7 @@ import { daysBetween, dueBucket, inFocus, isAssignedTo, isOpen, myTasks, type Pr
 /**
  * The morning Slack nudge: who has prospect follow-ups due today or overdue.
  *
- * The point is a habit — open Today every morning — so the message is short:
+ * The point is a habit — open Your day every morning — so the message is short:
  * one block per person, a handful of names, and a link. People with nothing
  * due are left out rather than told so, and a day when nobody has anything
  * posts nothing at all.
@@ -27,7 +27,7 @@ export type ReminderPerson = {
   person: string;
   overdue: number;
   today: number;
-  /** Oldest first, as the Today page orders them. */
+  /** Oldest first, as Your day orders them. */
   top: ReminderItem[];
 };
 
@@ -37,8 +37,8 @@ export type Reminder = {
   /** Open follow-ups that are due with nobody's name on them. */
   unassigned: { overdue: number; today: number };
   /**
-   * Whether anything counted sits outside the focus states, which the Today
-   * page hides by default — the link then opens All India so the counts match.
+   * Whether anything counted sits outside the focus states, which the Your
+   * day page hides by default — the link then opens All India so the counts match.
    */
   outsideFocus: boolean;
 };
@@ -142,6 +142,6 @@ export function reminderText(
     blocks.push(`*Unassigned* — ${counts(unassigned.overdue, unassigned.today)}, nobody's name on them yet`);
   }
 
-  const link = `${prospectsUrl}${reminder.outsideFocus ? "?scope=all" : ""}`;
-  return [`:sunrise: *Prospect follow-ups for ${shortDate(today)}*`, ...blocks, `<${link}|Open Today in Prospects →>`].join("\n\n");
+  const link = `${prospectsUrl}${reminder.outsideFocus ? `${prospectsUrl.includes("?") ? "&" : "?"}scope=all` : ""}`;
+  return [`:sunrise: *Prospect follow-ups for ${shortDate(today)}*`, ...blocks, `<${link}|Open Your day in Sales →>`].join("\n\n");
 }

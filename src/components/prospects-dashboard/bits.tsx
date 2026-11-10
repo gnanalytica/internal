@@ -349,3 +349,22 @@ export function DatePicker({ value, today, onPick, children, disabled, allowClea
     </Popover>
   );
 }
+
+/** How the Prospects tab lays out its rows: a list, a board by stage, or a timeline by due date. */
+export type ProspectLayout = "list" | "board" | "timeline";
+
+/** The List / By stage / By due date switch, the same on every Prospects layout. */
+export function LayoutSwitch({ value, onChange }: { value: ProspectLayout; onChange: (l: ProspectLayout) => void }) {
+  return (
+    <Segmented
+      label="Layout"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: "list", label: "List" },
+        { value: "board", label: "By stage" },
+        { value: "timeline", label: "By due date" },
+      ]}
+    />
+  );
+}

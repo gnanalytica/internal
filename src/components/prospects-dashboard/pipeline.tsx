@@ -12,7 +12,7 @@ import { addDays, dueBucket, isAssignedTo, isOpen, type ProspectRow } from "@/li
 import { tone } from "@/lib/tones";
 import type { DealWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { DueChip, FilterMenu, KIND_TONE, Owner, PATH, Segmented, StageDot, stageTone } from "./bits";
+import { DueChip, FilterMenu, KIND_TONE, LayoutSwitch, Owner, PATH, StageDot, stageTone, type ProspectLayout } from "./bits";
 import { useStageMove } from "./stage-check";
 
 const COLUMN_CAP = 30;
@@ -295,8 +295,8 @@ export function Pipeline({
   today: string;
   me: string;
   team: string[];
-  layout: "board" | "timeline";
-  setLayout: (l: "board" | "timeline") => void;
+  layout: Exclude<ProspectLayout, "list">;
+  setLayout: (l: ProspectLayout) => void;
   scope: "focus" | "all";
   setScope: (s: "focus" | "all") => void;
   /**
@@ -321,15 +321,7 @@ export function Pipeline({
         </p>
       )}
       <FilterBar filters={filters} setFilters={setFilters} team={team} scope={scope} setScope={setScope}>
-        <Segmented
-          label="Layout"
-          value={layout}
-          onChange={setLayout}
-          options={[
-            { value: "board", label: "By stage" },
-            { value: "timeline", label: "By due date" },
-          ]}
-        />
+        <LayoutSwitch value={layout} onChange={setLayout} />
       </FilterBar>
       {layout === "board" ? <Board rows={shown} today={today} deals={byProspect} onOpen={onOpen} onMore={(s) => onMore(s, filters.kind)} onChanged={onChanged} /> : <Timeline rows={shown} today={today} team={team} onOpen={onOpen} />}
     </div>

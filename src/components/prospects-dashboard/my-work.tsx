@@ -180,7 +180,7 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-20 text-center">
         <h2 className="text-lg font-semibold">{done ? `All done, ${first}` : `Nothing due for ${first}`}</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {done ? `${done} logged this session. ` : ""}Today fills with follow-ups assigned to you that are due, plus A-band valuers of yours nobody has contacted yet.
+          {done ? `${done} logged this session. ` : ""}Your day fills with follow-ups assigned to you that are due, plus A-band valuers of yours nobody has contacted yet.
         </p>
         <div className="flex flex-wrap justify-center gap-2">
           <Button onClick={onShareOut}>Share out prospects</Button>

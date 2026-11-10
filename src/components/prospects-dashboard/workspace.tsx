@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BookOpen, ExternalLink, MoreHorizontal, RefreshCw, Search, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, ExternalLink, MoreHorizontal, Phone, RefreshCw, Search, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
@@ -15,8 +15,9 @@ import { PROSPECT_KINDS, STAGES, type ProspectKind } from "@/lib/prospects/schem
 import type { ProspectRow } from "@/lib/prospects/stats";
 import type { DealWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { StageDot } from "./bits";
+import { StageDot, type ProspectLayout } from "./bits";
 import { TabIndicator } from "@/components/tab-indicator";
+import { DealsTab } from "./deals-tab";
 import { ListView } from "./list";
 import { LogTouchDialog, type LogTarget } from "./log-touch-dialog";
 import { MyWork } from "./my-work";
@@ -41,24 +42,31 @@ export type WorkspaceData = {
 };
 
 const TABS = [
-  { id: "today", label: "Today" },
-  { id: "pipeline", label: "Pipeline" },
+  { id: "insights", label: "Insights" },
   { id: "list", label: "Prospects" },
   { id: "customers", label: "Customers" },
-  { id: "insights", label: "Insights" },
+  { id: "deals", label: "Deals" },
 ] as const;
-type Tab = (typeof TABS)[number]["id"] | "playbook";
+/** Playbook and Your day are pages without a tab: the ⋯ menu and "Start calling" open them. */
+type Tab = (typeof TABS)[number]["id"] | "playbook" | "today";
+const HOME: Tab = "insights";
 
 /**
- * Tab ids from before, so old links still land somewhere sensible. Deals were
- * a board of their own; their values and states are on the Pipeline cards now.
+ * Tab ids from before, so old links still land somewhere sensible. Pipeline is
+ * the Prospects tab laid out by stage now (see `layoutFrom`).
  */
-const OLD_TABS: Record<string, Tab> = { mywork: "today", overview: "insights", deals: "pipeline" };
+const OLD_TABS: Record<string, Tab> = { mywork: "today", overview: "insights", pipeline: "list" };
 
 function tabFrom(v: string | null): Tab {
-  if (!v) return "today";
+  if (!v) return HOME;
   if (OLD_TABS[v]) return OLD_TABS[v];
-  return v === "playbook" || TABS.some((t) => t.id === v) ? (v as Tab) : "today";
+  return v === "playbook" || v === "today" || TABS.some((t) => t.id === v) ? (v as Tab) : HOME;
+}
+
+function layoutFrom(p: URLSearchParams): ProspectLayout {
+  const l = p.get("layout");
+  if (l === "board" || l === "timeline") return l;
+  return p.get("tab") === "pipeline" ? "board" : "list";
 }
 
 /** "14:05" in India time — deterministic, so server and client render the same text. */
@@ -125,9 +133,9 @@ function ProspectPicker({ rows, onPick, open, onOpenChange, children, placeholde
  * Google Sheet; everything changed here is written back to it. View state
  * lives in the URL so any view, list or record can be shared as a link.
  *
- * `deals` puts each deal's value on its prospect's Pipeline card; `customers`
- * (the product's Customer Success, when it has it on) adds the Customers tab
- * and the Playbook's saved answers.
+ * `deals` adds the Deals tab and puts each deal's value on its prospect's
+ * card on the stage board; `customers` (the product's Customer Success, when
+ * it has it on) adds the Customers tab and the Playbook's saved answers.
  */
 export function ProspectsWorkspace({ data, deals, customers }: { data: WorkspaceData; deals?: DealWithRelations[]; customers?: CustomerSuccessData | null }) {
   const router = useRouter();
@@ -137,7 +145,7 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
   const [kind, setKindState] = useState<ProspectKind | "">((PROSPECT_KINDS as readonly string[]).includes(get("kind") ?? "") ? (get("kind") as ProspectKind) : "");
   const [view, setViewState] = useState(get("view") ?? "all");
   const [stage, setStageState] = useState<number | null>(get("stage") ? Number(get("stage")) : null);
-  const [layout, setLayoutState] = useState<"board" | "timeline">(get("layout") === "timeline" ? "timeline" : "board");
+  const [layout, setLayoutState] = useState<ProspectLayout>(() => layoutFrom(params));
   const [pb, setPbState] = useState(get("pb") ?? "anchor");
   const [sel, setSelState] = useState<Selection | null>(() => {
     const rec = get("rec");
@@ -196,7 +204,7 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
   const setTab = (t: Tab) => {
     setTabState(t);
     // The Customers tab's own state (?c=, ?cf=) goes when you leave it.
-    sync({ tab: t === "today" ? null : t, ...(t === "customers" ? {} : { c: null, cf: null }) });
+    sync({ tab: t === HOME ? null : t, ...(t === "customers" ? {} : { c: null, cf: null }) });
   };
   const setKind = (k: ProspectKind | "") => {
     setKindState(k);
@@ -210,9 +218,9 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
     setStageState(s);
     sync({ stage: s === null ? null : String(s) });
   };
-  const setLayout = (l: "board" | "timeline") => {
+  const setLayout = (l: ProspectLayout) => {
     setLayoutState(l);
-    sync({ layout: l === "board" ? null : l });
+    sync({ layout: l === "list" ? null : l });
   };
   const setPb = (s: string) => {
     setPbState(s);
@@ -271,11 +279,12 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
 
   const everyone = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
   const showFull = Boolean(sel);
-  const tabs = TABS.filter((t) => t.id !== "customers" || customers);
-  const current: Tab = tab === "playbook" || tabs.some((t) => t.id === tab) ? tab : "today";
-  const backLabel = current === "playbook" ? "Playbook" : tabs.find((t) => t.id === current)!.label;
-  // The customer list and record fill the page and scroll themselves.
+  const tabs = TABS.filter((t) => (t.id !== "customers" || customers) && (t.id !== "deals" || deals));
+  const current: Tab = tab === "playbook" || tab === "today" || tabs.some((t) => t.id === tab) ? tab : HOME;
+  const backLabel = current === "playbook" ? "Playbook" : current === "today" ? "Your day" : tabs.find((t) => t.id === current)!.label;
+  // The customer list and record, and the deal board, fill the page and scroll themselves.
   const customersView = !showFull && current === "customers" ? (customers ?? null) : null;
+  const dealsView = !showFull && current === "deals" ? (deals ?? null) : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -324,6 +333,9 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
               <DropdownMenuItem onClick={() => setShareOpen(true)}>
                 <Users /> Share out prospects…
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTab("today")}>
+                <Phone /> Your day
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTab("playbook")}>
                 <BookOpen /> Playbook
               </DropdownMenuItem>
@@ -344,7 +356,11 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
         </div>
       </header>
 
-      {customersView ? (
+      {dealsView ? (
+        <div key={current} className="animate-fade min-h-0 flex-1">
+          <DealsTab deals={dealsView} onOpen={open} />
+        </div>
+      ) : customersView ? (
         <div key={current} className="animate-fade min-h-0 flex-1">
           <CustomersPanel
             data={customersView}
@@ -372,21 +388,27 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
         {showFull && sel ? (
           <RecordPage onOpen={open} sel={sel} today={data.today} me={data.me} team={data.team} onBack={close} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} tab={recTab} setTab={setRecTab} />
         ) : current === "today" ? (
-          <MyWork
-            rows={everyone}
-            today={data.today}
-            me={data.me}
-            onOpen={open}
-            onLog={logRow}
-            onChanged={() => router.refresh()}
-            onShareOut={() => setShareOpen(true)}
-            onFind={() => {
-              setKind("valuer");
-              setView("a-new");
-              setTab("list");
-            }}
-          />
-        ) : current === "pipeline" ? (
+          <div className="flex flex-col gap-4">
+            <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={() => setTab("list")}>
+              <ArrowLeft /> Prospects
+            </Button>
+            <MyWork
+              rows={everyone}
+              today={data.today}
+              me={data.me}
+              onOpen={open}
+              onLog={logRow}
+              onChanged={() => router.refresh()}
+              onShareOut={() => setShareOpen(true)}
+              onFind={() => {
+                setKind("valuer");
+                setView("a-new");
+                setLayout("list");
+                setTab("list");
+              }}
+            />
+          </div>
+        ) : current === "list" && layout !== "list" ? (
           <Pipeline
             rows={everyone}
             today={data.today}
@@ -402,7 +424,7 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
               setKind(k);
               setStage(s);
               setView("all");
-              setTab("list");
+              setLayout("list");
             }}
             onChanged={() => router.refresh()}
           />
@@ -424,6 +446,8 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
             onChanged={() => router.refresh()}
             openKey={sel ? `${sel.kind}:${sel.id}` : null}
             onShareOut={() => setShareOpen(true)}
+            setLayout={setLayout}
+            onStartCalls={() => setTab("today")}
           />
         ) : current === "insights" ? (
           <Overview
@@ -439,7 +463,7 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
           />
         ) : (
           <div className="flex flex-col gap-4">
-            <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={() => setTab("today")}>
+            <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={() => setTab(HOME)}>
               <ArrowLeft /> Back
             </Button>
             <Playbook section={pb} setSection={setPb} answers={customers ? { list: customers.answers, projectId: customers.projectId, onChanged: () => router.refresh() } : undefined} />
