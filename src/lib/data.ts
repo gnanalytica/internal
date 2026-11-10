@@ -36,7 +36,6 @@ import {
   invoices,
   issueAssignees,
   issueLabels,
-  issuePageLinks,
   issueRelations,
   issues,
   labels,
@@ -104,32 +103,6 @@ import type {
   Workspace,
   WorkspaceWithRole,
 } from "@/lib/types";
-
-export type {
-  Cycle,
-  CycleWithCount,
-  Database,
-  DatabaseField,
-  DatabaseRow,
-  DatabaseWithSchema,
-  FlatIssue,
-  FlatPage,
-  Issue,
-  IssueListItem,
-  IssueWithRelations,
-  Label,
-  Member,
-  MemberWithRole,
-  Page,
-  PageNode,
-  Project,
-  ProjectWithIssueCount,
-  Role,
-  TimelineItem,
-  Workspace,
-  WorkspaceWithRole,
-} from "@/lib/types";
-export { issueIdentifier } from "@/lib/types";
 
 // The per-user lookups below are wrapped in React `cache()`: a page's layouts,
 // page and data helpers each ask for the session user, workspace and role, and
@@ -2471,17 +2444,3 @@ export async function getFeedback(
     },
   });
 }
-
-// Re-export table objects used by actions.
-export {
-  cycles,
-  issues,
-  pages,
-  projects,
-  labels,
-  issueLabels,
-  issuePageLinks,
-  ticketComments,
-  tickets,
-  workspaces,
-};

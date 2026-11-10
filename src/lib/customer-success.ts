@@ -28,7 +28,6 @@ export const ONBOARDING_STEPS = [
 ] as const;
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]["id"];
-export const isOnboardingStep = (v: string): v is OnboardingStepId => ONBOARDING_STEPS.some((s) => s.id === v);
 
 /** The check-ins that tick "Four weekly check-ins" on their own. */
 export const CHECK_INS_NEEDED = 4;
@@ -128,7 +127,6 @@ export const REQUEST_VIA = [
   { id: "visit", label: "Visit" },
 ] as const;
 export type RequestVia = (typeof REQUEST_VIA)[number]["id"];
-export const isRequestVia = (v: string): v is RequestVia => REQUEST_VIA.some((x) => x.id === v);
 export const viaLabel = (v: string | null | undefined): string => REQUEST_VIA.find((x) => x.id === v)?.label ?? "";
 
 /** A request's state as the customer sees it, from the ticket's status. */

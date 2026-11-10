@@ -45,16 +45,3 @@ export function readTarget(
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
-
-/** Formats a target for display: "≥ 90%" / "≤ 30 sec". */
-export function formatTarget(
-  target: number | null | undefined,
-  direction: TargetDirection = "above",
-  unit?: string | null,
-): string | null {
-  if (target == null) return null;
-  const op = direction === "below" ? "≤" : "≥";
-  const n = target.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (!unit) return `${op} ${n}`;
-  return unit === "%" || unit.startsWith("/") ? `${op} ${n}${unit}` : `${op} ${n} ${unit}`;
-}

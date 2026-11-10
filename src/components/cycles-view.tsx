@@ -7,7 +7,6 @@ import { Plus, Timer } from "lucide-react";
 
 import { CadenceEditor } from "@/components/cadence-editor";
 import { CycleVelocity } from "@/components/cycle-velocity";
-import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { createCycle } from "@/lib/actions";
 import { cycleSubtitle } from "@/lib/cycle-format";
@@ -49,7 +48,6 @@ export function CyclesView({
   cadence = null,
   outstandingPoints = 0,
   nowISO,
-  embedded = false,
   hideCreate = false,
 }: {
   cycles: CycleWithCount[];
@@ -61,8 +59,6 @@ export function CyclesView({
   outstandingPoints?: number;
   /** Server-rendered "now", so velocity doesn't shift between server and client. */
   nowISO?: string;
-  /** Render without the page Topbar (e.g. inside a project's Engineering tab). */
-  embedded?: boolean;
   /** The surrounding header already has "New cycle"; skip the one above the list. */
   hideCreate?: boolean;
 }) {
@@ -77,10 +73,9 @@ export function CyclesView({
 
   return (
     <div className="flex h-full flex-col">
-      {!embedded && <Topbar breadcrumb={[{ label: "Cycles" }]} actions={createButton} />}
       <div className="scrollbar-thin flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-6 py-8">
-          {embedded && !hideCreate && createButton && <div className="mb-3 flex justify-end">{createButton}</div>}
+          {!hideCreate && createButton && <div className="mb-3 flex justify-end">{createButton}</div>}
           {nowISO && (
             <CycleVelocity
               cycles={cycles}

@@ -82,9 +82,3 @@ export async function getReadyBot(): Promise<SlackBot | null> {
   await bot.initialize();
   return bot;
 }
-
-/** The Slack Web API client, for calls the Chat SDK doesn't wrap. */
-export async function slackWebClient() {
-  const bot = await getReadyBot();
-  return bot ? bot.getAdapter("slack").webClient : null;
-}

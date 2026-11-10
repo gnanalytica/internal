@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTarget, readTarget } from "@/lib/metrics";
+import { readTarget } from "@/lib/metrics";
 
 describe("readTarget", () => {
   it("returns null when there is nothing to compare", () => {
@@ -35,19 +35,5 @@ describe("readTarget", () => {
   it("never reports a gap once the target is met", () => {
     expect(readTarget(99.9, 99.5)?.gap).toBe(0);
     expect(readTarget(2, 4, "below")?.gap).toBe(0);
-  });
-});
-
-describe("formatTarget", () => {
-  it("renders the operator, number and unit", () => {
-    expect(formatTarget(90, "above", "%")).toBe("≥ 90%");
-    expect(formatTarget(30, "below", "sec")).toBe("≤ 30 sec");
-    expect(formatTarget(5, "above", "leads")).toBe("≥ 5 leads");
-    expect(formatTarget(99.5, "above", "%")).toBe("≥ 99.5%");
-  });
-
-  it("omits a missing unit and returns null with no target", () => {
-    expect(formatTarget(12, "above", null)).toBe("≥ 12");
-    expect(formatTarget(null, "above", "%")).toBeNull();
   });
 });

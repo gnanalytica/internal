@@ -42,16 +42,17 @@ type Row = ScorecardRow & { now: number | null; status: ScoreStatus };
 const COMPACT_ROWS = 6;
 
 /**
- * The weekly scorecard, as the first section of a project's Overview. A
- * handful of numbers, each with its target, the last four weeks and this one.
- * Numbers the app counts are read-only; the rest are typed straight into this
- * week's cell.
+ * The weekly scorecard: a project's first tab (labelled "Scorecard") when it
+ * has Analytics on. A handful of numbers, each with its target, the last four
+ * weeks and this one. Numbers the app counts are read-only; the rest are typed
+ * straight into this week's cell.
  *
- * Compact by default: the summary and the metrics that need a look (behind,
- * or still waiting for this week's number). "Show all metrics" opens the whole
- * table, and "Enter this week" opens it too when the cell it wants is hidden.
+ * Opens on every metric. "Show only what needs a look" narrows it to the
+ * summary and the metrics that are behind or still waiting for this week's
+ * number; "Enter this week" opens the whole table again when the cell it wants
+ * is hidden.
  */
-export function ScorecardSection({ projectId, weeks, rows, notes, defaultExpanded = false }: { projectId: string; weeks: string[]; rows: ScorecardRow[]; notes: string[]; /** Open on every metric rather than only those that need a look. */ defaultExpanded?: boolean }) {
+export function ScorecardSection({ projectId, weeks, rows, notes }: { projectId: string; weeks: string[]; rows: ScorecardRow[]; notes: string[] }) {
   const router = useRouter();
   const thisWeek = weeks[weeks.length - 1];
   // Numbers typed this visit, shown at once while the save and refresh land.
@@ -63,7 +64,7 @@ export function ScorecardSection({ projectId, weeks, rows, notes, defaultExpande
   }
   const [dialog, setDialog] = useState<{ open: boolean; metric: ScorecardRow | null }>({ open: false, metric: null });
   const [seeding, startSeed] = useTransition();
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(true);
   // Rows typed into this visit stay on the compact view, so a cell doesn't vanish once it has its number.
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   // A row to focus as soon as its cell mounts (after "Enter this week" opens the full table).

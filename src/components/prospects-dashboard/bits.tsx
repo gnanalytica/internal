@@ -227,10 +227,6 @@ export function Owner({ name, className }: { name: string; className?: string })
   );
 }
 
-export function MissingValue({ children = "Not known yet" }: { children?: React.ReactNode }) {
-  return <span className="text-amber-700 dark:text-amber-400">{children}</span>;
-}
-
 /** The team members to offer as owners, "me" first. `assigned` is written as a first name, as the team types it. */
 export function OwnerPicker({ value, me, team, onPick, children, disabled }: { value: string; me: string; team: string[]; onPick: (firstName: string) => void; children: React.ReactElement; disabled?: boolean }) {
   const [open, setOpen] = useState(false);

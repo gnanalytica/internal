@@ -43,7 +43,6 @@ export default async function ProjectCyclesPage({
           cadence={project.cycleCadence}
           outstandingPoints={outstandingPoints}
           nowISO={new Date().toISOString()}
-          embedded
         />
       </div>
     </div>

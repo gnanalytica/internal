@@ -12,11 +12,11 @@ import { sentByRef } from "@/lib/send-to-product";
 import type { ProductFeedbackContext } from "@/lib/send-to-product-actions";
 import type { SupportAnswer, TicketWithRelations } from "@/lib/types";
 
-/** A customer's deal, as the page needs it. `value` is null for people who may not see deal values. */
+/** A customer's deal, as the page needs it. */
 export type CustomerDeal = {
   id: string;
   stage: string;
-  value: number | null;
+  value: number;
   entity: string;
   /** ISO timestamp. */
   createdAt: string;
@@ -46,8 +46,6 @@ export type Customer = {
 
 export type CustomerSuccessData = {
   projectId: string;
-  /** Whether customers come from the prospects sheet here (Valytica only). */
-  fromSheet: boolean;
   customers: Customer[];
   requests: TicketWithRelations[];
   answers: SupportAnswer[];
@@ -58,8 +56,6 @@ export type CustomerSuccessData = {
   now: number;
   warnings: string[];
   sheetUrl: string;
-  /** Whether the viewer may see deal values — the same people who can open Sales. */
-  showValue: boolean;
   /** For "Send to Product" on check-ins and requests: this project's themes and what's already been sent. */
   feedback: ProductFeedbackContext;
 };
@@ -67,79 +63,75 @@ export type CustomerSuccessData = {
 const latest = (a: string | null, b: string | null) => (!a ? b : !b ? a : a > b ? a : b);
 
 /**
- * Everything the Customer Success page shows for one project. Customers are
- * the prospects at Pilot running or Won, read from the sheet; their deals,
- * requests and saved answers come from the database.
+ * Everything Sales → Customers (and the Playbook's saved answers) shows for
+ * one project. Customers are the prospects at Pilot running or Won, read from
+ * the sheet; their deals, requests and saved answers come from the database.
  */
-export async function loadCustomerSuccess(input: { workspaceId: string; projectId: string; fromSheet: boolean; showValue: boolean }): Promise<CustomerSuccessData> {
-  const { workspaceId, projectId, fromSheet, showValue } = input;
+export async function loadCustomerSuccess(input: { workspaceId: string; projectId: string }): Promise<CustomerSuccessData> {
+  const { workspaceId, projectId } = input;
   const [deals, requests, answers, feedback, wb] = await Promise.all([
     getDeals(workspaceId, projectId),
     getTickets(workspaceId, projectId),
     getSupportAnswers(workspaceId, projectId),
     getFeedback(workspaceId, projectId),
-    fromSheet ? loadProspectSnapshot() : null,
+    loadProspectSnapshot(),
   ]);
   const byRef = new Map(deals.filter((d) => d.prospectRef).map((d) => [d.prospectRef!, d]));
 
   const customers: Customer[] = [];
-  if (wb) {
-    const records = PROSPECT_KINDS.flatMap((k) => wb.rows[k]).filter((r) => isCustomerStage(r.stage));
-    const ids = new Set(records.map((r) => r.id));
-    const activityById = new Map<string, ActivityEntry[]>();
-    for (const a of wb.activity) {
-      if (!ids.has(a.registrationNo)) continue;
-      const list = activityById.get(a.registrationNo) ?? [];
-      list.push(a);
-      activityById.set(a.registrationNo, list);
-    }
-    for (const r of records) {
-      const ref = prospectRef(r.kind, r.id);
-      const d = byRef.get(ref);
-      const activity = activityById.get(r.id) ?? [];
-      const since = customerSince(activity, d?.createdAt ?? null);
-      const newest = activity.reduce<string | null>((m, a) => latest(m, a.date), null);
-      customers.push({
-        ref,
-        kind: r.kind,
-        id: r.id,
-        name: r.name || r.id,
-        city: r.city,
-        state: r.state,
-        stage: r.stage,
-        assigned: r.assigned,
-        nextStep: r.nextStep,
-        lastTouch: latest(r.lastContacted, newest),
-        deal: d
-          ? {
-              id: d.id,
-              stage: d.stage,
-              value: showValue ? d.value : null,
-              entity: d.entity,
-              createdAt: new Date(d.createdAt).toISOString(),
-              owner: (d.owner?.name || d.owner?.email || "").trim(),
-              onboarding: d.onboarding ?? {},
-            }
-          : null,
-        since,
-        touches: touchesSince(activity, since),
-        checkIns: checkInCount(activity, since),
-      });
-    }
+  const records = PROSPECT_KINDS.flatMap((k) => wb.rows[k]).filter((r) => isCustomerStage(r.stage));
+  const ids = new Set(records.map((r) => r.id));
+  const activityById = new Map<string, ActivityEntry[]>();
+  for (const a of wb.activity) {
+    if (!ids.has(a.registrationNo)) continue;
+    const list = activityById.get(a.registrationNo) ?? [];
+    list.push(a);
+    activityById.set(a.registrationNo, list);
+  }
+  for (const r of records) {
+    const ref = prospectRef(r.kind, r.id);
+    const d = byRef.get(ref);
+    const activity = activityById.get(r.id) ?? [];
+    const since = customerSince(activity, d?.createdAt ?? null);
+    const newest = activity.reduce<string | null>((m, a) => latest(m, a.date), null);
+    customers.push({
+      ref,
+      kind: r.kind,
+      id: r.id,
+      name: r.name || r.id,
+      city: r.city,
+      state: r.state,
+      stage: r.stage,
+      assigned: r.assigned,
+      nextStep: r.nextStep,
+      lastTouch: latest(r.lastContacted, newest),
+      deal: d
+        ? {
+            id: d.id,
+            stage: d.stage,
+            value: d.value,
+            entity: d.entity,
+            createdAt: new Date(d.createdAt).toISOString(),
+            owner: (d.owner?.name || d.owner?.email || "").trim(),
+            onboarding: d.onboarding ?? {},
+          }
+        : null,
+      since,
+      touches: touchesSince(activity, since),
+      checkIns: checkInCount(activity, since),
+    });
   }
 
   return {
     projectId,
-    fromSheet,
     customers,
     requests,
     answers,
     dealNames: Object.fromEntries(deals.map((d) => [d.id, d.name])),
     today: todayIST(),
     now: Date.now(),
-    warnings: wb?.warnings ?? [],
+    warnings: wb.warnings,
     sheetUrl: prospectsSheetUrl(),
-    showValue,
     feedback: { projectId, themes: themeNames(feedback), sent: sentByRef(feedback) },
   };
 }
