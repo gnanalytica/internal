@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { membersQuery } from "@/features/workspace/api";
 import { colorFor } from "@/lib/constants";
 
-import { accountsQuery, contactsQuery, type Campaign } from "./api";
+import { accountsQuery, contactsQuery } from "./api";
 import type { Option } from "./constants";
 
 export function useMemberOptions(): Option[] {
@@ -33,5 +33,3 @@ export function useContactOptions(accountId?: string | null, enabled = true): Op
     [contacts, accountId],
   );
 }
-
-export const campaignOptions = (campaigns: Campaign[] | undefined): Option[] => (campaigns ?? []).map((c) => ({ value: c.id, label: c.name }));

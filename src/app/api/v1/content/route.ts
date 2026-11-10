@@ -18,6 +18,12 @@ export const GET = withApiAuth(async (req, auth) => {
       projectId: c.projectId,
       campaign: c.campaign ? { id: c.campaign.id, name: c.campaign.name } : null,
       ownerId: c.ownerId,
+      // What the web's Marketing plans by: the piece's format, its format's
+      // fields, and the results typed in after it goes out. Added fields only.
+      format: c.format,
+      details: c.details,
+      views: c.views,
+      clicks: c.clicks,
     })),
     count: rows.length,
   });

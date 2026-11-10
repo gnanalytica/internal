@@ -26,8 +26,15 @@ describe("issueBelongsToDepartment", () => {
   });
 
   it("matches on any label, so a task can sit on two surfaces", () => {
-    expect(issueBelongsToDepartment(labels("qa", "sales"), "engineering")).toBe(true);
-    expect(issueBelongsToDepartment(labels("qa", "sales"), "sales")).toBe(true);
+    expect(issueBelongsToDepartment(labels("qa", "launch"), "engineering")).toBe(true);
+    expect(issueBelongsToDepartment(labels("qa", "launch"), "product")).toBe(true);
+  });
+
+  it("gives Sales and Marketing no tasks: they plan in deals and content pieces", () => {
+    expect(issueBelongsToDepartment(labels("sales"), "sales")).toBe(false);
+    expect(issueBelongsToDepartment(labels("content", "social"), "marketing")).toBe(false);
+    expect(DEPARTMENT_LABELS.sales).toBeUndefined();
+    expect(DEPARTMENT_LABELS.marketing).toBeUndefined();
   });
 
   it("is false for no labels, unknown labels, or a department with no tracks", () => {
@@ -56,11 +63,12 @@ describe("countOpenByDepartment", () => {
 
   it("counts each department's own tasks, not the project's", () => {
     const counts = countOpenByDepartment(
-      [row({ id: "1", label: "app" }), row({ id: "2", label: "qa" }), row({ id: "3", label: "sales" })],
+      [row({ id: "1", label: "app" }), row({ id: "2", label: "qa" }), row({ id: "3", label: "launch" }), row({ id: "4", label: "sales" })],
       "p1",
     );
     expect(counts.engineering).toBe(2);
-    expect(counts.sales).toBe(1);
+    expect(counts.product).toBe(1);
+    expect(counts.sales).toBeUndefined();
   });
 
   it("counts a task once even with two labels from the same department", () => {

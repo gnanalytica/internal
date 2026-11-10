@@ -82,8 +82,10 @@ function departmentCards(depts: DepartmentView[], s: Summary | undefined, auth: 
     product: () => withTasks("product", `${s?.openMilestones ?? 0} open gates`),
     engineering: () => `${tasks("engineering")} open tasks`,
     analytics: () => `${s?.metricCount ?? 0} metrics`,
-    marketing: () => withTasks("marketing", `${s?.activeCampaigns ?? 0} active campaigns`),
-    sales: () => (canSeeSales(auth.scope) ? withTasks("sales", `${formatMoney(s?.pipelineValue)} · ${s?.openDeals ?? 0} open deals`) : ""),
+    // Marketing plans by content piece and Sales is the deal board, so neither
+    // card counts tasks (the web's department strip says the same).
+    marketing: () => `${s?.piecesThisWeek ?? 0} ${s?.piecesThisWeek === 1 ? "piece" : "pieces"} this week`,
+    sales: () => (canSeeSales(auth.scope) ? `${formatMoney(s?.pipelineValue)} · ${s?.openDeals ?? 0} open deals` : ""),
     "customer-success": () => withTasks("customer-success", `${s?.openTickets ?? 0} open tickets`),
     finance: () => (canSeeFinance(auth.scope, projectId) ? `${formatMoney(s?.revenue)} revenue` : ""),
     strategy: () => "Vision, stages and economics",

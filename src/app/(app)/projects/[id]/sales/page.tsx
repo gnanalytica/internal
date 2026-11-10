@@ -5,17 +5,16 @@ import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
 import { loadCustomerSuccess } from "@/lib/customer-success-data";
 import { canSeeDepartment, isDepartmentEnabled } from "@/lib/departments";
-import { getDeals, getMyRole, getIssues, getProject, getWorkspace } from "@/lib/data";
+import { getDeals, getMembers, getMyRole, getProject, getProjects, getWorkspace } from "@/lib/data";
 import { loadProspectsWorkspace } from "@/lib/prospects/page-data";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
-import { getTaskContext } from "@/lib/task-context";
 
 /**
  * The project's sales. For Valytica that is its prospects — the sheet the team
  * works every day — with the Deals tab, each deal's value on its prospect's
  * card on the stage board, and (when Customer Success is on) the Customers tab: the prospects at Pilot
  * running or Won, with onboarding, requests and check-ins. Other products get
- * the deal board and their sales tasks.
+ * the deal board — only Product and Engineering keep tasks.
  *
  * Who may open it is the one department rule (`canSeeDepartment("sales")`),
  * the same one the tab strip uses; the Customers tab follows it too.
@@ -48,17 +47,16 @@ export default async function ProjectSalesPage({
     return <ProspectsWorkspace data={data} deals={deals} customers={customers} />;
   }
 
-  const [ctx, issues] = await Promise.all([getTaskContext(ws.id), getIssues(ws.id)]);
+  // Just the deal board: tasks belong to Product and Engineering, so nothing
+  // here loads issues. Any `?tab=` (an old `?tab=tasks` link) lands on the board.
+  const [projects, members] = await Promise.all([getProjects(ws.id), getMembers(ws.id)]);
   return (
     <SalesView
-      ctx={ctx}
       heading={`${project.name} · Deals`}
       scopeProjectId={id}
-      // The task context already carries the workspace's projects and members.
-      projects={ctx.projects}
-      members={ctx.members}
+      projects={projects}
+      members={members}
       initialDeals={deals}
-      issues={issues.filter((i) => i.projectId === id)}
     />
   );
 }

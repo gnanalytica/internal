@@ -49,7 +49,7 @@ eas build -p android --profile production   # Play Store .aab
 
 ## Layout
 
-- `src/app` — screens (Expo Router). Tabs: Home, Inbox, My issues, Prospects, More.
+- `src/app` — screens (Expo Router). Tabs: Home, Inbox, My issues, Sales (route `prospects`), More.
 - `src/features/<section>` — each section's API hooks and components.
 - `src/components/ui` — the shared UI kit; `src/theme` — tokens from the web's `globals.css`.
 - `src/lib` — API client, auth, query client, formatting, constants mirrored from the web.

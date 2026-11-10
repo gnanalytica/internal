@@ -1,17 +1,26 @@
-import { useLocalSearchParams } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { useLocalSearchParams, type Href } from "expo-router";
 import { useState } from "react";
 
-import { DepartmentTasks } from "@/features/business/department-tasks";
-import { Campaigns } from "@/features/business/marketing/campaigns";
-import { ContentCalendar } from "@/features/business/marketing/content";
+import { MarketingWorkspace, marketingTabFrom, type MarketingTab } from "@/features/business/marketing/workspace";
 import { DeptScaffold } from "@/features/business/scaffold";
+import { projectQuery } from "@/features/projects/api";
+import { PROSPECTS_PRODUCT_KEY } from "@/features/projects/departments";
 
-type Segment = "campaigns" | "content" | "tasks";
-
-/** A project's Marketing department: campaigns, the content calendar and marketing tasks. */
+/**
+ * A project's Marketing, as on the web: it plans by content piece — the
+ * Calendar (the week, pace against plan, overdue pieces, ideas and channels)
+ * and All pieces. Campaigns and marketing tasks are not part of it any more;
+ * `?tab=pieces` and `?piece=<id>` links open where the web's would.
+ */
 export default function MarketingScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const [segment, setSegment] = useState<Segment>("campaigns");
+  const { id, tab, piece } = useLocalSearchParams<{ id: string; tab?: string; piece?: string }>();
+  const [segment, setSegment] = useState<MarketingTab>(() => marketingTabFrom(tab));
+  const p = useQuery(projectQuery(id)).data;
+  // Leads from marketing land in Sales: Valytica's prospects list, or the deal board elsewhere.
+  const salesHref: Href | null = p?.visibleDepartments.some((d) => d.slug === "sales")
+    ? { pathname: "/projects/[id]/sales", params: p.key === PROSPECTS_PRODUCT_KEY ? { id, tab: "list" } : { id } }
+    : null;
   return (
     <DeptScaffold
       title="Marketing"
@@ -19,14 +28,11 @@ export default function MarketingScreen() {
       value={segment}
       onChange={setSegment}
       segments={[
-        { value: "campaigns", label: "Campaigns" },
-        { value: "content", label: "Content" },
-        { value: "tasks", label: "Tasks" },
+        { value: "calendar", label: "Calendar" },
+        { value: "pieces", label: "All pieces" },
       ]}
     >
-      {segment === "campaigns" ? <Campaigns projectId={id} /> : null}
-      {segment === "content" ? <ContentCalendar projectId={id} /> : null}
-      {segment === "tasks" ? <DepartmentTasks projectId={id} department="marketing" emptyTitle="No marketing tasks yet" /> : null}
+      <MarketingWorkspace projectId={id} tab={segment} initialPiece={piece} salesHref={salesHref} />
     </DeptScaffold>
   );
 }
