@@ -1,4 +1,5 @@
 import { PROSPECT_KINDS, type ProspectKind } from "@/lib/prospects/schema";
+import { isConfidentialDepartment } from "@/lib/departments";
 import { parseIssueKey, type IssueKey } from "./parse";
 
 /**
@@ -99,14 +100,12 @@ export function appHosts(appUrl: string): string[] {
 
 /* ---------- what a preview may show ---------- */
 
-/** Project tabs that are admin-only in the web app (Sales; Finance, which owners also see — not in a shared channel). */
-const CONFIDENTIAL_AREAS: ReadonlySet<string> = new Set(["sales", "finance"]);
 
 /** Whether a link is to something the web app keeps from members. */
 export function isConfidentialLink(link: AppLink, inConfidentialProject: boolean): boolean {
   if (inConfidentialProject) return true;
-  if (link.type === "deal" || link.type === "prospect") return true;
-  if (link.type === "project" && link.area && CONFIDENTIAL_AREAS.has(link.area)) return true;
+  // The web's department rule (Finance today); owners also see Finance, but not in a shared channel.
+  if (link.type === "project" && link.area && isConfidentialDepartment(link.area)) return true;
   return false;
 }
 
@@ -117,7 +116,7 @@ export type LinkSharer = { linked: false } | { linked: true; isAdmin: boolean };
  * How much a preview shows. An unfurl is seen by everyone in the channel, so it
  * follows the stricter rule: someone Slack can't place in the app gets the
  * title only; a member gets the full card unless the record is confidential
- * (Sales, Finance, a confidential project), which only an admin unfurls in full.
+ * (Finance, a confidential project), which only an admin unfurls in full.
  */
 export function unfurlDetail(sharer: LinkSharer, confidential: boolean): "full" | "title" {
   if (!sharer.linked) return "title";

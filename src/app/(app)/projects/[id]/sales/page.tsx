@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ProspectsWorkspace } from "@/components/prospects-dashboard/workspace";
 import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
-import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
+import { canSeeDepartment, isDepartmentEnabled } from "@/lib/departments";
 import { getDeals, getMyRole, getIssues, getProject, getWorkspace } from "@/lib/data";
 import { loadProspectsWorkspace } from "@/lib/prospects/page-data";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
@@ -29,7 +29,7 @@ export default async function ProjectSalesPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
 
-  if (!canSeeConfidential(role)) return <Restricted label="Sales" />;
+  if (!canSeeDepartment("sales", role)) return <Restricted label="Sales" />;
 
   if (project.key === PROSPECTS_PRODUCT_KEY) {
     const data = await loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus");

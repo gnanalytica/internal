@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { AnalyticsView } from "@/components/analytics-view";
-import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
+import { canSeeDepartment, isDepartmentEnabled } from "@/lib/departments";
 import { getMetrics, getMyRole, getProject, getScorecardSignals, getWorkspace } from "@/lib/data";
 import { loadProspectSnapshot } from "@/lib/prospects/read";
 import { PROSPECT_KINDS, PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
@@ -25,8 +25,8 @@ async function loadProspectSignals() {
 /**
  * The project's weekly scorecard. Auto numbers are counted here, at read
  * time, from the prospects sheet, deals, the content calendar and tasks;
- * typed-in numbers come from metric points. Sales rows are for admins only,
- * like the Sales page they count from.
+ * typed-in numbers come from metric points. Sales rows show to whoever may
+ * see the Sales page they count from.
  */
 export default async function ProjectAnalyticsPage({
   params,
@@ -39,14 +39,14 @@ export default async function ProjectAnalyticsPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "analytics")) notFound();
 
-  const isAdmin = canSeeConfidential(role);
+  const canSeeSales = canSeeDepartment("sales", role);
   const [metrics, signals, prospects] = await Promise.all([
     getMetrics(ws.id, id),
     getScorecardSignals(ws.id, id),
-    isAdmin && project.key === PROSPECTS_PRODUCT_KEY ? loadProspectSignals() : Promise.resolve(null),
+    canSeeSales && project.key === PROSPECTS_PRODUCT_KEY ? loadProspectSignals() : Promise.resolve(null),
   ]);
   const weeks = scorecardWeeks(new Date());
-  const rows = buildRows(metrics, weeks, signals, prospects).filter((r) => isAdmin || r.area !== "sales");
+  const rows = buildRows(metrics, weeks, signals, prospects).filter((r) => canSeeSales || r.area !== "sales");
 
   const notes: string[] = [];
   if (!prospects && rows.some((r) => r.source.startsWith("sales.") && r.source !== "sales.dealsWon"))

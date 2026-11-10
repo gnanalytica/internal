@@ -29,7 +29,7 @@ export type DepartmentView = { slug: string; label: string; color: string };
 /**
  * The department tabs this caller gets on a project — the web's
  * `visibleDepartments`, tightened to what the API will actually serve them:
- * Sales is for admins, Finance for admins and the project's own owner.
+ * Finance is for admins and the project's own owner; Sales for every member.
  * Operations have no departments.
  */
 export function departmentsForCaller(

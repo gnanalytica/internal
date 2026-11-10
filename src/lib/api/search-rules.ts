@@ -63,7 +63,7 @@ export function webPath(type: SearchType, id: string, projectId: string | null):
   }
 }
 
-/** Sales records (deals) are for admins, as on the web. */
+/** Sales records (deals) follow the web's Sales tab rule (`canSeeSales`). */
 const SALES_TYPES: ReadonlySet<SearchType> = new Set(["deal"]);
 
 /**
