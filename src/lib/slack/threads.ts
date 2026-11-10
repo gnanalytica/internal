@@ -3,11 +3,11 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { issues, slackChannelRules, slackComments, slackThreads } from "@/db/schema";
+import { comments, issues, slackChannelRules, slackComments, slackThreads } from "@/db/schema";
 import { apiCreateComment } from "@/lib/api/ops";
 import { audienceFor, notify, subscribe } from "@/lib/notify";
 import { channelsFor, type SlackEventType } from "./events";
-import type { LinkedThread } from "./sync-rules";
+import { claimSlackComment, type LinkedThread } from "./sync-rules";
 import type { AppUser } from "./users";
 
 /**
@@ -89,8 +89,10 @@ export type SlackOrigin = {
  * Comment on a task as someone in Slack: the linked app user, or — when Slack
  * can't place them — no author, with their Slack name kept beside the comment.
  * Watchers are told in the app as they are for a web comment. With `origin`,
- * the comment is marked as Slack's before it is announced, so the announcement
- * isn't echoed back into the thread it came from.
+ * the comment must claim its Slack message before it is announced
+ * (claimSlackComment), so a redelivered message never makes a second comment
+ * and the announcement isn't echoed back into the thread it came from.
+ * Resolves to the comment's id, or null when the message was already a comment.
  */
 export async function commentFromSlack(input: {
   workspaceId: string;
@@ -99,27 +101,37 @@ export async function commentFromSlack(input: {
   author: AppUser | null;
   body: string;
   origin?: SlackOrigin;
-}): Promise<string> {
+}): Promise<string | null> {
   const { workspaceId, issueId, author, origin } = input;
+  let claimed = true;
   const id = await apiCreateComment(workspaceId, author?.id ?? null, issueId, input.body, {
     beforeAnnounce: origin
-      ? async (commentId) => {
-          await db
-            .insert(slackComments)
-            .values({
-              commentId,
-              workspaceId,
-              issueId,
-              slackChannelId: origin.channel,
-              slackThreadTs: origin.threadTs,
-              slackTs: origin.ts,
-              slackUserId: origin.slackUserId,
-              authorName: author ? null : origin.authorName,
-            })
-            .onConflictDoNothing();
-        }
+      ? async (commentId) =>
+          (claimed = await claimSlackComment(commentId, {
+            claim: async (cid) => {
+              const won = await db
+                .insert(slackComments)
+                .values({
+                  commentId: cid,
+                  workspaceId,
+                  issueId,
+                  slackChannelId: origin.channel,
+                  slackThreadTs: origin.threadTs,
+                  slackTs: origin.ts,
+                  slackUserId: origin.slackUserId,
+                  authorName: author ? null : origin.authorName,
+                })
+                .onConflictDoNothing()
+                .returning({ id: slackComments.commentId });
+              return won.length > 0;
+            },
+            withdraw: async (cid) => {
+              await db.delete(comments).where(eq(comments.id, cid));
+            },
+          }))
       : undefined,
   });
+  if (!claimed) return null;
   if (author) {
     const target = { kind: "issue" as const, id: issueId };
     await subscribe(workspaceId, author.id, "issue", issueId);
