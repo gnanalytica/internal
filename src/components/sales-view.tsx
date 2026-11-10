@@ -8,37 +8,30 @@ import { DealBoard } from "@/components/deal-board";
 import { DealDialog } from "@/components/deal-dialog";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
-import { ScrollTabsList } from "@/components/responsive";
-import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { moveDeals } from "@/lib/actions";
-import { DepartmentTasks } from "@/components/department-tasks";
 import { ChartCard, ColumnChart, type Slice } from "@/components/charts";
 import { DEAL_STAGES, OPEN_DEAL_STAGES } from "@/lib/departments";
 import { formatMoney } from "@/lib/matrix-format";
-import type {
-  IssueListItem,
-  DealWithRelations,
-  Member,
-  Project,
-  TaskContext,
-} from "@/lib/types";
+import type { DealWithRelations, Member, Project } from "@/lib/types";
 
+/**
+ * Sales for a product without a prospects sheet: the deal board, with the
+ * pipeline's value by stage above it. Only Product and Engineering keep
+ * tasks, so there is no tasks view here; an old `?tab=tasks` link lands on
+ * the board like any other.
+ */
 export function SalesView({
   heading,
   scopeProjectId,
-  ctx,
   projects,
   members,
   initialDeals,
-  issues,
 }: {
   heading: string;
   scopeProjectId: string | null;
   projects: Project[];
   members: Member[];
   initialDeals: DealWithRelations[];
-  issues: IssueListItem[];
-  ctx: TaskContext;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -86,48 +79,28 @@ export function SalesView({
         }
       />
 
-      <Tabs
-        defaultValue="tasks"
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <ScrollTabsList>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="pipeline">Pipeline{count(initialDeals.length)}</TabsTrigger>
-        </ScrollTabsList>
-
-        <TabsContent value="tasks" className="min-h-0 flex-1 overflow-hidden">
-          <DepartmentTasks
-            issues={issues}
-            department="sales"
-            ctx={ctx}
-            projectId={scopeProjectId}
-            emptyLabel="No sales tasks yet."
-          />
-        </TabsContent>
-
-        <TabsContent value="pipeline" className="flex min-h-0 flex-1 flex-col">
-          {initialDeals.length === 0 ? (
-            <Empty label="No deals yet. Create your first deal to start the pipeline." />
-          ) : (
-            <>
-              <div className="px-3 pt-3 sm:px-4">
-                <ChartCard title="Pipeline by stage" hint={`${initialDeals.length} deals`}>
-                  <ColumnChart data={stageValue} format={(n) => formatMoney(n)} />
-                </ChartCard>
-              </div>
-              <div className="min-h-0 flex-1">
-                <DealBoard
-                  key={boardKey}
-                  deals={initialDeals}
-                  showProject={!scopeProjectId}
-                  persist={(changed) => startTransition(() => void moveDeals(changed))}
-                  onOpen={openDeal}
-                />
-              </div>
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {initialDeals.length === 0 ? (
+          <Empty label="No deals yet. Create your first deal to start the pipeline." />
+        ) : (
+          <>
+            <div className="px-3 pt-3 sm:px-4">
+              <ChartCard title="Pipeline by stage" hint={`${initialDeals.length} deals`}>
+                <ColumnChart data={stageValue} format={(n) => formatMoney(n)} />
+              </ChartCard>
+            </div>
+            <div className="min-h-0 flex-1">
+              <DealBoard
+                key={boardKey}
+                deals={initialDeals}
+                showProject={!scopeProjectId}
+                persist={(changed) => startTransition(() => void moveDeals(changed))}
+                onOpen={openDeal}
+              />
+            </div>
+          </>
+        )}
+      </div>
 
       <DealDialog
         open={dialogOpen}
@@ -141,12 +114,6 @@ export function SalesView({
       />
     </div>
   );
-}
-
-/** Row count beside a tab label, so an empty tab is visibly empty from outside it. */
-function count(n: number) {
-  if (!n) return null;
-  return <span className="ml-1.5 text-[11px] tabular-nums opacity-60">{n}</span>;
 }
 
 function Empty({ label }: { label: string }) {

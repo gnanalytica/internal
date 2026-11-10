@@ -37,29 +37,6 @@ export const ACTIVITY_TYPES = [
 ] as const;
 export const ACTIVITY_ICON: Record<string, "phone" | "mail" | "calendar" | "edit-3" | "check-square"> = { call: "phone", email: "mail", meeting: "calendar", note: "edit-3", task: "check-square" };
 
-export const CAMPAIGN_CHANNELS = opts([
-  { id: "email", label: "Email", color: "#6366f1" },
-  { id: "whatsapp", label: "WhatsApp", color: "#22c55e" },
-  { id: "linkedin", label: "LinkedIn", color: "#0ea5e9" },
-  { id: "events", label: "Events", color: "#a855f7" },
-  { id: "content", label: "Content", color: "#10b981" },
-  { id: "paid", label: "Paid", color: "#f59e0b" },
-  { id: "referral", label: "Referral", color: "#ec4899" },
-]);
-
-export const CAMPAIGN_STATUSES = opts([
-  { id: "planned", label: "Planned", color: "#94a3b8" },
-  { id: "active", label: "Active", color: "#10b981" },
-  { id: "done", label: "Done", color: "#6366f1" },
-]);
-
-export const CONTENT_STATUSES = opts([
-  { id: "idea", label: "Idea", color: "#94a3b8" },
-  { id: "draft", label: "Draft", color: "#f59e0b" },
-  { id: "scheduled", label: "Scheduled", color: "#6366f1" },
-  { id: "published", label: "Published", color: "#10b981" },
-]);
-
 export const INVOICE_STATUSES = opts([
   { id: "draft", label: "Draft", color: "#94a3b8" },
   { id: "sent", label: "Sent", color: "#6366f1" },
@@ -104,14 +81,6 @@ export const ENTITIES: Option[] = [
 export function optionOf(list: Option[], value: string | null | undefined): Option {
   return list.find((o) => o.value === value) ?? { value: value ?? "", label: value ?? "—" };
 }
-
-/** The labels that put a task on a department's surface (web: DEPARTMENT_LABELS). */
-export const DEPARTMENT_LABELS = {
-  sales: ["sales"],
-  "customer-success": ["account-mgmt", "maintenance"],
-  marketing: ["content", "social", "marketing-analytics", "market-research"],
-} as const;
-export type BusinessDepartment = keyof typeof DEPARTMENT_LABELS;
 
 // ---- Money: every row is stored in its entity's currency ----
 

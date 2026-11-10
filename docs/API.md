@@ -89,7 +89,7 @@ A `null` cursor means there are no more results. Other list endpoints
 | `DELETE` | `/metrics/{id}/points/{pointId}` | Delete a KPI value                         |
 | `GET`    | `/feedback`                   | List product feedback (`?project=`)           |
 | `POST`   | `/feedback`                   | Capture feedback                              |
-| `GET`    | `/content`                    | List content-calendar items (`?project=`)     |
+| `GET`    | `/content`                    | List content pieces (`?project=`), with `format`, `details`, `views`, `clicks` |
 | `POST`   | `/content`                    | Add a content item                            |
 | `GET`    | `/status-updates?project=`    | List weekly project status updates            |
 | `POST`   | `/status-updates`             | Post a status update                          |
@@ -295,7 +295,7 @@ ignored and `workspaceId` / `id` can never be written.
 | `labels`    | `name`, `color`                                                                                       |
 | `metrics`   | `name`, `unit`, `cadence`, `isNorthStar`, `projectId`                                                 |
 | `feedback`  | `title`, `body`, `source`, `status`, `votes`, `contact`, `featureId`, `projectId`                     |
-| `content`   | `title`, `channel`, `status`, `url`, `notes`, `publishDate`, `campaignId`, `projectId`, `ownerId`     |
+| `content`   | `title`, `channel`, `status`, `url`, `notes`, `publishDate`, `campaignId`, `projectId`, `ownerId`, `format`, `views`, `clicks` |
 | `org-roles` | `title`, `userId`, `parentId`                                                                         |
 | `activities`| `type`, `body`, `dueDate`, `done`, `accountId`, `contactId`, `dealId`, `projectId`                    |
 | `status-updates` | `health`, `body`                                                                                 |

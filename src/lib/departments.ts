@@ -281,12 +281,15 @@ export function optionMeta(
  *
  * A task appears in its department AND on the global board — these are lenses
  * on one set of issues, not separate task systems.
+ *
+ * Only Product and Engineering plan in tasks. Sales is the deal board (or
+ * Valytica's prospects) and Marketing plans by content piece, so neither
+ * claims tasks any more: issues still labelled `sales` or `content` keep their
+ * labels and stay on the global board, they just aren't a department's list.
  */
 export const DEPARTMENT_LABELS: Partial<Record<DepartmentSlug, string[]>> = {
   engineering: ["app", "ai-ml", "platform", "qa"],
   product: ["product", "pm", "setup-pm", "launch", "post-launch", "compliance", "risk"],
-  marketing: ["content", "social", "marketing-analytics", "market-research"],
-  sales: ["sales"],
   "customer-success": ["account-mgmt", "maintenance"],
 };
 

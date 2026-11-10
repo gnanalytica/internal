@@ -5,7 +5,7 @@ import { Tabs } from "expo-router";
 import { unreadCountQuery } from "@/features/inbox/api";
 import { useTheme } from "@/theme";
 
-/** The same five places as the web's mobile bottom bar: Home, Inbox, My issues, Prospects, More. */
+/** The same five places as the web's mobile bottom bar: Home, Inbox, My issues, Sales, More. */
 export default function TabsLayout() {
   const { c } = useTheme();
   const unread = useQuery(unreadCountQuery).data ?? 0;
@@ -30,7 +30,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: icon("home") }} />
       <Tabs.Screen name="inbox" options={{ title: "Inbox", tabBarIcon: icon("inbox"), tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarBadgeStyle: { backgroundColor: c.brand, fontSize: 10 } }} />
       <Tabs.Screen name="my-issues" options={{ title: "My issues", tabBarIcon: icon("check-circle") }} />
-      <Tabs.Screen name="prospects" options={{ title: "Prospects", tabBarIcon: icon("phone-call") }} />
+      {/* Labelled Sales, as on the web's bar; the route stays `prospects` so old deep links still open it. */}
+      <Tabs.Screen name="prospects" options={{ title: "Sales", tabBarIcon: icon("phone-call") }} />
       <Tabs.Screen name="more" options={{ title: "More", tabBarIcon: icon("menu") }} />
     </Tabs>
   );

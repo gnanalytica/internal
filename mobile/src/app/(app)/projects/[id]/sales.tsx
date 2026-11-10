@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
 
 import { ErrorView, Loading } from "@/components/ui";
-import { DepartmentTasks } from "@/features/business/department-tasks";
 import { Pipeline } from "@/features/business/sales/pipeline";
 import { DeptScaffold } from "@/features/business/scaffold";
 import { Restricted } from "@/features/business/ui";
@@ -11,13 +9,12 @@ import { projectQuery } from "@/features/projects/api";
 import { isDepartmentEnabled, PROSPECTS_PRODUCT_KEY } from "@/features/projects/departments";
 import { ProspectsWorkspace } from "@/features/prospects/workspace";
 
-type Segment = "tasks" | "pipeline";
-
 /**
  * A project's Sales, as on the web. For Valytica that is its prospects — the
  * sheet the team works every day — with Insights, Prospects, Customers (when
- * Customer Success is on) and Deals, plus Your day. Other products get their
- * sales tasks and the deal pipeline.
+ * Customer Success is on) and Deals, plus Your day. Other products get the
+ * deal pipeline: only Product and Engineering keep tasks, so an old
+ * `?tab=tasks` link lands on the pipeline too.
  *
  * Who may open it is the server's one department rule: Sales is in the
  * project's `visibleDepartments` for everyone the web's tab shows it to.
@@ -25,7 +22,6 @@ type Segment = "tasks" | "pipeline";
 export default function SalesScreen() {
   const { id, tab, cf, layout } = useLocalSearchParams<{ id: string; tab?: string; cf?: string; layout?: string }>();
   const q = useQuery(projectQuery(id));
-  const [segment, setSegment] = useState<Segment>("tasks");
 
   if (q.isPending || q.isError)
     return <DeptScaffold title="Sales" projectId={id}>{q.isPending ? <Loading /> : <ErrorView error={q.error} onRetry={() => void q.refetch()} />}</DeptScaffold>;
@@ -55,17 +51,8 @@ export default function SalesScreen() {
     );
 
   return (
-    <DeptScaffold
-      title="Sales"
-      projectId={id}
-      value={segment}
-      onChange={setSegment}
-      segments={[
-        { value: "tasks", label: "Tasks" },
-        { value: "pipeline", label: "Pipeline" },
-      ]}
-    >
-      {segment === "tasks" ? <DepartmentTasks projectId={id} department="sales" emptyTitle="No sales tasks yet" /> : <Pipeline projectId={id} />}
+    <DeptScaffold title="Sales" projectId={id}>
+      <Pipeline projectId={id} />
     </DeptScaffold>
   );
 }
