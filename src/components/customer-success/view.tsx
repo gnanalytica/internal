@@ -136,8 +136,6 @@ export function CustomersPanel({
             today={data.today}
             onLog={log}
             onChanged={onChanged}
-            showValue={data.showValue}
-            fromSheet={data.fromSheet}
             onOpenProspect={onOpenProspect}
           />
         ) : (

@@ -191,14 +191,14 @@ function CheckIns({ c, fb }: { c: CustomerView; fb: ProductFeedback }) {
   );
 }
 
-function CustomerRecord({ c, ctx, onOpenProspect, today, onLog, onChanged, showValue }: { c: CustomerView; ctx: RequestCtx; onOpenProspect: () => void; today: string; onLog: () => void; onChanged: () => void; showValue: boolean }) {
+function CustomerRecord({ c, ctx, onOpenProspect, today, onLog, onChanged }: { c: CustomerView; ctx: RequestCtx; onOpenProspect: () => void; today: string; onLog: () => void; onChanged: () => void }) {
   const [newOpen, setNewOpen] = useState(false);
   const owner = c.assigned || c.deal?.owner || "";
   const where = [KIND_LABEL[c.kind].one, c.city || c.state].filter(Boolean).join(" · ");
   const requests = sortRequests(c.requests);
   const facts = [
     { label: "Last touch", value: daysAgo(c.lastTouch, today) },
-    { label: "Plan", value: showValue ? planLabel(c) : c.stage === 5 ? "Won" : "Pilot" },
+    { label: "Plan", value: planLabel(c) },
     { label: "Open requests", value: String(c.openRequests) },
     { label: "Stage", value: <StagePill stage={c.stage} /> },
   ];
@@ -282,8 +282,6 @@ export function CustomersTab({
   today,
   onLog,
   onChanged,
-  showValue,
-  fromSheet,
   onOpenProspect,
 }: {
   customers: CustomerView[];
@@ -293,8 +291,6 @@ export function CustomersTab({
   today: string;
   onLog: (c: CustomerView) => void;
   onChanged: () => void;
-  showValue: boolean;
-  fromSheet: boolean;
   /** Open the prospect record behind a customer, on its Activity tab. */
   onOpenProspect: (r: { kind: ProspectKind; id: string }) => void;
 }) {
@@ -303,11 +299,7 @@ export function CustomersTab({
       <EmptyState
         icon={<Users className="size-5" />}
         title="No customers yet"
-        description={
-          fromSheet
-            ? "A prospect becomes a customer when Sales moves it to Pilot running or Won. It shows up here on its own, with the onboarding steps ready."
-            : "Customers come from the prospects sheet, which only Valytica has. Open requests still work here."
-        }
+        description="A prospect becomes a customer when Sales moves it to Pilot running or Won. It shows up here on its own, with the onboarding steps ready."
       />
     );
   }
@@ -315,7 +307,7 @@ export function CustomersTab({
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <CustomerList customers={customers} selected={c.ref} onSelect={onSelect} />
-      <CustomerRecord key={c.ref} c={c} ctx={ctx} onOpenProspect={() => onOpenProspect({ kind: c.kind, id: c.id })} today={today} onLog={() => onLog(c)} onChanged={onChanged} showValue={showValue} />
+      <CustomerRecord key={c.ref} c={c} ctx={ctx} onOpenProspect={() => onOpenProspect({ kind: c.kind, id: c.id })} today={today} onLog={() => onLog(c)} onChanged={onChanged} />
     </div>
   );
 }

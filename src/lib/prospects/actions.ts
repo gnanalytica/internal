@@ -40,11 +40,6 @@ export async function saveProspect(kind: ProspectKind, id: string, patch: Record
   return saveProspectRecord(kind, id, patch, invalidate, dealCtx);
 }
 
-/** Assign a row to whoever is signed in, by their first name as the team writes it. */
-export async function assignToMe(kind: ProspectKind, ids: string[]): Promise<ActionResult> {
-  return assignProspects(kind, ids, (await signedIn()).name, invalidate);
-}
-
 /**
  * Assign rows to a teammate. Only names of workspace members are accepted, so
  * a typo can't leave rows owned by nobody anyone recognises.

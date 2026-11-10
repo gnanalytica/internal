@@ -90,7 +90,7 @@ export function EngineeringView({
             embedded
           />
         ) : (
-          <CyclesView cycles={cycles} projectId={projectId} cadence={cadence} outstandingPoints={outstandingPoints} nowISO={nowISO} embedded hideCreate />
+          <CyclesView cycles={cycles} projectId={projectId} cadence={cadence} outstandingPoints={outstandingPoints} nowISO={nowISO} hideCreate />
         )}
       </div>
     </div>

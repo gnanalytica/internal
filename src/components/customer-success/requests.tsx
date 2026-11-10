@@ -382,7 +382,7 @@ function NewRequestForm({ ctx, customers, fixedRef, onDone }: { ctx: RequestCtx;
   );
 }
 
-/* ---------- the Requests tab ---------- */
+/* ---------- every request ("Open requests" on Sales → Customers) ---------- */
 
 type Filter = "open" | RequestState | "all";
 

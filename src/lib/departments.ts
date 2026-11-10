@@ -257,8 +257,6 @@ export const FEATURE_STATUSES = [
   { id: "archived", label: "Archived", color: "#64748b" },
 ] as const;
 
-export type FeatureStatusId = (typeof FEATURE_STATUSES)[number]["id"];
-
 export const ENTITIES = [
   { id: "India", label: "India 🇮🇳", color: "#f59e0b" },
   { id: "Netherlands", label: "Netherlands 🇳🇱", color: "#f97316" },

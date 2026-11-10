@@ -162,7 +162,7 @@ export default async function ProjectRoute({
       <div className="scrollbar-thin h-full overflow-y-auto">
         <div className="mx-auto w-full max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
           {header}
-          <ScorecardSection projectId={id} weeks={scorecard.weeks} rows={scorecard.rows} notes={scorecard.notes} defaultExpanded />
+          <ScorecardSection projectId={id} weeks={scorecard.weeks} rows={scorecard.rows} notes={scorecard.notes} />
         </div>
       </div>
     );

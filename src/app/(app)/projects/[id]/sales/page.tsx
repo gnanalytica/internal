@@ -42,7 +42,7 @@ export default async function ProjectSalesPage({
       loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus"),
       isDepartmentEnabled(project.enabledDepartments, "customer-success")
         ? // Anyone past the Sales gate sees deal values on Pipeline, so on customers too.
-          loadCustomerSuccess({ workspaceId: ws.id, projectId: id, fromSheet: true, showValue: true })
+          loadCustomerSuccess({ workspaceId: ws.id, projectId: id })
         : Promise.resolve(null),
     ]);
     return <ProspectsWorkspace data={data} deals={deals} customers={customers} />;
