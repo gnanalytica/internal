@@ -34,7 +34,7 @@ describe("web paths", () => {
   it("opens project-scoped records inside their project", () => {
     expect(webPath("milestone", "m1", "p1")).toBe("/projects/p1/milestones/m1");
     expect(webPath("feature", "f1", "p1")).toBe("/projects/p1/product/f1");
-    expect(webPath("cycle", "c1", "p1")).toBe("/projects/p1/cycles");
+    expect(webPath("cycle", "c1", "p1")).toBe("/projects/p1/engineering?tab=cycles");
     expect(webPath("deal", "d1", "p1")).toBe("/projects/p1/sales");
   });
   it("falls back to a flat path without a project", () => {

@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CustomersPanel } from "@/components/customer-success/view";
+import type { CustomerSuccessData } from "@/lib/customer-success-data";
 import { refreshProspects } from "@/lib/prospects/actions";
 import type { ActivityEntry } from "@/lib/prospects/parse";
 import { PROSPECT_KINDS, STAGES, type ProspectKind } from "@/lib/prospects/schema";
@@ -15,13 +17,12 @@ import type { DealWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { StageDot } from "./bits";
 import { TabIndicator } from "@/components/tab-indicator";
-import { DealsTab } from "./deals-tab";
 import { ListView } from "./list";
 import { LogTouchDialog, type LogTarget } from "./log-touch-dialog";
 import { MyWork } from "./my-work";
 import { Overview } from "./overview";
 import { Pipeline } from "./pipeline";
-import { Playbook } from "./playbook";
+import { ANSWERS_SECTION, Playbook } from "./playbook";
 import { ShareOutDialog } from "./share-out";
 import { RecordPage, useDetail, type LogOpts, type RecordTab, type Selection } from "./record";
 
@@ -43,13 +44,16 @@ const TABS = [
   { id: "today", label: "Today" },
   { id: "pipeline", label: "Pipeline" },
   { id: "list", label: "Prospects" },
-  { id: "deals", label: "Deals" },
+  { id: "customers", label: "Customers" },
   { id: "insights", label: "Insights" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"] | "playbook";
 
-/** Tab ids from before the redesign, so old links still land somewhere sensible. */
-const OLD_TABS: Record<string, Tab> = { mywork: "today", overview: "insights" };
+/**
+ * Tab ids from before, so old links still land somewhere sensible. Deals were
+ * a board of their own; their values and states are on the Pipeline cards now.
+ */
+const OLD_TABS: Record<string, Tab> = { mywork: "today", overview: "insights", deals: "pipeline" };
 
 function tabFrom(v: string | null): Tab {
   if (!v) return "today";
@@ -120,8 +124,12 @@ function ProspectPicker({ rows, onPick, open, onOpenChange, children, placeholde
  * Valytica's sales workspace. Everything shown is read from the prospects
  * Google Sheet; everything changed here is written back to it. View state
  * lives in the URL so any view, list or record can be shared as a link.
+ *
+ * `deals` puts each deal's value on its prospect's Pipeline card; `customers`
+ * (the product's Customer Success, when it has it on) adds the Customers tab
+ * and the Playbook's saved answers.
  */
-export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals?: DealWithRelations[] }) {
+export function ProspectsWorkspace({ data, deals, customers }: { data: WorkspaceData; deals?: DealWithRelations[]; customers?: CustomerSuccessData | null }) {
   const router = useRouter();
   const params = useSearchParams();
   const get = (k: string) => params.get(k);
@@ -187,7 +195,8 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
 
   const setTab = (t: Tab) => {
     setTabState(t);
-    sync({ tab: t === "today" ? null : t });
+    // The Customers tab's own state (?c=, ?cf=) goes when you leave it.
+    sync({ tab: t === "today" ? null : t, ...(t === "customers" ? {} : { c: null, cf: null }) });
   };
   const setKind = (k: ProspectKind | "") => {
     setKindState(k);
@@ -262,11 +271,11 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
 
   const everyone = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
   const showFull = Boolean(sel);
-  const tabs = TABS.filter((t) => t.id !== "deals" || deals);
+  const tabs = TABS.filter((t) => t.id !== "customers" || customers);
   const current: Tab = tab === "playbook" || tabs.some((t) => t.id === tab) ? tab : "today";
   const backLabel = current === "playbook" ? "Playbook" : tabs.find((t) => t.id === current)!.label;
-  // The deal board fills the page and scrolls itself.
-  const fullBleed = !showFull && current === "deals";
+  // The customer list and record fill the page and scroll themselves.
+  const customersView = !showFull && current === "customers" ? (customers ?? null) : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -290,6 +299,7 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
                 >
                   {t.label}
                   {t.id === "list" && <span className="ml-1.5 font-mono text-[11px] text-muted-foreground/70">{everyone.length.toLocaleString("en-IN")}</span>}
+                  {t.id === "customers" && customers && <span className="ml-1.5 font-mono text-[11px] text-muted-foreground/70">{customers.customers.length.toLocaleString("en-IN")}</span>}
                 </button>
               );
             })}
@@ -334,8 +344,20 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
         </div>
       </header>
 
-      {fullBleed ? (
-        <div key={current} className="animate-fade min-h-0 flex-1"><DealsTab deals={deals ?? []} onOpen={open} /></div>
+      {customersView ? (
+        <div key={current} className="animate-fade min-h-0 flex-1">
+          <CustomersPanel
+            data={customersView}
+            onOpenProspect={(r) => {
+              open(r);
+              setRecTab("activity");
+            }}
+            onOpenAnswers={() => {
+              setPb(ANSWERS_SECTION);
+              setTab("playbook");
+            }}
+          />
+        </div>
       ) : (
       <div data-prospects-scroll className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         <div key={showFull && sel ? `rec:${sel.kind}:${sel.id}` : current} className="animate-enter">
@@ -374,6 +396,7 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
             setLayout={setLayout}
             scope={data.scope}
             setScope={setScope}
+            deals={deals}
             onOpen={open}
             onMore={(s, k) => {
               setKind(k);
@@ -419,7 +442,7 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
             <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={() => setTab("today")}>
               <ArrowLeft /> Back
             </Button>
-            <Playbook section={pb} setSection={setPb} />
+            <Playbook section={pb} setSection={setPb} answers={customers ? { list: customers.answers, projectId: customers.projectId, onChanged: () => router.refresh() } : undefined} />
           </div>
         )}
         </div>

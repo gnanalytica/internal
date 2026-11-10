@@ -1,69 +1,44 @@
 "use client";
 
+import { BookOpen } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
-import { DepartmentHeader } from "@/components/department-header";
 import { useProductFeedbackState } from "@/components/product/send-to-product";
+import { Segmented } from "@/components/prospects-dashboard/bits";
 import { LogTouchDialog, type LogTarget } from "@/components/prospects-dashboard/log-touch-dialog";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { customerHealth, HEALTH, requestState } from "@/lib/customer-success";
 import type { CustomerSuccessData } from "@/lib/customer-success-data";
+import type { ProspectKind } from "@/lib/prospects/schema";
 import { cn } from "@/lib/utils";
-import { AnswersTab } from "./answers";
-import { HealthDot, type CustomerView } from "./bits";
+import { type CustomerView } from "./bits";
 import { CustomersTab } from "./customers";
 import { RequestsTab, type RequestCtx } from "./requests";
 
-type Tab = "customers" | "requests" | "answers";
-const TAB_IDS: Tab[] = ["customers", "requests", "answers"];
-
-/** Pick a customer to log a check-in for, from the header. */
-function CheckInPicker({ customers, onPick }: { customers: CustomerView[]; onPick: (c: CustomerView) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button size="sm" className="h-8 shrink-0 max-sm:px-2.5" disabled={!customers.length}>
-            Log<span className="max-sm:hidden">&nbsp;a check-in</span>
-          </Button>
-        }
-      />
-      <PopoverContent align="end" className="w-[min(92vw,340px)] gap-0 p-1">
-        <p className="px-2 pt-1.5 pb-1 text-xs text-muted-foreground">Log a check-in for…</p>
-        <div className="flex max-h-80 flex-col overflow-y-auto">
-          {customers.map((c) => (
-            <button
-              key={c.ref}
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onPick(c);
-              }}
-              className="flex h-9 items-center gap-2.5 rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-            >
-              <HealthDot health={c.health} />
-              <span className="min-w-0 flex-1 truncate">{c.name}</span>
-              <span className="text-xs text-muted-foreground">{HEALTH[c.health].label}</span>
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
+type Show = "customers" | "requests";
 
 /**
- * Customer Success, customer first: every prospect at Pilot running or Won is
- * a customer with an onboarding checklist, requests and check-ins. View state
- * lives in the URL (?tab=, ?c=) so a customer can be shared as a link.
+ * The Customers tab of Valytica's Sales workspace (it was the Customer
+ * Success page): every prospect at Pilot running or Won is a customer with an
+ * onboarding checklist, requests and check-ins. "Open requests" lists every
+ * request across customers, as the old Requests tab did. View state lives in
+ * the URL (?c= the customer, ?cf=requests) so either can be shared as a link.
  */
-export function CustomerSuccessView({ data }: { data: CustomerSuccessData }) {
+export function CustomersPanel({
+  data,
+  onOpenProspect,
+  onOpenAnswers,
+}: {
+  data: CustomerSuccessData;
+  /** Open a customer's prospect record in Sales, on its Activity tab. */
+  onOpenProspect: (r: { kind: ProspectKind; id: string }) => void;
+  /** Open the saved answers (Playbook → Answers). */
+  onOpenAnswers: () => void;
+}) {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTabState] = useState<Tab>(() => (TAB_IDS as string[]).includes(params.get("tab") ?? "") ? (params.get("tab") as Tab) : "customers");
+  const [show, setShowState] = useState<Show>(() => (params.get("cf") === "requests" ? "requests" : "customers"));
   const [selected, setSelectedState] = useState<string | null>(params.get("c"));
   const [logTarget, setLogTarget] = useState<LogTarget | null>(null);
   const [logOpen, setLogOpen] = useState(false);
@@ -77,18 +52,18 @@ export function CustomerSuccessView({ data }: { data: CustomerSuccessData }) {
     const qs = next.toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
   }, []);
-  const setTab = (t: Tab) => {
-    setTabState(t);
-    sync({ tab: t === "customers" ? null : t });
+  const setShow = (s: Show) => {
+    setShowState(s);
+    sync({ cf: s === "customers" ? null : s });
   };
   const select = (ref: string) => {
     setSelectedState(ref);
     sync({ c: ref });
   };
   const openCustomer = (ref: string) => {
-    setTabState("customers");
+    setShowState("customers");
     setSelectedState(ref);
-    sync({ tab: null, c: ref });
+    sync({ cf: null, c: ref });
   };
   const onChanged = useCallback(() => router.refresh(), [router]);
   const fb = useProductFeedbackState(data.feedback);
@@ -112,26 +87,36 @@ export function CustomerSuccessView({ data }: { data: CustomerSuccessData }) {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <DepartmentHeader
-        label="Customer Success views"
-        tabs={[
-          { id: "customers", label: "Customers", count: customers.length },
-          { id: "requests", label: "Requests", count: openRequests },
-          { id: "answers", label: "Answers", count: data.answers.length },
-        ]}
-        current={tab}
-        onChange={setTab}
-        actions={
-          tab === "customers" && current ? (
-            <Button size="sm" className="h-8 shrink-0 max-sm:px-2.5" onClick={() => log(current)}>
-              Log<span className="max-sm:hidden">&nbsp;a check-in</span>
-            </Button>
-          ) : (
-            <CheckInPicker customers={customers} onPick={log} />
-          )
-        }
-      />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 sm:px-6">
+        <Segmented
+          label="Show customers or open requests"
+          value={show}
+          onChange={setShow}
+          options={[
+            {
+              value: "customers",
+              label: (
+                <>
+                  Customers<span className="ml-1.5 font-mono text-[11px] text-muted-foreground/70">{customers.length}</span>
+                </>
+              ),
+            },
+            {
+              value: "requests",
+              label: (
+                <>
+                  Open requests<span className="ml-1.5 font-mono text-[11px] text-muted-foreground/70">{openRequests}</span>
+                </>
+              ),
+            },
+          ]}
+        />
+        <span className="flex-1" />
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onOpenAnswers}>
+          <BookOpen /> Saved answers<span className="ml-0.5 font-mono text-[11px] text-muted-foreground/70">{data.answers.length}</span>
+        </Button>
+      </div>
 
       {data.warnings.length > 0 && (
         <div role="alert" className="mx-3 mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 sm:mx-6 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
@@ -141,24 +126,22 @@ export function CustomerSuccessView({ data }: { data: CustomerSuccessData }) {
         </div>
       )}
 
-      <div key={tab} className={cn("animate-enter min-h-0 flex-1", tab === "customers" ? "flex flex-col overflow-y-auto lg:overflow-hidden" : "overflow-y-auto px-3 py-4 sm:px-6 sm:py-5")}>
-        {tab === "customers" ? (
+      <div key={show} className={cn("animate-enter min-h-0 flex-1", show === "customers" ? "flex flex-col overflow-y-auto lg:overflow-hidden" : "overflow-y-auto px-3 py-4 sm:px-6 sm:py-5")}>
+        {show === "customers" ? (
           <CustomersTab
             customers={customers}
             selected={current?.ref ?? null}
             onSelect={select}
             ctx={ctx}
-            projectId={data.projectId}
             today={data.today}
             onLog={log}
             onChanged={onChanged}
             showValue={data.showValue}
             fromSheet={data.fromSheet}
+            onOpenProspect={onOpenProspect}
           />
-        ) : tab === "requests" ? (
-          <RequestsTab requests={data.requests} customers={customers} dealNames={data.dealNames} ctx={ctx} onOpenCustomer={openCustomer} />
         ) : (
-          <AnswersTab answers={data.answers} projectId={data.projectId} onChanged={onChanged} />
+          <RequestsTab requests={data.requests} customers={customers} dealNames={data.dealNames} ctx={ctx} onOpenCustomer={openCustomer} />
         )}
       </div>
 

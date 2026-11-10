@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { BarChart3, CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
+import { CircleDot, Compass, LifeBuoy, Megaphone, TrendingUp } from "lucide-react";
 
+import { ScorecardSection } from "@/components/analytics-view";
 import { DepartmentStrip, type DepartmentStat } from "@/components/department-strip";
 import { FinanceView } from "@/components/finance-view";
 import { OwnerPicker } from "@/components/owner-picker";
@@ -11,6 +12,7 @@ import { ProjectSchedule } from "@/components/project-schedule";
 import {
   CONFIDENTIAL_DEPARTMENTS,
   canSeeConfidential,
+  customerRequestsHref,
   isConfidentialDepartment,
   isDepartmentEnabled,
   issueBelongsToDepartment,
@@ -35,6 +37,8 @@ import {
 } from "@/lib/data";
 import { getTaskContext } from "@/lib/task-context";
 import { formatCurrency } from "@/lib/currency";
+import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
+import { loadScorecard } from "@/lib/scorecard-data";
 
 export default async function ProjectRoute({
   params,
@@ -118,11 +122,16 @@ export default async function ProjectRoute({
     );
   }
 
-  // Projects: the department overview hub.
-  const [summaries, allIssues, ctx] = await Promise.all([
+  // Projects: the department overview hub, opening with the weekly scorecard
+  // when the project has Analytics on (it used to be a tab of its own).
+  const isAdmin = canSeeConfidential(myRole);
+  const [summaries, allIssues, ctx, scorecard] = await Promise.all([
     getProjectSummaries(ws.id),
     getIssues(ws.id),
     getTaskContext(ws.id),
+    isDepartmentEnabled(project.enabledDepartments, "analytics")
+      ? loadScorecard(ws.id, { id, key: project.key }, isAdmin)
+      : Promise.resolve(null),
   ]);
   const members = ctx.members;
   const summary = summaries.find((p) => p.id === id);
@@ -154,14 +163,6 @@ export default async function ProjectRoute({
       unit: `open ${plural(eng, "ticket")}`,
     },
     {
-      slug: "analytics" as const,
-      href: `/projects/${id}/analytics`,
-      icon: <BarChart3 className="size-3.5" />,
-      label: "Analytics",
-      value: n(summary.metricCount),
-      unit: plural(summary.metricCount, "metric"),
-    },
-    {
       slug: "marketing" as const,
       href: `/projects/${id}/marketing`,
       icon: <Megaphone className="size-3.5" />,
@@ -178,14 +179,20 @@ export default async function ProjectRoute({
       unit: `open ${plural(summary.openDeals, "deal")}`,
       extra: `${formatCurrency(summary.pipelineValueInr, "INR")} pipeline`,
     },
-    {
-      slug: "customer-success" as const,
-      href: `/projects/${id}/customer-success`,
-      icon: <LifeBuoy className="size-3.5" />,
-      label: "Customer Success",
-      value: n(summary.openTickets),
-      unit: `open ${plural(summary.openTickets, "request")}`,
-    },
+    // Customer Success lives in Sales → Customers now, which only Valytica's
+    // prospects workspace has; elsewhere there is no customer list to open.
+    ...(project.key === PROSPECTS_PRODUCT_KEY
+      ? [
+          {
+            slug: "customer-success" as const,
+            href: customerRequestsHref(id),
+            icon: <LifeBuoy className="size-3.5" />,
+            label: "Customers",
+            value: n(summary.openTickets),
+            unit: `open ${plural(summary.openTickets, "request")}`,
+          },
+        ]
+      : []),
   ]
     .filter((c) => isDepartmentEnabled(summary.enabledDepartments, c.slug))
     .filter((c) => canSeeConfidential(myRole) || !isConfidentialDepartment(c.slug));
@@ -220,6 +227,7 @@ export default async function ProjectRoute({
             )}
           </div>
         </div>
+        {scorecard && <ScorecardSection projectId={id} weeks={scorecard.weeks} rows={scorecard.rows} notes={scorecard.notes} />}
         <DepartmentStrip stats={stats} />
         <ProjectSchedule projectId={id} issues={scheduleIssues} ctx={ctx} />
       </div>

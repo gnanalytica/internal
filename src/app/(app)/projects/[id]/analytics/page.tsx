@@ -1,62 +1,10 @@
-import { notFound } from "next/navigation";
-
-import { AnalyticsView } from "@/components/analytics-view";
-import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
-import { getMetrics, getMyRole, getProject, getScorecardSignals, getWorkspace } from "@/lib/data";
-import { loadProspectSnapshot } from "@/lib/prospects/read";
-import { PROSPECT_KINDS, PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
-import { buildRows, prospectSignals, scorecardWeeks } from "@/lib/scorecard";
+import { redirect } from "next/navigation";
 
 /**
- * The sales facts the scorecard counts, from the prospects sheet (Valytica
- * only). A sheet that can't be read leaves the sales rows blank rather than
- * taking the whole scorecard down.
+ * The scorecard moved to the top of the project's Overview; old links to the
+ * Analytics tab land there.
  */
-async function loadProspectSignals() {
-  try {
-    const snap = await loadProspectSnapshot();
-    return prospectSignals(snap.activity, PROSPECT_KINDS.flatMap((k) => snap.rows[k]));
-  } catch (err) {
-    console.error("scorecard: prospects sheet unreadable", err);
-    return null;
-  }
-}
-
-/**
- * The project's weekly scorecard. Auto numbers are counted here, at read
- * time, from the prospects sheet, deals, the content calendar and tasks;
- * typed-in numbers come from metric points. Sales rows are for admins only,
- * like the Sales page they count from.
- */
-export default async function ProjectAnalyticsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ProjectAnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const ws = await getWorkspace();
-  const [project, role] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id)]);
-  if (!project) notFound();
-  if (!isDepartmentEnabled(project.enabledDepartments, "analytics")) notFound();
-
-  const isAdmin = canSeeConfidential(role);
-  const [metrics, signals, prospects] = await Promise.all([
-    getMetrics(ws.id, id),
-    getScorecardSignals(ws.id, id),
-    isAdmin && project.key === PROSPECTS_PRODUCT_KEY ? loadProspectSignals() : Promise.resolve(null),
-  ]);
-  const weeks = scorecardWeeks(new Date());
-  const rows = buildRows(metrics, weeks, signals, prospects).filter((r) => isAdmin || r.area !== "sales");
-
-  const notes: string[] = [];
-  if (!prospects && rows.some((r) => r.source.startsWith("sales.") && r.source !== "sales.dealsWon"))
-    notes.push(
-      project.key === PROSPECTS_PRODUCT_KEY
-        ? "The Prospects sheet couldn't be read, so touches, demos and launch-ready leads are blank."
-        : "Touches, demos and launch-ready leads are counted from Valytica's Prospects sheet, so they stay blank here.",
-    );
-  if (!signals.defects && rows.some((r) => r.source === "reliability.openDefects"))
-    notes.push("No urgent or high task in this project is labelled bug or defect yet, so open defects stays blank. Label defects “bug” to count them.");
-
-  return <AnalyticsView projectId={id} weeks={weeks} rows={rows} notes={notes} />;
+  redirect(`/projects/${id}`);
 }

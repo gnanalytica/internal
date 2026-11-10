@@ -4,10 +4,13 @@ import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDro
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { formatCurrency } from "@/lib/currency";
+import { dealsByProspect, openDealTotal, type DealSummary } from "@/lib/prospects/deal-values";
 import { displayDate } from "@/lib/prospects/parse";
 import { KIND_LABEL, PROSPECT_KINDS, STAGES, type ProspectKind } from "@/lib/prospects/schema";
 import { addDays, dueBucket, isAssignedTo, isOpen, type ProspectRow } from "@/lib/prospects/stats";
 import { tone } from "@/lib/tones";
+import type { DealWithRelations } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { DueChip, FilterMenu, KIND_TONE, Owner, PATH, Segmented, StageDot, stageTone } from "./bits";
 import { useStageMove } from "./stage-check";
@@ -79,7 +82,25 @@ function sortForBoard(a: ProspectRow, b: ProspectRow, today: string): number {
   return rank(a) - rank(b) || (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name);
 }
 
-function BoardCard({ r, today, onOpen, overlay }: { r: ProspectRow; today: string; onOpen?: (r: ProspectRow) => void; overlay?: boolean }) {
+/** A prospect's deal on its card: the value, and Won or Lost once it closes. */
+function DealChip({ deal }: { deal: DealSummary }) {
+  const money = deal.value ? formatCurrency(deal.value, deal.currency) : null;
+  const label = deal.state === "won" ? (money ? `Won · ${money}` : "Won") : deal.state === "lost" ? (money ? `Lost · ${money}` : "Lost") : (money ?? "Deal, no amount");
+  return (
+    <span
+      title={deal.state === "open" ? "Open deal" : `Deal ${deal.state}`}
+      className={cn(
+        "inline-flex h-5 items-center rounded-md px-1.5 font-mono text-[11px] font-medium whitespace-nowrap tabular-nums",
+        deal.state === "won" ? tone("green").chip : deal.state === "lost" ? cn(tone("gray").chip, "line-through") : "bg-muted text-foreground",
+      )}
+    >
+      <span className="sr-only">{deal.state === "open" ? "Open deal: " : "Deal: "}</span>
+      {label}
+    </span>
+  );
+}
+
+function BoardCard({ r, today, deal, onOpen, overlay }: { r: ProspectRow; today: string; deal?: DealSummary; onOpen?: (r: ProspectRow) => void; overlay?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `${r.kind}:${r.id}`, data: { row: r }, disabled: overlay });
   return (
     <button
@@ -98,13 +119,14 @@ function BoardCard({ r, today, onOpen, overlay }: { r: ProspectRow; today: strin
       <span className="mt-0.5 flex items-center gap-2">
         <DueChip date={r.nextStepDate} today={today} />
         <span className="flex-1" />
+        {deal && <DealChip deal={deal} />}
         <Owner name={r.assigned} />
       </span>
     </button>
   );
 }
 
-function Column({ stage, rows, total, today, onOpen, onMore }: { stage: number; rows: ProspectRow[]; total: number; today: string; onOpen: (r: ProspectRow) => void; onMore: () => void }) {
+function Column({ stage, rows, total, today, deals, onOpen, onMore }: { stage: number; rows: ProspectRow[]; total: number; today: string; deals: Map<string, DealSummary>; onOpen: (r: ProspectRow) => void; onMore: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: `stage-${stage}` });
   return (
     <section ref={setNodeRef} aria-label={STAGES[stage]} className={cn("flex min-h-[420px] w-[82vw] max-w-80 shrink-0 snap-start flex-col gap-2 rounded-xl border-t-2 bg-muted/50 p-2 transition-[box-shadow,background-color] duration-150 sm:w-auto sm:max-w-none sm:min-w-[176px] sm:flex-1", stageTone(stage).edgeT, isOver && "bg-muted ring-2 ring-brand/40")}>
@@ -114,7 +136,7 @@ function Column({ stage, rows, total, today, onOpen, onMore }: { stage: number; 
         <span className={cn("rounded-full px-1.5 font-mono text-[11px] tabular-nums", stageTone(stage).chip)}>{total.toLocaleString("en-IN")}</span>
       </div>
       {rows.map((r) => (
-        <BoardCard key={`${r.kind}:${r.id}`} r={r} today={today} onOpen={onOpen} />
+        <BoardCard key={`${r.kind}:${r.id}`} r={r} today={today} deal={deals.get(`${r.kind}:${r.id}`)} onOpen={onOpen} />
       ))}
       {total === 0 && <p className="px-1.5 py-2 text-xs text-muted-foreground">Nothing here yet</p>}
       {total > rows.length && (
@@ -126,7 +148,7 @@ function Column({ stage, rows, total, today, onOpen, onMore }: { stage: number; 
   );
 }
 
-function Board({ rows, today, onOpen, onMore, onChanged }: { rows: ProspectRow[]; today: string; onOpen: (r: ProspectRow) => void; onMore: (stage: number) => void; onChanged: () => void }) {
+function Board({ rows, today, deals, onOpen, onMore, onChanged }: { rows: ProspectRow[]; today: string; deals: Map<string, DealSummary>; onOpen: (r: ProspectRow) => void; onMore: (stage: number) => void; onChanged: () => void }) {
   const [active, setActive] = useState<ProspectRow | null>(null);
   const { move, dialog } = useStageMove(onChanged);
   // A touch drag starts only after a press-and-hold, so a swipe still scrolls the board.
@@ -149,11 +171,11 @@ function Board({ rows, today, onOpen, onMore, onChanged }: { rows: ProspectRow[]
     <DndContext id="prospects-board" sensors={sensors} onDragStart={(e) => setActive((e.active.data.current?.row as ProspectRow) ?? null)} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
       <div className="-mx-3 flex snap-x snap-mandatory scroll-px-3 gap-2.5 overflow-x-auto px-3 pb-2 sm:mx-0 sm:snap-none sm:px-0">
         {PATH.map((s, i) => (
-          <Column key={s} stage={i} rows={columns[i].shown} total={columns[i].all} today={today} onOpen={onOpen} onMore={() => onMore(i)} />
+          <Column key={s} stage={i} rows={columns[i].shown} total={columns[i].all} today={today} deals={deals} onOpen={onOpen} onMore={() => onMore(i)} />
         ))}
       </div>
       <LostDrop count={columns[6].all} onMore={() => onMore(6)} />
-      <DragOverlay>{active ? <BoardCard r={active} today={today} overlay /> : null}</DragOverlay>
+      <DragOverlay>{active ? <BoardCard r={active} today={today} deal={deals.get(`${active.kind}:${active.id}`)} overlay /> : null}</DragOverlay>
       {dialog}
     </DndContext>
   );
@@ -169,7 +191,7 @@ function LostDrop({ count, onMore }: { count: number; onMore: () => void }) {
       <span className="text-muted-foreground max-sm:hidden">·</span>
       <span className="text-muted-foreground">
         <span className="sm:hidden">Press and hold a card to drag it to another stage.</span>
-        <span className="max-sm:hidden">Drag a card to change its stage, or here to mark it lost. Moving forward asks for what the stage needs.</span>
+        <span className="max-sm:hidden">Drag a card to change its stage, or here to mark it lost. Moving forward asks for what the stage needs, and the deal follows.</span>
       </span>
     </div>
   );
@@ -264,6 +286,7 @@ export function Pipeline({
   setLayout,
   scope,
   setScope,
+  deals,
   onOpen,
   onMore,
   onChanged,
@@ -276,14 +299,27 @@ export function Pipeline({
   setLayout: (l: "board" | "timeline") => void;
   scope: "focus" | "all";
   setScope: (s: "focus" | "all") => void;
+  /**
+   * The product's deals. One opens when a prospect reaches Demo done and
+   * follows its stage to Won or Lost; its value shows on the prospect's card.
+   */
+  deals?: DealWithRelations[];
   onOpen: (r: ProspectRow) => void;
   onMore: (stage: number, kind: ProspectKind | "") => void;
   onChanged: () => void;
 }) {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const shown = useMemo(() => applyFilters(rows, filters, me), [rows, filters, me]);
+  const byProspect = useMemo(() => dealsByProspect(deals ?? []), [deals]);
+  const open = useMemo(() => openDealTotal(deals ?? []), [deals]);
   return (
     <div className="flex flex-col gap-3">
+      {deals && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground tabular-nums">{formatCurrency(open.inr, "INR")}</span> in {open.count.toLocaleString("en-IN")} open {open.count === 1 ? "deal" : "deals"}
+          <span className="max-sm:hidden"> · a deal opens at Demo done and moves with its prospect</span>
+        </p>
+      )}
       <FilterBar filters={filters} setFilters={setFilters} team={team} scope={scope} setScope={setScope}>
         <Segmented
           label="Layout"
@@ -295,7 +331,7 @@ export function Pipeline({
           ]}
         />
       </FilterBar>
-      {layout === "board" ? <Board rows={shown} today={today} onOpen={onOpen} onMore={(s) => onMore(s, filters.kind)} onChanged={onChanged} /> : <Timeline rows={shown} today={today} team={team} onOpen={onOpen} />}
+      {layout === "board" ? <Board rows={shown} today={today} deals={byProspect} onOpen={onOpen} onMore={(s) => onMore(s, filters.kind)} onChanged={onChanged} /> : <Timeline rows={shown} today={today} team={team} onOpen={onOpen} />}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProspectsWorkspace } from "@/components/prospects-dashboard/workspace";
 import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
+import { loadCustomerSuccess } from "@/lib/customer-success-data";
 import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
 import { getDeals, getMyRole, getIssues, getProject, getWorkspace } from "@/lib/data";
 import { loadProspectsWorkspace } from "@/lib/prospects/page-data";
@@ -11,8 +12,13 @@ import { getTaskContext } from "@/lib/task-context";
 
 /**
  * The project's sales. For Valytica that is its prospects — the sheet the team
- * works every day — with the deals they turn into beside them. Other products
- * get the deal board and their sales tasks.
+ * works every day — with each deal's value on its prospect's Pipeline card,
+ * and (when Customer Success is on) the Customers tab: the prospects at Pilot
+ * running or Won, with onboarding, requests and check-ins. Other products get
+ * the deal board and their sales tasks.
+ *
+ * Admins only, as before. Customer Success used to be its own tab that members
+ * could open too; it moved in here behind the same gate.
  */
 export default async function ProjectSalesPage({
   params,
@@ -32,8 +38,13 @@ export default async function ProjectSalesPage({
   if (!canSeeConfidential(role)) return <Restricted label="Sales" />;
 
   if (project.key === PROSPECTS_PRODUCT_KEY) {
-    const data = await loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus");
-    return <ProspectsWorkspace data={data} deals={deals} />;
+    const [data, customers] = await Promise.all([
+      loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus"),
+      isDepartmentEnabled(project.enabledDepartments, "customer-success")
+        ? loadCustomerSuccess({ workspaceId: ws.id, projectId: id, fromSheet: true, showValue: true })
+        : Promise.resolve(null),
+    ]);
+    return <ProspectsWorkspace data={data} deals={deals} customers={customers} />;
   }
 
   const [ctx, issues] = await Promise.all([getTaskContext(ws.id), getIssues(ws.id)]);

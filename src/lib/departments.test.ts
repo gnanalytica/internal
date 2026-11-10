@@ -6,10 +6,14 @@ import {
   INVOICE_STATUSES,
   OPEN_DEAL_STAGES,
   canSeeConfidentialDept,
+  customerRequestsHref,
+  departmentHref,
   enabledDepartments,
   isConfidentialDepartment,
   isDepartmentEnabled,
+  isTopLevelDepartment,
   optionMeta,
+  projectCyclesHref,
   visibleDepartments,
 } from "@/lib/departments";
 
@@ -83,6 +87,29 @@ describe("per-project department config", () => {
   it("isDepartmentEnabled honors an explicit enabled array", () => {
     expect(isDepartmentEnabled(["strategy"], "strategy")).toBe(true);
     expect(isDepartmentEnabled(["strategy"], "product")).toBe(false);
+  });
+});
+
+describe("nested departments", () => {
+  // Analytics is the Overview's scorecard and Customer Success is Sales →
+  // Customers: their slugs still gate those views, they just get no tab.
+  it("gives every department but Analytics and Customer Success its own tab", () => {
+    expect(DEPARTMENTS.filter((d) => isTopLevelDepartment(d.slug)).map((d) => d.slug)).toEqual([
+      "product", "engineering", "marketing", "sales", "finance", "strategy",
+    ]);
+  });
+
+  it("keeps the enabled-departments semantics for nested slugs", () => {
+    expect(isDepartmentEnabled(["sales", "customer-success"], "customer-success")).toBe(true);
+    expect(isDepartmentEnabled(["analytics"], "analytics")).toBe(true);
+  });
+
+  it("points nested departments at the view that holds them", () => {
+    expect(departmentHref("p1", "analytics")).toBe("/projects/p1");
+    expect(departmentHref("p1", "customer-success")).toBe("/projects/p1/sales?tab=customers");
+    expect(departmentHref("p1", "marketing")).toBe("/projects/p1/marketing");
+    expect(customerRequestsHref("p1")).toBe("/projects/p1/sales?tab=customers&cf=requests");
+    expect(projectCyclesHref("p1")).toBe("/projects/p1/engineering?tab=cycles");
   });
 });
 

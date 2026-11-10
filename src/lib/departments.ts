@@ -161,6 +161,37 @@ export function isDepartmentEnabled(
   return enabledDepartments(enabled).some((d) => d.slug === slug);
 }
 
+/**
+ * Departments that live inside another surface rather than as a project tab
+ * of their own: Analytics is the scorecard at the top of the Overview, and
+ * Customer Success is the Customers tab in Sales. Their slugs keep their
+ * meaning — enabling one still turns that view on — they just don't get a tab.
+ */
+export const NESTED_DEPARTMENTS: readonly DepartmentSlug[] = ["analytics", "customer-success"];
+
+/** Whether a department gets its own tab in a project's tab strip. */
+export const isTopLevelDepartment = (slug: string): boolean =>
+  !NESTED_DEPARTMENTS.includes(slug as DepartmentSlug);
+
+/**
+ * Where a department's surface lives for one project. Nested departments
+ * point at the view that now holds them; the rest are `/projects/[id]/<slug>`.
+ */
+export function departmentHref(projectId: string, slug: DepartmentSlug): string {
+  const base = `/projects/${projectId}`;
+  if (slug === "analytics") return base;
+  if (slug === "customer-success") return `${base}/sales?tab=customers`;
+  return `${base}/${slug}`;
+}
+
+/** A project's cycles: the Cycles view inside Engineering. */
+export const projectCyclesHref = (projectId: string): string =>
+  `/projects/${projectId}/engineering?tab=cycles`;
+
+/** A project's customer requests: the Customers tab in Sales, showing the open ones. */
+export const customerRequestsHref = (projectId: string): string =>
+  `/projects/${projectId}/sales?tab=customers&cf=requests`;
+
 // ---- Sales: pipeline stages (order = board columns) ----
 export const DEAL_STAGES = [
   { id: "lead", label: "Lead", color: "#94a3b8" },

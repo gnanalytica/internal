@@ -22,30 +22,10 @@ const STATUS_STYLE: Record<string, string> = {
   completed: "bg-emerald-500/10 text-emerald-600",
 };
 
-export function CyclesView({
-  cycles,
-  projectId,
-  cadence = null,
-  outstandingPoints = 0,
-  nowISO,
-  embedded = false,
-}: {
-  cycles: CycleWithCount[];
-  /** When set, cycles are scoped to this project and creation is enabled. */
-  projectId?: string;
-  /** The project's standing ceremonies; editable only on a project surface. */
-  cadence?: CycleCadence | null;
-  /** Open points on this project, for the velocity projection. */
-  outstandingPoints?: number;
-  /** Server-rendered "now", so velocity doesn't shift between server and client. */
-  nowISO?: string;
-  /** Render without the page Topbar (e.g. inside a project's Engineering tab). */
-  embedded?: boolean;
-}) {
+/** Start a two-week cycle on a project from today, and open it. */
+export function useNewCycle(projectId: string | undefined) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const now = new Date();
-
   function newCycle() {
     if (!projectId) return;
     startTransition(async () => {
@@ -60,6 +40,34 @@ export function CyclesView({
       router.refresh();
     });
   }
+  return { newCycle, pending };
+}
+
+export function CyclesView({
+  cycles,
+  projectId,
+  cadence = null,
+  outstandingPoints = 0,
+  nowISO,
+  embedded = false,
+  hideCreate = false,
+}: {
+  cycles: CycleWithCount[];
+  /** When set, cycles are scoped to this project and creation is enabled. */
+  projectId?: string;
+  /** The project's standing ceremonies; editable only on a project surface. */
+  cadence?: CycleCadence | null;
+  /** Open points on this project, for the velocity projection. */
+  outstandingPoints?: number;
+  /** Server-rendered "now", so velocity doesn't shift between server and client. */
+  nowISO?: string;
+  /** Render without the page Topbar (e.g. inside a project's Engineering tab). */
+  embedded?: boolean;
+  /** The surrounding header already has "New cycle"; skip the one above the list. */
+  hideCreate?: boolean;
+}) {
+  const { newCycle, pending } = useNewCycle(projectId);
+  const now = new Date();
 
   const createButton = projectId ? (
     <Button size="sm" className="h-7 gap-1.5" onClick={newCycle} disabled={pending}>
@@ -72,7 +80,7 @@ export function CyclesView({
       {!embedded && <Topbar breadcrumb={[{ label: "Cycles" }]} actions={createButton} />}
       <div className="scrollbar-thin flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-6 py-8">
-          {embedded && createButton && <div className="mb-3 flex justify-end">{createButton}</div>}
+          {embedded && !hideCreate && createButton && <div className="mb-3 flex justify-end">{createButton}</div>}
           {nowISO && (
             <CycleVelocity
               cycles={cycles}

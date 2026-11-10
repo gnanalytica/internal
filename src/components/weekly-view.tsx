@@ -3,11 +3,12 @@ import { format } from "date-fns";
 import { Timer } from "lucide-react";
 
 import { Topbar } from "@/components/topbar";
+import { projectCyclesHref } from "@/lib/departments";
 import type { CycleWithCount, Project } from "@/lib/types";
 
 /**
  * The company "Weekly" rollup: each shippable project with its currently-active
- * cycle and progress. Cycles are planned per project (Engineering tab); this is
+ * cycle and progress. Cycles are planned per project (Engineering → Cycles); this is
  * the cross-project review surface, not a separate cadence.
  */
 export function WeeklyView({
@@ -46,7 +47,7 @@ export function WeeklyView({
               return (
                 <Link
                   key={p.id}
-                  href={`/projects/${p.id}/engineering`}
+                  href={projectCyclesHref(p.id)}
                   className="flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40"
                 >
                   <span
