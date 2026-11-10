@@ -51,7 +51,7 @@ const COMPACT_ROWS = 6;
  * or still waiting for this week's number). "Show all metrics" opens the whole
  * table, and "Enter this week" opens it too when the cell it wants is hidden.
  */
-export function ScorecardSection({ projectId, weeks, rows, notes }: { projectId: string; weeks: string[]; rows: ScorecardRow[]; notes: string[] }) {
+export function ScorecardSection({ projectId, weeks, rows, notes, defaultExpanded = false }: { projectId: string; weeks: string[]; rows: ScorecardRow[]; notes: string[]; /** Open on every metric rather than only those that need a look. */ defaultExpanded?: boolean }) {
   const router = useRouter();
   const thisWeek = weeks[weeks.length - 1];
   // Numbers typed this visit, shown at once while the save and refresh land.
@@ -63,7 +63,7 @@ export function ScorecardSection({ projectId, weeks, rows, notes }: { projectId:
   }
   const [dialog, setDialog] = useState<{ open: boolean; metric: ScorecardRow | null }>({ open: false, metric: null });
   const [seeding, startSeed] = useTransition();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   // Rows typed into this visit stay on the compact view, so a cell doesn't vanish once it has its number.
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   // A row to focus as soon as its cell mounts (after "Enter this week" opens the full table).

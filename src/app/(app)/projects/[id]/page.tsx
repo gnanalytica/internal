@@ -122,20 +122,51 @@ export default async function ProjectRoute({
     );
   }
 
-  // Projects: the department overview hub, opening with the weekly scorecard
-  // when the project has Analytics on (it used to be a tab of its own).
+  // Projects: with Analytics on, the first tab is the weekly scorecard and
+  // nothing else (it used to be a tab of its own; the department cards only
+  // repeated the tab bar, and the only tasks left are Engineering's). Without
+  // it, the department cards and every task on a schedule.
+  const withScorecard = isDepartmentEnabled(project.enabledDepartments, "analytics");
   const [summaries, allIssues, ctx, scorecard] = await Promise.all([
     getProjectSummaries(ws.id),
-    getIssues(ws.id),
+    withScorecard ? Promise.resolve([]) : getIssues(ws.id),
     getTaskContext(ws.id),
-    isDepartmentEnabled(project.enabledDepartments, "analytics")
-      ? loadScorecard(ws.id, { id, key: project.key }, myRole)
-      : Promise.resolve(null),
+    withScorecard ? loadScorecard(ws.id, { id, key: project.key }, myRole) : Promise.resolve(null),
   ]);
   const members = ctx.members;
   const summary = summaries.find((p) => p.id === id);
   if (!summary) notFound();
   const owner = members.find((m) => m.id === summary.ownerId) ?? null;
+
+  const header = (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      {summary.description ? (
+        <p className="max-w-2xl text-sm text-muted-foreground">{summary.description}</p>
+      ) : (
+        <span />
+      )}
+      <div className="flex items-center gap-2">
+        {canSeeConfidential(myRole) ? (
+          <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
+        ) : (
+          <span className="text-ui text-muted-foreground">
+            Lead <span className="text-foreground">{owner?.name ?? "—"}</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+
+  if (scorecard) {
+    return (
+      <div className="scrollbar-thin h-full overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
+          {header}
+          <ScorecardSection projectId={id} weeks={scorecard.weeks} rows={scorecard.rows} notes={scorecard.notes} defaultExpanded />
+        </div>
+      </div>
+    );
+  }
 
   // One headline number per department, from what that department's page
   // now shows. Counts only: nothing here reads the prospects sheet.
@@ -210,23 +241,7 @@ export default async function ProjectRoute({
   return (
     <div className="scrollbar-thin h-full overflow-y-auto">
       <div className="mx-auto w-full max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          {summary.description ? (
-            <p className="max-w-2xl text-sm text-muted-foreground">{summary.description}</p>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-2">
-            {canSeeConfidential(myRole) ? (
-              <OwnerPicker projectId={id} ownerId={summary.ownerId} members={members} />
-            ) : (
-              <span className="text-ui text-muted-foreground">
-                Lead <span className="text-foreground">{owner?.name ?? "—"}</span>
-              </span>
-            )}
-          </div>
-        </div>
-        {scorecard && <ScorecardSection projectId={id} weeks={scorecard.weeks} rows={scorecard.rows} notes={scorecard.notes} />}
+        {header}
         <DepartmentStrip stats={stats} />
         <ProjectSchedule projectId={id} issues={scheduleIssues} ctx={ctx} />
       </div>
