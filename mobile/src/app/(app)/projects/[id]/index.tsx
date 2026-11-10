@@ -7,12 +7,13 @@ import { Alert, View } from "react-native";
 import { Avatar, Button, Card, Divider, Empty, ErrorView, Field, Icon, IconButton, Input, Loading, Picker, Row, Screen, Section, Sheet, Text } from "@/components/ui";
 import { setFavorite, setWatching } from "@/features/issues/attachments";
 import { DatePicker } from "@/features/issues/pickers";
-import { metricsQuery, postStatusUpdate, projectQuery, updateProject, type ProjectDetail } from "@/features/projects/api";
+import { postStatusUpdate, projectQuery, updateProject, type ProjectDetail } from "@/features/projects/api";
 import { Chips, ColorDot, HealthBadge, ListCard, MemberPicker, ProgressBar, SheetActions } from "@/features/projects/components";
 import { DEPARTMENT_ICON, HEALTH, HEALTH_MAP, PROJECT_COLORS } from "@/features/projects/constants";
 import { CycleCard } from "@/features/projects/cycle-card";
 import { hasEngineering, isTopLevelDepartment } from "@/features/projects/departments";
 import { Scorecard } from "@/features/projects/scorecard";
+import { scorecardQuery } from "@/features/projects/scorecard-api";
 import { MILESTONE_STATUS_MAP } from "@/lib/constants";
 import { ago, shortDate } from "@/lib/format";
 import { queryClient } from "@/lib/query";
@@ -25,8 +26,8 @@ export default function ProjectScreen() {
   const q = useQuery(projectQuery(id));
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorView error={q.error} onRetry={() => void q.refetch()} />;
-  // Pulling down re-reads the scorecard too.
-  const refresh = () => void Promise.all([q.refetch(), queryClient.invalidateQueries({ queryKey: metricsQuery(id).queryKey })]);
+  // Pulling down re-reads the scorecard too (it lives under the project's metrics key).
+  const refresh = () => void Promise.all([q.refetch(), queryClient.invalidateQueries({ queryKey: scorecardQuery(id).queryKey })]);
   return <ProjectBody project={q.data} refreshing={q.isRefetching} onRefresh={refresh} />;
 }
 
