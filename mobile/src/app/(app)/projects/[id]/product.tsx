@@ -3,8 +3,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, View } from "react-native";
 
-import { Badge, Button, Card, Empty, ErrorView, Fab, Icon, Input, Loading, Picker, Row, Screen, Section, Segmented, Sheet, Text } from "@/components/ui";
-import { IssueList } from "@/features/issues/issue-list";
+import { Badge, Button, Card, Empty, ErrorView, Icon, Input, Loading, Picker, Row, Screen, Section, Segmented, Sheet, Text } from "@/components/ui";
 import { createFeedback, createMilestone, feedbackQuery, featuresQuery, milestonesQuery, projectQuery, updateFeedback, type Feedback, type Milestone } from "@/features/projects/api";
 import { Chips, ListCard, ProgressBar, SheetActions } from "@/features/projects/components";
 import { NewFeatureSheet } from "@/features/projects/sheets";
@@ -13,21 +12,23 @@ import { MILESTONE_STATUS_MAP } from "@/lib/constants";
 import { ago, shortDate } from "@/lib/format";
 import { useTheme } from "@/theme";
 
-type Tab = "roadmap" | "tasks" | "feedback";
+type Tab = "roadmap" | "feedback";
 
-/** Product: the roadmap of milestones, the product tasks, and the feedback that feeds them. */
+/**
+ * Product: the roadmap of milestones and features, and the feedback that feeds
+ * them — as on the web, which has no Product tasks (tickets live in Engineering,
+ * and on each feature). An old `?tab=tasks` link opens the roadmap.
+ */
 export default function ProductScreen() {
-  const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: Tab }>();
-  const { space } = useTheme();
+  const { id, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const project = useQuery(projectQuery(id)).data;
-  const [tab, setTab] = useState<Tab>(initialTab ?? "roadmap");
+  const [tab, setTab] = useState<Tab>(initialTab === "feedback" ? "feedback" : "roadmap");
   const tabs = (
     <Segmented<Tab>
       value={tab}
       onChange={setTab}
       options={[
         { value: "roadmap", label: "Roadmap" },
-        { value: "tasks", label: "Tasks" },
         { value: "feedback", label: "Feedback" },
       ]}
     />
@@ -35,12 +36,7 @@ export default function ProductScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: project ? `${project.name} · Product` : "Product" }} />
-      {tab === "tasks" ? (
-        <>
-          <IssueList filters={{ project: id, type: "product" }} hideDone header={<View style={{ padding: space.lg, paddingBottom: space.sm }}>{tabs}</View>} emptyTitle="No open product tasks" emptyBody="Tasks of type Product / Design in this project show here." />
-          <Fab label="New task" onPress={() => router.push({ pathname: "/issues/new", params: { project: id } })} />
-        </>
-      ) : tab === "roadmap" ? (
+      {tab === "roadmap" ? (
         <Roadmap projectId={id} tabs={tabs} />
       ) : (
         <FeedbackTab projectId={id} tabs={tabs} />
