@@ -447,8 +447,12 @@ export async function apiCreateComment(
   issueId: string,
   body: string,
   opts: {
-    /** Runs between the insert and the announcement — e.g. Slack marking a comment as its own (src/lib/slack/threads.ts). */
-    beforeAnnounce?: (commentId: string) => Promise<void>;
+    /**
+     * Runs between the insert and the announcement — e.g. Slack marking a
+     * comment as its own (src/lib/slack/threads.ts). Returning false skips the
+     * announcement (the caller has withdrawn the comment).
+     */
+    beforeAnnounce?: (commentId: string) => Promise<boolean | void>;
   } = {},
 ): Promise<string> {
   const text = body?.trim();
@@ -464,7 +468,7 @@ export async function apiCreateComment(
     .values({ workspaceId, issueId, authorId: userId, body: text })
     .returning();
   apiInvalidate(workspaceId, "issues");
-  if (opts.beforeAnnounce) await opts.beforeAnnounce(created.id);
+  if (opts.beforeAnnounce && (await opts.beforeAnnounce(created.id)) === false) return created.id;
   await dispatchWebhook(workspaceId, "issue.commented", {
     issueId,
     commentId: created.id,

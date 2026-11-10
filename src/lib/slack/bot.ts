@@ -33,9 +33,18 @@ import type { SlackBot } from "./types";
 
 let instance: SlackBot | null = null;
 
+/**
+ * node-postgres now treats `sslmode=require` as `verify-full` and warns on
+ * every connect. Neon's URL says `require`; spelling out `verify-full` keeps
+ * today's behaviour without the warning. DATABASE_URL itself is unchanged.
+ */
+function stateConnectionString(url: string | undefined): string | undefined {
+  return url?.replace(/([?&]sslmode=)(?:require|prefer|verify-ca)(?=&|$)/, "$1verify-full");
+}
+
 function build(): SlackBot {
   const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: stateConnectionString(process.env.DATABASE_URL),
     // A serverless instance handles one webhook at a time; a couple of
     // connections is plenty, and idle ones are let go quickly so a warm
     // instance doesn't pin pooler slots.
