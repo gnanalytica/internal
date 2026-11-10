@@ -16,7 +16,7 @@ import { dayLabel, dueOf, GroupHeader, Stats } from "../ui";
 export const dealValue = (d: Pick<Deal, "value" | "entity">) => inr(d.value, entityCurrency(d.entity));
 
 /** Deals grouped by stage, with the pipeline's value up top. */
-export function Pipeline({ projectId }: { projectId: string }) {
+export function Pipeline({ projectId, header }: { projectId: string; /** Sits above the list (Valytica's Sales tabs). */ header?: React.ReactElement }) {
   const { c, space } = useTheme();
   const q = useQuery(dealsQuery(projectId));
   const [stage, setStage] = useState<string>("open");
@@ -32,8 +32,13 @@ export function Pipeline({ projectId }: { projectId: string }) {
     [deals, stage],
   );
 
-  if (q.isPending) return <Loading />;
-  if (q.isError) return <ErrorView error={q.error} onRetry={() => void q.refetch()} />;
+  if (q.isPending || q.isError)
+    return (
+      <View style={{ flex: 1 }}>
+        {header}
+        {q.isPending ? <Loading /> : <ErrorView error={q.error} onRetry={() => void q.refetch()} />}
+      </View>
+    );
 
   const open = deals.filter((d) => OPEN_DEAL_STAGES.includes(d.stage));
   const won = deals.filter((d) => d.stage === "won");
@@ -48,22 +53,25 @@ export function Pipeline({ projectId }: { projectId: string }) {
         refreshing={q.isRefetching}
         onRefresh={() => void q.refetch()}
         ListHeaderComponent={
-          <View style={{ paddingHorizontal: space.lg, paddingBottom: space.md, gap: space.md }}>
-            <Stats
-              items={[
-                { label: `Open · ${open.length}`, value: inr(sumIn(open, (d) => d.value)) },
-                { label: `Won · ${won.length}`, value: inr(sumIn(won, (d) => d.value)), tone: "success" },
-              ]}
-            />
-            <Segmented
-              value={stage}
-              onChange={setStage}
-              options={[
-                { value: "open", label: `Open ${open.length}` },
-                ...DEAL_STAGES.map((s) => ({ value: s.value, label: `${s.label} ${count(s.value)}` })),
-                { value: "all", label: `All ${deals.length}` },
-              ]}
-            />
+          <View style={{ paddingBottom: space.md, gap: space.md }}>
+            {header}
+            <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+              <Stats
+                items={[
+                  { label: `Open · ${open.length}`, value: inr(sumIn(open, (d) => d.value)) },
+                  { label: `Won · ${won.length}`, value: inr(sumIn(won, (d) => d.value)), tone: "success" },
+                ]}
+              />
+              <Segmented
+                value={stage}
+                onChange={setStage}
+                options={[
+                  { value: "open", label: `Open ${open.length}` },
+                  ...DEAL_STAGES.map((s) => ({ value: s.value, label: `${s.label} ${count(s.value)}` })),
+                  { value: "all", label: `All ${deals.length}` },
+                ]}
+              />
+            </View>
           </View>
         }
         renderSectionHeader={({ section }) => (

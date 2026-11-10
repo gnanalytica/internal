@@ -1,26 +1,56 @@
+import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 
+import { ErrorView, Loading } from "@/components/ui";
 import { DepartmentTasks } from "@/features/business/department-tasks";
-import { Accounts } from "@/features/business/sales/accounts";
-import { Contacts } from "@/features/business/sales/contacts";
 import { Pipeline } from "@/features/business/sales/pipeline";
 import { DeptScaffold } from "@/features/business/scaffold";
 import { Restricted } from "@/features/business/ui";
-import { useMe } from "@/lib/auth";
+import { projectQuery } from "@/features/projects/api";
+import { isDepartmentEnabled, PROSPECTS_PRODUCT_KEY } from "@/features/projects/departments";
+import { ProspectsWorkspace } from "@/features/prospects/workspace";
 
-type Segment = "pipeline" | "accounts" | "contacts" | "tasks";
+type Segment = "tasks" | "pipeline";
 
-/** A project's Sales department: its pipeline, the workspace's accounts and contacts, and sales tasks. Admins only, as on the web. */
+/**
+ * A project's Sales, as on the web. For Valytica that is its prospects — the
+ * sheet the team works every day — with Insights, Prospects, Customers (when
+ * Customer Success is on) and Deals, plus Your day. Other products get their
+ * sales tasks and the deal pipeline.
+ *
+ * Who may open it is the server's one department rule: Sales is in the
+ * project's `visibleDepartments` for everyone the web's tab shows it to.
+ */
 export default function SalesScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const me = useMe();
-  const [segment, setSegment] = useState<Segment>("pipeline");
+  const { id, tab, cf, layout } = useLocalSearchParams<{ id: string; tab?: string; cf?: string; layout?: string }>();
+  const q = useQuery(projectQuery(id));
+  const [segment, setSegment] = useState<Segment>("tasks");
 
-  if (!me.isAdmin)
+  if (q.isPending || q.isError)
+    return <DeptScaffold title="Sales" projectId={id}>{q.isPending ? <Loading /> : <ErrorView error={q.error} onRetry={() => void q.refetch()} />}</DeptScaffold>;
+
+  const p = q.data;
+  if (!p.visibleDepartments.some((d) => d.slug === "sales"))
     return (
       <DeptScaffold title="Sales" projectId={id}>
-        <Restricted title="Sales is for workspace admins" body="Deals, accounts and contacts are only open to admins. Ask an admin if you need something from the pipeline." />
+        {isDepartmentEnabled(p.enabledDepartments, "sales") ? (
+          <Restricted title="Sales isn't open to you" body="Ask an admin if you need something from this project's pipeline." />
+        ) : (
+          <Restricted icon="trending-up" title="Sales isn't turned on for this project" body="An admin can turn the Sales department on in the project's settings on the web." />
+        )}
+      </DeptScaffold>
+    );
+
+  if (p.key === PROSPECTS_PRODUCT_KEY)
+    return (
+      <DeptScaffold title="Sales" projectId={id}>
+        <ProspectsWorkspace
+          project={{ id, customers: isDepartmentEnabled(p.enabledDepartments, "customer-success") }}
+          initialTab={tab}
+          initialLayout={layout}
+          initialCustomers={cf === "requests" ? "requests" : undefined}
+        />
       </DeptScaffold>
     );
 
@@ -31,16 +61,11 @@ export default function SalesScreen() {
       value={segment}
       onChange={setSegment}
       segments={[
-        { value: "pipeline", label: "Pipeline" },
-        { value: "accounts", label: "Accounts" },
-        { value: "contacts", label: "Contacts" },
         { value: "tasks", label: "Tasks" },
+        { value: "pipeline", label: "Pipeline" },
       ]}
     >
-      {segment === "pipeline" ? <Pipeline projectId={id} /> : null}
-      {segment === "accounts" ? <Accounts /> : null}
-      {segment === "contacts" ? <Contacts /> : null}
-      {segment === "tasks" ? <DepartmentTasks projectId={id} department="sales" emptyTitle="No sales tasks yet" /> : null}
+      {segment === "tasks" ? <DepartmentTasks projectId={id} department="sales" emptyTitle="No sales tasks yet" /> : <Pipeline projectId={id} />}
     </DeptScaffold>
   );
 }

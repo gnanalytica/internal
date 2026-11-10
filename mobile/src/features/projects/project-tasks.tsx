@@ -14,7 +14,7 @@ import { projectQuery } from "./api";
  * A project's tasks, open or all, with a button to add one to the project.
  * `type` narrows to one department's lens (engineering, product).
  */
-export function ProjectTasks({ projectId, type, title, emptyTitle, emptyBody }: { projectId: string; type?: string; title: string; emptyTitle: string; emptyBody: string }) {
+export function ProjectTasks({ projectId, type, title, emptyTitle, emptyBody, tabs }: { projectId: string; type?: string; title: string; emptyTitle: string; emptyBody: string; /** A switch above the Open | All one (Engineering's Tasks | Cycles). */ tabs?: React.ReactNode }) {
   const { space } = useTheme();
   const project = useQuery(projectQuery(projectId)).data;
   const [view, setView] = useState<"open" | "all">("open");
@@ -28,7 +28,8 @@ export function ProjectTasks({ projectId, type, title, emptyTitle, emptyBody }: 
         emptyTitle={emptyTitle}
         emptyBody={emptyBody}
         header={
-          <View style={{ padding: space.lg, paddingBottom: space.sm }}>
+          <View style={{ padding: space.lg, paddingBottom: space.sm, gap: space.sm }}>
+            {tabs}
             <Segmented
               value={view}
               onChange={setView}
