@@ -6,8 +6,11 @@ import type { ActivityEntry } from "@/lib/prospects/parse";
 import { KIND_LABEL, PROSPECT_KINDS, type Channel, type ProspectKind } from "@/lib/prospects/schema";
 import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
-import { buildOverview, type Period, type ProspectRow } from "@/lib/prospects/stats";
+import { buildOverview, periodWords, type Period, type ProspectRow } from "@/lib/prospects/stats";
 import { Bar, Card, CHANNEL_TONE, Empty, FilterMenu, PATH, Segmented, StageDot, stageTone } from "./bits";
+import { DateRangePicker } from "./date-range-picker";
+
+type Preset = "today" | "week" | "month";
 
 function Kpi({ label, value, note, tone }: { label: string; value: React.ReactNode; note?: string; tone?: "bad" }) {
   return (
@@ -27,12 +30,14 @@ export function Overview({ rows, activity, today, me, team, onGotoPlaybook }: { 
   const scoped = useMemo(() => (kind ? rows.filter((r) => r.kind === kind) : rows), [rows, kind]);
   const o = useMemo(() => buildOverview({ rows: scoped, activity, today, period, person: who === "me" ? me : null, team }), [scoped, activity, today, period, who, me, team]);
   const maxFunnel = Math.max(1, ...o.funnel.map((f) => f.count));
-  const periodWord = period === "week" ? "last 7 days" : period === "month" ? "last 30 days" : "since logging started";
+  const periodWord = periodWords(period);
+  const preset = typeof period === "string" ? (period as Preset) : ("" as Preset);
 
   return (
     <div className="flex max-w-5xl flex-col gap-8">
       <div className="flex flex-wrap items-center gap-2">
-        <Segmented label="Period" value={period} onChange={setPeriod} options={[{ value: "week", label: "7 days" }, { value: "month", label: "30 days" }, { value: "all", label: "All time" }]} />
+        <Segmented label="Period" value={preset} onChange={setPeriod} options={[{ value: "today", label: "Today" }, { value: "week", label: "7 days" }, { value: "month", label: "30 days" }]} />
+        <DateRangePicker value={typeof period === "object" ? period : null} today={today} onChange={setPeriod} />
         <Segmented label="Whose numbers" value={who} onChange={setWho} options={[{ value: "team", label: "Team" }, { value: "me", label: "Me" }]} />
         <FilterMenu label="Type" value={kind} onChange={(v) => setKind(v as ProspectKind | "")} options={[{ value: "", label: "All" }, ...PROSPECT_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k].many }))]} />
       </div>
