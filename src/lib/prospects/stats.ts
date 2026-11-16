@@ -112,13 +112,47 @@ export function isAssignedTo(assigned: string, person: string): boolean {
   return a === p || a === p.split(/\s+/)[0] || a.split(/\s+/)[0] === p.split(/\s+/)[0];
 }
 
-export type Period = "week" | "month" | "all";
+/** Days picked on the calendar, yyyy-mm-dd, both ends included. */
+export type DateSpan = { from: string; to: string };
+/** "all" stays for the API; the Insights tab offers the presets and the calendar. */
+export type Period = "today" | "week" | "month" | "all" | DateSpan;
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A span with real dates in order, or null. */
+export function dateSpan(from: string | null | undefined, to: string | null | undefined): DateSpan | null {
+  if (!from || !to || !ISO_DAY.test(from) || !ISO_DAY.test(to)) return null;
+  if (addDays(from, 0) !== from || addDays(to, 0) !== to) return null;
+  return from <= to ? { from, to } : null;
+}
 
 export function inPeriod(date: string | null, period: Period, today: string): boolean {
   if (period === "all") return true;
   if (!date) return false;
+  if (typeof period === "object") {
+    const day = date.slice(0, 10);
+    return day >= period.from && day <= period.to;
+  }
   const d = daysBetween(date, today);
-  return d >= 0 && d < (period === "week" ? 7 : 30);
+  return d >= 0 && d < (period === "today" ? 1 : period === "week" ? 7 : 30);
+}
+
+const SPAN_DAY = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+const SPAN_DAY_YEAR = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** "1 Nov – 15 Nov 2026", or one date when the span is a single day. */
+export function spanLabel(span: DateSpan): string {
+  const a = new Date(`${span.from}T00:00:00Z`);
+  const b = new Date(`${span.to}T00:00:00Z`);
+  if (span.from === span.to) return SPAN_DAY_YEAR.format(a);
+  const sameYear = span.from.slice(0, 4) === span.to.slice(0, 4);
+  return `${(sameYear ? SPAN_DAY : SPAN_DAY_YEAR).format(a)} – ${SPAN_DAY_YEAR.format(b)}`;
+}
+
+/** The words a figure's note uses for the period. */
+export function periodWords(period: Period): string {
+  if (typeof period === "object") return spanLabel(period);
+  return period === "today" ? "today" : period === "week" ? "last 7 days" : period === "month" ? "last 30 days" : "since logging started";
 }
 
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);

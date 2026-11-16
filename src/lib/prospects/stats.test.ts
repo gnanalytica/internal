@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ActivityEntry } from "./parse";
-import { addDays, buildOverview, dueBucket, inFocus, inPeriod, isAssignedTo, myTasks, SAVED_VIEWS, todayIST, type ProspectRow } from "./stats";
+import { addDays, buildOverview, dateSpan, dueBucket, inFocus, inPeriod, isAssignedTo, myTasks, periodWords, SAVED_VIEWS, spanLabel, todayIST, type ProspectRow } from "./stats";
 
 const TODAY = "2026-09-28";
 
@@ -40,6 +40,28 @@ describe("dates and people", () => {
     expect(inPeriod("2026-09-21", "week", TODAY)).toBe(false);
     expect(inPeriod("2026-09-21", "month", TODAY)).toBe(true);
     expect(inPeriod(null, "all", TODAY)).toBe(true);
+  });
+
+  it("counts today alone, and a picked span with both ends included", () => {
+    expect(inPeriod(TODAY, "today", TODAY)).toBe(true);
+    expect(inPeriod(addDays(TODAY, -1), "today", TODAY)).toBe(false);
+    const span = { from: "2026-09-01", to: "2026-09-10" };
+    expect(inPeriod("2026-09-01", span, TODAY)).toBe(true);
+    expect(inPeriod("2026-09-10", span, TODAY)).toBe(true);
+    expect(inPeriod("2026-09-11", span, TODAY)).toBe(false);
+    expect(inPeriod("2026-08-31", span, TODAY)).toBe(false);
+    expect(inPeriod(null, span, TODAY)).toBe(false);
+  });
+
+  it("accepts only real dates in order as a span", () => {
+    expect(dateSpan("2026-09-01", "2026-09-10")).toEqual({ from: "2026-09-01", to: "2026-09-10" });
+    expect(dateSpan("2026-09-10", "2026-09-01")).toBeNull();
+    expect(dateSpan("2026-02-30", "2026-03-01")).toBeNull();
+    expect(dateSpan("2026-9-1", "2026-09-10")).toBeNull();
+    expect(dateSpan(null, "2026-09-10")).toBeNull();
+    expect(spanLabel({ from: "2026-09-01", to: "2026-09-10" })).toBe("1 Sept – 10 Sept 2026");
+    expect(spanLabel({ from: "2026-09-04", to: "2026-09-04" })).toBe("4 Sept 2026");
+    expect(periodWords("today")).toBe("today");
   });
   it("keeps firms and RVOs in focus whatever their state", () => {
     expect(inFocus({ kind: "valuer", state: "Tamil Nadu" })).toBe(false);
