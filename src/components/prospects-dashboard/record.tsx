@@ -36,8 +36,9 @@ async function fetchDetail(sel: Selection, signal: AbortSignal): Promise<Detail 
   // the whole sheet (~2 s instead of ~0.3 s). The response itself is `no-store`, so the browser never keeps a stale copy.
   const res = await fetch(`/api/prospects/${sel.kind}/${encodeURIComponent(sel.id)}`, { signal });
   if (res.status === 404) return null;
-  // Signed out mid-session: the request lands on the sign-in page instead of JSON.
-  if (res.redirected || !(res.headers.get("content-type") ?? "").includes("application/json")) throw new Error("Your session ended. Reload the page to sign in again.");
+  // Signed out mid-session: the request is redirected to the sign-in page.
+  if (res.redirected && new URL(res.url).pathname.startsWith("/auth/")) throw new Error("Your session ended. Reload the page to sign in again.");
+  if (!(res.headers.get("content-type") ?? "").includes("application/json")) throw new Error(`The server didn't answer properly (${res.status}).`);
   const body = (await res.json()) as { data?: Detail; error?: string };
   if (!res.ok || !body.data) throw new Error(body.error || `The sheet didn't answer (${res.status}).`);
   return body.data;
