@@ -9,9 +9,19 @@ import { getAccessToken } from "./google-auth";
 
 const BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
+/**
+ * How long a read may take before it fails. Without a limit, one hung call
+ * left the page waiting until a reload. Writes get none: a write that timed
+ * out here may still have landed at Google, and a retry would then write it
+ * twice (an Activity row, say).
+ */
+export const READ_TIMEOUT_MS = 20_000;
+
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
+  const isRead = !init.method || init.method === "GET";
   const res = await fetch(`${BASE}/${path}`, {
+    ...(isRead ? { signal: AbortSignal.timeout(READ_TIMEOUT_MS) } : {}),
     ...init,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
   });

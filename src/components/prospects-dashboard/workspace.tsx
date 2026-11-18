@@ -396,7 +396,7 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
           </div>
         )}
         {showFull && sel ? (
-          <RecordPage onOpen={open} sel={sel} today={data.today} me={data.me} team={data.team} onBack={close} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} tab={recTab} setTab={setRecTab} />
+          <RecordPage row={everyone.find((x) => x.kind === sel.kind && x.id === sel.id)} onOpen={open} sel={sel} today={data.today} me={data.me} team={data.team} onBack={close} backLabel={backLabel} onLog={logFromRecord} onChanged={onChanged} detail={detail} tab={recTab} setTab={setRecTab} />
         ) : current === "today" ? (
           <div className="flex flex-col gap-4">
             <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={() => setTab("list")}>

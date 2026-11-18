@@ -4,6 +4,7 @@ import { syncProspectDeal, type DealContext } from "./deals";
 import type { ActivityEntry, ProspectRecord } from "./parse";
 import { recordsOf } from "./parse";
 import { loadWorkbook } from "./read";
+import { relatedRecords, type Related } from "./related";
 import { RECORD_TYPE, WRITABLE, type ProspectKind } from "./schema";
 import { todayIST } from "./stats";
 import { firstName, idSchema, kindSchema, nowIST, patchSchema, touchPatch, touchSchema, type TouchInput } from "./touch";
@@ -38,6 +39,16 @@ export async function readProspectDetail(kind: ProspectKind, id: string): Promis
   if (!record) return null;
   const activity = wb.activity.filter((a) => a.registrationNo === id).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || b.id.localeCompare(a.id));
   return { record, activity };
+}
+
+/** What the web's record page shows: the detail above plus the rows it is connected to, from one workbook read. */
+export async function readProspectView(kind: ProspectKind, id: string): Promise<{ record: ProspectRecord; activity: ActivityEntry[]; related: { items: Related[]; more: number } } | null> {
+  const k = kindSchema.parse(kind);
+  const wb = await loadWorkbook();
+  const record = recordsOf(wb, k).find((r) => r.id === id);
+  if (!record) return null;
+  const activity = wb.activity.filter((a) => a.registrationNo === id).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || b.id.localeCompare(a.id));
+  return { record, activity, related: relatedRecords(wb, record) };
 }
 
 /** Write edited cells on one row. Only the dashboard's writable columns are accepted. */

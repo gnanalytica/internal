@@ -77,6 +77,8 @@ export async function getAccessToken(): Promise<string> {
   const assertion = `${header}.${claims}.${signature}`;
 
   const res = await fetch(TOKEN_URL, {
+    // Asking for a token changes nothing, so a hung exchange can safely fail and be retried.
+    signal: AbortSignal.timeout(20_000),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
