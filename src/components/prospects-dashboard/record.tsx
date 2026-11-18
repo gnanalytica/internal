@@ -1,11 +1,13 @@
 "use client";
 
 import { ArrowLeft, Check, ChevronDown, Copy, Mail, MessageCircle, Pencil, Phone, Plus } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { SendToProductButton, useProductFeedback, type ProductFeedback } from "@/components/product/send-to-product";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,7 +20,7 @@ import { addDays, type ProspectRow } from "@/lib/prospects/stats";
 import { emailParts, mailtoHref, SOFTWARE, telHref, whatsappHref } from "@/lib/prospects/contact";
 import { canSendTouch, touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { cn } from "@/lib/utils";
-import { BandBadge, Bar, CHANNEL_TONE, Chips, DatePicker, DueChip, KindDot, outcomeTone, Owner, OwnerPicker, Segmented, StageBar, StageDot, ToneChip } from "./bits";
+import { BandBadge, Bar, CHANNEL_TONE, DatePicker, DueChip, KindDot, outcomeTone, Owner, OwnerPicker, Segmented, StageBar, StageDot, ToneChip } from "./bits";
 import { STAGE_COACHING } from "./playbook-content";
 import { useStageMove, type StageSubject } from "./stage-check";
 import { fillTemplate, GENERAL_ANGLE, TEMPLATE_ANGLES, type TemplateChannel } from "./templates";
@@ -326,61 +328,98 @@ const FIELDS: { group: string; fields: FieldDef[] }[] = [
   },
 ];
 
-/** One form for a group of facts, saved as a single write to the row. */
-function EditFactsDialog({ ctx, r, group, open, onOpenChange }: { ctx: Ctx; r: ProspectRecord; group: string; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const fields = (FIELDS.find((g) => g.group === group)?.fields ?? []).filter((f) => WRITABLE[ctx.kind].has(f.col));
-  // The dialog is mounted only while open, so this starts from the record's current values.
-  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.col, f.get(r)])));
-  const { save, pending } = useSave(ctx);
-  const patch = Object.fromEntries(
-    fields
-      .filter((f) => (vals[f.col] ?? "").trim() !== f.get(r).trim())
-      .map((f) => {
-        const v = (vals[f.col] ?? "").trim();
-        return [f.col, f.type === "number" ? (v === "" ? null : Number(v)) : v];
-      }),
-  );
-  const changed = Object.keys(patch).length;
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] gap-4 overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Edit {group.toLowerCase()}</DialogTitle>
-          <DialogDescription>{r.name}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          {fields.map((f) => (
-            <div key={f.col} className="flex flex-col gap-1.5">
-              <label htmlFor={`ef-${f.col}`} className="text-xs font-medium text-foreground/80">
-                {f.label}
-              </label>
-              {f.options ? (
-                <Chips label={f.label} value={vals[f.col] ?? ""} options={[...new Set([...f.options, ...(vals[f.col] && !f.options.includes(vals[f.col]) ? [vals[f.col]] : [])])]} onChange={(v) => setVals((p) => ({ ...p, [f.col]: v }))} allowNone />
-              ) : f.type === "textarea" ? (
-                <textarea id={`ef-${f.col}`} rows={3} value={vals[f.col] ?? ""} onChange={(e) => setVals((p) => ({ ...p, [f.col]: e.target.value }))} className="rounded-md border bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
-              ) : (
-                <input
-                  id={`ef-${f.col}`}
-                  inputMode={f.type === "number" ? "numeric" : undefined}
-                  value={vals[f.col] ?? ""}
-                  onChange={(e) => setVals((p) => ({ ...p, [f.col]: f.type === "number" ? e.target.value.replace(/\D/g, "") : e.target.value }))}
-                  className="h-9 rounded-md border bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-end gap-2 border-t pt-4">
-          <span className="flex-1 text-xs text-muted-foreground">{changed ? `${changed} change${changed === 1 ? "" : "s"} to save` : "No changes yet"}</span>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button disabled={pending || !changed} onClick={() => save(patch, () => onOpenChange(false))}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+/**
+ * One fact, edited where it is shown: click it, change it, and Enter or
+ * clicking away saves that one cell. Escape puts it back. A list of choices
+ * opens as a menu; long text saves on blur or Cmd/Ctrl+Enter.
+ */
+function InlineField({ ctx, r, f }: { ctx: Ctx; r: ProspectRecord; f: FieldDef }) {
+  const current = f.get(r);
+  const [draft, setDraft] = useState<string | null>(null);
+  // What was just saved, shown until the record reloads with it (or the save fails). `base` is the value it replaced.
+  const [saved, setSaved] = useState<{ value: string; base: string } | null>(null);
+  // Enter and Escape both unmount the input, which then blurs; this stops that blur from saving a second time.
+  const closed = useRef(false);
+  const [pending, start] = useTransition();
+  const open = () => {
+    closed.current = false;
+    setDraft(saved && current === saved.base ? saved.value : current);
+  };
+  const cancel = () => {
+    closed.current = true;
+    setDraft(null);
+  };
+  const commit = (raw: string) => {
+    if (closed.current) return;
+    closed.current = true;
+    setDraft(null);
+    const v = raw.trim();
+    if (v === current.trim()) return;
+    setSaved({ value: v, base: current });
+    start(async () => {
+      const res = await saveProspect(ctx.kind, ctx.id, { [f.col]: f.type === "number" ? (v === "" ? null : Number(v)) : v });
+      if (res.ok) {
+        toast.success(`${f.label} saved`);
+        ctx.onChanged();
+      } else {
+        setSaved(null);
+        toast.error(res.message);
+      }
+    });
+  };
+  const value = saved && current === saved.base ? saved.value : current;
+  const shown = value || <span className="text-amber-700 dark:text-amber-400">Not known yet</span>;
+  const cls = "-my-1 -ml-1.5 w-[calc(100%+0.375rem)] rounded-md px-1.5 py-1 text-left hover:bg-muted disabled:opacity-60";
+  if (f.options) {
+    const options = [...new Set([...f.options, ...(current && !f.options.includes(current) ? [current] : [])])];
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger disabled={pending} aria-label={`${f.label}: ${current || "not known"}. Change`} className={cn(cls, "inline-flex items-center gap-1.5")}>
+          <span className="min-w-0 flex-1 truncate">{shown}</span>
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-auto min-w-48">
+          <DropdownMenuRadioGroup value={value} onValueChange={(v) => { closed.current = false; commit(String(v)); }}>
+            {options.map((o) => (
+              <DropdownMenuRadioItem key={o} value={o}>
+                {o}
+              </DropdownMenuRadioItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioItem value="">Not known</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+  if (draft === null) {
+    return (
+      <button type="button" disabled={pending} onClick={open} aria-label={`${f.label}: ${current || "not known"}. Edit`} className={cn(cls, "group/f flex items-start gap-1.5 break-words whitespace-pre-wrap")}>
+        <span className="min-w-0 flex-1">{shown}</span>
+        <Pencil className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 group-hover/f:opacity-100" />
+      </button>
+    );
+  }
+  const keys = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.key === "Escape") cancel();
+    if (e.key === "Enter" && (f.type !== "textarea" || e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      commit(draft);
+    }
+  };
+  return f.type === "textarea" ? (
+    <Textarea autoFocus aria-label={f.label} rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => commit(draft)} onKeyDown={keys} className="-my-1 text-sm" />
+  ) : (
+    <Input
+      autoFocus
+      aria-label={f.label}
+      inputMode={f.type === "number" ? "numeric" : undefined}
+      value={draft}
+      onChange={(e) => setDraft(f.type === "number" ? e.target.value.replace(/\D/g, "") : e.target.value)}
+      onBlur={() => commit(draft)}
+      onKeyDown={keys}
+      className="-my-1 h-8 text-sm"
+    />
   );
 }
 
@@ -928,7 +967,6 @@ function registration(r: ProspectRecord, kind: ProspectKind): { label: string; v
 }
 
 function DetailsTab({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
-  const [editing, setEditing] = useState<string | null>(null);
   const [dq, setDq] = useState(false);
   const { save, pending } = useSave(ctx);
   const isOut = Boolean(r.disqualified) && r.disqualified !== "No";
@@ -964,20 +1002,9 @@ function DetailsTab({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
         {FIELDS.map((g) => {
           const fields = g.fields.filter((f) => WRITABLE[ctx.kind].has(f.col) || (f.col === "email" && r.email));
           if (!fields.length) return null;
-          const editable = fields.some((f) => WRITABLE[ctx.kind].has(f.col));
           return (
-            <Section
-              key={g.group}
-              title={g.group}
-              aside={
-                editable ? (
-                  <SmallButton onClick={() => setEditing(g.group)}>
-                    <Pencil className="size-3" /> Edit
-                  </SmallButton>
-                ) : undefined
-              }
-            >
-              <FactTable rows={fields.map((f) => ({ label: f.label, value: f.get(r) || "Not known yet", missing: !f.get(r) }))} />
+            <Section key={g.group} title={g.group}>
+              <FactTable rows={fields.map((f) => ({ label: f.label, value: WRITABLE[ctx.kind].has(f.col) ? <InlineField ctx={ctx} r={r} f={f} /> : f.get(r) || "Not known yet", missing: !WRITABLE[ctx.kind].has(f.col) && !f.get(r) }))} />
             </Section>
           );
         })}
@@ -1010,7 +1037,6 @@ function DetailsTab({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
           </Section>
         )}
       </div>
-      {editing && <EditFactsDialog ctx={ctx} r={r} group={editing} open onOpenChange={(o) => !o && setEditing(null)} />}
       <DisqualifyDialog ctx={ctx} r={r} open={dq} onOpenChange={setDq} />
     </div>
   );

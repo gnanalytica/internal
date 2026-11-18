@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Phone, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Phone, X } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -11,8 +11,9 @@ import { KIND_LABEL, PROSPECT_KINDS, STAGES, UNSCORED_KINDS, type ProspectKind }
 import { SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
 import { BandBadge, DatePicker, DueChip, FilterMenu, KindDot, LayoutSwitch, Owner, OwnerPicker, StageDot, StagePill, type ProspectLayout } from "./bits";
-import { rowKey as keyOf, usePatchRows } from "./optimistic";
+import { rowKey as keyOf, usePatchRows, useRowSave } from "./optimistic";
 import { applyFilters, FilterBar, type Filters } from "./pipeline";
+import { useStageMove } from "./stage-check";
 
 const PAGE = 100;
 
@@ -23,6 +24,30 @@ function csv(rows: ProspectRow[]): string {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [head.join(","), ...rows.map((r) => [KIND_LABEL[r.kind].one, r.id, r.name, r.city, r.state, STAGES[r.stage], r.band, r.score, r.assigned, r.nextStep, r.nextStepDate, r.lastContacted, r.lenders, r.cases, r.software].map(esc).join(","))].join("\n");
+}
+
+/** Columns the list can be sorted by, and how each compares two rows. Blanks sort last either way. */
+type SortKey = "name" | "stage" | "score" | "city" | "due" | "owner";
+const SORTS: Record<SortKey, (a: ProspectRow, b: ProspectRow) => number> = {
+  name: (a, b) => a.name.localeCompare(b.name),
+  stage: (a, b) => a.stage - b.stage,
+  score: (a, b) => (a.score ?? -1) - (b.score ?? -1),
+  city: (a, b) => (a.city || a.state).localeCompare(b.city || b.state),
+  due: (a, b) => (a.nextStepDate ?? "").localeCompare(b.nextStepDate ?? ""),
+  owner: (a, b) => a.assigned.localeCompare(b.assigned),
+};
+const isBlank = (k: SortKey, r: ProspectRow) => (k === "score" ? r.score === null : k === "due" ? !r.nextStepDate : k === "owner" ? !r.assigned : k === "city" ? !(r.city || r.state) : false);
+
+/** A column header that sorts the list; clicking the active column flips its direction. */
+function SortHead({ k, sort, onSort, children, className }: { k: SortKey; sort: { key: SortKey; dir: 1 | -1 }; onSort: (k: SortKey) => void; children: React.ReactNode; className?: string }) {
+  return (
+    <th className={cn("px-3 font-normal", className)} aria-sort={sort.key === k ? (sort.dir === 1 ? "ascending" : "descending") : undefined}>
+      <button type="button" onClick={() => onSort(k)} className={cn("-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted hover:text-foreground", sort.key === k && "text-foreground")}>
+        {children}
+        {sort.key === k && (sort.dir === 1 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+      </button>
+    </th>
+  );
 }
 
 /** Views of follow-ups, where working through them one call at a time makes sense. */
@@ -71,6 +96,10 @@ export function ListView({
   onStartCalls: () => void;
 }) {
   const patchRows = usePatchRows();
+  const { save: saveRow } = useRowSave();
+  const { move, dialog: stageDialog } = useStageMove(() => {});
+  // Score, highest first, until a column header is clicked.
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "score", dir: -1 });
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [limit, setLimit] = useState(PAGE);
   const [pending, start] = useTransition();
@@ -79,9 +108,11 @@ export function ListView({
   const current = SAVED_VIEWS.find((v) => v.id === view) ?? SAVED_VIEWS[0];
   const shown = useMemo(() => {
     const base = applyFilters(ofKind, { ...filters, kind: "" }, me).filter((r) => current.test(r, ctx) && (stage === null || r.stage === stage));
-    return base.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name));
+    const cmp = SORTS[sort.key];
+    return base.sort((a, b) => Number(isBlank(sort.key, a)) - Number(isBlank(sort.key, b)) || sort.dir * cmp(a, b) || a.name.localeCompare(b.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ofKind, filters, me, current, stage, today]);
+  }, [ofKind, filters, me, current, stage, today, sort]);
+  const sortBy = (key: SortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "score" ? -1 : 1 }));
   const selected = shown.filter((r) => checked.has(keyOf(r)));
   const page = shown.slice(0, limit);
   const allOn = page.length > 0 && page.every((r) => checked.has(keyOf(r)));
@@ -197,13 +228,27 @@ export function ListView({
               <th className="w-9 py-2 pl-1 font-normal">
                 <input type="checkbox" aria-label="Select all on this page" checked={allOn} onChange={() => setChecked(allOn ? new Set() : new Set(page.map(keyOf)))} className="accent-foreground" />
               </th>
-              <th className="w-[30%] py-2 pr-3 font-normal">Name</th>
-              <th className="w-[14%] px-3 font-normal">Stage</th>
-              {showBand && <th className="w-16 px-3 font-normal">Band</th>}
-              <th className="w-[12%] px-3 font-normal">City</th>
+              <SortHead k="name" sort={sort} onSort={sortBy} className="w-[30%] py-2 pr-3 pl-0">
+                Name
+              </SortHead>
+              <SortHead k="stage" sort={sort} onSort={sortBy} className="w-[14%]">
+                Stage
+              </SortHead>
+              {showBand && (
+                <SortHead k="score" sort={sort} onSort={sortBy} className="w-20">
+                  Band
+                </SortHead>
+              )}
+              <SortHead k="city" sort={sort} onSort={sortBy} className="w-[12%]">
+                City
+              </SortHead>
               <th className="px-3 font-normal">Next step</th>
-              <th className="w-32 px-3 font-normal">Due</th>
-              <th className="w-28 px-3 font-normal">Owner</th>
+              <SortHead k="due" sort={sort} onSort={sortBy} className="w-32">
+                Due
+              </SortHead>
+              <SortHead k="owner" sort={sort} onSort={sortBy} className="w-32">
+                Owner
+              </SortHead>
             </tr>
           </thead>
           <tbody>
@@ -218,21 +263,46 @@ export function ListView({
                   </button>
                   {!kind && <span className="ml-2 font-mono text-[10px] text-muted-foreground uppercase">{r.kind.slice(0, 3)}</span>}
                 </td>
-                <td className="truncate px-3">
-                  <StagePill stage={r.stage} />
+                <td className="truncate px-3" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger aria-label={`Stage of ${r.name}: ${STAGES[r.stage]}. Change`} className="-mx-1 inline-flex items-center gap-1 rounded-full px-1 py-0.5 hover:bg-muted aria-expanded:bg-muted">
+                      <StagePill stage={r.stage} />
+                      <ChevronDown className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-auto min-w-44">
+                      {STAGES.map((s, i) => (
+                        <div key={s} className="contents">
+                          {i === 6 && <DropdownMenuSeparator />}
+                          <DropdownMenuItem onClick={() => move(r, i)}>
+                            <StageDot stage={i} /> {s}
+                          </DropdownMenuItem>
+                        </div>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </td>
                 {showBand && <td className="px-3">{r.band ? <BandBadge band={r.band} score={r.score} /> : <span className="text-muted-foreground">—</span>}</td>}
                 <td className="truncate px-3">{r.city || <span className="text-muted-foreground">{r.state || "—"}</span>}</td>
                 <td className="truncate px-3 text-muted-foreground">{r.nextStep || "—"}</td>
-                <td className="px-3">{r.nextStepDate ? <DueChip date={r.nextStepDate} today={today} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
-                <td className="truncate px-3 text-muted-foreground">
-                  {r.assigned ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Owner name={r.assigned} /> {r.assigned}
-                    </span>
-                  ) : (
-                    "—"
-                  )}
+                <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                  <DatePicker value={r.nextStepDate} today={today} onPick={(iso) => saveRow(r, { next_step_date: iso })}>
+                    <button type="button" aria-label={`Follow-up date for ${r.name}. Change`} className="-mx-1 rounded px-1 py-0.5 hover:bg-muted">
+                      {r.nextStepDate ? <DueChip date={r.nextStepDate} today={today} /> : <span className="text-xs text-muted-foreground group-hover:text-foreground">—</span>}
+                    </button>
+                  </DatePicker>
+                </td>
+                <td className="truncate px-3 text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                  <OwnerPicker value={r.assigned} me={me} team={team} onPick={(n) => saveRow(r, { assigned: n || null })}>
+                    <button type="button" aria-label={`Owner of ${r.name}: ${r.assigned || "nobody"}. Change`} className="-mx-1 inline-flex max-w-full items-center gap-1.5 truncate rounded px-1 py-0.5 hover:bg-muted hover:text-foreground">
+                      {r.assigned ? (
+                        <>
+                          <Owner name={r.assigned} /> <span className="truncate">{r.assigned}</span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </button>
+                  </OwnerPicker>
                 </td>
               </tr>
             ))}
@@ -283,6 +353,7 @@ export function ListView({
           </button>
         </div>
       )}
+      {stageDialog}
       <span className="sr-only" aria-live="polite">
         {pending ? "Saving to the sheet" : ""}
       </span>
