@@ -4,13 +4,10 @@ import { refresh, updateTag } from "next/cache";
 
 import { getCurrentUser, getMembers, getWorkspace } from "@/lib/data";
 import type { DealContext } from "./deals";
-import type { ActivityEntry, ProspectRecord } from "./parse";
-import { recordsOf } from "./parse";
-import { loadWorkbook, PROSPECTS_TAG } from "./read";
-import { relatedRecords, type Related } from "./related";
+import { PROSPECTS_TAG } from "./read";
 import type { ProspectKind } from "./schema";
 import { isAssignedTo } from "./stats";
-import { assignProspects, BULK_LIMIT, logProspectTouch, readProspectDetail, saveProspectRecord, saveProspectRecords, type BulkResult, type ProspectResult } from "./service";
+import { assignProspects, BULK_LIMIT, logProspectTouch, saveProspectRecord, saveProspectRecords, type BulkResult, type ProspectResult } from "./service";
 import type { TouchInput as ServiceTouchInput } from "./touch";
 
 export type ActionResult = ProspectResult;
@@ -26,12 +23,6 @@ async function signedIn(): Promise<{ name: string; dealCtx: DealContext }> {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
   return { name: (me.name || me.email || "Unknown").trim(), dealCtx: { workspaceId: ws.id, userId: me.id } };
-}
-
-/** The full record behind a row, plus its Activity history, for the side panel and full page. */
-export async function getProspectDetail(kind: ProspectKind, id: string): Promise<{ record: ProspectRecord; activity: ActivityEntry[] } | null> {
-  await getWorkspace();
-  return readProspectDetail(kind, id);
 }
 
 /** Write edited cells on one row. Only the dashboard's writable columns are accepted. */
@@ -66,14 +57,6 @@ export async function assignTo(kind: ProspectKind, ids: string[], person: string
   const member = members.map((m) => (m.name || m.email || "").trim()).find((n) => n && isAssignedTo(person, n));
   if (!member) return { ok: false, message: `${person} is not a member of this workspace.` };
   return assignProspects(kind, ids, member, invalidate);
-}
-
-/** The rows a prospect is connected to (firm, partners, lenders, panel, members). */
-export async function getRelatedProspects(kind: ProspectKind, id: string): Promise<{ items: Related[]; more: number }> {
-  await getWorkspace();
-  const wb = await loadWorkbook();
-  const record = recordsOf(wb, kind).find((r) => r.id === id);
-  return record ? relatedRecords(wb, record) : { items: [], more: 0 };
 }
 
 /**

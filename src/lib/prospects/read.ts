@@ -56,7 +56,9 @@ async function readWorkbook(): Promise<ProspectsWorkbook> {
     // Every tab normally exists, so read them all in one call rather than
     // listing the tabs first and reading second.
     tabs = await readTabs(id, all);
-  } catch {
+  } catch (err) {
+    // A timeout is Google being slow, not a missing tab: listing and reading again would only wait twice as long.
+    if (err instanceof Error && err.name === "TimeoutError") throw err;
     // A missing tab fails the whole batch read; fall back to reading only the
     // tabs that are there. (A real failure — bad sheet id, no access — throws
     // again from listTabs, with its explanation.)
