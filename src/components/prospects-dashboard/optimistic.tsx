@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useTransition } from "react";
+import { toast } from "sonner";
 
-import { STAGES } from "@/lib/prospects/schema";
+import { saveProspect } from "@/lib/prospects/actions";
+import { STAGES, type ProspectKind } from "@/lib/prospects/schema";
 import type { ProspectRow } from "@/lib/prospects/stats";
 
 export type SheetPatch = Record<string, string | number | null>;
@@ -36,3 +38,19 @@ export function applyOptimistic(rows: ProspectRow[], u: OptimisticUpdate): Prosp
 export const PatchRowsContext = createContext<(u: OptimisticUpdate) => void>(() => {});
 
 export const usePatchRows = () => useContext(PatchRowsContext);
+
+/**
+ * Save cells on one row from a list or board: the row changes on screen at
+ * once, and an error toast names the prospect if the sheet refuses.
+ */
+export function useRowSave() {
+  const patchRows = usePatchRows();
+  const [pending, start] = useTransition();
+  const save = (r: { kind: ProspectKind; id: string; name: string }, patch: SheetPatch) =>
+    start(async () => {
+      patchRows({ keys: [rowKey(r)], patch });
+      const res = await saveProspect(r.kind, r.id, patch);
+      if (!res.ok) toast.error(`${r.name}: ${res.message}`);
+    });
+  return { save, pending };
+}

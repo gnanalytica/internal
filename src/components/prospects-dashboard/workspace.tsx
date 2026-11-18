@@ -152,6 +152,8 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
   }));
   const kind = filters.kind;
   const [view, setViewState] = useState(get("view") ?? "all");
+  // The list's sort, e.g. "due" or "-score" (descending); empty is the default, score highest first.
+  const [sort, setSortState] = useState(get("sort") ?? "");
   const [stage, setStageState] = useState<number | null>(get("stage") ? Number(get("stage")) : null);
   const [layout, setLayoutState] = useState<ProspectLayout>(() => layoutFrom(params));
   const [pb, setPbState] = useState(get("pb") ?? "anchor");
@@ -219,6 +221,10 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
     sync({ kind: f.kind || null, owner: f.owner || null, band: f.band || null, q: f.q.trim() ? f.q : null });
   };
   const setKind = (k: ProspectKind | "") => setFilters({ ...filters, kind: k });
+  const setSort = (v: string) => {
+    setSortState(v);
+    sync({ sort: v || null });
+  };
   const setView = (v: string) => {
     setViewState(v);
     sync({ view: v === "all" ? null : v });
@@ -455,6 +461,8 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
             setScope={setScope}
             filters={filters}
             setFilters={setFilters}
+            sort={sort}
+            setSort={setSort}
             onOpen={open}
             openKey={sel ? `${sel.kind}:${sel.id}` : null}
             onShareOut={() => setShareOpen(true)}
