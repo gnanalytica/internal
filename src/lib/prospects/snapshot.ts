@@ -4,7 +4,7 @@ import { toRow, type ProspectRow } from "./stats";
 
 /**
  * What the list pages read from the sheet: every record as its list row, plus
- * Activity. The Sales, Customer Success and Analytics pages and the list API
+ * Activity. Sales (its Customers tab too), the scorecard and the list API
  * need nothing else; the full record (notes, drafts, research) is read only
  * when one prospect is opened.
  */

@@ -62,10 +62,11 @@ describe("what a preview shows", () => {
   const member = { linked: true, isAdmin: false } as const;
   const stranger = { linked: false } as const;
 
-  it("treats Sales, Finance, deals, prospects and confidential projects as confidential", () => {
-    expect(isConfidentialLink({ type: "deal", id: ID }, false)).toBe(true);
-    expect(isConfidentialLink({ type: "prospect", ref: "valuer:1", kind: "valuer", id: "1" }, false)).toBe(true);
-    expect(isConfidentialLink({ type: "project", id: P, area: "sales" }, false)).toBe(true);
+  it("treats Finance and confidential projects as confidential, but not Sales", () => {
+    expect(isConfidentialLink({ type: "deal", id: ID }, false)).toBe(false);
+    expect(isConfidentialLink({ type: "prospect", ref: "valuer:1", kind: "valuer", id: "1" }, false)).toBe(false);
+    expect(isConfidentialLink({ type: "deal", id: ID }, true)).toBe(true);
+    expect(isConfidentialLink({ type: "project", id: P, area: "sales" }, false)).toBe(false);
     expect(isConfidentialLink({ type: "project", id: P, area: "finance" }, false)).toBe(true);
     expect(isConfidentialLink({ type: "project", id: P, area: "engineering" }, false)).toBe(false);
     expect(isConfidentialLink({ type: "issue", id: ID }, false)).toBe(false);

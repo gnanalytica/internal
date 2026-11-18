@@ -44,24 +44,27 @@ export type Ticket = {
 export type TicketComment = { id: string; body: string; author: Ref | null; createdAt: string };
 export type TicketDetail = Ticket & { body: string | null; comments: TicketComment[] };
 
-export type Campaign = {
+/**
+ * A content piece, as the web's Marketing plans by. `format`, `details`,
+ * `views` and `clicks` arrive from servers that have them; older ones leave
+ * them out, so they are optional.
+ */
+export type ContentItem = {
   id: string;
-  name: string;
-  channel: string;
+  title: string;
+  channel: string | null;
   status: string;
-  budget: number;
-  entity: string;
-  startDate: string | null;
-  endDate: string | null;
-  project: Ref | null;
-  contentCount: number;
-  reach?: number;
-  replies?: number;
-  conversions?: number;
-  pageId?: string | null;
-  ownerId?: string | null;
+  url: string | null;
+  notes: string | null;
+  publishDate: string | null;
+  projectId: string | null;
+  campaign: Ref | null;
+  ownerId: string | null;
+  format?: string | null;
+  details?: Record<string, unknown> | null;
+  views?: number | null;
+  clicks?: number | null;
 };
-export type ContentItem = { id: string; title: string; channel: string | null; status: string; url: string | null; notes: string | null; publishDate: string | null; projectId: string | null; campaign: Ref | null; ownerId: string | null };
 
 export type Invoice = { id: string; number: string | null; status: string; amount: number; entity: string; issueDate: string | null; dueDate: string | null; project: Ref | null; account: Ref | null };
 export type Expense = { id: string; vendor: string | null; category: string; amount: number; status: string; entity: string; spentDate: string | null; project: Ref | null };
@@ -121,14 +124,13 @@ export const contactsQuery = queryOptions({ queryKey: ["biz", "contacts"], query
 export const activitiesQuery = (deal: string) => queryOptions({ queryKey: ["biz", "activities", deal], queryFn: () => list<Activity>("/activities", { deal }) });
 export const ticketsQuery = (project: string) => queryOptions({ queryKey: ["biz", "tickets", project], queryFn: () => list<Ticket>("/tickets", { project }) });
 export const ticketQuery = (id: string) => queryOptions({ queryKey: ["biz", "ticket", id], queryFn: async () => (await api.get<ItemResponse<TicketDetail>>(`/tickets/${id}`)).data });
-export const campaignsQuery = (project: string) => queryOptions({ queryKey: ["biz", "campaigns", project], queryFn: () => list<Campaign>("/campaigns", { project }) });
 export const contentQuery = (project: string) => queryOptions({ queryKey: ["biz", "content", project], queryFn: () => list<ContentItem>("/content", { project }) });
 export const financeQuery = (project: string) => queryOptions({ queryKey: ["biz", "finance", project], queryFn: async () => (await api.get<ItemResponse<Finance>>(`/projects/${project}/finance`)).data });
 export const strategyQuery = (project: string) => queryOptions({ queryKey: ["biz", "strategy", project], queryFn: async () => (await api.get<ItemResponse<Strategy>>(`/projects/${project}/strategy`)).data });
 
 // ---- Writes ----
 
-export type Resource = "deals" | "accounts" | "contacts" | "activities" | "tickets" | "campaigns" | "content" | "invoices" | "expenses";
+export type Resource = "deals" | "accounts" | "contacts" | "activities" | "tickets" | "content" | "invoices" | "expenses";
 
 /** Which cached reads a write to each resource can change. */
 const AFFECTS: Record<Resource, QueryKey[]> = {
@@ -137,8 +139,7 @@ const AFFECTS: Record<Resource, QueryKey[]> = {
   contacts: [["biz", "contacts"], ["biz", "deals"], ["biz", "tickets"], ["biz", "ticket"]],
   activities: [["biz", "activities"]],
   tickets: [["biz", "tickets"], ["biz", "ticket"]],
-  campaigns: [["biz", "campaigns"], ["biz", "content"]],
-  content: [["biz", "content"], ["biz", "campaigns"]],
+  content: [["biz", "content"]],
   invoices: [["biz", "finance"]],
   expenses: [["biz", "finance"]],
 };

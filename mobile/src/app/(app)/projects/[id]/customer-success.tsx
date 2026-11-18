@@ -1,28 +1,15 @@
-import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { Redirect, useLocalSearchParams } from "expo-router";
 
-import { DepartmentTasks } from "@/features/business/department-tasks";
-import { DeptScaffold } from "@/features/business/scaffold";
-import { Tickets } from "@/features/business/support/tickets";
-
-type Segment = "tickets" | "tasks";
-
-/** A project's Customer Success department: the support queue and onboarding/support tasks. */
+/**
+ * Customer Success moved into Sales, as on the web: customers and their
+ * requests are Sales → Customers, and saved answers are part of the Playbook.
+ * Old links (Slack, notifications) land on the same thing there:
+ *
+ *   ?tab=requests → Sales ?tab=customers&cf=requests
+ *   ?tab=answers  → Sales ?tab=playbook
+ */
 export default function CustomerSuccessScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const [segment, setSegment] = useState<Segment>("tickets");
-  return (
-    <DeptScaffold
-      title="Customer Success"
-      projectId={id}
-      value={segment}
-      onChange={setSegment}
-      segments={[
-        { value: "tickets", label: "Tickets" },
-        { value: "tasks", label: "Tasks" },
-      ]}
-    >
-      {segment === "tickets" ? <Tickets projectId={id} /> : <DepartmentTasks projectId={id} department="customer-success" emptyTitle="No onboarding or support tasks yet" />}
-    </DeptScaffold>
-  );
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const params: Record<string, string> = tab === "answers" ? { id, tab: "playbook" } : tab === "requests" ? { id, tab: "customers", cf: "requests" } : { id, tab: "customers" };
+  return <Redirect href={{ pathname: "/projects/[id]/sales", params }} />;
 }

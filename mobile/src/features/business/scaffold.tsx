@@ -32,7 +32,8 @@ export function DeptScaffold<T extends string>({
   const project = useProject(projectId);
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <Stack.Screen options={{ title, headerTitle: () => <HeaderTitle title={title} project={project?.name} />, headerRight }} />
+      {/* headerRight only when given, so a child that sets its own (Valytica's Sales) keeps it. */}
+      <Stack.Screen options={{ title, headerTitle: () => <HeaderTitle title={title} project={project?.name} />, ...(headerRight ? { headerRight } : {}) }} />
       {segments && value && onChange ? (
         <View style={{ paddingHorizontal: space.lg, paddingTop: space.xs, paddingBottom: space.md }}>
           <Segmented value={value} onChange={onChange} options={segments} />

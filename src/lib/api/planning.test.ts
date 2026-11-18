@@ -27,12 +27,12 @@ describe("departmentsForCaller", () => {
   it("gives admins every enabled department in canonical order", () => {
     expect(slugs(departmentsForCaller(project(), { scope: UNRESTRICTED, userId: "a" }))).toEqual(["product", "engineering", "analytics", "sales", "finance"]);
   });
-  it("hides Sales and Finance from a member who does not own the project", () => {
-    expect(slugs(departmentsForCaller(project(), { scope: member(), userId: "m" }))).toEqual(["product", "engineering", "analytics"]);
+  it("shows Sales but hides Finance from a member who does not own the project", () => {
+    expect(slugs(departmentsForCaller(project(), { scope: member(), userId: "m" }))).toEqual(["product", "engineering", "analytics", "sales"]);
   });
-  it("shows Finance, not Sales, to the project's owner", () => {
+  it("shows Sales and Finance to the project's owner", () => {
     const d = departmentsForCaller(project({ ownerId: "m" }), { scope: member(["valytica"]), userId: "m" });
-    expect(slugs(d)).toEqual(["product", "engineering", "analytics", "finance"]);
+    expect(slugs(d)).toEqual(["product", "engineering", "analytics", "sales", "finance"]);
   });
   it("uses the default-on baseline when nothing is configured", () => {
     expect(slugs(departmentsForCaller(project({ enabledDepartments: null }), { scope: member(), userId: "m" }))).toEqual(["product", "engineering", "strategy"]);

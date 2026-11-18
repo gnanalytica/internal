@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { applyCadenceToCycle, deleteCycle, rollOverCycle, updateCycle } from "@/lib/actions";
+import { projectCyclesHref } from "@/lib/departments";
 import type { Cycle, IssueListItem, TaskContext } from "@/lib/types";
 import { cycleStatus } from "@/lib/types";
 
@@ -89,7 +90,7 @@ export function CycleDetail({
     <div className="flex h-full flex-col">
       <Topbar
         breadcrumb={[
-          { label: "Cycles", href: `/projects/${cycle.projectId}/cycles` },
+          { label: "Cycles", href: projectCyclesHref(cycle.projectId) },
           { label: cycle.name },
         ]}
         actions={

@@ -1,7 +1,6 @@
 "use client";
 
 import { Plus, Users } from "lucide-react";
-import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -9,15 +8,14 @@ import { EmptyState } from "@/components/empty-state";
 import { SendToProductButton, type ProductFeedback } from "@/components/product/send-to-product";
 import { CHANNEL_TONE, KindDot, outcomeTone, StagePill, ToneChip } from "@/components/prospects-dashboard/bits";
 import { Button } from "@/components/ui/button";
-import { CHECK_INS_NEEDED, daysAgo, onboardingProgress, onboardingSteps, toggleStep, type Onboarding, type OnboardingStepId } from "@/lib/customer-success";
+import { CHECK_INS_NEEDED, daysAgo, onboardingProgress, onboardingSteps, planLabel, sortRequests, toggleStep, type Onboarding, type OnboardingStepId } from "@/lib/customer-success";
 import { setOnboardingStep } from "@/lib/customer-success-actions";
-import { entityCurrency, formatCurrency } from "@/lib/currency";
-import { KIND_LABEL, type Channel } from "@/lib/prospects/schema";
+import { KIND_LABEL, type Channel, type ProspectKind } from "@/lib/prospects/schema";
 import { canSendTouch, touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { tone } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 import { dayMonth, HealthChip, HealthDot, type CustomerView } from "./bits";
-import { NewRequestDialog, RequestCard, sortRequests, type RequestCtx } from "./requests";
+import { NewRequestDialog, RequestCard, type RequestCtx } from "./requests";
 
 /* ---------- the list ---------- */
 
@@ -72,19 +70,12 @@ function CustomerList({ customers, selected, onSelect }: { customers: CustomerVi
           <CustomerCard key={c.ref} c={c} selected={c.ref === selected} onSelect={() => onSelect(c.ref)} />
         ))}
       </div>
-      <p className="mt-2 rounded-lg border bg-background px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">A prospect that reaches Pilot running or Won in Sales shows up here on its own, with the onboarding steps ready.</p>
+      <p className="mt-2 rounded-lg border bg-background px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">A prospect that reaches Pilot running or Won shows up here on its own, with the onboarding steps ready.</p>
     </section>
   );
 }
 
 /* ---------- one customer ---------- */
-
-function planLabel(c: CustomerView): string {
-  if (!c.deal) return c.stage === 5 ? "Won" : "Pilot";
-  const money = c.deal.value ? formatCurrency(c.deal.value, entityCurrency(c.deal.entity)) : null;
-  if (c.stage === 5) return money ?? "Won, no amount yet";
-  return money ? `Pilot · ${money} deal` : "Pilot";
-}
 
 function Section({ title, aside, action, children, className, id }: { title: string; aside?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string; id: string }) {
   return (
@@ -192,14 +183,14 @@ function CheckIns({ c, fb }: { c: CustomerView; fb: ProductFeedback }) {
   );
 }
 
-function CustomerRecord({ c, ctx, salesHref, today, onLog, onChanged, showValue }: { c: CustomerView; ctx: RequestCtx; salesHref: string; today: string; onLog: () => void; onChanged: () => void; showValue: boolean }) {
+function CustomerRecord({ c, ctx, onOpenProspect, today, onLog, onChanged }: { c: CustomerView; ctx: RequestCtx; onOpenProspect: () => void; today: string; onLog: () => void; onChanged: () => void }) {
   const [newOpen, setNewOpen] = useState(false);
   const owner = c.assigned || c.deal?.owner || "";
   const where = [KIND_LABEL[c.kind].one, c.city || c.state].filter(Boolean).join(" · ");
   const requests = sortRequests(c.requests);
   const facts = [
     { label: "Last touch", value: daysAgo(c.lastTouch, today) },
-    { label: "Plan", value: showValue ? planLabel(c) : c.stage === 5 ? "Won" : "Pilot" },
+    { label: "Plan", value: planLabel(c) },
     { label: "Open requests", value: String(c.openRequests) },
     { label: "Stage", value: <StagePill stage={c.stage} /> },
   ];
@@ -219,12 +210,9 @@ function CustomerRecord({ c, ctx, salesHref, today, onLog, onChanged, showValue 
                 Owner <span className="text-foreground">{owner}</span>
               </span>
             )}
-            {/* Sales is admin-only, the same people who see deal values. */}
-            {showValue && (
-              <Link href={salesHref} className="text-primary hover:underline">
-                Sales history →
-              </Link>
-            )}
+            <button type="button" onClick={onOpenProspect} className="rounded-sm text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+              Sales history →
+            </button>
           </p>
         </div>
         <HealthChip health={c.health} />
@@ -283,43 +271,35 @@ export function CustomersTab({
   selected,
   onSelect,
   ctx,
-  projectId,
   today,
   onLog,
   onChanged,
-  showValue,
-  fromSheet,
+  onOpenProspect,
 }: {
   customers: CustomerView[];
   selected: string | null;
   onSelect: (ref: string) => void;
   ctx: RequestCtx;
-  projectId: string;
   today: string;
   onLog: (c: CustomerView) => void;
   onChanged: () => void;
-  showValue: boolean;
-  fromSheet: boolean;
+  /** Open the prospect record behind a customer, on its Activity tab. */
+  onOpenProspect: (r: { kind: ProspectKind; id: string }) => void;
 }) {
   if (!customers.length) {
     return (
       <EmptyState
         icon={<Users className="size-5" />}
         title="No customers yet"
-        description={
-          fromSheet
-            ? "A prospect becomes a customer when Sales moves it to Pilot running or Won. It shows up here on its own, with the onboarding steps ready."
-            : "Customers come from the prospects sheet, which only Valytica has. Requests and Answers still work here."
-        }
+        description="A prospect becomes a customer when Sales moves it to Pilot running or Won. It shows up here on its own, with the onboarding steps ready."
       />
     );
   }
   const c = customers.find((x) => x.ref === selected) ?? customers[0];
-  const salesHref = `/projects/${projectId}/sales?${new URLSearchParams({ rec: c.ref, rt: "activity" }).toString()}`;
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <CustomerList customers={customers} selected={c.ref} onSelect={onSelect} />
-      <CustomerRecord key={c.ref} c={c} ctx={ctx} salesHref={salesHref} today={today} onLog={() => onLog(c)} onChanged={onChanged} showValue={showValue} />
+      <CustomerRecord key={c.ref} c={c} ctx={ctx} onOpenProspect={() => onOpenProspect({ kind: c.kind, id: c.id })} today={today} onLog={() => onLog(c)} onChanged={onChanged} />
     </div>
   );
 }

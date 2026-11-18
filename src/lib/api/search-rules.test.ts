@@ -21,8 +21,8 @@ describe("search visibility", () => {
     hit("account", "a1", null),
   ];
 
-  it("hides confidential projects, their contents, and deals from a member", () => {
-    expect(visibleHits(hits, member).map((h) => h.id)).toEqual(["i1", "p1", "eng", "d1", "a1"]);
+  it("hides confidential projects and their contents from a member, but not deals", () => {
+    expect(visibleHits(hits, member).map((h) => h.id)).toEqual(["i1", "p1", "eng", "d1", "deal1", "a1"]);
   });
 
   it("shows admins and integration keys everything, in order", () => {
@@ -34,7 +34,7 @@ describe("web paths", () => {
   it("opens project-scoped records inside their project", () => {
     expect(webPath("milestone", "m1", "p1")).toBe("/projects/p1/milestones/m1");
     expect(webPath("feature", "f1", "p1")).toBe("/projects/p1/product/f1");
-    expect(webPath("cycle", "c1", "p1")).toBe("/projects/p1/cycles");
+    expect(webPath("cycle", "c1", "p1")).toBe("/projects/p1/engineering?tab=cycles");
     expect(webPath("deal", "d1", "p1")).toBe("/projects/p1/sales");
   });
   it("falls back to a flat path without a project", () => {

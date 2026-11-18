@@ -10,7 +10,7 @@ export function Restricted({ label = "This area" }: { label?: string }) {
       <div>
         <p className="text-sm font-medium">{label} is restricted</p>
         <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-          Finance, Sales and People &amp; HR are visible to founders only. Ask an
+          Finance and People &amp; HR are visible to founders only. Ask an
           admin if you need access.
         </p>
       </div>

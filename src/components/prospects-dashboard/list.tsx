@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Phone, X } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -10,7 +10,7 @@ import { saveProspects } from "@/lib/prospects/actions";
 import { KIND_LABEL, PROSPECT_KINDS, STAGES, UNSCORED_KINDS, type ProspectKind } from "@/lib/prospects/schema";
 import { SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, DatePicker, DueChip, FilterMenu, KindDot, Owner, OwnerPicker, StageDot, StagePill } from "./bits";
+import { BandBadge, DatePicker, DueChip, FilterMenu, KindDot, LayoutSwitch, Owner, OwnerPicker, StageDot, StagePill, type ProspectLayout } from "./bits";
 import { rowKey as keyOf, usePatchRows } from "./optimistic";
 import { applyFilters, FilterBar, type Filters } from "./pipeline";
 
@@ -24,6 +24,9 @@ function csv(rows: ProspectRow[]): string {
   };
   return [head.join(","), ...rows.map((r) => [KIND_LABEL[r.kind].one, r.id, r.name, r.city, r.state, STAGES[r.stage], r.band, r.score, r.assigned, r.nextStep, r.nextStepDate, r.lastContacted, r.lenders, r.cases, r.software].map(esc).join(","))].join("\n");
 }
+
+/** Views of follow-ups, where working through them one call at a time makes sense. */
+const CALL_VIEWS = new Set(["mine", "due", "overdue"]);
 
 export function ListView({
   kind,
@@ -43,6 +46,8 @@ export function ListView({
   onOpen,
   openKey,
   onShareOut,
+  setLayout,
+  onStartCalls,
 }: {
   kind: ProspectKind | "";
   setKind: (k: ProspectKind | "") => void;
@@ -61,6 +66,9 @@ export function ListView({
   onOpen: (r: ProspectRow) => void;
   openKey: string | null;
   onShareOut: () => void;
+  setLayout: (l: ProspectLayout) => void;
+  /** Opens Your day: what is due for you, one prospect at a time. */
+  onStartCalls: () => void;
 }) {
   const patchRows = usePatchRows();
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -138,11 +146,20 @@ export function ListView({
       <FilterBar filters={filters} setFilters={setFilters} team={team} scope={scope} setScope={setScope} showKind={false}>
         <FilterMenu label="View" value={view} onChange={(v) => setView(v)} options={SAVED_VIEWS.map((v) => ({ value: v.id, label: v.id === "all" ? "Everything" : v.label }))} />
         <FilterMenu label="Stage" value={stage === null ? "" : String(stage)} onChange={(v) => setStage(v === "" ? null : Number(v))} options={[{ value: "", label: "Any" }, ...STAGES.map((s, i) => ({ value: String(i), label: s }))]} />
+        <LayoutSwitch value="list" onChange={setLayout} />
       </FilterBar>
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>{shown.length.toLocaleString("en-IN")} prospects</span>
         <span className="flex-1" />
+        {CALL_VIEWS.has(view) && (
+          <>
+            <button type="button" onClick={onStartCalls} className="inline-flex items-center gap-1 font-medium text-foreground hover:underline">
+              <Phone className="size-3" /> Start calling
+            </button>
+            <span aria-hidden>·</span>
+          </>
+        )}
         <button type="button" onClick={onShareOut} className="hover:text-foreground">
           Share out…
         </button>

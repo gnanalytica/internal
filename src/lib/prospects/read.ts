@@ -40,7 +40,7 @@ async function loadPackedSnapshot(): Promise<PackedSnapshot> {
   return packSnapshot(snapshotOf(await readWorkbook()));
 }
 
-/** What the Sales, Customer Success and Analytics pages read from the sheet. */
+/** What Sales (its Customers tab too) and the scorecard read from the sheet. */
 export async function loadProspectSnapshot(): Promise<ProspectsSnapshot> {
   return unpackSnapshot(await loadPackedSnapshot());
 }

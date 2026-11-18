@@ -6,6 +6,7 @@ import type { PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { apiInvalidate, apiInvalidateAttachments } from "@/lib/api/invalidate";
 import type { CacheEntity } from "@/lib/cache-tags";
+import { CONTENT_FORMATS } from "@/lib/marketing";
 import {
   attachments,
   campaigns,
@@ -98,6 +99,12 @@ const oneOf =
       throw new Error(`Expected one of: ${allowed.join(", ")}.`);
     return s;
   };
+
+/** Null or empty clears the column; anything else must pass `inner`. */
+const nullable =
+  (inner: Coerce): Coerce =>
+  (v) =>
+    v == null || v === "" ? null : inner(v);
 
 /** A required text column — reject a patch that would blank it out. */
 const required =
@@ -307,6 +314,9 @@ export const RESOURCES = {
       campaignId: ref,
       projectId: ref,
       ownerId: ref,
+      format: nullable(oneOf(CONTENT_FORMATS)),
+      views: int,
+      clicks: int,
     },
   },
   "org-roles": {

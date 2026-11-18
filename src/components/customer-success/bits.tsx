@@ -1,6 +1,6 @@
 "use client";
 
-import { HEALTH, requestState, requestStateMeta, type Health } from "@/lib/customer-success";
+import { HEALTH, type Health } from "@/lib/customer-success";
 import type { Customer } from "@/lib/customer-success-data";
 import type { TicketWithRelations } from "@/lib/types";
 import { tone } from "@/lib/tones";
@@ -23,11 +23,6 @@ export function HealthChip({ health, className }: { health: Health; className?: 
       {HEALTH[health].label}
     </span>
   );
-}
-
-export function RequestStateChip({ status, className }: { status: string; className?: string }) {
-  const meta = requestStateMeta(requestState(status));
-  return <span className={cn("inline-flex h-[22px] items-center rounded-full px-2 text-xs font-medium whitespace-nowrap", tone(meta.tone).chip, className)}>{meta.label}</span>;
 }
 
 /** A customer with everything the page works out about them. */

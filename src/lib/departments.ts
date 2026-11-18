@@ -135,10 +135,17 @@ export function visibleDepartments(
   role: string,
   isOwner = false,
 ): (typeof DEPARTMENTS)[number][] {
-  const list = enabledDepartments(enabled);
-  return list.filter(
-    (d) => !isConfidentialDepartment(d.slug) || canSeeConfidentialDept(d.slug, role, isOwner),
-  );
+  return enabledDepartments(enabled).filter((d) => canSeeDepartment(d.slug, role, isOwner));
+}
+
+/**
+ * THE access rule for a department: the tab strip, each department's page,
+ * the scorecard, the API and the Slack bot all ask this, so a tab can never
+ * show for someone its page then refuses. Non-confidential departments are
+ * open to every member; confidential ones follow `canSeeConfidentialDept`.
+ */
+export function canSeeDepartment(slug: string, role: string, isOwner = false): boolean {
+  return !isConfidentialDepartment(slug) || canSeeConfidentialDept(slug, role, isOwner);
 }
 
 /**
@@ -160,6 +167,37 @@ export function isDepartmentEnabled(
 ): boolean {
   return enabledDepartments(enabled).some((d) => d.slug === slug);
 }
+
+/**
+ * Departments that live inside another surface rather than as a project tab
+ * of their own: Analytics is the scorecard at the top of the Overview, and
+ * Customer Success is the Customers tab in Sales. Their slugs keep their
+ * meaning — enabling one still turns that view on — they just don't get a tab.
+ */
+export const NESTED_DEPARTMENTS: readonly DepartmentSlug[] = ["analytics", "customer-success"];
+
+/** Whether a department gets its own tab in a project's tab strip. */
+export const isTopLevelDepartment = (slug: string): boolean =>
+  !NESTED_DEPARTMENTS.includes(slug as DepartmentSlug);
+
+/**
+ * Where a department's surface lives for one project. Nested departments
+ * point at the view that now holds them; the rest are `/projects/[id]/<slug>`.
+ */
+export function departmentHref(projectId: string, slug: DepartmentSlug): string {
+  const base = `/projects/${projectId}`;
+  if (slug === "analytics") return base;
+  if (slug === "customer-success") return `${base}/sales?tab=customers`;
+  return `${base}/${slug}`;
+}
+
+/** A project's cycles: the Cycles view inside Engineering. */
+export const projectCyclesHref = (projectId: string): string =>
+  `/projects/${projectId}/engineering?tab=cycles`;
+
+/** A project's customer requests: the Customers tab in Sales, showing the open ones. */
+export const customerRequestsHref = (projectId: string): string =>
+  `/projects/${projectId}/sales?tab=customers&cf=requests`;
 
 // ---- Sales: pipeline stages (order = board columns) ----
 export const DEAL_STAGES = [
@@ -219,8 +257,6 @@ export const FEATURE_STATUSES = [
   { id: "archived", label: "Archived", color: "#64748b" },
 ] as const;
 
-export type FeatureStatusId = (typeof FEATURE_STATUSES)[number]["id"];
-
 export const ENTITIES = [
   { id: "India", label: "India 🇮🇳", color: "#f59e0b" },
   { id: "Netherlands", label: "Netherlands 🇳🇱", color: "#f97316" },
@@ -245,12 +281,15 @@ export function optionMeta(
  *
  * A task appears in its department AND on the global board — these are lenses
  * on one set of issues, not separate task systems.
+ *
+ * Only Product and Engineering plan in tasks. Sales is the deal board (or
+ * Valytica's prospects) and Marketing plans by content piece, so neither
+ * claims tasks any more: issues still labelled `sales` or `content` keep their
+ * labels and stay on the global board, they just aren't a department's list.
  */
 export const DEPARTMENT_LABELS: Partial<Record<DepartmentSlug, string[]>> = {
   engineering: ["app", "ai-ml", "platform", "qa"],
   product: ["product", "pm", "setup-pm", "launch", "post-launch", "compliance", "risk"],
-  marketing: ["content", "social", "marketing-analytics", "market-research"],
-  sales: ["sales"],
   "customer-success": ["account-mgmt", "maintenance"],
 };
 

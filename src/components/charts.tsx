@@ -29,20 +29,6 @@ export function ChartCard({
   );
 }
 
-export function Legend({ data, className }: { data: Slice[]; className?: string }) {
-  return (
-    <div className={"flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground " + (className ?? "")}>
-      {data.map((d) => (
-        <span key={d.label} className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full" style={{ backgroundColor: d.color }} />
-          {d.label}
-          <span className="font-medium text-foreground">{d.value}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
 /** Vertical column chart (counts or money per category). */
 export function ColumnChart({
   data,

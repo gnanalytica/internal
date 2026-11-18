@@ -22,7 +22,7 @@ import { CHANNELS, DIRECTIONS, OUTCOMES, PROSPECT_KINDS, STAGES } from "@/lib/pr
  * clicks Confirm.
  */
 
-export type ToolAccess = "anyone" | "linked" | "admin";
+export type ToolAccess = "anyone" | "linked";
 export type ToolEffect = "read" | "write" | "confirm";
 
 const STATUS_IDS = STATUSES.map((s) => s.id) as [string, ...string[]];
@@ -153,7 +153,7 @@ export const TOOL_SPECS = {
     schema: z.strictObject({ task: text(500), body: text(4000) }),
   },
   search_prospects: {
-    access: "admin",
+    access: "linked",
     effect: "read",
     label: "Searching prospects",
     description:
@@ -177,7 +177,7 @@ export const TOOL_SPECS = {
     }),
   },
   get_prospect: {
-    access: "admin",
+    access: "linked",
     effect: "read",
     label: "Reading the prospect",
     description: "Read one prospect: stage, next step, last touch, what they said on recent calls and messages, objections, contact routes.",
@@ -185,7 +185,7 @@ export const TOOL_SPECS = {
     schema: z.strictObject({ prospect: text(200), kind: z.enum(PROSPECT_KINDS).optional() }),
   },
   log_touch: {
-    access: "admin",
+    access: "linked",
     effect: "confirm",
     label: "Preparing the touch",
     description:
@@ -251,7 +251,7 @@ export const TOOL_SPECS = {
     access: "linked",
     effect: "read",
     label: "Reading your work",
-    description: "The person asking's open tasks (overdue and due soon first) and, for admins, their prospect follow-ups due today or overdue.",
+    description: "The person asking's open tasks (overdue and due soon first) and their prospect follow-ups due today or overdue.",
     input_schema: objectSchema({}),
     schema: z.strictObject({}),
   },

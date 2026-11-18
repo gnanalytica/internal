@@ -12,8 +12,8 @@ describe("API visibility for a member signed in on their phone", () => {
     // Workspace-level records (no project) stay visible, as on the web.
     expect(canSeeProject(member, null)).toBe(true);
   });
-  it("keeps Sales for admins", () => {
-    expect(canSeeSales(member)).toBe(false);
+  it("gives members Sales, as the web's Sales tab does", () => {
+    expect(canSeeSales(member)).toBe(true);
   });
   it("shows Finance only for a visible project the member owns", () => {
     expect(canSeeFinance(member, "valytica")).toBe(true);

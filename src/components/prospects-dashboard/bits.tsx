@@ -227,10 +227,6 @@ export function Owner({ name, className }: { name: string; className?: string })
   );
 }
 
-export function MissingValue({ children = "Not known yet" }: { children?: React.ReactNode }) {
-  return <span className="text-amber-700 dark:text-amber-400">{children}</span>;
-}
-
 /** The team members to offer as owners, "me" first. `assigned` is written as a first name, as the team types it. */
 export function OwnerPicker({ value, me, team, onPick, children, disabled }: { value: string; me: string; team: string[]; onPick: (firstName: string) => void; children: React.ReactElement; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -347,5 +343,24 @@ export function DatePicker({ value, today, onPick, children, disabled, allowClea
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** How the Prospects tab lays out its rows: a list, a board by stage, or a timeline by due date. */
+export type ProspectLayout = "list" | "board" | "timeline";
+
+/** The List / By stage / By due date switch, the same on every Prospects layout. */
+export function LayoutSwitch({ value, onChange }: { value: ProspectLayout; onChange: (l: ProspectLayout) => void }) {
+  return (
+    <Segmented
+      label="Layout"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: "list", label: "List" },
+        { value: "board", label: "By stage" },
+        { value: "timeline", label: "By due date" },
+      ]}
+    />
   );
 }

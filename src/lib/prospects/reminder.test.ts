@@ -118,12 +118,17 @@ describe("reminderText", () => {
     expect(text).toContain("• Rao Associates _(today)_");
     expect(text).toContain("_+2 more_");
     expect(text).toContain("*Unassigned* — 1 overdue, nobody's name on them yet");
-    expect(text).toContain(`<${BASE}|Open Today in Prospects →>`);
+    expect(text).toContain(`<${BASE}|Open Your day in Sales →>`);
   });
 
   it("links to All India when something due is outside the focus states", () => {
     const r = buildReminder({ today: TODAY, people: ["Priya"], rows: [row({ id: "a", assigned: "Priya", nextStepDate: TODAY, state: "Kerala" })] });
     expect(reminderText(r, BASE)).toContain(`<${BASE}?scope=all|`);
+  });
+
+  it("adds All India to a link that already has a query", () => {
+    const r = buildReminder({ today: TODAY, people: ["Priya"], rows: [row({ id: "a", assigned: "Priya", nextStepDate: TODAY, state: "Kerala" })] });
+    expect(reminderText(r, `${BASE}?tab=today`)).toContain(`<${BASE}?tab=today&scope=all|`);
   });
 
   it("uses the mention renderer for each person", () => {

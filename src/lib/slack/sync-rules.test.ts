@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   aiConversationKey,
+  claimSlackComment,
   commentFromWebhook,
   inboundVerdict,
   isAiParticipant,
@@ -94,5 +95,67 @@ describe("isDoneReaction", () => {
     expect(isDoneReaction("heavy_check_mark::skin-tone-3")).toBe(true);
     expect(isDoneReaction(":white_check_mark:")).toBe(true);
     expect(isDoneReaction("thumbsup")).toBe(false);
+  });
+});
+
+describe("claimSlackComment (one Slack reply, one comment, no echo)", () => {
+  // The app's side of a reply, in memory: comments, the slack_comments claims
+  // (unique per message and task), and what mirror.ts would echo back.
+  function world() {
+    const comments = new Set<string>();
+    const claims = new Map<string, string>(); // message key -> comment id
+    const announced: string[] = [];
+    let n = 0;
+    const deliver = async (messageKey: string) => {
+      const id = `c${++n}`;
+      comments.add(id);
+      await new Promise((r) => setTimeout(r, 0)); // the other delivery runs in between
+      const ok = await claimSlackComment(id, {
+        claim: async (cid) => {
+          if (claims.has(messageKey)) return false;
+          claims.set(messageKey, cid);
+          return true;
+        },
+        withdraw: async (cid) => void comments.delete(cid),
+      });
+      if (ok) announced.push(id);
+    };
+    // mirror.ts echoes a comment into its origin thread only when it has no claim.
+    const echoed = () => [...comments].filter((id) => ![...claims.values()].includes(id));
+    return { comments, announced, deliver, echoed };
+  }
+
+  it("keeps one comment and announces it once when a reply is delivered twice at once", async () => {
+    const w = world();
+    await Promise.all([w.deliver("C1:2.0:task"), w.deliver("C1:2.0:task")]);
+    expect(w.comments.size).toBe(1);
+    expect(w.announced).toHaveLength(1);
+    expect(w.echoed()).toEqual([]);
+  });
+
+  it("would have echoed with the old check-then-mark order", async () => {
+    // Before: check alreadySynced, write the comment, mark it with ON CONFLICT DO NOTHING.
+    const comments = new Set<string>();
+    const claims = new Map<string, string>();
+    let n = 0;
+    const old = async (key: string) => {
+      if (claims.has(key)) return;
+      const id = `c${++n}`;
+      comments.add(id);
+      await new Promise((r) => setTimeout(r, 0));
+      if (!claims.has(key)) claims.set(key, id); // the loser's mark is dropped silently
+    };
+    await Promise.all([old("C1:2.0:task"), old("C1:2.0:task")]);
+    const echoed = [...comments].filter((id) => ![...claims.values()].includes(id));
+    expect(comments.size).toBe(2);
+    expect(echoed).toHaveLength(1);
+  });
+
+  it("still syncs distinct replies", async () => {
+    const w = world();
+    await Promise.all([w.deliver("C1:2.0:task"), w.deliver("C1:3.0:task")]);
+    expect(w.comments.size).toBe(2);
+    expect(w.announced).toHaveLength(2);
+    expect(w.echoed()).toEqual([]);
   });
 });

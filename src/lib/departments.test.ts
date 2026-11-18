@@ -6,10 +6,15 @@ import {
   INVOICE_STATUSES,
   OPEN_DEAL_STAGES,
   canSeeConfidentialDept,
+  canSeeDepartment,
+  customerRequestsHref,
+  departmentHref,
   enabledDepartments,
   isConfidentialDepartment,
   isDepartmentEnabled,
+  isTopLevelDepartment,
   optionMeta,
+  projectCyclesHref,
   visibleDepartments,
 } from "@/lib/departments";
 
@@ -86,6 +91,39 @@ describe("per-project department config", () => {
   });
 });
 
+describe("nested departments", () => {
+  // Analytics is the Overview's scorecard and Customer Success is Sales →
+  // Customers: their slugs still gate those views, they just get no tab.
+  it("gives every department but Analytics and Customer Success its own tab", () => {
+    expect(DEPARTMENTS.filter((d) => isTopLevelDepartment(d.slug)).map((d) => d.slug)).toEqual([
+      "product", "engineering", "marketing", "sales", "finance", "strategy",
+    ]);
+  });
+
+  it("gives a member the Sales tab (which holds Customers) but no nested tab", () => {
+    const tabs = visibleDepartments(DEPARTMENTS.map((d) => d.slug), "member")
+      .filter((d) => isTopLevelDepartment(d.slug))
+      .map((d) => d.slug);
+    expect(tabs).toContain("sales");
+    expect(tabs).not.toContain("customer-success");
+    expect(tabs).not.toContain("analytics");
+    expect(canSeeDepartment("sales", "member")).toBe(true);
+  });
+
+  it("keeps the enabled-departments semantics for nested slugs", () => {
+    expect(isDepartmentEnabled(["sales", "customer-success"], "customer-success")).toBe(true);
+    expect(isDepartmentEnabled(["analytics"], "analytics")).toBe(true);
+  });
+
+  it("points nested departments at the view that holds them", () => {
+    expect(departmentHref("p1", "analytics")).toBe("/projects/p1");
+    expect(departmentHref("p1", "customer-success")).toBe("/projects/p1/sales?tab=customers");
+    expect(departmentHref("p1", "marketing")).toBe("/projects/p1/marketing");
+    expect(customerRequestsHref("p1")).toBe("/projects/p1/sales?tab=customers&cf=requests");
+    expect(projectCyclesHref("p1")).toBe("/projects/p1/engineering?tab=cycles");
+  });
+});
+
 describe("confidential department visibility", () => {
   const slugs = (role: string, isOwner: boolean) =>
     visibleDepartments(DEPARTMENTS.map((d) => d.slug), role, isOwner).map((d) => d.slug);
@@ -114,6 +152,25 @@ describe("confidential department visibility", () => {
     expect(canSeeConfidentialDept("finance", "member", false)).toBe(false);
     expect(isConfidentialDepartment("sales")).toBe(false);
     expect(isConfidentialDepartment("finance")).toBe(true);
+  });
+});
+
+describe("canSeeDepartment — one rule for tabs and pages", () => {
+  // The tab strip lists visibleDepartments; each department's page gates on
+  // canSeeDepartment. If they ever disagree, someone gets a tab that opens a
+  // lock screen (as Sales did for members).
+  for (const role of ["member", "admin"])
+    for (const isOwner of [false, true])
+      it(`tabs and pages agree for ${role}${isOwner ? " (owner)" : ""}`, () => {
+        const tabs = new Set(visibleDepartments(DEPARTMENTS.map((d) => d.slug), role, isOwner).map((d) => d.slug));
+        for (const d of DEPARTMENTS) expect(canSeeDepartment(d.slug, role, isOwner)).toBe(tabs.has(d.slug));
+      });
+
+  it("opens Sales to members and keeps Finance to admins and owners", () => {
+    expect(canSeeDepartment("sales", "member")).toBe(true);
+    expect(canSeeDepartment("finance", "member")).toBe(false);
+    expect(canSeeDepartment("finance", "member", true)).toBe(true);
+    expect(canSeeDepartment("finance", "admin")).toBe(true);
   });
 });
 

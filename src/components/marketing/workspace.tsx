@@ -15,9 +15,10 @@ import { ChannelsTab } from "./channels";
 import { PieceEditor } from "./editor";
 import { PiecesTab, type PieceFilter } from "./pieces";
 
-const TABS = ["calendar", "pieces", "channels"] as const;
+const TABS = ["calendar", "pieces"] as const;
 type Tab = (typeof TABS)[number];
 
+// Channels was a tab of its own; it is a section under the calendar now, so old links land there.
 export const tabFrom = (v: string | undefined): Tab => ((TABS as readonly string[]).includes(v ?? "") ? (v as Tab) : "calendar");
 
 type Change = { id: string; patch: PiecePatch } | { id: string; remove: true };
@@ -41,8 +42,8 @@ function sync(patch: Record<string, string | null>) {
 
 /**
  * Marketing for one product: what goes out where and when. The calendar plans
- * the weeks, All pieces is everything in one table, Channels is how often each
- * one actually posts. Any piece opens in the same editor.
+ * the weeks, with how often each channel actually posts under it; All pieces
+ * is everything in one table. Any piece opens in the same editor.
  */
 export function MarketingWorkspace({
   projectId,
@@ -135,7 +136,6 @@ export function MarketingWorkspace({
         tabs={[
           { id: "calendar", label: "Calendar" },
           { id: "pieces", label: "All pieces", count: items.length },
-          { id: "channels", label: "Channels" },
         ]}
         current={tab}
         onChange={setTab}
@@ -148,11 +148,17 @@ export function MarketingWorkspace({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
         <div key={tab} className="animate-enter">
           {tab === "calendar" ? (
-            <CalendarTab items={items} members={members} today={today} salesHref={salesHref} onOpen={open} onSave={save} />
-          ) : tab === "pieces" ? (
-            <PiecesTab items={items} today={today} format={format} setFormat={setFormat} openId={openId} onOpen={open} />
+            <div className="flex flex-col gap-8">
+              <CalendarTab items={items} members={members} today={today} salesHref={salesHref} onOpen={open} onSave={save} />
+              <section aria-labelledby="channels-title" className="flex flex-col gap-2">
+                <h2 id="channels-title" className="text-sm font-semibold">
+                  Channels
+                </h2>
+                <ChannelsTab items={items} today={today} />
+              </section>
+            </div>
           ) : (
-            <ChannelsTab items={items} today={today} />
+            <PiecesTab items={items} today={today} format={format} setFormat={setFormat} openId={openId} onOpen={open} />
           )}
         </div>
       </div>

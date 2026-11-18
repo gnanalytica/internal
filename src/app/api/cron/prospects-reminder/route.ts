@@ -14,8 +14,8 @@ import { notifySlack } from "@/lib/slack";
 
 /**
  * Morning Slack nudge (~9:00 IST): each person's prospect follow-ups due today
- * or overdue, with a link to the Today tab. The aim is the habit of opening
- * Today every morning, so it posts nothing on a day when nothing is due.
+ * or overdue, with a link to Your day. The aim is the habit of opening
+ * Your day every morning, so it posts nothing on a day when nothing is due.
  *
  * Slack is wired as a per-workspace Incoming Webhook, which can only post to
  * the channel it was created for — so this is one channel message per
@@ -26,7 +26,7 @@ import { notifySlack } from "@/lib/slack";
  * connected Slack are posted to: the sheet is one shared workbook, and a
  * workspace that doesn't sell Valytica shouldn't get its pipeline in Slack.
  *
- * Rows are every kind across All India, not just the focus states the Today
+ * Rows are every kind across All India, not just the focus states the Your day
  * page opens on: a dated next step is a commitment wherever the record is.
  * When one falls outside focus the link opens All India so the counts match.
  *
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
   const results: { workspace: string; people: number; posted: boolean; quiet?: true }[] = [];
   for (const ws of targets) {
     const reminder = buildReminder({ rows, people: await teamNames(ws.id), today });
-    const text = reminderText(reminder, `${baseUrl}/projects/${ws.productId}/sales`);
+    const text = reminderText(reminder, `${baseUrl}/projects/${ws.productId}/sales?tab=today`);
     if (!text) {
       results.push({ workspace: ws.name, people: 0, posted: false, quiet: true });
       continue;

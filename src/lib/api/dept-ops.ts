@@ -20,6 +20,7 @@ import {
   workspaceMembers,
 } from "@/db/schema";
 import { pickColor } from "@/lib/data";
+import { asFormat, CONTENT_FORMATS } from "@/lib/marketing";
 import { emitSlackEvent } from "@/lib/slack/notify";
 
 /**
@@ -183,9 +184,14 @@ export async function apiCreateContent(
     notes?: string | null;
     publishDate?: string | null;
     ownerId?: string | null;
+    format?: string | null;
+    views?: number | null;
+    clicks?: number | null;
   },
 ): Promise<string> {
   const title = req(input.title, "title");
+  if (input.format && !asFormat(input.format)) throw new Error(`\`format\` must be one of: ${CONTENT_FORMATS.join(", ")}.`);
+  const count = (v: number | null | undefined) => (v == null || !Number.isFinite(Number(v)) ? null : Math.trunc(Number(v)));
   const [created] = await db
     .insert(contentItems)
     .values({
@@ -199,6 +205,9 @@ export async function apiCreateContent(
       notes: input.notes ?? null,
       publishDate: toDate(input.publishDate),
       ownerId: input.ownerId || null,
+      format: asFormat(input.format),
+      views: count(input.views),
+      clicks: count(input.clicks),
     })
     .returning({ id: contentItems.id });
   apiInvalidate(workspaceId, "campaigns");

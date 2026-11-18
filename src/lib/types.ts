@@ -18,11 +18,9 @@ import type {
   metricPoints,
   metrics,
   milestones,
-  orgRoles,
   pages,
   projects,
   supportAnswers,
-  ticketComments,
   tickets,
   users,
   workspaces,
@@ -123,7 +121,6 @@ export type ExpenseWithRelations = Expense & {
 };
 
 export type Ticket = typeof tickets.$inferSelect;
-export type TicketComment = typeof ticketComments.$inferSelect;
 
 export type TicketWithRelations = Ticket & {
   account: CrmAccount | null;
@@ -189,8 +186,6 @@ export type FeatureDetail = FeatureWithRelations & {
 };
 
 // ---- Org chart: positions/roles (one person may hold several) ----
-export type OrgRole = typeof orgRoles.$inferSelect;
-
 /** A position in the org tree, with its occupant and direct reports. */
 export type OrgRoleNode = {
   id: string;
@@ -399,8 +394,6 @@ export const FIELD_TYPES = [
   { id: "rollup", label: "Rollup", icon: "Σ" },
 ] as const;
 
-export type FieldType = (typeof FIELD_TYPES)[number]["id"];
-
 export const SELECT_COLORS = [
   "#6366f1", "#ec4899", "#10b981", "#f59e0b", "#3b82f6",
   "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#64748b",
@@ -476,8 +469,6 @@ export type FlatIssue = {
   status: string;
   projectKey: string | null;
 };
-
-export type FlatPage = Pick<Page, "id" | "title" | "icon">;
 
 /** Display identifier like ENG-12, falling back to a short id when no project. */
 export function issueIdentifier(issue: {

@@ -16,7 +16,7 @@ import { GroupHeader, OptionBadge } from "../ui";
 const OPEN = ["open", "pending"];
 
 /** The project's support queue, grouped by status. */
-export function Tickets({ projectId }: { projectId: string }) {
+export function Tickets({ projectId, header }: { projectId: string; /** Sits above the list (Sales → Customers' switch). */ header?: React.ReactElement }) {
   const { space } = useTheme();
   const q = useQuery(ticketsQuery(projectId));
   const memberName = useMemberName();
@@ -32,8 +32,13 @@ export function Tickets({ projectId }: { projectId: string }) {
     [tickets, view],
   );
 
-  if (q.isPending) return <Loading />;
-  if (q.isError) return <ErrorView error={q.error} onRetry={() => void q.refetch()} />;
+  if (q.isPending || q.isError)
+    return (
+      <View style={{ flex: 1 }}>
+        {header}
+        {q.isPending ? <Loading /> : <ErrorView error={q.error} onRetry={() => void q.refetch()} />}
+      </View>
+    );
   const openCount = tickets.filter((t) => OPEN.includes(t.status)).length;
 
   return (
@@ -45,15 +50,18 @@ export function Tickets({ projectId }: { projectId: string }) {
         refreshing={q.isRefetching}
         onRefresh={() => void q.refetch()}
         ListHeaderComponent={
-          <View style={{ paddingHorizontal: space.lg, paddingBottom: space.sm }}>
-            <Segmented
-              value={view}
-              onChange={setView}
-              options={[
-                { value: "open", label: `Open ${openCount}` },
-                { value: "all", label: `All ${tickets.length}` },
-              ]}
-            />
+          <View style={{ gap: space.md, paddingBottom: space.sm }}>
+            {header}
+            <View style={{ paddingHorizontal: space.lg }}>
+              <Segmented
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: "open", label: `Open ${openCount}` },
+                  { value: "all", label: `All ${tickets.length}` },
+                ]}
+              />
+            </View>
           </View>
         }
         renderSectionHeader={({ section }) => <GroupHeader label={section.title} color={section.color} count={section.data.length} />}

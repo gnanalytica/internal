@@ -103,3 +103,21 @@ const DONE_EMOJI: ReadonlySet<string> = new Set(["white_check_mark", "heavy_chec
 /** Slack sends the name without colons; a skin tone rides along as "::skin-tone-2". */
 export const isDoneReaction = (rawEmoji: string): boolean =>
   DONE_EMOJI.has(rawEmoji.replace(/^:/, "").split("::")[0].replace(/:$/, ""));
+
+/**
+ * A Slack reply becomes a comment only if it can claim its message. The claim
+ * is the `slack_comments` row, unique per (channel, message ts, task): checking
+ * first and marking after left a window where two deliveries of one message
+ * both passed the check, both wrote a comment, and the loser's mark was
+ * silently dropped — so it read as a web comment and was echoed back into the
+ * thread it came from. Now the loser withdraws its comment before anything is
+ * announced, and the winner is always marked before it is.
+ */
+export async function claimSlackComment(
+  commentId: string,
+  steps: { claim: (commentId: string) => Promise<boolean>; withdraw: (commentId: string) => Promise<void> },
+): Promise<boolean> {
+  if (await steps.claim(commentId)) return true;
+  await steps.withdraw(commentId);
+  return false;
+}

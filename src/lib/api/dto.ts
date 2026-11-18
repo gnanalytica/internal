@@ -51,26 +51,6 @@ export function issueDto(i: IssueWithRelations) {
   };
 }
 
-export function userDto(u: {
-  id: string;
-  name: string;
-  email: string;
-  avatarColor?: string | null;
-  role?: string | null;
-  title?: string | null;
-  entity?: string | null;
-}) {
-  return {
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    avatarColor: u.avatarColor ?? null,
-    role: u.role ?? null,
-    title: u.title ?? null,
-    entity: u.entity ?? null,
-  };
-}
-
 /**
  * The full issue view: everything `getIssue` already loads but the list DTO
  * omits — assignee set, sub-tasks, linked docs and attachments.

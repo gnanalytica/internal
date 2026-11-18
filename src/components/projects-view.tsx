@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { WeeklyView } from "@/components/weekly-view";
 import { createProject, updateCompanyBets } from "@/lib/actions";
 import type { RoadmapProject } from "@/lib/data";
-import { enabledDepartments, isConfidentialDepartment, type DepartmentSlug } from "@/lib/departments";
+import { enabledDepartments, isConfidentialDepartment, isTopLevelDepartment, type DepartmentSlug } from "@/lib/departments";
 import type { CycleWithCount, PortfolioHealth, Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -300,6 +300,7 @@ function Row({ row: r, isAdmin }: { row: ProjectTableRow; isAdmin: boolean }) {
   const shortcuts =
     r.kind === "project"
       ? enabledDepartments(r.enabledDepartments)
+          .filter((d) => isTopLevelDepartment(d.slug))
           .filter((d) => isAdmin || !isConfidentialDepartment(d.slug))
           .map((d) => ({ href: `${base}/${d.slug}`, label: d.label, icon: DEPT_ICONS[d.slug] }))
       : [

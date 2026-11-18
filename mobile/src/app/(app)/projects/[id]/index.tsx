@@ -11,8 +11,12 @@ import { postStatusUpdate, projectQuery, updateProject, type ProjectDetail } fro
 import { Chips, ColorDot, HealthBadge, ListCard, MemberPicker, ProgressBar, SheetActions } from "@/features/projects/components";
 import { DEPARTMENT_ICON, HEALTH, HEALTH_MAP, PROJECT_COLORS } from "@/features/projects/constants";
 import { CycleCard } from "@/features/projects/cycle-card";
+import { hasEngineering, isTopLevelDepartment } from "@/features/projects/departments";
+import { Scorecard } from "@/features/projects/scorecard";
+import { scorecardQuery } from "@/features/projects/scorecard-api";
 import { MILESTONE_STATUS_MAP } from "@/lib/constants";
 import { ago, shortDate } from "@/lib/format";
+import { queryClient } from "@/lib/query";
 import { useTheme } from "@/theme";
 
 type SheetName = "owner" | "start" | "target" | "color" | "details" | "update" | null;
@@ -22,7 +26,9 @@ export default function ProjectScreen() {
   const q = useQuery(projectQuery(id));
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorView error={q.error} onRetry={() => void q.refetch()} />;
-  return <ProjectBody project={q.data} refreshing={q.isRefetching} onRefresh={() => void q.refetch()} />;
+  // Pulling down re-reads the scorecard too (it lives under the project's metrics key).
+  const refresh = () => void Promise.all([q.refetch(), queryClient.invalidateQueries({ queryKey: scorecardQuery(id).queryKey })]);
+  return <ProjectBody project={q.data} refreshing={q.isRefetching} onRefresh={refresh} />;
 }
 
 function ProjectBody({ project: p, refreshing, onRefresh }: { project: ProjectDetail; refreshing: boolean; onRefresh: () => void }) {
@@ -33,6 +39,12 @@ function ProjectBody({ project: p, refreshing, onRefresh }: { project: ProjectDe
   const go = (href: string) => router.push(href as Href);
   const isOp = p.kind === "operation";
   const ms = p.currentMilestone;
+  // As on the web: with Analytics on, the project opens on its scorecard; Analytics
+  // and Customer Success (Sales → Customers) are views inside other screens, not
+  // entries of their own; and cycles live in Engineering → Cycles.
+  const withScorecard = !isOp && p.visibleDepartments.some((d) => d.slug === "analytics");
+  const departments = p.visibleDepartments.filter((d) => isTopLevelDepartment(d.slug));
+  const ownCycles = !isOp && !hasEngineering(p);
 
   return (
     <>
@@ -72,6 +84,8 @@ function ProjectBody({ project: p, refreshing, onRefresh }: { project: ProjectDe
             ) : null}
           </View>
         </View>
+
+        {withScorecard ? <Scorecard projectId={p.id} /> : null}
 
         <Card style={{ paddingVertical: 4 }}>
           <Field label="Owner" onPress={p.canEditOwner ? () => setSheet("owner") : undefined}>
@@ -138,10 +152,10 @@ function ProjectBody({ project: p, refreshing, onRefresh }: { project: ProjectDe
           </Section>
         ) : null}
 
-        {p.visibleDepartments.length ? (
+        {departments.length ? (
           <Section title="Departments">
             <ListCard inset={52}>
-              {p.visibleDepartments.map((d) => (
+              {departments.map((d) => (
                 <Row key={d.slug} leading={<Icon name={DEPARTMENT_ICON[d.slug] ?? "grid"} color={d.color} />} title={d.label} subtitle={d.stat || undefined} chevron onPress={() => go(`/projects/${p.id}/${d.slug}`)} />
               ))}
             </ListCard>
@@ -151,7 +165,7 @@ function ProjectBody({ project: p, refreshing, onRefresh }: { project: ProjectDe
         <Section title={isOp ? "Work" : "Planning"}>
           <ListCard inset={52}>
             <Row leading={<Icon name="list" color={c.mutedForeground} />} title="Tasks" subtitle={isOp ? "Everything in this operation" : "Every task in the project"} chevron onPress={() => go(`/projects/${p.id}/tasks`)} />
-            {!isOp ? <Row leading={<Icon name="repeat" color={c.mutedForeground} />} title="Cycles" subtitle="Cadence, velocity and every sprint" chevron onPress={() => go(`/projects/${p.id}/cycles`)} /> : null}
+            {ownCycles ? <Row leading={<Icon name="repeat" color={c.mutedForeground} />} title="Cycles" subtitle="Cadence, velocity and every sprint" chevron onPress={() => go(`/projects/${p.id}/cycles`)} /> : null}
             <Row leading={<Icon name="file-text" color={c.mutedForeground} />} title="Docs" subtitle="The project's pages" chevron onPress={() => go(`/projects/${p.id}/docs`)} />
           </ListCard>
         </Section>

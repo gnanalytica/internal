@@ -100,8 +100,6 @@ export type Outcome = (typeof OUTCOMES)[number];
 /** Outcomes that count as the other side engaging, for reply/connect rates. */
 export const ENGAGED_OUTCOMES: ReadonlySet<string> = new Set(["Replied", "Connected", "Demo booked", "Meeting held"]);
 
-export const RESEARCH_STATUSES = ["Profiled", "Scored — needs review", "Reviewed", "Needs a person"] as const;
-
 export const DISQUALIFY_REASONS = [
   "Registration suspended",
   "Works for a lender or competitor",

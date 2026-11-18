@@ -41,7 +41,7 @@ export function openRecord(kind: string, id: string) {
 type Entry = { type: "group"; key: string; title: string; count: number } | { type: "task"; key: string; t: MyWorkItem };
 
 /**
- * Today — the web's Today on a phone. The open prospect sits on top with its
+ * Your day — the web's Your day on a phone. The open prospect sits on top with its
  * draft, the ways to reach them and one-tap outcomes; the rest of the queue
  * (overdue, due today, first contact) is listed below it.
  */
@@ -153,7 +153,7 @@ export function MyWorkView({ scope, header, onFind }: { scope: Scope; header: Re
           <Empty
             icon="sun"
             title={done ? `All done, ${first}` : `Nothing due for ${first}`}
-            body={`${done ? `${done} logged this session. ` : ""}Today fills with follow-ups assigned to you that are due, plus A-band valuers of yours nobody has contacted yet.`}
+            body={`${done ? `${done} logged this session. ` : ""}Your day fills with follow-ups assigned to you that are due, plus A-band valuers of yours nobody has contacted yet.`}
             action={<Button title="Pick up A-band prospects" style={{ marginTop: space.sm }} onPress={onFind} />}
           />
         }

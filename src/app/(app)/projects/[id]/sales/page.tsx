@@ -3,16 +3,21 @@ import { notFound } from "next/navigation";
 import { ProspectsWorkspace } from "@/components/prospects-dashboard/workspace";
 import { Restricted } from "@/components/restricted";
 import { SalesView } from "@/components/sales-view";
-import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
-import { getDeals, getMyRole, getIssues, getProject, getWorkspace } from "@/lib/data";
+import { loadCustomerSuccess } from "@/lib/customer-success-data";
+import { canSeeDepartment, isDepartmentEnabled } from "@/lib/departments";
+import { getDeals, getMembers, getMyRole, getProject, getProjects, getWorkspace } from "@/lib/data";
 import { loadProspectsWorkspace } from "@/lib/prospects/page-data";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
-import { getTaskContext } from "@/lib/task-context";
 
 /**
  * The project's sales. For Valytica that is its prospects — the sheet the team
- * works every day — with the deals they turn into beside them. Other products
- * get the deal board and their sales tasks.
+ * works every day — with the Deals tab, each deal's value on its prospect's
+ * card on the stage board, and (when Customer Success is on) the Customers tab: the prospects at Pilot
+ * running or Won, with onboarding, requests and check-ins. Other products get
+ * the deal board — only Product and Engineering keep tasks.
+ *
+ * Who may open it is the one department rule (`canSeeDepartment("sales")`),
+ * the same one the tab strip uses; the Customers tab follows it too.
  */
 export default async function ProjectSalesPage({
   params,
@@ -29,24 +34,29 @@ export default async function ProjectSalesPage({
   if (!project) notFound();
   if (!isDepartmentEnabled(project.enabledDepartments, "sales")) notFound();
 
-  if (!canSeeConfidential(role)) return <Restricted label="Sales" />;
+  if (!canSeeDepartment("sales", role)) return <Restricted label="Sales" />;
 
   if (project.key === PROSPECTS_PRODUCT_KEY) {
-    const data = await loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus");
-    return <ProspectsWorkspace data={data} deals={deals} />;
+    const [data, customers] = await Promise.all([
+      loadProspectsWorkspace(ws.id, sp.scope === "all" ? "all" : "focus"),
+      isDepartmentEnabled(project.enabledDepartments, "customer-success")
+        ? // Anyone past the Sales gate sees deal values on Pipeline, so on customers too.
+          loadCustomerSuccess({ workspaceId: ws.id, projectId: id })
+        : Promise.resolve(null),
+    ]);
+    return <ProspectsWorkspace data={data} deals={deals} customers={customers} />;
   }
 
-  const [ctx, issues] = await Promise.all([getTaskContext(ws.id), getIssues(ws.id)]);
+  // Just the deal board: tasks belong to Product and Engineering, so nothing
+  // here loads issues. Any `?tab=` (an old `?tab=tasks` link) lands on the board.
+  const [projects, members] = await Promise.all([getProjects(ws.id), getMembers(ws.id)]);
   return (
     <SalesView
-      ctx={ctx}
       heading={`${project.name} · Deals`}
       scopeProjectId={id}
-      // The task context already carries the workspace's projects and members.
-      projects={ctx.projects}
-      members={ctx.members}
+      projects={projects}
+      members={members}
       initialDeals={deals}
-      issues={issues.filter((i) => i.projectId === id)}
     />
   );
 }

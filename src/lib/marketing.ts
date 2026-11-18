@@ -25,8 +25,6 @@ export const PIECE_STATUSES = [
   { id: "published", label: "Posted", tone: "green" },
 ] as const satisfies readonly { id: string; label: string; tone: Tone }[];
 
-export type PieceStatus = (typeof PIECE_STATUSES)[number]["id"];
-
 export function statusOf(id: string | null | undefined) {
   return PIECE_STATUSES.find((s) => s.id === id) ?? PIECE_STATUSES[0];
 }

@@ -1,3 +1,4 @@
+import { entityCurrency, formatCurrency } from "@/lib/currency";
 import type { ActivityEntry } from "@/lib/prospects/parse";
 import { stageIndex } from "@/lib/prospects/parse";
 import { daysBetween, todayIST } from "@/lib/prospects/stats";
@@ -28,7 +29,6 @@ export const ONBOARDING_STEPS = [
 ] as const;
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]["id"];
-export const isOnboardingStep = (v: string): v is OnboardingStepId => ONBOARDING_STEPS.some((s) => s.id === v);
 
 /** The check-ins that tick "Four weekly check-ins" on their own. */
 export const CHECK_INS_NEEDED = 4;
@@ -128,7 +128,6 @@ export const REQUEST_VIA = [
   { id: "visit", label: "Visit" },
 ] as const;
 export type RequestVia = (typeof REQUEST_VIA)[number]["id"];
-export const isRequestVia = (v: string): v is RequestVia => REQUEST_VIA.some((x) => x.id === v);
 export const viaLabel = (v: string | null | undefined): string => REQUEST_VIA.find((x) => x.id === v)?.label ?? "";
 
 /** A request's state as the customer sees it, from the ticket's status. */
@@ -207,6 +206,20 @@ export function customerHealth(input: {
   if (input.since && daysBetween(input.since.date, input.today) < NEW_CUSTOMER_DAYS && input.checkIns === 0) return "new";
   if (!input.lastTouch || daysBetween(input.lastTouch, input.today) > QUIET_DAYS) return "needs-call";
   return "fine";
+}
+
+/** Waiting on us first, then waiting on them, then answered; newest first within each. */
+export function sortRequests<T extends { status: string; createdAt: string | Date }>(list: T[]): T[] {
+  const rank: Record<RequestState, number> = { "waiting-us": 0, "waiting-them": 1, answered: 2 };
+  return [...list].sort((a, b) => rank[requestState(a.status)] - rank[requestState(b.status)] || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/** What a customer is on: "Pilot · ₹50,000 deal", "₹1,20,000", "Won, no amount yet". */
+export function planLabel(c: { stage: number; deal: { value: number; entity: string } | null }): string {
+  if (!c.deal) return c.stage === 5 ? "Won" : "Pilot";
+  const money = c.deal.value ? formatCurrency(c.deal.value, entityCurrency(c.deal.entity)) : null;
+  if (c.stage === 5) return money ?? "Won, no amount yet";
+  return money ? `Pilot · ${money} deal` : "Pilot";
 }
 
 /** "8 days ago", "Yesterday", "Today" — how long since a date, in days. */

@@ -113,8 +113,3 @@ export function touchSummary(t: {
     lines.push(`• Follow-up: ${escapeMrkdwn(t.nextStep ?? "—")}${t.nextStepDate ? ` (${t.nextStepDate})` : ""}`);
   return lines.join("\n");
 }
-
-/** What the model is told after it plans a confirmable change. */
-export const AWAITING_CONFIRMATION =
-  "Not done yet: Confirm / Cancel buttons will appear under your reply, and the change runs only if the person who asked confirms. " +
-  "Tell them briefly what you've asked them to confirm. Don't say it has been done.";

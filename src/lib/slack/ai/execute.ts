@@ -68,7 +68,7 @@ async function run(name: ToolName, raw: unknown, ctx: RequestCtx, store: Store) 
       if (!p.ok) return fail(p.error);
       const [tasks, followUps] = await Promise.all([
         myWork(ctx),
-        ctx.caller.isAdmin ? dueFollowUps(ctx).catch(() => null) : Promise.resolve(null),
+        toolAccessError("search_prospects", ctx.caller) === null ? dueFollowUps(ctx).catch(() => null) : Promise.resolve(null),
       ]);
       return ok({ ...tasks, ...(followUps ? { prospect_follow_ups_due: followUps } : {}) });
     }

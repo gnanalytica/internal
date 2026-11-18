@@ -14,13 +14,14 @@ describe("toolsFor", () => {
     for (const t of tools) expect(TOOL_SPECS[t].effect).toBe("read");
   });
 
-  it("gives members every task tool but no prospects", () => {
+  it("gives members every task tool and the prospects", () => {
     const tools = toolsFor(member);
     expect(tools).toContain("create_task");
     expect(tools).toContain("update_task");
     expect(tools).toContain("summarize_thread_to_task");
     expect(tools).toContain("get_my_work");
-    expect(tools.some((t) => t.includes("prospect") || t === "log_touch")).toBe(false);
+    expect(tools).toContain("search_prospects");
+    expect(tools).toContain("log_touch");
   });
 
   it("gives admins everything", () => {
@@ -35,10 +36,11 @@ describe("toolAccessError", () => {
     expect(toolAccessError("search_tasks", unlinked)).toBeNull();
   });
 
-  it("keeps sales data to admins, even if the model calls the tool anyway", () => {
-    expect(toolAccessError("search_prospects", member)).toMatch(/admins/);
-    expect(toolAccessError("log_touch", member)).toMatch(/admins/);
+  it("lets linked members use sales tools, but not unlinked people", () => {
+    expect(toolAccessError("search_prospects", member)).toBeNull();
+    expect(toolAccessError("log_touch", member)).toBeNull();
     expect(toolAccessError("log_touch", admin)).toBeNull();
+    expect(toolAccessError("search_prospects", unlinked)).toMatch(/Settings › Slack/);
   });
 });
 

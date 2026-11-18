@@ -5,6 +5,7 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { activity, comments, contentItems, deals, feedback, issues, projects, tickets, users } from "@/db/schema";
+import { customerRequestsHref } from "@/lib/departments";
 import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import {
   contentFields,
@@ -146,7 +147,7 @@ async function ticketSnapshot(workspaceId: string, id: string): Promise<RecordSn
     workspaceId,
     projectId: r.projectId,
     title: r.subject,
-    path: r.projectId ? `/projects/${r.projectId}/customer-success?tab=requests` : "/",
+    path: r.projectId ? customerRequestsHref(r.projectId) : "/",
     fields: ticketFields(r),
   };
 }

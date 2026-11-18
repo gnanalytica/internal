@@ -1,33 +1,34 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
-import { CustomerSuccessView } from "@/components/customer-success/view";
-import { loadCustomerSuccess } from "@/lib/customer-success-data";
-import { canSeeConfidential, isDepartmentEnabled } from "@/lib/departments";
-import { getMyRole, getProject, getWorkspace } from "@/lib/data";
-import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 /**
- * The project's Customer Success, customer first. For Valytica the customers
- * are its prospects at Pilot running or Won, read from the prospects sheet,
- * each with an onboarding checklist, requests and check-ins. Deal values show
- * only to those who can see Sales.
+ * Customer Success moved into Sales: customers (with their onboarding,
+ * requests and check-ins) are the Customers tab, and saved answers are a
+ * section of the Playbook. Old links land on the same thing there:
+ *
+ *   ?c=<ref>        → Sales ?tab=customers&c=<ref>
+ *   ?tab=requests   → Sales ?tab=customers&cf=requests
+ *   ?tab=answers    → Sales ?tab=playbook&pb=answers
  */
 export default async function ProjectCustomerSuccessPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { id } = await params;
-  const ws = await getWorkspace();
-  const [project, role] = await Promise.all([getProject(ws.id, id), getMyRole(ws.id)]);
-  if (!project) notFound();
-  if (!isDepartmentEnabled(project.enabledDepartments, "customer-success")) notFound();
-
-  const data = await loadCustomerSuccess({
-    workspaceId: ws.id,
-    projectId: id,
-    fromSheet: project.key === PROSPECTS_PRODUCT_KEY,
-    showValue: canSeeConfidential(role),
-  });
-  return <CustomerSuccessView data={data} />;
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const tab = first(sp.tab);
+  const q = new URLSearchParams();
+  if (tab === "answers") {
+    q.set("tab", "playbook");
+    q.set("pb", "answers");
+  } else {
+    q.set("tab", "customers");
+    if (tab === "requests") q.set("cf", "requests");
+    const c = first(sp.c);
+    if (c) q.set("c", c);
+  }
+  redirect(`/projects/${id}/sales?${q.toString()}`);
 }
