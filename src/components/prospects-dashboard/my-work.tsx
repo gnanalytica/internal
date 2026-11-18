@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { logTouch, saveProspect } from "@/lib/prospects/actions";
+import { digits10, mailtoHref, telHref, whatsappHref } from "@/lib/prospects/contact";
 import { KIND_LABEL, STAGES, WRITABLE, type Channel, type Outcome } from "@/lib/prospects/schema";
 import { addDays, myTasks, type ProspectRow } from "@/lib/prospects/stats";
 import { tone } from "@/lib/tones";
@@ -51,11 +52,6 @@ const GROUPS = [
   { reason: "today", title: "Due today" },
   { reason: "new", title: "First contact" },
 ] as const;
-
-function digits10(phone: string): string | null {
-  const d = phone.replace(/\D/g, "");
-  return d.length >= 10 ? d.slice(-10) : null;
-}
 
 /** Today: the person's queue on the left, one prospect at a time on the right. */
 export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onShareOut }: { rows: ProspectRow[]; today: string; me: string; onOpen: (r: ProspectRow) => void; onLog: (r: ProspectRow, o?: LogOpts) => void; onChanged: () => void; onFind: () => void; onShareOut: () => void }) {
@@ -165,16 +161,7 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const phone = r ? digits10(r.phone) : null;
-  const openHref = !r
-    ? null
-    : tab === "whatsapp" && phone
-      ? `https://wa.me/91${phone}?text=${encodeURIComponent(draft)}`
-      : tab === "email" && r.email
-        ? `mailto:${r.email}?body=${encodeURIComponent(draft.replace(/^Subject:.*\n+/, ""))}&subject=${encodeURIComponent(draft.match(/^Subject:\s*(.+)/)?.[1] ?? "")}`
-        : tab === "call" && phone
-          ? `tel:+91${phone}`
-          : null;
+  const openHref = !r ? null : tab === "whatsapp" ? whatsappHref(r.phone, draft) : tab === "email" ? mailtoHref(r.email, draft) : tab === "call" ? telHref(r.phone) : null;
   if (!tasks.length) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-20 text-center">
@@ -192,7 +179,7 @@ export function MyWork({ rows, today, me, onOpen, onLog, onChanged, onFind, onSh
     );
   }
 
-  const missing = r ? [r.software ? null : "Software unknown", r.casesPerMonth === null && r.kind === "valuer" ? "Volume unknown" : null, phone ? null : "No phone"].filter(Boolean) : [];
+  const missing = r ? [r.software ? null : "Software unknown", r.casesPerMonth === null && r.kind === "valuer" ? "Volume unknown" : null, digits10(r.phone) ? null : "No phone"].filter(Boolean) : [];
 
   return (
     <div className="-mx-3 -my-3 grid min-h-full sm:-mx-6 sm:-my-5 lg:grid-cols-[340px_minmax(0,1fr)]">

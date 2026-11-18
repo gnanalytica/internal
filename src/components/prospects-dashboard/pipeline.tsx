@@ -286,6 +286,8 @@ export function Pipeline({
   setLayout,
   scope,
   setScope,
+  filters,
+  setFilters,
   deals,
   onOpen,
   onMore,
@@ -299,16 +301,18 @@ export function Pipeline({
   setLayout: (l: ProspectLayout) => void;
   scope: "focus" | "all";
   setScope: (s: "focus" | "all") => void;
+  filters: Filters;
+  setFilters: (f: Filters) => void;
   /**
    * The product's deals. One opens when a prospect reaches Demo done and
    * follows its stage to Won or Lost; its value shows on the prospect's card.
    */
   deals?: DealWithRelations[];
   onOpen: (r: ProspectRow) => void;
-  onMore: (stage: number, kind: ProspectKind | "") => void;
+  /** "Show all in Prospects": the list opens on this stage with the same filters. */
+  onMore: (stage: number) => void;
   onChanged: () => void;
 }) {
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const shown = useMemo(() => applyFilters(rows, filters, me), [rows, filters, me]);
   const byProspect = useMemo(() => dealsByProspect(deals ?? []), [deals]);
   const open = useMemo(() => openDealTotal(deals ?? []), [deals]);
@@ -323,7 +327,7 @@ export function Pipeline({
       <FilterBar filters={filters} setFilters={setFilters} team={team} scope={scope} setScope={setScope}>
         <LayoutSwitch value={layout} onChange={setLayout} />
       </FilterBar>
-      {layout === "board" ? <Board rows={shown} today={today} deals={byProspect} onOpen={onOpen} onMore={(s) => onMore(s, filters.kind)} onChanged={onChanged} /> : <Timeline rows={shown} today={today} team={team} onOpen={onOpen} />}
+      {layout === "board" ? <Board rows={shown} today={today} deals={byProspect} onOpen={onOpen} onMore={onMore} onChanged={onChanged} /> : <Timeline rows={shown} today={today} team={team} onOpen={onOpen} />}
     </div>
   );
 }

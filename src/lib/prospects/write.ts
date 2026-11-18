@@ -53,6 +53,61 @@ export async function writeRecord(kind: ProspectKind, id: string, patch: CellPat
   return { written: plan.written, row, before };
 }
 
+export type BulkWriteResult = { id: string; ok: true; written: string[]; before: Record<string, string> } | { id: string; ok: false; message: string };
+
+/**
+ * The same patch on several rows of one tab, in a fixed number of Sheets calls
+ * whatever the count: one header + IDs read, one read of every target row
+ * with its formula check, one write per value mode. Each row passes the same
+ * checks as `writeRecord` (one row per id, the row still holds that id, no
+ * write over a formula); a row that fails is reported and skipped, the rest
+ * are written.
+ */
+export async function writeRecords(kind: ProspectKind, ids: string[], patch: CellPatch): Promise<BulkWriteResult[]> {
+  const sheet = prospectsSheetId();
+  const tab = TAB[kind];
+  const { header, ids: keys, col: idCol } = await readHeaderAndKeys(sheet, tab, ID_COLUMN[kind]);
+  const results: BulkWriteResult[] = [];
+  const targets: { id: string; row: number }[] = [];
+  for (const id of [...new Set(ids)]) {
+    const matches = keys.flatMap((v, i) => (v.trim() === id ? [i + 2] : []));
+    if (matches.length === 1) targets.push({ id, row: matches[0] });
+    else results.push({ id, ok: false, message: matches.length ? `${id} is on ${matches.length} rows of ${tab}; fix the duplicate in the sheet first.` : `${id} is no longer in ${tab}.` });
+  }
+  if (!targets.length) return results;
+
+  const [rows, formulas] = await Promise.all([
+    readRanges(sheet, targets.map((t) => `${quoteTab(tab)}!${t.row}:${t.row}`)),
+    formulaColumnsInRows(sheet, tab, [2, ...targets.map((t) => t.row)]),
+  ]);
+  const raw: { range: string; value: string | number | null }[] = [];
+  const entered: { range: string; value: string | number | null }[] = [];
+  const planned: { id: string; written: string[]; before: Record<string, string> }[] = [];
+  targets.forEach((t, i) => {
+    const current = rows[i][0] ?? [];
+    if (String(current[idCol] ?? "").trim() !== t.id) {
+      results.push({ id: t.id, ok: false, message: `${tab} changed while saving (rows moved); reload and try again.` });
+      return;
+    }
+    const plan = planRowWrite({ kind, tab, header, row: t.row, current, formulas, patch });
+    if (plan.refused.length) {
+      results.push({ id: t.id, ok: false, message: `Refused: ${plan.refused.join("; ")}.` });
+      return;
+    }
+    raw.push(...plan.raw);
+    entered.push(...plan.entered);
+    const before: Record<string, string> = {};
+    header.forEach((h, j) => {
+      const name = String(h ?? "").trim();
+      if (name && !(name in before)) before[name] = String(current[j] ?? "").trim();
+    });
+    planned.push({ id: t.id, written: plan.written, before });
+  });
+  await writeCells(sheet, raw, "RAW");
+  await writeCells(sheet, entered, "USER_ENTERED");
+  return [...planned.map((p) => ({ ...p, ok: true as const })), ...results];
+}
+
 /** Append one row to Activity, with the next permanent activity_id. */
 export async function appendActivity(entry: NewActivity): Promise<string> {
   const sheet = prospectsSheetId();

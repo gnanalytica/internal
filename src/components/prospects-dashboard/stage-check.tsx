@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { saveProspect } from "@/lib/prospects/actions";
 import { OBJECTIONS, PITCH_ANGLES, STAGES, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
+import { SOFTWARE } from "@/lib/prospects/contact";
 import { todayIST } from "@/lib/prospects/stats";
 import { Chips, DatePicker, shortDate } from "./bits";
+import { rowKey, usePatchRows } from "./optimistic";
 import { STAGE_COACHING } from "./playbook-content";
 
 /** What a stage move needs to know about the record — a ProspectRow or a full record both fit. */
@@ -26,7 +28,6 @@ export type StageSubject = {
   hasPhone: boolean;
 };
 
-const SOFTWARE = ["Word + Excel", "Word templates", "Own software", "Bank's portal", "Another tool"];
 
 /** The facts the dialog can ask for, and how to tell whether a record already has them. */
 const ASKABLE: Record<string, { label: string; has: (s: StageSubject) => boolean }> = {
@@ -52,14 +53,19 @@ export function missingForMove(s: StageSubject, target: number): string[] {
 export function useStageMove(onChanged: () => void) {
   const [ask, setAsk] = useState<{ subject: StageSubject; target: number; fields: string[] } | null>(null);
   const [pending, start] = useTransition();
+  const patchRows = usePatchRows();
   const write = (s: StageSubject, target: number, extra: Record<string, string | number | null> = {}) =>
     start(async () => {
-      const res = await saveProspect(s.kind, s.id, { ...extra, status: STAGES[target] });
+      const patch = { ...extra, status: STAGES[target] };
+      // The card lands in its new column now; the sheet catches up behind it.
+      patchRows({ keys: [rowKey(s)], patch });
+      const res = await saveProspect(s.kind, s.id, patch);
       if (res.ok) {
         toast.success(`${s.name}: ${STAGES[target]}`);
+        // The facts dialog stays open until the save lands, so a failure keeps what was typed.
         setAsk(null);
         onChanged();
-      } else toast.error(res.message);
+      } else toast.error(`${s.name} stayed in ${STAGES[s.stage]}: ${res.message}`);
     });
   const move = (s: StageSubject, target: number) => {
     if (target === s.stage) return;

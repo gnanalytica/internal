@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { logTouch } from "@/lib/prospects/actions";
 import { CHANNELS, OBJECTIONS, PITCH_ANGLES, STAGES, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
+import { SOFTWARE } from "@/lib/prospects/contact";
 import { addDays } from "@/lib/prospects/stats";
 import { touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { sendToProduct } from "@/lib/send-to-product-actions";
@@ -32,7 +33,6 @@ const FOLLOW_UPS = [
   { label: "Next week", days: 7 },
 ] as const;
 
-const SOFTWARE = ["Word + Excel", "Word templates", "Own software", "Bank's portal", "Another tool"];
 
 /** Where an outcome usually leaves a record — a default the caller can change. */
 export function defaultStage(stage: number, channel: Channel, outcome: Outcome): number {

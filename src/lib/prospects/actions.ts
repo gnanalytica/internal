@@ -10,7 +10,7 @@ import { loadWorkbook, PROSPECTS_TAG } from "./read";
 import { relatedRecords, type Related } from "./related";
 import type { ProspectKind } from "./schema";
 import { isAssignedTo } from "./stats";
-import { assignProspects, logProspectTouch, readProspectDetail, saveProspectRecord, type ProspectResult } from "./service";
+import { assignProspects, BULK_LIMIT, logProspectTouch, readProspectDetail, saveProspectRecord, saveProspectRecords, type BulkResult, type ProspectResult } from "./service";
 import type { TouchInput as ServiceTouchInput } from "./touch";
 
 export type ActionResult = ProspectResult;
@@ -38,6 +38,22 @@ export async function getProspectDetail(kind: ProspectKind, id: string): Promise
 export async function saveProspect(kind: ProspectKind, id: string, patch: Record<string, string | number | null>): Promise<ActionResult> {
   const { dealCtx } = await signedIn();
   return saveProspectRecord(kind, id, patch, invalidate, dealCtx);
+}
+
+/**
+ * The same cells on many rows, possibly of different kinds, as one batch per
+ * kind on the server. The browser runs server actions one at a time, so a
+ * loop of saveProspect calls would write rows one by one.
+ */
+export async function saveProspects(rows: { kind: ProspectKind; id: string }[], patch: Record<string, string | number | null>): Promise<BulkResult> {
+  const { dealCtx } = await signedIn();
+  const byKind = new Map<ProspectKind, string[]>();
+  for (const r of rows.slice(0, BULK_LIMIT)) byKind.set(r.kind, [...(byKind.get(r.kind) ?? []), r.id]);
+  const parts = await Promise.all([...byKind].map(([k, ids]) => saveProspectRecords(k, ids, patch, invalidate, dealCtx)));
+  const ok = parts.reduce((n, p) => n + p.ok, 0);
+  const failed = parts.flatMap((p) => p.failed);
+  const message = failed.length ? `${ok} saved; ${failed.length} failed: ${failed[0].message}` : ok ? `Saved ${ok} to the sheet.` : (parts[0]?.message ?? "Nothing to save.");
+  return { ok, failed, message };
 }
 
 /**
