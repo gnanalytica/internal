@@ -42,7 +42,7 @@ export async function writeRecord(kind: ProspectKind, id: string, patch: CellPat
     throw new Error(`${tab} changed while saving (rows moved); reload and try again.`);
   }
 
-  const plan = planRowWrite({ kind, tab, header, row, current, formulas, patch: withAssignment(kind, header, current, patch, change) });
+  const plan = planRowWrite({ kind, tab, header, row, current, formulas, patch: withAssignment(kind, header, current, patch, change, formulas) });
   if (plan.refused.length) throw new Error(`Refused: ${plan.refused.join("; ")}.`);
   await writeCells(sheet, plan.raw, "RAW");
   await writeCells(sheet, plan.entered, "USER_ENTERED");
@@ -91,7 +91,7 @@ export async function writeRecords(kind: ProspectKind, ids: string[], patch: Cel
       return;
     }
     // Per row: each row's own owner, status and date decide what an owner change adds.
-    const plan = planRowWrite({ kind, tab, header, row: t.row, current, formulas, patch: withAssignment(kind, header, current, patch, change) });
+    const plan = planRowWrite({ kind, tab, header, row: t.row, current, formulas, patch: withAssignment(kind, header, current, patch, change, formulas) });
     if (plan.refused.length) {
       results.push({ id: t.id, ok: false, message: `Refused: ${plan.refused.join("; ")}.` });
       return;

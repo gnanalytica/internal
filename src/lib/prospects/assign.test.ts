@@ -45,7 +45,24 @@ describe("assignmentEffects", () => {
   });
 });
 
+describe("first contacts", () => {
+  const h = [...header, "score_band", "research_notes"];
+  const r = (status: string, band: string, research = "") => [...row(status, "", ""), band, research];
+  it("gives no date to an A-band record nobody has contacted: Your day already lists it as a first contact", () => {
+    expect(assignmentEffects("valuer", h, r("Not contacted", "A"), { assigned: "Parv" }, ctx)).toEqual({ prependNote: "18-11-2026 — Assigned to Parv by Sandeep" });
+  });
+  it("still dates a B-band one, one already contacted, or one marked do-not-contact", () => {
+    expect(assignmentEffects("valuer", h, r("Not contacted", "B"), { assigned: "Parv" }, ctx).next_step_date).toBe("2026-11-19");
+    expect(assignmentEffects("valuer", h, r("Contacted", "A"), { assigned: "Parv" }, ctx).next_step_date).toBe("2026-11-19");
+    expect(assignmentEffects("valuer", h, r("Not contacted", "A", "DO NOT CONTACT — asked us not to"), { assigned: "Parv" }, ctx).next_step_date).toBe("2026-11-19");
+  });
+});
+
 describe("withAssignment", () => {
+  it("drops an added cell whose column holds a formula, so the owner change still saves", () => {
+    expect(withAssignment("valuer", header, row("Contacted", "", ""), { assigned: "Parv" }, ctx, new Set([4, 5]))).toEqual({ assigned: "Parv" });
+  });
+
   it("keeps the caller's own note first and is a no-op without a change context", () => {
     const patch = { assigned: "Parv", prependNote: "first" };
     expect(withAssignment("valuer", header, row("Contacted", "", ""), patch, undefined)).toBe(patch);
