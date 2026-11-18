@@ -1,7 +1,7 @@
 import "server-only";
 
 import { appendRows, formulaColumnsInRows, readRange, readRanges, writeCells } from "./sheets-api";
-import { activityRow, colLetter, nextActivityId, planRowWrite, quoteTab, type CellPatch, type NewActivity } from "./plan";
+import { activityRow, colLetter, nextActivityId, planRowWrite, quoteTab, withAssignment, type CellPatch, type ChangeContext, type NewActivity } from "./plan";
 import { ID_COLUMN, prospectsSheetId, TAB, type ProspectKind } from "./schema";
 
 export type WriteResult = {
@@ -19,7 +19,8 @@ export type WriteResult = {
  * lives, and on the target row) — so a stale page can never write into the
  * wrong row or over a formula.
  */
-export async function writeRecord(kind: ProspectKind, id: string, patch: CellPatch): Promise<WriteResult> {
+/** `change` says who is writing and when, for the notes an owner change leaves (see assignmentEffects). */
+export async function writeRecord(kind: ProspectKind, id: string, patch: CellPatch, change?: ChangeContext): Promise<WriteResult> {
   const sheet = prospectsSheetId();
   const tab = TAB[kind];
   const { header, ids, col: idCol } = await readHeaderAndKeys(sheet, tab, ID_COLUMN[kind]);
@@ -41,7 +42,7 @@ export async function writeRecord(kind: ProspectKind, id: string, patch: CellPat
     throw new Error(`${tab} changed while saving (rows moved); reload and try again.`);
   }
 
-  const plan = planRowWrite({ kind, tab, header, row, current, formulas, patch });
+  const plan = planRowWrite({ kind, tab, header, row, current, formulas, patch: withAssignment(kind, header, current, patch, change, formulas) });
   if (plan.refused.length) throw new Error(`Refused: ${plan.refused.join("; ")}.`);
   await writeCells(sheet, plan.raw, "RAW");
   await writeCells(sheet, plan.entered, "USER_ENTERED");
@@ -63,7 +64,7 @@ export type BulkWriteResult = { id: string; ok: true; written: string[]; before:
  * write over a formula); a row that fails is reported and skipped, the rest
  * are written.
  */
-export async function writeRecords(kind: ProspectKind, ids: string[], patch: CellPatch): Promise<BulkWriteResult[]> {
+export async function writeRecords(kind: ProspectKind, ids: string[], patch: CellPatch, change?: ChangeContext): Promise<BulkWriteResult[]> {
   const sheet = prospectsSheetId();
   const tab = TAB[kind];
   const { header, ids: keys, col: idCol } = await readHeaderAndKeys(sheet, tab, ID_COLUMN[kind]);
@@ -89,7 +90,8 @@ export async function writeRecords(kind: ProspectKind, ids: string[], patch: Cel
       results.push({ id: t.id, ok: false, message: `${tab} changed while saving (rows moved); reload and try again.` });
       return;
     }
-    const plan = planRowWrite({ kind, tab, header, row: t.row, current, formulas, patch });
+    // Per row: each row's own owner, status and date decide what an owner change adds.
+    const plan = planRowWrite({ kind, tab, header, row: t.row, current, formulas, patch: withAssignment(kind, header, current, patch, change, formulas) });
     if (plan.refused.length) {
       results.push({ id: t.id, ok: false, message: `Refused: ${plan.refused.join("; ")}.` });
       return;

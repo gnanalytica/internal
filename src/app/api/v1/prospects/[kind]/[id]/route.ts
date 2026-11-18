@@ -1,6 +1,6 @@
 import { ApiInputError } from "@/lib/api/errors";
 import { notFound, ok, readJson, withApiAuth } from "@/lib/api/http";
-import { invalidateProspects, kindOr404, parseInput, recordId } from "@/lib/api/prospects";
+import { invalidateProspects, kindOr404, memberName, parseInput, recordId } from "@/lib/api/prospects";
 import { readProspectDetail, saveProspectRecord } from "@/lib/prospects/service";
 import { patchSchema } from "@/lib/prospects/touch";
 
@@ -21,7 +21,7 @@ export const PATCH = withApiAuth<Params>(async (req, auth, { kind, id }) => {
   const k = kindOr404(kind);
   const patch = parseInput(patchSchema, await readJson(req));
   if (!Object.keys(patch).length) throw new ApiInputError("Nothing to save.", 400);
-  const res = await saveProspectRecord(k, recordId(id), patch, invalidateProspects, { workspaceId: auth.workspaceId, userId: auth.userId });
+  const res = await saveProspectRecord(k, recordId(id), patch, invalidateProspects, { workspaceId: auth.workspaceId, userId: auth.userId }, (await memberName(auth)) ?? "");
   if (!res.ok) throw new ApiInputError(res.message, 422);
   return ok({ data: { written: res.written, message: res.message } });
 });

@@ -58,6 +58,8 @@ export async function saveProspectRecord(
   patch: Record<string, string | number | null>,
   invalidate: Invalidate,
   dealCtx: DealContext | null,
+  /** Who is making the change, for the note an owner change leaves; blank when unknown. */
+  by = "",
 ): Promise<ProspectResult> {
   const k = kindSchema.parse(kind);
   const clean = patchSchema.parse(patch);
@@ -65,7 +67,7 @@ export async function saveProspectRecord(
   if (unknown.length) return { ok: false, message: `Not editable from the dashboard: ${unknown.join(", ")}.` };
   try {
     const rid = idSchema.parse(id);
-    const { written, before } = await writeRecord(k, rid, clean);
+    const { written, before } = await writeRecord(k, rid, clean, { by, today: todayIST() });
     if (written.includes("status")) await syncProspectDeal(dealCtx, { kind: k, id: rid, before, status: String(clean.status ?? "") });
     invalidate();
     return { ok: true, written, message: `Saved to the sheet: ${written.join(", ")}.` };
@@ -90,6 +92,7 @@ export async function saveProspectRecords(
   patch: Record<string, string | number | null>,
   invalidate: Invalidate,
   dealCtx: DealContext | null,
+  by = "",
 ): Promise<BulkResult> {
   const k = kindSchema.parse(kind);
   const clean = patchSchema.parse(patch);
@@ -98,7 +101,7 @@ export async function saveProspectRecords(
   const list = ids.slice(0, BULK_LIMIT);
   try {
     list.forEach((id) => idSchema.parse(id));
-    const results = await writeRecords(k, list, clean);
+    const results = await writeRecords(k, list, clean, { by, today: todayIST() });
     const failed: BulkResult["failed"] = [];
     let ok = 0;
     for (const r of results) {
@@ -117,9 +120,10 @@ export async function saveProspectRecords(
 }
 
 /** Assign rows to a member, by their first name as the team writes it. At most 50 at a time. */
-export async function assignProspects(kind: ProspectKind, ids: string[], memberName: string, invalidate: Invalidate): Promise<ProspectResult> {
+/** `by` is who is assigning; it defaults to the assignee (taking records for yourself). */
+export async function assignProspects(kind: ProspectKind, ids: string[], memberName: string, invalidate: Invalidate, by = memberName): Promise<ProspectResult> {
   const name = firstName(memberName);
-  const res = await saveProspectRecords(kind, ids, { assigned: name }, invalidate, null);
+  const res = await saveProspectRecords(kind, ids, { assigned: name }, invalidate, null, by);
   if (res.failed.length) return { ok: false, message: `${res.ok} assigned; ${res.failed.length} failed: ${res.failed[0]?.message ?? res.message}` };
   if (!res.ok) return { ok: false, message: res.message };
   return { ok: true, written: ["assigned"], message: `Assigned ${res.ok} to ${name}.` };

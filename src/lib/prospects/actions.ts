@@ -27,8 +27,8 @@ async function signedIn(): Promise<{ name: string; dealCtx: DealContext }> {
 
 /** Write edited cells on one row. Only the dashboard's writable columns are accepted. */
 export async function saveProspect(kind: ProspectKind, id: string, patch: Record<string, string | number | null>): Promise<ActionResult> {
-  const { dealCtx } = await signedIn();
-  return saveProspectRecord(kind, id, patch, invalidate, dealCtx);
+  const { dealCtx, name } = await signedIn();
+  return saveProspectRecord(kind, id, patch, invalidate, dealCtx, name);
 }
 
 /**
@@ -37,10 +37,10 @@ export async function saveProspect(kind: ProspectKind, id: string, patch: Record
  * loop of saveProspect calls would write rows one by one.
  */
 export async function saveProspects(rows: { kind: ProspectKind; id: string }[], patch: Record<string, string | number | null>): Promise<BulkResult> {
-  const { dealCtx } = await signedIn();
+  const { dealCtx, name } = await signedIn();
   const byKind = new Map<ProspectKind, string[]>();
   for (const r of rows.slice(0, BULK_LIMIT)) byKind.set(r.kind, [...(byKind.get(r.kind) ?? []), r.id]);
-  const parts = await Promise.all([...byKind].map(([k, ids]) => saveProspectRecords(k, ids, patch, invalidate, dealCtx)));
+  const parts = await Promise.all([...byKind].map(([k, ids]) => saveProspectRecords(k, ids, patch, invalidate, dealCtx, name)));
   const ok = parts.reduce((n, p) => n + p.ok, 0);
   const failed = parts.flatMap((p) => p.failed);
   const message = failed.length ? `${ok} saved; ${failed.length} failed: ${failed[0].message}` : ok ? `Saved ${ok} to the sheet.` : (parts[0]?.message ?? "Nothing to save.");
@@ -52,11 +52,11 @@ export async function saveProspects(rows: { kind: ProspectKind; id: string }[], 
  * a typo can't leave rows owned by nobody anyone recognises.
  */
 export async function assignTo(kind: ProspectKind, ids: string[], person: string): Promise<ActionResult> {
-  const ws = await getWorkspace();
+  const [ws, { name: by }] = await Promise.all([getWorkspace(), signedIn()]);
   const members = await getMembers(ws.id);
   const member = members.map((m) => (m.name || m.email || "").trim()).find((n) => n && isAssignedTo(person, n));
   if (!member) return { ok: false, message: `${person} is not a member of this workspace.` };
-  return assignProspects(kind, ids, member, invalidate);
+  return assignProspects(kind, ids, member, invalidate, by);
 }
 
 /**
