@@ -9,8 +9,36 @@ import { cn } from "@/lib/utils";
 import { buildOverview, periodWords, type Period, type ProspectRow } from "@/lib/prospects/stats";
 import { Bar, Card, CHANNEL_TONE, Empty, FilterMenu, PATH, Segmented, StageDot, stageTone } from "./bits";
 import { DateRangePicker } from "./date-range-picker";
+import { Columns, SegmentedBar, StackedColumns, StackedRows, type Series } from "./insight-charts";
+import { buildInsightCharts, CHART_CHANNELS, OUTCOME_CLASSES } from "@/lib/prospects/insights";
 
 type Preset = "today" | "week" | "month";
+
+/** Channel colours for charts: one step darker than the chips so every mark clears 3:1 on the page, validated for colour-blind separation in both themes. */
+const CHANNEL_SERIES: Series[] = CHART_CHANNELS.map((c) => ({
+  key: c,
+  label: c,
+  swatch: { WhatsApp: "bg-emerald-600", Email: "bg-violet-600 dark:bg-violet-500", Call: "bg-sky-600", Meeting: "bg-amber-600" }[c],
+}));
+
+/** How touches went. Status-like colours, always named in the legend. */
+const OUTCOME_SERIES: Series[] = OUTCOME_CLASSES.map((k) => ({
+  key: k,
+  label: k === "Waiting" ? "Sent, no reply yet" : k === "Closed" ? "Not interested" : k,
+  swatch: { Engaged: "bg-emerald-600", Waiting: "bg-zinc-300 dark:bg-zinc-600", "No answer": "bg-amber-500", Closed: "bg-red-600" }[k],
+}));
+
+const FOLLOW_UP_STYLE: Record<string, { swatch: string; ink: string }> = {
+  Overdue: { swatch: "bg-red-600", ink: "text-white" },
+  "Due today": { swatch: "bg-amber-500", ink: "text-zinc-950" },
+  "Next 7 days": { swatch: "bg-indigo-600", ink: "text-white" },
+  Later: { swatch: "bg-indigo-300 dark:bg-indigo-400", ink: "text-zinc-950" },
+  "No date": { swatch: "bg-zinc-300 dark:bg-zinc-600", ink: "text-zinc-900 dark:text-zinc-100" },
+};
+
+const DAY = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+const WEEKDAY = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+const fmt = (iso: string, f: Intl.DateTimeFormat) => f.format(new Date(`${iso}T00:00:00Z`));
 
 function Kpi({ label, value, note, tone }: { label: string; value: React.ReactNode; note?: string; tone?: "bad" }) {
   return (
@@ -29,6 +57,8 @@ export function Overview({ rows, activity, today, me, team, onGotoPlaybook }: { 
   const [kind, setKind] = useState<ProspectKind | "">("");
   const scoped = useMemo(() => (kind ? rows.filter((r) => r.kind === kind) : rows), [rows, kind]);
   const o = useMemo(() => buildOverview({ rows: scoped, activity, today, period, person: who === "me" ? me : null, team }), [scoped, activity, today, period, who, me, team]);
+  const charts = useMemo(() => buildInsightCharts({ rows: scoped, activity, today, period, person: who === "me" ? me : null }), [scoped, activity, today, period, who, me]);
+  const contactedOpen = charts.followUp.reduce((s, p) => s + p.count, 0);
   const maxFunnel = Math.max(1, ...o.funnel.map((f) => f.count));
   const periodWord = periodWords(period);
   const preset = typeof period === "string" ? (period as Preset) : ("" as Preset);
@@ -47,6 +77,69 @@ export function Overview({ rows, activity, today, me, team, onGotoPlaybook }: { 
         <Kpi label="Reply or connect rate" value={o.hasActivity ? `${o.kpis.engagedRate}%` : "—"} note="of outbound touches" />
         <Kpi label="Demos booked" value={o.kpis.demosBooked} note={o.kpis.overdue ? `${o.kpis.overdue} follow-up${o.kpis.overdue === 1 ? "" : "s"} overdue` : periodWord} tone={o.kpis.overdue ? "bad" : undefined} />
         <Kpi label="Pilots running" value={o.kpis.pilots} note={o.kpis.won ? `${o.kpis.won} won` : "goal: 1–2 live cases each"} />
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:gap-10">
+        <Card title={charts.touches?.unit === "week" ? "Touches per week" : "Touches per day"} aside={periodWord}>
+          {!charts.touches ? (
+            <Empty>Pick 7 days, 30 days or a date range to see touches over time.</Empty>
+          ) : charts.touches.buckets.every((b) => !b.total) ? (
+            <Empty>No touches logged {periodWord}.</Empty>
+          ) : (
+            <StackedColumns
+              // A new period is a new chart: no readout carried over from the last one.
+              key={periodWord}
+              label={`Touches per ${charts.touches.unit}, by channel, ${periodWord}`}
+              series={CHANNEL_SERIES}
+              columns={charts.touches.buckets.map((b) => ({
+                key: b.from,
+                label: fmt(b.from, DAY),
+                title: charts.touches!.unit === "week" ? `Week of ${fmt(b.from, DAY)}` : fmt(b.from, WEEKDAY),
+                values: b.byChannel,
+                total: b.total,
+              }))}
+            />
+          )}
+        </Card>
+        <Card title="How touches went" aside={periodWord}>
+          {charts.outcomes.length ? (
+            <StackedRows
+              label={`Outcomes by channel, ${periodWord}`}
+              series={OUTCOME_SERIES}
+              rows={charts.outcomes.map((r) => ({
+                key: r.channel,
+                name: r.channel,
+                total: r.total,
+                values: r.byClass,
+                label: (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden className={cn("size-[7px] rounded-full", tone(CHANNEL_TONE[r.channel as Channel] ?? "gray").dot)} />
+                    {r.channel}
+                  </span>
+                ),
+              }))}
+            />
+          ) : (
+            <Empty>Nothing logged {periodWord}.</Empty>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:gap-10">
+        <Card title="Follow-ups on contacted prospects" aside={`now · ${contactedOpen.toLocaleString("en-IN")} open`}>
+          {contactedOpen ? (
+            <SegmentedBar label="Follow-up state of contacted, open prospects" parts={charts.followUp.map((p) => ({ key: p.part, label: p.part, value: p.count, ...FOLLOW_UP_STYLE[p.part] }))} />
+          ) : (
+            <Empty>No contacted prospects are open right now.</Empty>
+          )}
+        </Card>
+        <Card title="Days since last contact" aside="now · contacted, open">
+          {charts.staleness.some((b) => b.count) ? (
+            <Columns label="Contacted open prospects by days since last contact" unit="days" swatch="bg-indigo-500" data={charts.staleness.map((b) => ({ label: b.label, value: b.count }))} />
+          ) : (
+            <Empty>No contacted prospects are open right now.</Empty>
+          )}
+        </Card>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:gap-10">
