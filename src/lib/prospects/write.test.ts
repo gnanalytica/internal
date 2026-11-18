@@ -122,6 +122,23 @@ describe("writeRecord", () => {
     expect(sheet.calls.filter((c) => c === "writeCells").length).toBeLessThanOrEqual(2);
   });
 
+  it("writeRecords applies an owner change row by row: a note on each, a date only where one is missing", async () => {
+    const { writeRecords } = await import("./write");
+    sheet.tabs[TAB] = [
+      ["name", "registration_no", "status", "assigned", "next_step_date", "notes"],
+      ["Asha", "IBBI/1", "Contacted", "", "", ""],
+      ["Ravi", "IBBI/2", "Contacted", "Tasleem", "2026-11-25", "older"],
+      ["Mira", "IBBI/3", "Contacted", "Parv", "", ""],
+    ];
+    const res = await writeRecords("valuer", ["IBBI/1", "IBBI/2", "IBBI/3"], { assigned: "Parv" }, { by: "Sandeep", today: "2026-11-18" });
+    expect(res.every((r) => r.ok)).toBe(true);
+    const [, a, b, c] = sheet.tabs[TAB];
+    expect(a.slice(3)).toEqual(["Parv", "2026-11-19", "18-11-2026 — Assigned to Parv by Sandeep"]);
+    expect(b.slice(3)).toEqual(["Parv", "2026-11-25", "18-11-2026 — Assigned to Parv (was Tasleem) by Sandeep\nolder"]);
+    // Already Parv's: nothing added.
+    expect(c.slice(3)).toEqual(["Parv", "", ""]);
+  });
+
   it("still refuses an id that is missing or on two rows", async () => {
     const { writeRecord } = await import("./write");
     await expect(writeRecord("valuer", "IBBI/9", { city: "X" })).rejects.toThrow("no longer in");

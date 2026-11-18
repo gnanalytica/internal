@@ -1,4 +1,6 @@
+import { displayDate, stageIndex } from "./parse";
 import { ACTIVITY_COLUMNS, DATE_COLUMNS, NUMBER_COLUMNS, WRITABLE, type ProspectKind } from "./schema";
+import { addDays } from "./stats";
 
 /**
  * A change to one row. `prependNote` adds a dated line to the top of `notes`,
@@ -80,6 +82,54 @@ export function planRowWrite(input: {
     written.push(name);
   }
   return { raw, entered, written, refused };
+}
+
+/** Who is making a change and on what day (yyyy-mm-dd, India time), for the notes it leaves. */
+export type ChangeContext = { by: string; today: string };
+
+const sameOwner = (a: string, b: string) => {
+  const x = a.trim().toLowerCase();
+  const y = b.trim().toLowerCase();
+  return x === y || (Boolean(x) && Boolean(y) && x.split(/\s+/)[0] === y.split(/\s+/)[0]);
+};
+
+/**
+ * What changing `assigned` adds to a row, so ownership holds up over time:
+ *
+ * - a dated line at the top of notes ("18-11-2026 — Assigned to Parv (was
+ *   Tasleem) by Sandeep"), so who took or gave a record, and when, stays on it;
+ * - a follow-up tomorrow when the record is still open and has no date, so a
+ *   new owner sees it in Your day instead of it waiting unseen.
+ *
+ * Nothing when the owner doesn't really change, or for a column this kind
+ * can't write. Pure: it reads the row as it stands (`current`, by `header`).
+ */
+export function assignmentEffects(kind: ProspectKind, header: unknown[], current: unknown[], patch: CellPatch, ctx: ChangeContext): CellPatch {
+  if (!("assigned" in patch)) return {};
+  const col = (name: string) => header.findIndex((h) => String(h ?? "").trim() === name);
+  const cell = (name: string) => (col(name) >= 0 ? String(current[col(name)] ?? "").trim() : "");
+  const before = cell("assigned");
+  const after = String(patch.assigned ?? "").trim();
+  if (sameOwner(before, after)) return {};
+  const can = (name: string) => WRITABLE[kind].has(name) && col(name) >= 0;
+  const out: CellPatch = {};
+  if (can("notes")) {
+    const by = ctx.by.trim().split(/\s+/)[0];
+    const was = before ? ` (was ${before})` : "";
+    out.prependNote = `${displayDate(ctx.today)} — ${after ? `Assigned to ${after}` : "Unassigned"}${was}${by ? ` by ${by}` : ""}`;
+  }
+  const open = stageIndex(String(patch.status ?? cell("status"))) < 5;
+  if (after && open && !("next_step_date" in patch) && !cell("next_step_date") && can("next_step_date")) out.next_step_date = addDays(ctx.today, 1);
+  return out;
+}
+
+/** A patch with the assignment rule applied; an existing note line stays first. */
+export function withAssignment(kind: ProspectKind, header: unknown[], current: unknown[], patch: CellPatch, ctx: ChangeContext | undefined): CellPatch {
+  if (!ctx) return patch;
+  const extra = assignmentEffects(kind, header, current, patch, ctx);
+  if (!Object.keys(extra).length) return patch;
+  const note = [patch.prependNote, extra.prependNote].filter(Boolean).join("\n");
+  return { ...extra, ...patch, ...(note ? { prependNote: note } : {}) };
 }
 
 export type NewActivity = {
