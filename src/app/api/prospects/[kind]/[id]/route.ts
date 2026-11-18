@@ -14,7 +14,8 @@ import { readProspectView } from "@/lib/prospects/service";
  * moves on. Session-authenticated by `proxy.ts`; `getWorkspace()` checks
  * membership, as the server actions do. The mobile app uses `/api/v1/prospects`.
  */
-export async function GET(_req: Request, ctx: RouteContext<"/api/prospects/[kind]/[id]">) {
+// A plain params type: `RouteContext` is generated into `.next/` by a build, which CI's typecheck runs without.
+export async function GET(_req: Request, ctx: { params: Promise<{ kind: string; id: string }> }) {
   await getWorkspace();
   const { kind, id } = await ctx.params;
   let k;
