@@ -87,7 +87,7 @@ export default async function HomePage() {
       bets={(ws.bets ?? []).filter(Boolean)}
       sales={
         salesId && person ? (
-          <Suspense fallback={null}>
+          <Suspense key="sales-follow-ups" fallback={null}>
             <ProspectFollowUps person={person} projectId={salesId} />
           </Suspense>
         ) : null
