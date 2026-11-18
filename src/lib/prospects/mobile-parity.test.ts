@@ -14,6 +14,7 @@ import * as webPlaybook from "@/components/prospects-dashboard/playbook-content"
 import type { ActivityEntry, ProspectRecord } from "./parse";
 import { isDoNotContact, parseNoteLines } from "./parse";
 import * as schema from "./schema";
+import * as contact from "./contact";
 import * as stats from "./stats";
 import type { MyWorkItem } from "./views";
 
@@ -167,7 +168,7 @@ describe("the mobile copy of Today and Log a touch", () => {
   it("offers the same outcomes per channel, follow-ups and software", () => {
     expect(mobile.OUTCOMES_BY_CHANNEL).toEqual(webLiteral("log-touch-dialog.tsx", "OUTCOMES_BY_CHANNEL"));
     expect(mobile.FOLLOW_UPS).toEqual(webLiteral("log-touch-dialog.tsx", "FOLLOW_UPS"));
-    expect(mobile.SOFTWARE).toEqual(webLiteral("log-touch-dialog.tsx", "SOFTWARE"));
+    expect(mobile.SOFTWARE).toEqual(contact.SOFTWARE);
   });
 
   it("defaults the stage after and the next step the same way", () => {
@@ -217,5 +218,18 @@ describe("the mobile copy of Today and Log a touch", () => {
     const item = { row: { kind: "valuer" as const }, software: "", casesPerMonth: null, phone: "12345" };
     expect(mobile.missingFacts(item)).toEqual(["Software unknown", "Volume unknown", "No phone"]);
     expect(mobile.missingFacts({ ...item, row: { kind: "firm" }, software: "Own software", phone: "98480 12345" })).toEqual([]);
+  });
+});
+
+describe("the mobile copy of the contact links", () => {
+  const drafts = ["Subject: Hello\n\nBody line", "No subject here", "Subject: Only a subject", ""];
+  it("builds the same tel, WhatsApp and mailto links", () => {
+    for (const phone of ["+91 98450 12345", "12345", ""])
+      for (const d of drafts) {
+        expect(contact.telHref(phone)).toBe(mobile.telHref(phone));
+        expect(contact.whatsappHref(phone, d)).toBe(mobile.whatsappHref(phone, d));
+        expect(contact.mailtoHref(phone ? "a@b.in" : "", d)).toBe(mobile.mailtoHref(phone ? "a@b.in" : "", d));
+        expect(contact.emailParts(d)).toEqual(mobile.emailParts(d));
+      }
   });
 });

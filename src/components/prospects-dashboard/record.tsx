@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { SendToProductButton, useProductFeedback, type ProductFeedback } from "@/components/product/send-to-product";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getProspectDetail, getRelatedProspects, logTouch, saveProspect } from "@/lib/prospects/actions";
@@ -14,6 +15,7 @@ import { displayDate, isDoNotContact, parseNoteLines } from "@/lib/prospects/par
 import { DISQUALIFY_REASONS, KIND_LABEL, OBJECTIONS, PITCH_ANGLES, SCORE_COLUMNS, STAGES, UNSCORED_KINDS, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
 import type { Related } from "@/lib/prospects/related";
 import { addDays } from "@/lib/prospects/stats";
+import { emailParts, mailtoHref, SOFTWARE, telHref, whatsappHref } from "@/lib/prospects/contact";
 import { canSendTouch, touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { cn } from "@/lib/utils";
 import { BandBadge, Bar, CHANNEL_TONE, Chips, DatePicker, DueChip, KindDot, outcomeTone, Owner, OwnerPicker, Segmented, StageBar, StageDot, ToneChip } from "./bits";
@@ -66,16 +68,6 @@ function useSave(ctx: Ctx) {
 
 export function subjectOf(r: ProspectRecord): StageSubject {
   return { kind: r.kind, id: r.id, name: r.name, stage: r.stage, nextStep: r.nextStep, nextStepDate: r.nextStepDate, cases: r.casesPerMonth, software: r.software, pitchAngle: r.pitchAngle, objections: r.objections, hasPhone: Boolean(r.phone) };
-}
-
-function digits10(phone: string): string | null {
-  const d = phone.replace(/\D/g, "");
-  return d.length >= 10 ? d.slice(-10) : null;
-}
-
-function emailParts(draft: string): { subject: string; body: string } {
-  const m = draft.match(/^Subject:\s*(.+)\n+([\s\S]*)$/);
-  return m ? { subject: m[1].trim(), body: m[2].trim() } : { subject: "", body: draft };
 }
 
 /* ---------- building blocks ---------- */
@@ -153,28 +145,28 @@ function StageMenu({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
 
 /** Call, WhatsApp, Email and Log. Reaching out opens the log, ready for how it went. */
 function ActionBar({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
-  const phone = digits10(r.phone);
+  const tel = telHref(r.phone);
+  const wa = whatsappHref(r.phone, r.drafts.whatsapp);
   const cls = "inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-3 text-[13px] font-medium whitespace-nowrap hover:bg-muted sm:h-8 aria-disabled:pointer-events-none aria-disabled:opacity-40";
-  const email = emailParts(r.drafts.email);
   return (
     <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap">
-      <a href={phone ? `tel:+91${phone}` : undefined} aria-disabled={!phone} title={phone ? undefined : "No phone number yet"} onClick={() => phone && setTimeout(() => ctx.onLog({ channel: "Call", outcome: "Connected" }), 400)} className={cls}>
+      <a href={tel ?? undefined} aria-disabled={!tel} title={tel ? undefined : "No phone number yet"} onClick={() => tel && setTimeout(() => ctx.onLog({ channel: "Call", outcome: "Connected" }), 400)} className={cls}>
         <Phone className="size-3.5" /> Call
       </a>
       <a
-        href={phone ? `https://wa.me/91${phone}${r.drafts.whatsapp ? `?text=${encodeURIComponent(r.drafts.whatsapp)}` : ""}` : undefined}
+        href={wa ?? undefined}
         target="_blank"
         rel="noreferrer"
-        aria-disabled={!phone}
-        title={phone ? undefined : "No phone number yet"}
-        onClick={() => phone && setTimeout(() => ctx.onLog({ channel: "WhatsApp", outcome: "Sent" }), 400)}
+        aria-disabled={!wa}
+        title={wa ? undefined : "No phone number yet"}
+        onClick={() => wa && setTimeout(() => ctx.onLog({ channel: "WhatsApp", outcome: "Sent" }), 400)}
         className={cls}
       >
         <MessageCircle className="size-3.5" /> <span className="max-sm:hidden">WhatsApp</span>
         <span className="sm:hidden">Chat</span>
       </a>
       <a
-        href={r.email ? `mailto:${r.email}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}` : undefined}
+        href={mailtoHref(r.email, r.drafts.email) ?? undefined}
         aria-disabled={!r.email}
         title={r.email ? undefined : "No email yet"}
         onClick={() => r.email && setTimeout(() => ctx.onLog({ channel: "Email", outcome: "Sent" }), 400)}
@@ -267,7 +259,6 @@ function AddNoteDialog({ ctx, r, open, onOpenChange }: { ctx: Ctx; r: ProspectRe
   );
 }
 
-const SOFTWARE = ["Word + Excel", "Word templates", "Own software", "Bank's portal", "Another tool"];
 
 type FieldDef = { col: string; label: string; get: (r: ProspectRecord) => string; type?: "text" | "number" | "textarea"; options?: readonly string[] };
 
@@ -469,16 +460,8 @@ function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   if (!channels.length) return null;
   const ch = channels.find((c) => c.key === tab) ?? channels[0];
   const text = r.drafts[ch.key];
-  const phone = digits10(r.phone);
   const email = ch.key === "email" ? emailParts(text) : null;
-  const openHref =
-    ch.key === "whatsapp" && phone
-      ? `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`
-      : ch.key === "email" && r.email
-        ? `mailto:${r.email}?subject=${encodeURIComponent(emailParts(text).subject)}&body=${encodeURIComponent(emailParts(text).body)}`
-        : ch.key === "call" && phone
-          ? `tel:+91${phone}`
-          : null;
+  const openHref = ch.key === "whatsapp" ? whatsappHref(r.phone, text) : ch.key === "email" ? mailtoHref(r.email, text) : ch.key === "call" ? telHref(r.phone) : null;
   const markSent = () =>
     start(async () => {
       const res = await logTouch({
@@ -646,7 +629,11 @@ function RelatedSection({ ctx }: { ctx: Ctx }) {
   return (
     <Section title="Related" aside={data?.more ? <span className="text-xs text-muted-foreground">+{data.more} more</span> : undefined}>
       {!data ? (
-        <p className="text-[13px] text-muted-foreground">Looking for the firm, partners and lenders…</p>
+        <div aria-busy="true" aria-label="Looking for the firm, partners and lenders" className="flex flex-col gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-8" />
+          ))}
+        </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <table className="w-full table-fixed text-[13px]">
@@ -1060,7 +1047,23 @@ export function RecordPage({
         <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground" onClick={onBack}>
           <ArrowLeft /> {backLabel}
         </Button>
-        <p className="text-sm text-muted-foreground">{detail.data === null ? "This prospect is no longer in the sheet." : "Loading…"}</p>
+        {detail.data === null ? (
+          <p className="text-sm text-muted-foreground">This prospect is no longer in the sheet.</p>
+        ) : (
+          <div aria-busy="true" aria-label="Loading the prospect" className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+            <Skeleton className="h-7 w-64" />
+            <Skeleton className="h-4 w-40" />
+            <div className="grid grid-cols-4 gap-1.5 sm:flex">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-8 sm:w-24" />
+              ))}
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+              <Skeleton className="h-40" />
+              <Skeleton className="h-40" />
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -107,6 +107,21 @@ describe("writeRecord", () => {
     expect(sheet.tabs[TAB].map((r) => r[2])).toEqual(["city", "Delhi", "Pune"]);
   });
 
+  it("writeRecords writes many rows in a fixed number of calls and skips the ones that fail", async () => {
+    const { writeRecords } = await import("./write");
+    sheet.tabs[TAB].push(["Dup", "IBBI/3", ""], ["Dup2", "IBBI/3", ""]);
+    sheet.calls = [];
+    const res = await writeRecords("valuer", ["IBBI/1", "IBBI/2", "IBBI/3", "IBBI/9"], { city: "Goa" });
+    expect(res.filter((r) => r.ok).map((r) => r.id)).toEqual(["IBBI/1", "IBBI/2"]);
+    expect(res.filter((r) => !r.ok).map((r) => r.id).sort()).toEqual(["IBBI/3", "IBBI/9"]);
+    expect(sheet.tabs[TAB].map((r) => r[2])).toEqual(["city", "Goa", "Goa", "", ""]);
+    const ok = res.find((r) => r.id === "IBBI/2");
+    expect(ok?.ok && ok.before.city).toBe("Delhi");
+    // Header + ids, then every row and the formula check, then the writes — never one round per row.
+    expect(sheet.calls.filter((c) => c.startsWith("read")).length).toBeLessThanOrEqual(3);
+    expect(sheet.calls.filter((c) => c === "writeCells").length).toBeLessThanOrEqual(2);
+  });
+
   it("still refuses an id that is missing or on two rows", async () => {
     const { writeRecord } = await import("./write");
     await expect(writeRecord("valuer", "IBBI/9", { city: "X" })).rejects.toThrow("no longer in");

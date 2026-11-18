@@ -6,12 +6,13 @@ import { toast } from "sonner";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { saveProspect } from "@/lib/prospects/actions";
+import { saveProspects } from "@/lib/prospects/actions";
 import { KIND_LABEL, PROSPECT_KINDS, STAGES, UNSCORED_KINDS, type ProspectKind } from "@/lib/prospects/schema";
 import { SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
 import { BandBadge, DatePicker, DueChip, FilterMenu, KindDot, Owner, OwnerPicker, StageDot, StagePill } from "./bits";
-import { applyFilters, FilterBar, NO_FILTERS, type Filters } from "./pipeline";
+import { rowKey as keyOf, usePatchRows } from "./optimistic";
+import { applyFilters, FilterBar, type Filters } from "./pipeline";
 
 const PAGE = 100;
 
@@ -23,8 +24,6 @@ function csv(rows: ProspectRow[]): string {
   };
   return [head.join(","), ...rows.map((r) => [KIND_LABEL[r.kind].one, r.id, r.name, r.city, r.state, STAGES[r.stage], r.band, r.score, r.assigned, r.nextStep, r.nextStepDate, r.lastContacted, r.lenders, r.cases, r.software].map(esc).join(","))].join("\n");
 }
-
-const keyOf = (r: { kind: ProspectKind; id: string }) => `${r.kind}:${r.id}`;
 
 export function ListView({
   kind,
@@ -39,8 +38,9 @@ export function ListView({
   setStage,
   scope,
   setScope,
+  filters,
+  setFilters,
   onOpen,
-  onChanged,
   openKey,
   onShareOut,
 }: {
@@ -56,12 +56,13 @@ export function ListView({
   setStage: (s: number | null) => void;
   scope: "focus" | "all";
   setScope: (s: "focus" | "all") => void;
+  filters: Filters;
+  setFilters: (f: Filters) => void;
   onOpen: (r: ProspectRow) => void;
-  onChanged: () => void;
   openKey: string | null;
   onShareOut: () => void;
 }) {
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const patchRows = usePatchRows();
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [limit, setLimit] = useState(PAGE);
   const [pending, start] = useTransition();
@@ -69,7 +70,7 @@ export function ListView({
   const ofKind = useMemo(() => (kind ? rows.filter((r) => r.kind === kind) : rows), [rows, kind]);
   const current = SAVED_VIEWS.find((v) => v.id === view) ?? SAVED_VIEWS[0];
   const shown = useMemo(() => {
-    const base = applyFilters(ofKind, filters, me).filter((r) => current.test(r, ctx) && (stage === null || r.stage === stage));
+    const base = applyFilters(ofKind, { ...filters, kind: "" }, me).filter((r) => current.test(r, ctx) && (stage === null || r.stage === stage));
     return base.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ofKind, filters, me, current, stage, today]);
@@ -85,23 +86,21 @@ export function ListView({
   const showBand = kind ? !UNSCORED_KINDS.has(kind) : true;
   const counts = useMemo(() => Object.fromEntries(PROSPECT_KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length])), [rows]);
 
-  /** Writes the same cells to each selected row, one at a time, stopping at the first failure. */
-  const bulk = (patch: Record<string, string | null>, done: string) =>
+  /** Writes the same cells to the selected rows (the first 50) in one batch; the rows change on screen at once. */
+  const bulk = (patch: Record<string, string | null>, done: string) => {
+    // Taken now: the patch can move rows out of this view (a stage filter) before the save returns.
+    const targets = selected.slice(0, 50).map((r) => ({ kind: r.kind, id: r.id }));
+    const more = selected.length > 50;
     start(async () => {
-      let n = 0;
-      for (const r of selected.slice(0, 50)) {
-        const res = await saveProspect(r.kind, r.id, patch);
-        if (!res.ok) {
-          toast.error(`${n} updated; stopped at ${r.name}: ${res.message}`);
-          onChanged();
-          return;
-        }
-        n++;
-      }
-      toast.success(`${n} ${done}${selected.length > 50 ? " (the first 50)" : ""}`);
-      setChecked(new Set());
-      onChanged();
+      patchRows({ keys: targets.map(keyOf), patch });
+      const res = await saveProspects(targets, patch);
+      // Rows that saved leave the selection; failed ones stay ticked so they can be retried.
+      if (res.ok) setChecked(new Set(res.failed.map((f) => keyOf(targets.find((t) => t.id === f.id)!))));
+      if (res.failed.length) toast.error(res.message);
+      else if (res.ok) toast.success(`${res.ok} ${done}${more ? " (the first 50)" : ""}`);
+      else toast.error(res.message);
     });
+  };
 
   const exportCsv = () => {
     const url = URL.createObjectURL(new Blob([csv(selected.length ? selected : shown)], { type: "text/csv" }));

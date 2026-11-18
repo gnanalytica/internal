@@ -2,7 +2,7 @@
 
 import { ArrowLeft, BookOpen, ExternalLink, MoreHorizontal, RefreshCw, Search, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -20,7 +20,8 @@ import { ListView } from "./list";
 import { LogTouchDialog, type LogTarget } from "./log-touch-dialog";
 import { MyWork } from "./my-work";
 import { Overview } from "./overview";
-import { Pipeline } from "./pipeline";
+import { applyOptimistic, PatchRowsContext } from "./optimistic";
+import { Pipeline, type Filters } from "./pipeline";
 import { Playbook } from "./playbook";
 import { ShareOutDialog } from "./share-out";
 import { RecordPage, useDetail, type LogOpts, type RecordTab, type Selection } from "./record";
@@ -126,7 +127,14 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
   const params = useSearchParams();
   const get = (k: string) => params.get(k);
   const [tab, setTabState] = useState<Tab>(tabFrom(get("tab")));
-  const [kind, setKindState] = useState<ProspectKind | "">((PROSPECT_KINDS as readonly string[]).includes(get("kind") ?? "") ? (get("kind") as ProspectKind) : "");
+  // Shared by the board and the list, and kept in the URL so a reload or a link keeps them.
+  const [filters, setFiltersState] = useState<Filters>(() => ({
+    kind: (PROSPECT_KINDS as readonly string[]).includes(get("kind") ?? "") ? (get("kind") as ProspectKind) : "",
+    owner: get("owner") ?? "",
+    band: get("band") ?? "",
+    q: get("q") ?? "",
+  }));
+  const kind = filters.kind;
   const [view, setViewState] = useState(get("view") ?? "all");
   const [stage, setStageState] = useState<number | null>(get("stage") ? Number(get("stage")) : null);
   const [layout, setLayoutState] = useState<"board" | "timeline">(get("layout") === "timeline" ? "timeline" : "board");
@@ -189,10 +197,11 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
     setTabState(t);
     sync({ tab: t === "today" ? null : t });
   };
-  const setKind = (k: ProspectKind | "") => {
-    setKindState(k);
-    sync({ kind: k || null });
+  const setFilters = (f: Filters) => {
+    setFiltersState(f);
+    sync({ kind: f.kind || null, owner: f.owner || null, band: f.band || null, q: f.q.trim() ? f.q : null });
   };
+  const setKind = (k: ProspectKind | "") => setFilters({ ...filters, kind: k });
   const setView = (v: string) => {
     setViewState(v);
     sync({ view: v === "all" ? null : v });
@@ -235,10 +244,8 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
     setRecTabState(t);
     sync({ rt: t === "overview" ? null : t });
   };
-  const onChanged = () => {
-    detail.reload();
-    router.refresh();
-  };
+  // Each prospects server action refreshes the page itself (refresh() in actions.ts), so only the open record re-reads here.
+  const onChanged = () => detail.reload();
   const startLog = (t: LogTarget) => {
     setLogTarget(t);
     setLogOpen(true);
@@ -260,7 +267,9 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
       detail.reload();
     });
 
-  const everyone = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
+  const serverRows = useMemo(() => PROSPECT_KINDS.flatMap((k) => data.rows[k]), [data.rows]);
+  // A write shows on every view the moment it starts and settles when the action's refresh lands.
+  const [everyone, patchRows] = useOptimistic(serverRows, applyOptimistic);
   const showFull = Boolean(sel);
   const tabs = TABS.filter((t) => t.id !== "deals" || deals);
   const current: Tab = tab === "playbook" || tabs.some((t) => t.id === tab) ? tab : "today";
@@ -269,6 +278,7 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
   const fullBleed = !showFull && current === "deals";
 
   return (
+    <PatchRowsContext.Provider value={patchRows}>
     <div className="flex h-full flex-col">
       <header className="shrink-0 border-b bg-background">
         <div className="flex items-center gap-1 pr-2 pl-1 sm:pr-4 sm:pl-2">
@@ -356,10 +366,10 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
             me={data.me}
             onOpen={open}
             onLog={logRow}
-            onChanged={() => router.refresh()}
+            onChanged={onChanged}
             onShareOut={() => setShareOpen(true)}
             onFind={() => {
-              setKind("valuer");
+              setFilters({ kind: "valuer", owner: "", band: "", q: "" });
               setView("a-new");
               setTab("list");
             }}
@@ -374,14 +384,15 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
             setLayout={setLayout}
             scope={data.scope}
             setScope={setScope}
+            filters={filters}
+            setFilters={setFilters}
             onOpen={open}
-            onMore={(s, k) => {
-              setKind(k);
+            onMore={(s) => {
               setStage(s);
               setView("all");
               setTab("list");
             }}
-            onChanged={() => router.refresh()}
+            onChanged={onChanged}
           />
         ) : current === "list" ? (
           <ListView
@@ -397,8 +408,9 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
             setStage={setStage}
             scope={data.scope}
             setScope={setScope}
+            filters={filters}
+            setFilters={setFilters}
             onOpen={open}
-            onChanged={() => router.refresh()}
             openKey={sel ? `${sel.kind}:${sel.id}` : null}
             onShareOut={() => setShareOpen(true)}
           />
@@ -426,8 +438,9 @@ export function ProspectsWorkspace({ data, deals }: { data: WorkspaceData; deals
       </div>
       )}
 
-      <ShareOutDialog rows={everyone} team={data.team} me={data.me} open={shareOpen} onOpenChange={setShareOpen} onDone={() => router.refresh()} />
+      <ShareOutDialog rows={everyone} team={data.team} me={data.me} open={shareOpen} onOpenChange={setShareOpen} onDone={onChanged} />
       <LogTouchDialog target={logTarget} today={data.today} open={logOpen} onOpenChange={setLogOpen} onSaved={onChanged} />
     </div>
+    </PatchRowsContext.Provider>
   );
 }

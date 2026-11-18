@@ -7,7 +7,7 @@ import { loadWorkbook } from "./read";
 import { RECORD_TYPE, WRITABLE, type ProspectKind } from "./schema";
 import { todayIST } from "./stats";
 import { firstName, idSchema, kindSchema, nowIST, patchSchema, touchPatch, touchSchema, type TouchInput } from "./touch";
-import { appendActivity, writeRecord } from "./write";
+import { appendActivity, writeRecord, writeRecords } from "./write";
 
 /**
  * The prospects rules, free of any notion of who is signed in or how. The web's
@@ -63,16 +63,55 @@ export async function saveProspectRecord(
   }
 }
 
+/** The most rows one bulk change writes. */
+export const BULK_LIMIT = 50;
+
+export type BulkResult = { ok: number; failed: { id: string; message: string }[]; message: string };
+
+/**
+ * Write the same cells on several rows of one kind, at most BULK_LIMIT, in one
+ * batch (see writeRecords). Rows that fail are reported, not retried; the rest
+ * are written. A status change still opens or moves each row's deal.
+ */
+export async function saveProspectRecords(
+  kind: ProspectKind,
+  ids: string[],
+  patch: Record<string, string | number | null>,
+  invalidate: Invalidate,
+  dealCtx: DealContext | null,
+): Promise<BulkResult> {
+  const k = kindSchema.parse(kind);
+  const clean = patchSchema.parse(patch);
+  const unknown = Object.keys(clean).filter((c) => !WRITABLE[k].has(c));
+  if (unknown.length) return { ok: 0, failed: [], message: `Not editable from the dashboard: ${unknown.join(", ")}.` };
+  const list = ids.slice(0, BULK_LIMIT);
+  try {
+    list.forEach((id) => idSchema.parse(id));
+    const results = await writeRecords(k, list, clean);
+    const failed: BulkResult["failed"] = [];
+    let ok = 0;
+    for (const r of results) {
+      if (!r.ok) {
+        failed.push({ id: r.id, message: r.message });
+        continue;
+      }
+      ok++;
+      if (r.written.includes("status")) await syncProspectDeal(dealCtx, { kind: k, id: r.id, before: r.before, status: String(clean.status ?? "") });
+    }
+    if (ok) invalidate();
+    return { ok, failed, message: failed.length ? `${ok} saved; ${failed.length} failed: ${failed[0].message}` : `Saved ${ok} to the sheet.` };
+  } catch (err) {
+    return { ok: 0, failed: list.map((id) => ({ id, message: errorMessage(err) })), message: errorMessage(err) };
+  }
+}
+
 /** Assign rows to a member, by their first name as the team writes it. At most 50 at a time. */
 export async function assignProspects(kind: ProspectKind, ids: string[], memberName: string, invalidate: Invalidate): Promise<ProspectResult> {
   const name = firstName(memberName);
-  const done: string[] = [];
-  for (const id of ids.slice(0, 50)) {
-    const r = await saveProspectRecord(kind, id, { assigned: name }, invalidate, null);
-    if (!r.ok) return { ok: false, message: `${done.length} assigned; stopped at ${id}: ${r.message}` };
-    done.push(id);
-  }
-  return { ok: true, written: ["assigned"], message: `Assigned ${done.length} to ${name}.` };
+  const res = await saveProspectRecords(kind, ids, { assigned: name }, invalidate, null);
+  if (res.failed.length) return { ok: false, message: `${res.ok} assigned; ${res.failed.length} failed: ${res.failed[0]?.message ?? res.message}` };
+  if (!res.ok) return { ok: false, message: res.message };
+  return { ok: true, written: ["assigned"], message: `Assigned ${res.ok} to ${name}.` };
 }
 
 /**

@@ -264,6 +264,8 @@ export function Pipeline({
   setLayout,
   scope,
   setScope,
+  filters,
+  setFilters,
   onOpen,
   onMore,
   onChanged,
@@ -276,11 +278,13 @@ export function Pipeline({
   setLayout: (l: "board" | "timeline") => void;
   scope: "focus" | "all";
   setScope: (s: "focus" | "all") => void;
+  filters: Filters;
+  setFilters: (f: Filters) => void;
   onOpen: (r: ProspectRow) => void;
-  onMore: (stage: number, kind: ProspectKind | "") => void;
+  /** "Show all in Prospects": the list opens on this stage with the same filters. */
+  onMore: (stage: number) => void;
   onChanged: () => void;
 }) {
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const shown = useMemo(() => applyFilters(rows, filters, me), [rows, filters, me]);
   return (
     <div className="flex flex-col gap-3">
@@ -295,7 +299,7 @@ export function Pipeline({
           ]}
         />
       </FilterBar>
-      {layout === "board" ? <Board rows={shown} today={today} onOpen={onOpen} onMore={(s) => onMore(s, filters.kind)} onChanged={onChanged} /> : <Timeline rows={shown} today={today} team={team} onOpen={onOpen} />}
+      {layout === "board" ? <Board rows={shown} today={today} onOpen={onOpen} onMore={onMore} onChanged={onChanged} /> : <Timeline rows={shown} today={today} team={team} onOpen={onOpen} />}
     </div>
   );
 }
