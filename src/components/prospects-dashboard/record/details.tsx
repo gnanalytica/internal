@@ -100,7 +100,7 @@ export function InlineField({ ctx, r, f }: { ctx: Ctx; r: ProspectRecord; f: Fie
     const options = [...new Set([...f.options, ...(current && !f.options.includes(current) ? [current] : [])])];
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger disabled={pending} aria-label={`${f.label}: ${current || "not known"}. Change`} className={cn(cls, "inline-flex items-center gap-1.5")}>
+        <DropdownMenuTrigger disabled={pending} aria-label={`${f.label}: ${value || "not known"}. Change`} className={cn(cls, "inline-flex items-center gap-1.5")}>
           <span className="min-w-0 flex-1 truncate">{shown}</span>
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
@@ -120,7 +120,7 @@ export function InlineField({ ctx, r, f }: { ctx: Ctx; r: ProspectRecord; f: Fie
   }
   if (draft === null) {
     return (
-      <button type="button" disabled={pending} onClick={open} aria-label={`${f.label}: ${current || "not known"}. Edit`} className={cn(cls, "group/f flex items-start gap-1.5 break-words whitespace-pre-wrap")}>
+      <button type="button" disabled={pending} onClick={open} aria-label={`${f.label}: ${value || "not known"}. Edit`} className={cn(cls, "group/f flex items-start gap-1.5 break-words whitespace-pre-wrap")}>
         <span className="min-w-0 flex-1">{shown}</span>
         <Pencil className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 group-hover/f:opacity-100" />
       </button>
