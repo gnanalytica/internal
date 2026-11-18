@@ -64,6 +64,7 @@ export function MyWorkView({
   unreadCount,
   myProjects,
   bets,
+  sales,
 }: {
   issues: IssueListItem[];
   /** The server's clock, so the first render and hydration bucket alike. */
@@ -73,6 +74,8 @@ export function MyWorkView({
   labels: Label[];
   notifications: NotificationItem[];
   unreadCount: number;
+  /** Your prospect follow-ups, streamed in by the page; absent when you can't see Sales. */
+  sales?: React.ReactNode;
   myProjects: MyProject[];
   bets: string[];
 }) {
@@ -266,7 +269,8 @@ export function MyWorkView({
           </section>
 
           <aside className="flex min-w-0 flex-col gap-6" aria-label="Around your work">
-            <Panel
+            {sales}
+            <HomePanel
               title="Inbox"
               count={unreadCount}
               href="/inbox"
@@ -319,9 +323,9 @@ export function MyWorkView({
                   ))}
                 </ul>
               )}
-            </Panel>
+            </HomePanel>
 
-            <Panel title="Your projects" href="/projects" linkLabel="All projects">
+            <HomePanel title="Your projects" href="/projects" linkLabel="All projects">
               {myProjects.length === 0 ? (
                 <p className="px-3 py-4 text-ui text-muted-foreground">
                   Projects you lead or have tasks in show up here.
@@ -369,10 +373,10 @@ export function MyWorkView({
                   })}
                 </ul>
               )}
-            </Panel>
+            </HomePanel>
 
             {bets.length > 0 && (
-              <Panel title="Focus this quarter" href="/projects" linkLabel="View">
+              <HomePanel title="Focus this quarter" href="/projects" linkLabel="View">
                 <ol className="space-y-2 px-3 py-3">
                   {bets.map((b, i) => (
                     <li key={i} className="flex gap-2.5 text-ui leading-snug">
@@ -383,7 +387,7 @@ export function MyWorkView({
                     </li>
                   ))}
                 </ol>
-              </Panel>
+              </HomePanel>
             )}
           </aside>
         </div>
@@ -392,7 +396,7 @@ export function MyWorkView({
   );
 }
 
-function Panel({
+export function HomePanel({
   title,
   count,
   href,

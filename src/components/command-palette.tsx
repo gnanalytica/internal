@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Bell,
+  Briefcase,
   BookText,
   CalendarRange,
   CircleDot,
@@ -29,6 +30,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { createPage, createProject, searchWorkspace } from "@/lib/actions";
+import type { ProspectHit } from "@/lib/prospects/access";
 import type { SearchResult, SearchResultKind } from "@/lib/types";
 
 const ic = "size-4 text-muted-foreground";
@@ -85,6 +87,8 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  // Prospects come from their own request (the prospects sheet), so a slow sheet never holds up the rest.
+  const [prospects, setProspects] = useState<ProspectHit[]>([]);
   const [, startTransition] = useTransition();
   const reqId = useRef(0);
   const openRef = useRef(open);
@@ -98,6 +102,7 @@ export function CommandPalette() {
     if (!next) {
       setQuery("");
       setResults([]);
+      setProspects([]);
     }
   }
 
@@ -126,13 +131,21 @@ export function CommandPalette() {
     const q = query.trim();
     if (!q) return;
     const id = ++reqId.current;
+    const ctrl = new AbortController();
     const t = setTimeout(() => {
       startTransition(async () => {
         const r = await searchWorkspace(q);
         if (id === reqId.current) setResults(r);
       });
+      fetch(`/api/prospects/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+        .then((res) => (res.ok ? (res.json() as Promise<{ data: ProspectHit[] }>) : { data: [] }))
+        .then((body) => id === reqId.current && setProspects(body.data ?? []))
+        .catch(() => {});
     }, 160);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
   }, [query]);
 
   function go(href: string) {
@@ -228,6 +241,17 @@ export function CommandPalette() {
                   ))}
                 </CommandGroup>
               ))}
+              {prospects.length > 0 && (
+                <CommandGroup heading="Prospects">
+                  {prospects.map((p) => (
+                    <CommandItem key={p.key} value={`prospect:${p.key}`} onSelect={() => go(p.href)}>
+                      <Briefcase className={ic} />
+                      <span className="truncate">{p.title}</span>
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">{p.subtitle}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
             </>
           )}
         </CommandList>
