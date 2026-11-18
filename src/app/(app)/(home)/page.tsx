@@ -1,4 +1,7 @@
+import { Suspense } from "react";
+
 import { MyWorkView, type MyProject } from "@/components/my-work-view";
+import { ProspectFollowUps } from "@/components/prospect-follow-ups";
 import { canSeeConfidential } from "@/lib/departments";
 import {
   getCurrentUser,
@@ -9,6 +12,7 @@ import {
   getUnreadCount,
   getWorkspace,
 } from "@/lib/data";
+import { salesProjectId } from "@/lib/prospects/access";
 import { getTaskContext } from "@/lib/task-context";
 
 /**
@@ -66,6 +70,10 @@ export default async function HomePage() {
     .sort((a, b) => Number(Boolean(a.read)) - Number(Boolean(b.read)))
     .slice(0, 5);
 
+  // Your prospect follow-ups, for whoever may see Sales: streamed in after the rest of home.
+  const salesId = salesProjectId(ctx.projects, role);
+  const person = (me.name || me.email || "").trim();
+
   return (
     <MyWorkView
       issues={mine}
@@ -77,6 +85,13 @@ export default async function HomePage() {
       unreadCount={unreadCount}
       myProjects={myProjects}
       bets={(ws.bets ?? []).filter(Boolean)}
+      sales={
+        salesId && person ? (
+          <Suspense fallback={null}>
+            <ProspectFollowUps person={person} projectId={salesId} />
+          </Suspense>
+        ) : null
+      }
     />
   );
 }
