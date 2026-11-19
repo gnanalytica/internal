@@ -5,10 +5,11 @@ import type { ActivityEntry, ProspectRecord } from "./parse";
 import { recordsOf } from "./parse";
 import { loadWorkbook } from "./read";
 import { relatedRecords, type Related } from "./related";
-import { RECORD_TYPE, WRITABLE, type ProspectKind } from "./schema";
+import { PROSPECT_KINDS, RECORD_TYPE, WRITABLE, type ProspectKind } from "./schema";
 import { todayIST } from "./stats";
 import { firstName, idSchema, kindSchema, nowIST, patchSchema, touchPatch, touchSchema, type TouchInput } from "./touch";
-import { appendActivity, writeRecord, writeRecords } from "./write";
+import { duplicateMessage, findDuplicates, newLeadSchema, type DuplicateMatch, type NewLeadInput } from "./linkedin";
+import { appendActivity, appendLinkedInLead, writeRecord, writeRecords } from "./write";
 
 /**
  * The prospects rules, free of any notion of who is signed in or how. The web's
@@ -158,6 +159,31 @@ export async function logProspectTouch(input: TouchInput, by: string, invalidate
     });
     invalidate();
     return { ok: true, written: [...written, `Activity ${activityId}`], activityId, message: `Saved to the sheet: ${written.join(", ")} · Activity ${activityId}.` };
+  } catch (err) {
+    return { ok: false, message: errorMessage(err) };
+  }
+}
+
+export type AddLeadResult = { ok: true; id: string; message: string } | { ok: false; message: string; duplicates?: DuplicateMatch[] };
+
+/**
+ * Add a prospect who came to us on LinkedIn. Refuses (with the matches) when
+ * the profile link, email or phone is already on any tab, unless `force` —
+ * the person adding may know it's a namesake, or want a separate lead anyway.
+ */
+export async function addLinkedInLead(input: NewLeadInput, by: string, invalidate: Invalidate): Promise<AddLeadResult> {
+  const parsed = newLeadSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the form." };
+  const lead = { ...parsed.data, assigned: firstName(parsed.data.assigned || by) };
+  try {
+    if (!lead.force) {
+      const wb = await loadWorkbook();
+      const dupes = findDuplicates(lead, PROSPECT_KINDS.flatMap((k) => recordsOf(wb, k)));
+      if (dupes.length) return { ok: false, message: duplicateMessage(dupes), duplicates: dupes.slice(0, 5) };
+    }
+    const id = await appendLinkedInLead(lead, by, todayIST());
+    invalidate();
+    return { ok: true, id, message: `Added ${lead.name} as ${id}.` };
   } catch (err) {
     return { ok: false, message: errorMessage(err) };
   }

@@ -12,8 +12,8 @@ export async function loadProspectsWorkspace(workspaceId: string, scope: "focus"
   const { rows } = snap;
   const scoped = (list: ProspectRow[]) => (scope === "all" ? list : list.filter(inFocus));
   return {
-    rows: { valuer: scoped(rows.valuer), firm: scoped(rows.firm), rvo: scoped(rows.rvo), panel: scoped(rows.panel), bank: scoped(rows.bank) },
-    totals: { valuer: rows.valuer.length, firm: rows.firm.length, rvo: rows.rvo.length, panel: rows.panel.length, bank: rows.bank.length },
+    rows: { valuer: scoped(rows.valuer), firm: scoped(rows.firm), rvo: scoped(rows.rvo), panel: scoped(rows.panel), bank: scoped(rows.bank), linkedin: scoped(rows.linkedin) },
+    totals: { valuer: rows.valuer.length, firm: rows.firm.length, rvo: rows.rvo.length, panel: rows.panel.length, bank: rows.bank.length, linkedin: rows.linkedin.length },
     activity: snap.activity,
     today: todayIST(),
     readAt: snap.readAt,

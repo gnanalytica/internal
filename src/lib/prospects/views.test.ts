@@ -79,7 +79,7 @@ describe("scoped rows", () => {
 
   it("counts each kind in scope and in total", () => {
     const { counts, totals } = kindCounts(snapshot(), "focus");
-    expect(counts).toEqual({ valuer: 4, firm: 0, rvo: 0, panel: 0, bank: 1 });
+    expect(counts).toEqual({ valuer: 4, firm: 0, rvo: 0, panel: 0, bank: 1, linkedin: 0 });
     expect(totals.valuer).toBe(5);
     expect(kindCounts(snapshot(), "all").counts.valuer).toBe(5);
     expect(everyRow(snapshot(), "focus")).toHaveLength(5);

@@ -52,6 +52,8 @@ export type ProspectRecord = {
   practice: string;
   /** Bank Contacts: the office and how to get in. */
   bank: { institution: string; type: string; office: string; department: string; contactPerson: string; designation: string; empanelmentPage: string; empanelmentWindow: string; howToReach: string };
+  /** LinkedIn Leads: the profile and how they came to us. */
+  linkedin: { url: string; headline: string; company: string; howMet: string; addedBy: string; addedOn: string | null };
 };
 
 export type ActivityEntry = {
@@ -77,6 +79,7 @@ export type ProspectsWorkbook = {
   rvos: ProspectRecord[];
   panels: ProspectRecord[];
   banks: ProspectRecord[];
+  linkedin: ProspectRecord[];
   activity: ActivityEntry[];
   /** Problems worth showing rather than hiding: a missing tab, a duplicate ID. */
   warnings: string[];
@@ -205,7 +208,8 @@ function getter(idx: Map<string, number>, row: Row) {
 
 export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: string[]): ProspectRecord[] {
   if (!matrix.length) {
-    warnings.push(`The "${TAB[kind]}" tab is missing or empty.`);
+    // LinkedIn Leads is created by the first "Add prospect", so its absence is normal until then.
+    if (kind !== "linkedin") warnings.push(`The "${TAB[kind]}" tab is missing or empty.`);
     return [];
   }
   const idx = headerIndex(matrix[0]);
@@ -283,6 +287,14 @@ export function parseRecords(kind: ProspectKind, matrix: unknown[][], warnings: 
         empanelmentWindow: t("empanelment_window"),
         howToReach: t("how_to_reach"),
       },
+      linkedin: {
+        url: t("linkedin_url"),
+        headline: t("headline"),
+        company: t("company"),
+        howMet: t("how_met"),
+        addedBy: t("added_by"),
+        addedOn: parseSheetDate(g("added_on")),
+      },
     });
   }
   return out;
@@ -327,6 +339,7 @@ export function parseWorkbook(tabs: Map<string, unknown[][]>, readAt: string): P
     rvos: parseRecords("rvo", tabs.get(TAB.rvo) ?? [], warnings),
     panels: parseRecords("panel", tabs.get(TAB.panel) ?? [], warnings),
     banks: parseRecords("bank", tabs.get(TAB.bank) ?? [], warnings),
+    linkedin: parseRecords("linkedin", tabs.get(TAB.linkedin) ?? [], warnings),
     activity: parseActivity(tabs.get(TAB.activity) ?? [], warnings),
     warnings,
     readAt,
@@ -335,5 +348,5 @@ export function parseWorkbook(tabs: Map<string, unknown[][]>, readAt: string): P
 
 /** The records of one kind. */
 export function recordsOf(wb: ProspectsWorkbook, kind: ProspectKind): ProspectRecord[] {
-  return { valuer: wb.valuers, firm: wb.firms, rvo: wb.rvos, panel: wb.panels, bank: wb.banks }[kind];
+  return { valuer: wb.valuers, firm: wb.firms, rvo: wb.rvos, panel: wb.panels, bank: wb.banks, linkedin: wb.linkedin }[kind];
 }

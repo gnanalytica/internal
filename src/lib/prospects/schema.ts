@@ -22,7 +22,7 @@ export function prospectsSheetUrl(): string {
  */
 export const PROSPECTS_PRODUCT_KEY = "VAL";
 
-export const PROSPECT_KINDS = ["valuer", "firm", "rvo", "panel", "bank"] as const;
+export const PROSPECT_KINDS = ["valuer", "firm", "rvo", "panel", "bank", "linkedin"] as const;
 export type ProspectKind = (typeof PROSPECT_KINDS)[number];
 
 export const TAB: Record<ProspectKind | "activity", string> = {
@@ -31,6 +31,7 @@ export const TAB: Record<ProspectKind | "activity", string> = {
   rvo: "RVOs",
   panel: "Bank Panel Valuers",
   bank: "Bank Contacts",
+  linkedin: "LinkedIn Leads",
   activity: "Activity",
 };
 
@@ -40,6 +41,7 @@ export const ID_COLUMN: Record<ProspectKind, string> = {
   rvo: "rvo_recognition_no",
   panel: "valuer_id",
   bank: "contact_id",
+  linkedin: "lead_id",
 };
 
 export const KIND_LABEL: Record<ProspectKind, { one: string; many: string }> = {
@@ -48,13 +50,14 @@ export const KIND_LABEL: Record<ProspectKind, { one: string; many: string }> = {
   rvo: { one: "RVO", many: "RVOs" },
   panel: { one: "Bank panel valuer", many: "Panel valuers" },
   bank: { one: "Bank contact", many: "Bank contacts" },
+  linkedin: { one: "LinkedIn lead", many: "LinkedIn" },
 };
 
 /** Tabs with no scoring or research-fact columns; the score band and facts meter don't apply. */
-export const UNSCORED_KINDS: ReadonlySet<ProspectKind> = new Set(["panel", "bank"]);
+export const UNSCORED_KINDS: ReadonlySet<ProspectKind> = new Set(["panel", "bank", "linkedin"]);
 
 /** Activity's record_type values, per kind. */
-export const RECORD_TYPE: Record<ProspectKind, string> = { valuer: "Valuer", firm: "Firm", rvo: "RVO", panel: "Panel valuer", bank: "Bank contact" };
+export const RECORD_TYPE: Record<ProspectKind, string> = { valuer: "Valuer", firm: "Firm", rvo: "RVO", panel: "Panel valuer", bank: "Bank contact", linkedin: "LinkedIn lead" };
 
 export const STAGES = ["Not contacted", "Contacted", "Discovery done", "Demo done", "Pilot running", "Won", "Lost"] as const;
 export type Stage = (typeof STAGES)[number];
@@ -79,7 +82,7 @@ export const OBJECTIONS = [
   "Worried about data privacy",
 ] as const;
 
-export const CHANNELS = ["WhatsApp", "Email", "Call", "Meeting", "Other"] as const;
+export const CHANNELS = ["WhatsApp", "Email", "Call", "LinkedIn", "Meeting", "Other"] as const;
 export type Channel = (typeof CHANNELS)[number];
 
 export const DIRECTIONS = ["Outbound", "Inbound"] as const;
@@ -216,10 +219,61 @@ export const WRITABLE: Record<ProspectKind, ReadonlySet<string>> = {
     "notes",
     "research_notes",
   ]),
+  linkedin: new Set([
+    "status",
+    "name",
+    "headline",
+    "company",
+    "city",
+    "state",
+    "linkedin_url",
+    "phone",
+    "email",
+    "how_met",
+    "assigned",
+    "last_contacted",
+    "next_step",
+    "next_step_date",
+    "notes",
+    "research_notes",
+    "disqualified",
+  ]),
 };
 
+/**
+ * The LinkedIn Leads tab is the one tab the dashboard adds rows to (the
+ * others are imported from registers). These are its columns, in order, as
+ * written when the tab is first created; after that columns are matched by
+ * header like every other tab, so people may reorder or add to them.
+ */
+export const LINKEDIN_COLUMNS = [
+  "lead_id",
+  "name",
+  "headline",
+  "company",
+  "city",
+  "state",
+  "linkedin_url",
+  "phone",
+  "email",
+  "how_met",
+  "added_by",
+  "added_on",
+  "status",
+  "assigned",
+  "last_contacted",
+  "next_step",
+  "next_step_date",
+  "notes",
+  "research_notes",
+  "disqualified",
+] as const;
+
+/** How the lead came to us on LinkedIn. */
+export const LINKEDIN_HOW_MET = ["They messaged us", "Commented on a post", "Accepted our request", "We found them", "Referral", "Other"] as const;
+
 /** Written as real dates (ISO, which every locale parses) so the column's dd-mm-yyyy format applies. */
-export const DATE_COLUMNS: ReadonlySet<string> = new Set(["last_contacted", "next_step_date", "last_researched"]);
+export const DATE_COLUMNS: ReadonlySet<string> = new Set(["last_contacted", "next_step_date", "last_researched", "added_on"]);
 /** Written as numbers. */
 export const NUMBER_COLUMNS: ReadonlySet<string> = new Set(["lb_cases_per_month"]);
 

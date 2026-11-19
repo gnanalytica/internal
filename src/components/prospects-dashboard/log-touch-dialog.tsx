@@ -16,7 +16,7 @@ import { addDays } from "@/lib/prospects/stats";
 import { touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { sendToProduct } from "@/lib/send-to-product-actions";
 import { cn } from "@/lib/utils";
-import { Chips, DatePicker, shortDate, StageDot } from "./bits";
+import { Chips, DatePicker, LinkedInGlyph, shortDate, StageDot } from "./bits";
 
 export type LogTarget = { kind: ProspectKind; id: string; name: string; stage: number; nextStep: string; channel?: Channel; outcome?: Outcome };
 
@@ -25,6 +25,7 @@ const OUTCOMES_BY_CHANNEL: Record<Channel, Outcome[]> = {
   Call: ["Connected", "No answer", "Busy — call back", "Demo booked", "Not interested", "Wrong number"],
   WhatsApp: ["Sent", "Replied", "Demo booked", "Not interested", "Wrong number"],
   Email: ["Sent", "Replied", "Demo booked", "Not interested"],
+  LinkedIn: ["Sent", "Replied", "Connected", "Demo booked", "Not interested"],
   Meeting: ["Meeting held", "Demo booked", "Not interested"],
   Other: ["Sent", "Replied", "Connected", "Not interested"],
 };
@@ -108,6 +109,7 @@ const CHANNEL_ICON: Partial<Record<Channel, React.ReactNode>> = {
   Call: <Phone className="size-3.5" />,
   WhatsApp: <MessageCircle className="size-3.5" />,
   Email: <Mail className="size-3.5" />,
+  LinkedIn: <LinkedInGlyph className="size-3.5" />,
   Meeting: <Users className="size-3.5" />,
 };
 
@@ -218,7 +220,7 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
       <div className="grid gap-x-8 gap-y-6 px-5 py-5 md:grid-cols-2">
         <Block n={1} title="What happened">
           <Field label="Channel">
-            <div role="radiogroup" aria-label="Channel" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-0.5 sm:grid-cols-4">
+            <div role="radiogroup" aria-label="Channel" className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-0.5 sm:grid-cols-5">
               {CHANNELS.filter((c) => c !== "Other").map((c) => (
                 <button
                   key={c}
