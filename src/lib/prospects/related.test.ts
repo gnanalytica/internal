@@ -10,6 +10,7 @@ const blank: ProspectRecord = {
   kind: "valuer", id: "", name: "", status: "", stage: 0, state: "", city: "", address: "", email: "", phone: "", website: "", rvo: "", registeredOn: "", firmRegNo: "", firmStatus: "", keyContact: "", people: "", lenders: [], software: "", casesPerMonth: null, assigned: "", outreachRoute: "", lastContacted: null, nextStep: "", nextStepDate: null,
   drafts: { email: "", whatsapp: "", call: "", meeting: "" }, notes: "", scores: [], switchingBarrier: null, disqualified: "", opportunityScore: null, band: "", bandLabel: "", scoreReason: "", scoreGaps: "", researchStatus: "", researchSources: [], researchNotes: "", lastResearched: null, pitchAngle: "", objections: "", referredBy: "", practice: "",
   bank: { institution: "", type: "", office: "", department: "", contactPerson: "", designation: "", empanelmentPage: "", empanelmentWindow: "", howToReach: "" },
+  linkedin: { url: "", headline: "", company: "", howMet: "", addedBy: "", addedOn: null },
 };
 const rec = (p: Partial<ProspectRecord> & { id: string }): ProspectRecord => ({ ...blank, name: p.id, ...p });
 
@@ -28,6 +29,7 @@ const wb: ProspectsWorkbook = {
     rec({ kind: "bank", id: "BC-0003", name: "Canara Hyderabad", bank: { ...blank.bank, institution: "Canara Bank" } }),
     rec({ kind: "bank", id: "BC-0001", name: "Anantpur DCCB", bank: { ...blank.bank, institution: "Anantpur District Cooperative Central Bank Ltd." } }),
   ],
+  linkedin: [],
   activity: [],
   warnings: [],
   readAt: "",

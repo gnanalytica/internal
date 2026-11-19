@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { saveProspect } from "@/lib/prospects/actions";
 import type { ProspectRecord } from "@/lib/prospects/parse";
 import { displayDate } from "@/lib/prospects/parse";
-import { DISQUALIFY_REASONS, OBJECTIONS, PITCH_ANGLES, STAGES, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
+import { DISQUALIFY_REASONS, LINKEDIN_HOW_MET, OBJECTIONS, PITCH_ANGLES, STAGES, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
 import { SOFTWARE } from "@/lib/prospects/contact";
 import { cn } from "@/lib/utils";
 import { Owner, OwnerPicker } from "../bits";
@@ -27,12 +27,17 @@ export const FIELDS: { group: string; fields: FieldDef[] }[] = [
   {
     group: "Contact",
     fields: [
+      { col: "linkedin_url", label: "LinkedIn", get: (r) => r.linkedin.url },
+      { col: "headline", label: "Headline", get: (r) => r.linkedin.headline },
+      { col: "company", label: "Company", get: (r) => r.linkedin.company },
       { col: "contact_person", label: "Contact person", get: (r) => r.bank.contactPerson },
       { col: "designation", label: "Designation", get: (r) => r.bank.designation },
       { col: "key_contact", label: "Key contact", get: (r) => r.keyContact },
       { col: "phone", label: "Phone", get: (r) => r.phone },
       { col: "email", label: "Email", get: (r) => r.email },
       { col: "city", label: "City", get: (r) => r.city },
+      { col: "state", label: "State", get: (r) => r.state },
+      { col: "how_met", label: "How they came in", get: (r) => r.linkedin.howMet, options: LINKEDIN_HOW_MET },
     ],
   },
   {
@@ -185,14 +190,16 @@ export function DisqualifyDialog({ ctx, r, open, onOpenChange }: { ctx: Ctx; r: 
 
 export function registration(r: ProspectRecord, kind: ProspectKind): { label: string; value: string }[] {
   const rows: [string, string][] = [
-    [kind === "panel" || kind === "bank" ? "ID" : "Registration", r.id],
-    ["State", r.state],
+    [kind === "panel" || kind === "bank" || kind === "linkedin" ? "ID" : "Registration", r.id],
+    // A LinkedIn lead's state is edited under Contact instead.
+    ["State", kind === "linkedin" ? "" : r.state],
     ["Address", r.address],
   ];
   if (kind === "valuer") rows.push(["RVO", r.rvo], ["Registered", r.registeredOn], ["Firm", r.firmRegNo ? `${r.firmRegNo}${r.firmStatus ? ` · ${r.firmStatus}` : ""}` : ""]);
   if (kind === "firm") rows.push(["RVO", r.rvo], ["Partners", r.people]);
   if (kind === "rvo") rows.push(["Website", r.website], ["Chair", r.keyContact], ["CEO / MD", r.people]);
   if (kind === "panel") rows.push(["Practice", r.practice], ["IBBI", "Not on the IBBI register"]);
+  if (kind === "linkedin") rows.push(["Added", [r.linkedin.addedBy, r.linkedin.addedOn ? displayDate(r.linkedin.addedOn) : ""].filter(Boolean).join(" · ")], ["IBBI", "Not matched to the register"]);
   if (kind === "bank")
     rows.push(["Institution", r.bank.institution], ["Type", r.bank.type], ["Office", r.bank.office], ["Department", r.bank.department], ["Empanelment", r.bank.empanelmentWindow], ["Panel page", r.bank.empanelmentPage], ["How to reach", r.bank.howToReach], ["Website", r.website]);
   return rows.filter(([, v]) => v).map(([label, value]) => ({ label, value }));

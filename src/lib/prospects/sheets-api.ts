@@ -135,3 +135,26 @@ export async function appendRows(spreadsheetId: string, title: string, rows: (st
     body: JSON.stringify({ values: rows }),
   });
 }
+
+/** Add a tab with a frozen, bold header row. */
+export async function addTab(spreadsheetId: string, title: string, header: string[]): Promise<void> {
+  const json = await call<{ replies: { addSheet: { properties: { sheetId: number } } }[] }>(`${spreadsheetId}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1, columnCount: Math.max(26, header.length) } } } }] }),
+  });
+  const sheetId = json.replies[0].addSheet.properties.sheetId;
+  await call(`${spreadsheetId}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({
+      requests: [
+        {
+          updateCells: {
+            range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: header.length },
+            rows: [{ values: header.map((h) => ({ userEnteredValue: { stringValue: h }, userEnteredFormat: { textFormat: { bold: true } } })) }],
+            fields: "userEnteredValue,userEnteredFormat.textFormat.bold",
+          },
+        },
+      ],
+    }),
+  });
+}

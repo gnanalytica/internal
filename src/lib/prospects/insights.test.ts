@@ -83,7 +83,7 @@ describe("buildInsightCharts", () => {
     const week = buildInsightCharts({ rows, activity, today: TODAY, period: "week" }).touches!;
     expect(week.unit).toBe("day");
     expect(week.buckets.map((b) => b.from)).toEqual(["2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15", "2026-11-16", "2026-11-17", "2026-11-18"]);
-    expect(week.buckets.at(-1)!.byChannel).toEqual({ Call: 1, WhatsApp: 0, Email: 1, Meeting: 0 });
+    expect(week.buckets.at(-1)!.byChannel).toEqual({ Call: 1, WhatsApp: 0, Email: 1, LinkedIn: 0, Meeting: 0 });
     const long = buildInsightCharts({ rows, activity, today: TODAY, period: { from: "2026-08-01", to: TODAY } }).touches!;
     expect(long.unit).toBe("week");
     expect(long.buckets.at(-1)!.to).toBe(TODAY);

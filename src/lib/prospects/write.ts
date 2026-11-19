@@ -1,8 +1,9 @@
 import "server-only";
 
-import { appendRows, formulaColumnsInRows, readRange, readRanges, writeCells } from "./sheets-api";
+import { leadRow, nextLeadId, type NewLead } from "./linkedin";
+import { addTab, appendRows, formulaColumnsInRows, listTabs, readRange, readRanges, writeCells } from "./sheets-api";
 import { activityRow, colLetter, nextActivityId, planRowWrite, quoteTab, withAssignment, type CellPatch, type ChangeContext, type NewActivity } from "./plan";
-import { ID_COLUMN, prospectsSheetId, TAB, type ProspectKind } from "./schema";
+import { ID_COLUMN, LINKEDIN_COLUMNS, prospectsSheetId, TAB, type ProspectKind } from "./schema";
 
 export type WriteResult = {
   written: string[];
@@ -117,6 +118,20 @@ export async function appendActivity(entry: NewActivity): Promise<string> {
   const { header, ids: existing } = await readHeaderAndKeys(sheet, TAB.activity, "activity_id", 0);
   const id = nextActivityId(existing);
   await appendRows(sheet, TAB.activity, [activityRow(id, entry, header)]);
+  return id;
+}
+
+/**
+ * Append one LinkedIn lead with the next LI- id, creating the LinkedIn Leads
+ * tab (header only) the first time anyone adds one.
+ */
+export async function appendLinkedInLead(lead: NewLead, by: string, todayIso: string): Promise<string> {
+  const sheet = prospectsSheetId();
+  const tab = TAB.linkedin;
+  if (!(await listTabs(sheet)).some((t) => t.title === tab)) await addTab(sheet, tab, [...LINKEDIN_COLUMNS]);
+  const { header, ids } = await readHeaderAndKeys(sheet, tab, ID_COLUMN.linkedin);
+  const id = nextLeadId(ids);
+  await appendRows(sheet, tab, [leadRow(id, lead, by, todayIso, header)]);
   return id;
 }
 

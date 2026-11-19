@@ -468,6 +468,7 @@ export function ProspectsWorkspace({ data, deals, customers }: { data: Workspace
             onShareOut={() => setShareOpen(true)}
             setLayout={setLayout}
             onStartCalls={() => setTab("today")}
+            onOpenRecord={open}
           />
         ) : current === "insights" ? (
           <Overview

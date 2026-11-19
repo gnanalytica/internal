@@ -4,7 +4,7 @@
 // of React Native and of "@/" imports so the web's test suite can import this
 // file and assert the two copies still agree (src/lib/prospects/mobile-parity.test.ts).
 
-export const PROSPECT_KINDS = ["valuer", "firm", "rvo", "panel", "bank"] as const;
+export const PROSPECT_KINDS = ["valuer", "firm", "rvo", "panel", "bank", "linkedin"] as const;
 export type ProspectKind = (typeof PROSPECT_KINDS)[number];
 
 export const KIND_LABEL: Record<ProspectKind, { one: string; many: string }> = {
@@ -13,10 +13,11 @@ export const KIND_LABEL: Record<ProspectKind, { one: string; many: string }> = {
   rvo: { one: "RVO", many: "RVOs" },
   panel: { one: "Bank panel valuer", many: "Panel valuers" },
   bank: { one: "Bank contact", many: "Bank contacts" },
+  linkedin: { one: "LinkedIn lead", many: "LinkedIn" },
 };
 
 /** Tabs with no scoring or research-fact columns; the score band and facts meter don't apply. */
-export const UNSCORED_KINDS: ReadonlySet<ProspectKind> = new Set(["panel", "bank"]);
+export const UNSCORED_KINDS: ReadonlySet<ProspectKind> = new Set(["panel", "bank", "linkedin"]);
 
 export const STAGES = ["Not contacted", "Contacted", "Discovery done", "Demo done", "Pilot running", "Won", "Lost"] as const;
 export type Stage = (typeof STAGES)[number];
@@ -34,7 +35,7 @@ export const OBJECTIONS = [
   "Worried about data privacy",
 ] as const;
 
-export const CHANNELS = ["WhatsApp", "Email", "Call", "Meeting", "Other"] as const;
+export const CHANNELS = ["WhatsApp", "Email", "Call", "LinkedIn", "Meeting", "Other"] as const;
 export type Channel = (typeof CHANNELS)[number];
 export const DIRECTIONS = ["Outbound", "Inbound"] as const;
 export type Direction = (typeof DIRECTIONS)[number];
@@ -62,6 +63,7 @@ export const WRITABLE: Record<ProspectKind, ReadonlySet<string>> = {
   rvo: new Set(["status", "assigned", "outreach_route", "last_contacted", "next_step", "next_step_date", "draft_email", "draft_whatsapp", "draft_call", "draft_meeting", "notes", "research_notes"]),
   panel: new Set(["status", "city", "phone", "email", "lenders_empanelled_with", "assigned", "outreach_route", "last_contacted", "next_step", "next_step_date", "draft_whatsapp", "draft_call", "notes", "research_notes", "disqualified"]),
   bank: new Set(["status", "contact_person", "designation", "phone", "email", "assigned", "last_contacted", "next_step", "next_step_date", "notes", "research_notes"]),
+  linkedin: new Set(["status", "name", "headline", "company", "city", "state", "linkedin_url", "phone", "email", "how_met", "assigned", "last_contacted", "next_step", "next_step_date", "notes", "research_notes", "disqualified"]),
 };
 
 export const FACT_COUNT = 8;
@@ -140,6 +142,7 @@ export type ProspectRecord = {
   referredBy: string;
   practice: string;
   bank: { institution: string; type: string; office: string; department: string; contactPerson: string; designation: string; empanelmentPage: string; empanelmentWindow: string; howToReach: string };
+  linkedin: { url: string; headline: string; company: string; howMet: string; addedBy: string; addedOn: string | null };
 };
 
 export type ActivityEntry = {
@@ -314,6 +317,7 @@ export const OUTCOMES_BY_CHANNEL: Record<Channel, Outcome[]> = {
   Call: ["Connected", "No answer", "Busy — call back", "Demo booked", "Not interested", "Wrong number"],
   WhatsApp: ["Sent", "Replied", "Demo booked", "Not interested", "Wrong number"],
   Email: ["Sent", "Replied", "Demo booked", "Not interested"],
+  LinkedIn: ["Sent", "Replied", "Connected", "Demo booked", "Not interested"],
   Meeting: ["Meeting held", "Demo booked", "Not interested"],
   Other: ["Sent", "Replied", "Connected", "Not interested"],
 };

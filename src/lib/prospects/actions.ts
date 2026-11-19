@@ -7,7 +7,8 @@ import type { DealContext } from "./deals";
 import { PROSPECTS_TAG } from "./read";
 import type { ProspectKind } from "./schema";
 import { isAssignedTo } from "./stats";
-import { assignProspects, BULK_LIMIT, logProspectTouch, saveProspectRecord, saveProspectRecords, type BulkResult, type ProspectResult } from "./service";
+import { addLinkedInLead, assignProspects, type AddLeadResult, BULK_LIMIT, logProspectTouch, saveProspectRecord, saveProspectRecords, type BulkResult, type ProspectResult } from "./service";
+import type { NewLeadInput } from "./linkedin";
 import type { TouchInput as ServiceTouchInput } from "./touch";
 
 export type ActionResult = ProspectResult;
@@ -67,6 +68,12 @@ export async function assignTo(kind: ProspectKind, ids: string[], person: string
 export async function logTouch(input: TouchInput): Promise<ActionResult> {
   const { name, dealCtx } = await signedIn();
   return logProspectTouch(input, name, invalidate, dealCtx);
+}
+
+/** Add a prospect who came in through LinkedIn, as a new row on the LinkedIn Leads tab. */
+export async function addLinkedInProspect(input: NewLeadInput): Promise<AddLeadResult> {
+  const { name } = await signedIn();
+  return addLinkedInLead(input, name, invalidate);
 }
 
 /** Re-read the sheet now instead of waiting for the one-minute cache. */

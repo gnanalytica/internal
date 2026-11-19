@@ -23,9 +23,9 @@ export const STAGE_TONE: Tone[] = ["gray", "blue", "violet", "indigo", "amber", 
 export const stageTone = (stage: number) => tone(STAGE_TONE[stage] ?? "gray");
 
 /** Each kind of prospect keeps its hue wherever it appears (tabs, related rows, search). */
-export const KIND_TONE: Record<ProspectKind, Tone> = { valuer: "blue", firm: "violet", rvo: "teal", panel: "orange", bank: "pink" };
+export const KIND_TONE: Record<ProspectKind, Tone> = { valuer: "blue", firm: "violet", rvo: "teal", panel: "orange", bank: "pink", linkedin: "indigo" };
 
-export const CHANNEL_TONE: Record<Channel, Tone> = { WhatsApp: "green", Email: "violet", Call: "blue", Meeting: "amber", Other: "gray" };
+export const CHANNEL_TONE: Record<Channel, Tone> = { WhatsApp: "green", Email: "violet", Call: "blue", LinkedIn: "indigo", Meeting: "amber", Other: "gray" };
 
 /** Good news green, a door closing red, everything in between neutral. */
 export function outcomeTone(o: string): Tone {
@@ -33,6 +33,15 @@ export function outcomeTone(o: string): Tone {
   if ((["Not interested", "Wrong number"] as Outcome[]).includes(o as Outcome)) return "red";
   if ((["No answer", "Busy — call back"] as Outcome[]).includes(o as Outcome)) return "amber";
   return "gray";
+}
+
+/** LinkedIn's "in" mark, drawn here because lucide no longer ships brand icons. */
+export function LinkedInGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className={className} fill="currentColor">
+      <path d="M2.5 1A1.5 1.5 0 0 0 1 2.5v11A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 1h-11Zm1.3 4.6h2v6.6h-2V5.6Zm1-3.2a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3Zm2.6 3.2h1.9v.9h.03c.27-.5.92-1.04 1.9-1.04 2.03 0 2.4 1.33 2.4 3.07v3.67h-2V9c0-.78-.01-1.78-1.08-1.78-1.09 0-1.25.85-1.25 1.72v3.26h-2V5.6Z" />
+    </svg>
+  );
 }
 
 export function StageDot({ stage, className }: { stage: number; className?: string }) {

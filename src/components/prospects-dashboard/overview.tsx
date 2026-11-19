@@ -18,7 +18,7 @@ type Preset = "today" | "week" | "month";
 const CHANNEL_SERIES: Series[] = CHART_CHANNELS.map((c) => ({
   key: c,
   label: c,
-  swatch: { WhatsApp: "bg-emerald-600", Email: "bg-violet-600 dark:bg-violet-500", Call: "bg-sky-600", Meeting: "bg-amber-600" }[c],
+  swatch: { WhatsApp: "bg-emerald-600", Email: "bg-violet-600 dark:bg-violet-500", Call: "bg-sky-600", LinkedIn: "bg-indigo-600 dark:bg-indigo-500", Meeting: "bg-amber-600" }[c],
 }));
 
 /** How touches went. Status-like colours, always named in the legend. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ChevronDown, Phone, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Phone, Plus, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -10,7 +10,8 @@ import { saveProspects } from "@/lib/prospects/actions";
 import { KIND_LABEL, PROSPECT_KINDS, STAGES, UNSCORED_KINDS, type ProspectKind } from "@/lib/prospects/schema";
 import { SAVED_VIEWS, type ProspectRow } from "@/lib/prospects/stats";
 import { cn } from "@/lib/utils";
-import { BandBadge, DatePicker, DueChip, FilterMenu, KindDot, LayoutSwitch, Owner, OwnerPicker, StageDot, StagePill, type ProspectLayout } from "./bits";
+import { AddLeadDialog } from "./add-lead-dialog";
+import { BandBadge, DatePicker, DueChip, FilterMenu, KindDot, LayoutSwitch, LinkedInGlyph, Owner, OwnerPicker, StageDot, StagePill, type ProspectLayout } from "./bits";
 import { rowKey as keyOf, usePatchRows, useRowSave } from "./optimistic";
 import { applyFilters, FilterBar, type Filters } from "./pipeline";
 import { useStageMove } from "./stage-check";
@@ -91,6 +92,7 @@ export function ListView({
   onShareOut,
   setLayout,
   onStartCalls,
+  onOpenRecord,
 }: {
   kind: ProspectKind | "";
   setKind: (k: ProspectKind | "") => void;
@@ -115,7 +117,10 @@ export function ListView({
   setLayout: (l: ProspectLayout) => void;
   /** Opens Your day: what is due for you, one prospect at a time. */
   onStartCalls: () => void;
+  /** Opens any record by kind and id — a lead just added, or the existing one a duplicate check found. */
+  onOpenRecord: (r: { kind: ProspectKind; id: string }) => void;
 }) {
+  const [adding, setAdding] = useState(false);
   const patchRows = usePatchRows();
   const { save: saveRow } = useRowSave();
   const { move, dialog: stageDialog } = useStageMove(() => {});
@@ -207,7 +212,8 @@ export function ListView({
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="tablist" aria-label="Record type" className="no-scrollbar -mx-3 flex gap-0.5 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+      <div className="flex items-center gap-2">
+      <div role="tablist" aria-label="Record type" className="no-scrollbar -mx-3 flex min-w-0 flex-1 gap-0.5 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         {[{ value: "" as const, label: "All", n: rows.length }, ...PROSPECT_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k].many, n: counts[k] }))].map((t) => (
           <button
             key={t.value || "all"}
@@ -228,6 +234,36 @@ export function ListView({
           </button>
         ))}
       </div>
+        <Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => setAdding(true)}>
+          <Plus className="size-3.5" />
+          <span className="max-sm:sr-only">Add LinkedIn lead</span>
+          <LinkedInGlyph className="size-3.5 text-[#0a66c2] sm:hidden" />
+        </Button>
+      </div>
+      <AddLeadDialog
+        open={adding}
+        onOpenChange={setAdding}
+        onAdded={(id) => {
+          setKind("linkedin");
+          onOpenRecord({ kind: "linkedin", id });
+        }}
+        onOpenExisting={onOpenRecord}
+      />
+
+      {kind === "linkedin" && counts.linkedin === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-12 text-center">
+          <span className="grid size-10 place-items-center rounded-full bg-[#0a66c2]/10 text-[#0a66c2]">
+            <LinkedInGlyph className="size-5" />
+          </span>
+          <div className="flex flex-col gap-1">
+            <p className="font-medium">No LinkedIn leads yet</p>
+            <p className="max-w-sm text-sm text-muted-foreground">When someone messages you, comments on a post or accepts a request on LinkedIn, add them here. They get the same pipeline, follow-ups and touch logging as everyone else.</p>
+          </div>
+          <Button size="sm" className="gap-1.5" onClick={() => setAdding(true)}>
+            <Plus className="size-3.5" /> Add the first one
+          </Button>
+        </div>
+      )}
 
       <FilterBar filters={filters} setFilters={setFilters} team={team} scope={scope} setScope={setScope} showKind={false}>
         <FilterMenu label="View" value={view} onChange={(v) => setView(v)} options={SAVED_VIEWS.map((v) => ({ value: v.id, label: v.id === "all" ? "Everything" : v.label }))} />

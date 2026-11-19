@@ -47,10 +47,10 @@ export async function loadProspectSnapshot(): Promise<ProspectsSnapshot> {
 
 async function readWorkbook(): Promise<ProspectsWorkbook> {
   if (!isGoogleConfigured()) {
-    return { valuers: [], firms: [], rvos: [], panels: [], banks: [], activity: [], warnings: ["Google service account is not configured (GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY)."], readAt: new Date().toISOString() };
+    return { valuers: [], firms: [], rvos: [], panels: [], banks: [], linkedin: [], activity: [], warnings: ["Google service account is not configured (GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY)."], readAt: new Date().toISOString() };
   }
   const id = prospectsSheetId();
-  const all = [TAB.valuer, TAB.firm, TAB.rvo, TAB.panel, TAB.bank, TAB.activity];
+  const all = [TAB.valuer, TAB.firm, TAB.rvo, TAB.panel, TAB.bank, TAB.linkedin, TAB.activity];
   let tabs: Map<string, unknown[][]>;
   try {
     // Every tab normally exists, so read them all in one call rather than
