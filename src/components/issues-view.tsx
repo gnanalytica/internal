@@ -16,10 +16,10 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
-  Trash2,
   X,
 } from "lucide-react";
 
+import { BulkActionBar, type BulkPatch } from "@/components/bulk-action-bar";
 import { StatusIcon } from "@/components/glyphs";
 import { IssueBoard } from "@/components/issue-board";
 import { IssueRow } from "@/components/issue-row";
@@ -47,14 +47,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/glyphs";
+import { toast } from "sonner";
+
 import {
+  bulkDeleteIssues,
+  bulkUpdateIssues,
   createSavedView,
-  deleteIssue,
   deleteSavedView,
-  setIssueAssignees,
   updateIssue,
 } from "@/lib/actions";
+import { useRangeSelect } from "@/lib/use-range-select";
 import { issuesToCsv } from "@/lib/csv";
 import { downloadText } from "@/lib/download";
 import { ISSUE_TYPES, PRIORITIES, STATUSES, type StatusId } from "@/lib/constants";
@@ -166,6 +168,7 @@ export function IssuesView({
   const router = useRouter();
   const [issues, setIssues] = useState(initialIssues);
   const [view, setView] = useState<View>("list");
+  const [bulkPending, startBulk] = useTransition();
   const [, startTransition] = useTransition();
   const lastInitial = useRef(initialIssues);
 
@@ -186,7 +189,6 @@ export function IssuesView({
   const [now] = useState(() => new Date());
   const [sort, setSort] = useState<SortId>("manual");
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroupBy);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // List groups folded shut. Closed work starts folded: it's there to find,
   // not to scroll past every time.
@@ -210,24 +212,6 @@ export function IssuesView({
       else next.add(id);
       return next;
     });
-
-  function toggleSelect(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function bulkApply(fn: (id: string) => Promise<unknown>) {
-    const ids = [...selected];
-    startTransition(async () => {
-      await Promise.all(ids.map(fn));
-      setSelected(new Set());
-      router.refresh();
-    });
-  }
 
   function currentConfig(): SavedViewConfig {
     return {
@@ -568,6 +552,87 @@ export function IssuesView({
     live ? Infinity : FIRST_PAINT_ROWS,
   );
 
+  // Rows top to bottom exactly as the list draws them — folded groups, paged
+  // groups and collapsed sub-tasks left out — so a drag or shift-click range
+  // takes what you can see between the two rows and nothing hidden.
+  const rowOrder = useMemo(() => {
+    if (view !== "list") return [];
+    const out: string[] = [];
+    listGroups.forEach((g, gi) => {
+      if (foldedGroups.has(g.key)) return;
+      for (const { issue, children } of g.rows.slice(0, pages[gi])) {
+        out.push(issue.id);
+        if (!collapsed.has(issue.id)) for (const c of children) out.push(c.id);
+      }
+    });
+    return out;
+    // listGroups/pages are rebuilt each render; key on what they derive from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, visible, groupBy, sort, foldedGroups, collapsed, shown, live]);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const {
+    selected,
+    toggle: toggleSelect,
+    pointerDown: selectPointerDown,
+    clear: clearSelection,
+    selectAll,
+  } = useRangeSelect(rowOrder, listRef);
+
+  // Esc clears; Cmd/Ctrl+A takes every visible row. Both stand down while
+  // you're typing, so search and editors keep their own meaning for the keys.
+  useEffect(() => {
+    if (view !== "list") return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) {
+        if (!(t instanceof HTMLInputElement && t.type === "checkbox")) return;
+      }
+      if (document.querySelector("[role=dialog],[role=menu],[data-popup-open]")) return;
+      if (e.key === "Escape" && selected.size > 0) clearSelection();
+      else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && rowOrder.length > 0) {
+        e.preventDefault();
+        selectAll();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view, selected.size, rowOrder.length, clearSelection, selectAll]);
+
+  // Leaving the list for the board or timeline drops the selection: neither
+  // shows it, and acting on rows you can't see is how things go wrong.
+  useEffect(() => {
+    if (view !== "list") clearSelection();
+  }, [view, clearSelection]);
+
+  function applyBulk(patch: BulkPatch, done: string) {
+    const ids = [...selected];
+    startBulk(async () => {
+      try {
+        await bulkUpdateIssues(ids, patch);
+        toast.success(done);
+        clearSelection();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't update the tasks");
+      }
+      router.refresh();
+    });
+  }
+
+  function deleteSelected() {
+    const ids = [...selected];
+    startBulk(async () => {
+      try {
+        const { deleted } = await bulkDeleteIssues(ids);
+        toast.success(`Deleted ${deleted} ${deleted === 1 ? "task" : "tasks"}`);
+        clearSelection();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't delete the tasks");
+      }
+      router.refresh();
+    });
+  }
+
   function clearFilters() {
     setFStatus(new Set());
     setFPriority(new Set());
@@ -791,7 +856,7 @@ export function IssuesView({
           </button>
         </div>
       ) : view === "list" ? (
-        <div className="scrollbar-thin flex-1 overflow-y-auto">
+        <div ref={listRef} className="scrollbar-thin flex-1 overflow-y-auto pb-20">
           {listGroups.map((g, gi) => (
             <div key={g.key}>
               <button
@@ -826,6 +891,7 @@ export function IssuesView({
                       members={members}
                       selected={selected.has(issue.id)}
                       onToggleSelect={() => toggleSelect(issue.id)}
+                      onSelectPointerDown={(e) => selectPointerDown(issue.id, e)}
                       selecting={selected.size > 0}
                       now={now}
                       showProject={!defaultProjectId}
@@ -855,6 +921,7 @@ export function IssuesView({
                           members={members}
                           selected={selected.has(child.id)}
                           onToggleSelect={() => toggleSelect(child.id)}
+                          onSelectPointerDown={(e) => selectPointerDown(child.id, e)}
                           selecting={selected.size > 0}
                           now={now}
                           showProject={!defaultProjectId}
@@ -892,78 +959,18 @@ export function IssuesView({
         </div>
       )}
 
-      {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
-          <div className="pointer-events-auto flex items-center gap-1.5 rounded-xl border bg-popover px-2 py-1.5 shadow-lg">
-            <span className="px-1.5 text-xs font-medium">{selected.size} selected</span>
-            <div className="mx-1 h-4 w-px bg-border" />
-
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
-              >
-                <StatusIcon status="todo" /> Status
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {STATUSES.map((s) => (
-                  <DropdownMenuItem
-                    key={s.id}
-                    onClick={() => bulkApply((id) => updateIssue(id, { status: s.id }))}
-                    className="gap-2"
-                  >
-                    <StatusIcon status={s.id} />
-                    {s.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" />}
-              >
-                Assignee
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-                <DropdownMenuItem
-                  onClick={() => bulkApply((id) => setIssueAssignees(id, []))}
-                  className="gap-2 text-xs text-muted-foreground"
-                >
-                  Unassign
-                </DropdownMenuItem>
-                {members.map((m) => (
-                  <DropdownMenuItem
-                    key={m.id}
-                    onClick={() => bulkApply((id) => setIssueAssignees(id, [m.id]))}
-                    className="gap-2"
-                  >
-                    <UserAvatar name={m.name} color={m.avatarColor} className="size-4 text-[8px]" />
-                    {m.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive"
-              onClick={() => bulkApply((id) => deleteIssue(id))}
-            >
-              <Trash2 className="size-3.5" /> Delete
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={() => setSelected(new Set())}
-              aria-label="Clear selection"
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-        </div>
+        <BulkActionBar
+          count={selected.size}
+          total={rowOrder.length}
+          members={members}
+          projects={projects}
+          pending={bulkPending}
+          onApply={applyBulk}
+          onDelete={deleteSelected}
+          onSelectAll={selectAll}
+          onClear={clearSelection}
+        />
       )}
     </div>
   );
