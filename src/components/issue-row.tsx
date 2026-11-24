@@ -38,6 +38,7 @@ export function IssueRow({
   members,
   selected,
   onToggleSelect,
+  onSelectPointerDown,
   selecting = false,
   depth = 0,
   subProgress,
@@ -51,6 +52,8 @@ export function IssueRow({
   members: Member[];
   selected?: boolean;
   onToggleSelect?: () => void;
+  /** Press on the checkbox: starts a drag-select or a shift-range. */
+  onSelectPointerDown?: (e: React.PointerEvent) => void;
   /** Some row in the list is selected: keep every checkbox visible. */
   selecting?: boolean;
   /** Indent level for nested sub-issues. */
@@ -82,6 +85,7 @@ export function IssueRow({
   return (
     <IssueContextMenu issue={issue} members={members}>
       <div
+        data-select-id={onToggleSelect ? issue.id : undefined}
         className={cn(
           "group/row relative flex h-9 items-center gap-1.5 border-b border-border-subtle pr-3 pl-2 text-ui sm:pr-4 sm:pl-3",
           "hover:bg-muted/60",
@@ -99,20 +103,30 @@ export function IssueRow({
           depth > 0 && <span className="w-4 shrink-0" />
         )}
         {onToggleSelect && (
-          <input
-            type="checkbox"
-            checked={selected ?? false}
-            onChange={onToggleSelect}
+          // A bigger target than the box itself, so starting a drag is easy.
+          // The pointer path (click, shift-click, drag) runs through
+          // onSelectPointerDown; the input's own click only counts when it
+          // comes from the keyboard (detail 0), so a press isn't applied twice.
+          <span
+            onPointerDown={onSelectPointerDown}
             className={cn(
-              "relative size-3.5 shrink-0 accent-[var(--brand)]",
-              // Hover-reveal with a fine pointer; always there on touch, and
-              // whenever a selection is in progress or this row is in it.
+              "relative -my-1.5 -ml-1 flex shrink-0 cursor-pointer touch-none items-center self-stretch px-1",
               !selected &&
                 !selecting &&
-                "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100",
+                "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/row:opacity-100 focus-within:opacity-100",
             )}
-            aria-label={`Select ${issueIdentifier(issue)}`}
-          />
+          >
+            <input
+              type="checkbox"
+              checked={selected ?? false}
+              onChange={() => {}}
+              onClick={(e) => {
+                if (e.detail === 0 || !onSelectPointerDown) onToggleSelect();
+              }}
+              className="size-3.5 cursor-pointer accent-[var(--brand)]"
+              aria-label={`Select ${issueIdentifier(issue)}`}
+            />
+          </span>
         )}
         <PriorityPicker
           value={issue.priority as PriorityId}

@@ -35,6 +35,8 @@ function describe(
       return `set priority to ${PRIORITY_MAP[data?.to as PriorityId]?.label ?? data?.to}`;
     case "assignee":
       return data?.to ? `assigned ${memberName(data.to)}` : "removed the assignee";
+    case "project":
+      return `moved ${data?.from ?? "it"} to ${data?.to ?? "another project"}`;
     default:
       return "updated the issue";
   }

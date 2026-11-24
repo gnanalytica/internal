@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, gt, gte, ilike, inArray, isNull, lt, max, notInArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, inArray, isNull, lt, max, notInArray, or, sql } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
 import { refresh, revalidateTag, updateTag } from "next/cache";
 import { cookies } from "next/headers";
@@ -725,7 +725,10 @@ export async function updateIssue(
     values.priority = patch.priority;
   if (patch.type !== undefined && isIssueType(patch.type)) values.type = patch.type;
   if (patch.assigneeId !== undefined) values.assigneeId = patch.assigneeId;
-  if (patch.projectId !== undefined) values.projectId = patch.projectId;
+  // A project change renumbers the task into its new project (see
+  // moveIssuesToProject), so it goes through that rather than this update.
+  const movesProject =
+    patch.projectId !== undefined && before && before.projectId !== patch.projectId;
   if (patch.cycleId !== undefined) values.cycleId = patch.cycleId;
   if (patch.milestoneId !== undefined) values.milestoneId = patch.milestoneId;
   if (patch.parentId !== undefined) values.parentId = patch.parentId;
@@ -740,6 +743,7 @@ export async function updateIssue(
     .update(issues)
     .set(values)
     .where(and(eq(issues.workspaceId, ws.id), eq(issues.id, id)));
+  if (movesProject) await moveIssuesToProject(ws.id, me.id, [id], patch.projectId ?? null);
 
   // Log meaningful changes to the activity timeline.
   if (before) {
@@ -824,6 +828,158 @@ export async function updateIssue(
   // reads but skips re-rendering (and re-sending) the whole issue page.
   if (Object.keys(changed).length === 0) expireQuietly(ws.id, "issues");
   else invalidate(ws.id, "issues");
+}
+
+/**
+ * Move tasks into another project (or none), renumbering them there.
+ *
+ * A task's number is per project and unique within it, so a task can't keep
+ * ENG-12 when it lands in OPS: it takes the next free OPS number. Cycles,
+ * milestones and features belong to one project, so a move clears them.
+ * One UPDATE does the numbering so the max and the writes can't interleave
+ * with a create; if a concurrent create still takes a number first, the unique
+ * index rejects the statement and we go again.
+ */
+async function moveIssuesToProject(
+  workspaceId: string,
+  actorId: string,
+  ids: string[],
+  projectId: string | null,
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  if (projectId) {
+    const [target] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, projectId)))
+      .limit(1);
+    if (!target) throw new Error("Project not found");
+  }
+
+  const before = await db
+    .select({ id: issues.id, number: issues.number, projectKey: projects.key })
+    .from(issues)
+    .leftJoin(projects, eq(projects.id, issues.projectId))
+    .where(
+      and(
+        eq(issues.workspaceId, workspaceId),
+        inArray(issues.id, ids),
+        projectId ? or(isNull(issues.projectId), sql`${issues.projectId} <> ${projectId}`) : sql`${issues.projectId} IS NOT NULL`,
+      ),
+    );
+  if (before.length === 0) return 0;
+  const moving = before.map((b) => b.id);
+  const idList = sql.join(moving.map((m) => sql`${m}::uuid`), sql`, `);
+
+  // Same scope createIssue numbers against: the project, or the whole
+  // workspace for tasks with no project.
+  const scope = projectId
+    ? sql`workspace_id = ${workspaceId} AND project_id = ${projectId}`
+    : sql`workspace_id = ${workspaceId}`;
+
+  let result: { rows: unknown[] } | null = null;
+  for (let attempt = 0; attempt < 3 && !result; attempt++) {
+    try {
+      result = await db.execute(sql`
+        UPDATE issues AS i
+        SET project_id = ${projectId},
+            number = base.m + s.rn,
+            cycle_id = NULL,
+            milestone_id = NULL,
+            feature_id = NULL,
+            updated_at = now()
+        FROM (
+          SELECT id, row_number() OVER (ORDER BY number, created_at) AS rn
+          FROM issues WHERE id IN (${idList})
+        ) AS s,
+        (SELECT coalesce(max(number), 0) AS m FROM issues WHERE ${scope}) AS base
+        WHERE i.id = s.id AND i.workspace_id = ${workspaceId}
+        RETURNING i.id, i.number`);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code !== "23505" || attempt === 2) throw e;
+    }
+  }
+
+  let toKey: string | null = null;
+  if (projectId) {
+    const [p] = await db.select({ key: projects.key }).from(projects).where(eq(projects.id, projectId));
+    toKey = p?.key ?? null;
+  }
+  const label = (key: string | null, n: number) => (key ? `${key}-${n}` : `#${n}`);
+  const after = new Map(
+    (result!.rows as { id: string; number: number }[]).map((r) => [r.id, r.number]),
+  );
+  // Recorded as the identifiers it had and has, so the timeline reads
+  // "moved ENG-12 to OPS-41" without looking anything up.
+  const acts = before
+    .filter((b) => after.has(b.id))
+    .map((b) => ({
+      workspaceId,
+      issueId: b.id,
+      actorId,
+      type: "project",
+      data: { from: label(b.projectKey, b.number), to: label(toKey, after.get(b.id)!) },
+    }));
+  if (acts.length) await db.insert(activity).values(acts);
+  return acts.length;
+}
+
+/**
+ * One change applied to many tasks, from the list's selection bar. One request
+ * rather than one per task; each task still goes through the same path as a
+ * single edit, so activity, notifications and webhooks fire as they would.
+ */
+export async function bulkUpdateIssues(
+  ids: string[],
+  patch: {
+    status?: string;
+    priority?: string;
+    projectId?: string | null;
+    assigneeIds?: string[];
+  },
+): Promise<{ updated: number }> {
+  const ws = await getWorkspace();
+  const me = await getCurrentUser(ws.id);
+  const unique = [...new Set(ids)].slice(0, 500);
+  if (unique.length === 0) return { updated: 0 };
+
+  if (patch.projectId !== undefined) {
+    await moveIssuesToProject(ws.id, me.id, unique, patch.projectId);
+  }
+  if (patch.status !== undefined || patch.priority !== undefined) {
+    const scalar = {
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
+      ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+    };
+    // Small batches: parallel enough to be quick, not so wide it floods the pool.
+    for (let i = 0; i < unique.length; i += 10) {
+      await Promise.all(unique.slice(i, i + 10).map((id) => updateIssue(id, scalar)));
+    }
+  }
+  if (patch.assigneeIds !== undefined) {
+    for (let i = 0; i < unique.length; i += 10) {
+      await Promise.all(
+        unique.slice(i, i + 10).map((id) => setIssueAssignees(id, patch.assigneeIds!)),
+      );
+    }
+  }
+  invalidate(ws.id, "issues");
+  return { updated: unique.length };
+}
+
+/** Delete many tasks in one request. */
+export async function bulkDeleteIssues(ids: string[]): Promise<{ deleted: number }> {
+  const ws = await getWorkspace();
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return { deleted: 0 };
+  const gone = await db
+    .delete(issues)
+    .where(and(eq(issues.workspaceId, ws.id), inArray(issues.id, unique)))
+    .returning({ id: issues.id });
+  for (const g of gone) await dispatchWebhook(ws.id, "issue.deleted", { id: g.id });
+  invalidate(ws.id, "issues");
+  return { deleted: gone.length };
 }
 
 export async function deleteIssue(id: string) {
