@@ -42,7 +42,7 @@ export const PATCH = withApiAuth<Params>(async (req, auth, { id }) => {
   await assertIssueVisible(auth, id);
   const body = await readJson(req);
   assertProjectVisible(auth, (body as { projectId?: string | null }).projectId, "Project");
-  const updated = await apiUpdateIssue(auth.workspaceId, id, body);
+  const updated = await apiUpdateIssue(auth.workspaceId, id, body, auth.userId);
   if (!updated) return notFound("Issue");
   const issue = await getIssue(auth.workspaceId, id);
   return ok({ data: issue ? issueDto(issue) : { id } });
