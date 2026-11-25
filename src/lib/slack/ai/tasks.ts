@@ -422,7 +422,7 @@ export async function applyTaskUpdate(
     await db.insert(activity).values(acts.map((a) => ({ workspaceId, issueId: plan.issueId, actorId: me.id, type: a.type, data: a.data })));
 
   try {
-    const done = await apiUpdateIssue(workspaceId, plan.issueId, patch);
+    const done = await apiUpdateIssue(workspaceId, plan.issueId, patch, me.id);
     if (!done) return { ok: false, error: "That task no longer exists." };
   } catch (err) {
     if (err instanceof ApiInputError) return { ok: false, error: err.message };

@@ -26,6 +26,7 @@ import {
 } from "@/lib/constants";
 import { ApiInputError, isUniqueViolation } from "@/lib/api/errors";
 import { apiInvalidate } from "@/lib/api/invalidate";
+import { moveIssuesToProject } from "@/lib/issue-move";
 import { dispatchWebhook } from "@/lib/api/webhooks";
 import { docToText, markdownToDoc } from "@/lib/markdown";
 
@@ -367,6 +368,8 @@ export async function apiUpdateIssue(
   workspaceId: string,
   id: string,
   patch: Record<string, unknown>,
+  /** The API key's user, when it has one — recorded on a project move. */
+  actorId: string | null = null,
 ): Promise<boolean> {
   if (typeof patch.type === "string" && !isIssueType(patch.type))
     throw new ApiInputError(
@@ -398,7 +401,19 @@ export async function apiUpdateIssue(
     values.assigneeId = await resolveAssigneeId(workspaceId, {
       assigneeEmail: patch.assigneeEmail as string | null,
     });
-  if ("projectId" in patch) values.projectId = toRef(patch.projectId);
+  // A project change goes through the shared move (renumbers into the new
+  // project, clears the old one's cycle/milestone/feature, logs the move) —
+  // before this update, so a cycle or milestone sent alongside still lands.
+  if ("projectId" in patch) {
+    const [cur] = await db
+      .select({ projectId: issues.projectId })
+      .from(issues)
+      .where(and(eq(issues.workspaceId, workspaceId), eq(issues.id, id)))
+      .limit(1);
+    if (!cur) return false;
+    const to = toRef(patch.projectId);
+    if (cur.projectId !== to) await moveIssuesToProject(workspaceId, actorId, [id], to);
+  }
   if ("cycleId" in patch) values.cycleId = toRef(patch.cycleId);
   if ("milestoneId" in patch) values.milestoneId = toRef(patch.milestoneId);
   if ("featureId" in patch) values.featureId = toRef(patch.featureId);
