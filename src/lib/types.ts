@@ -563,6 +563,7 @@ export type NotificationItem = {
   issueId: string | null;
   pageId: string | null;
   projectId: string | null;
+  href: string | null;
   createdAt: Date;
   actor: Member | null;
 };

@@ -94,6 +94,10 @@ type NotifyInput = {
   target?: NotifyTarget;
   /** Explicit recipients (e.g. the people @-mentioned). */
   userIds: string[];
+  /** A relative link, for events about things with no issue, page or project row. */
+  href?: string | null;
+  /** Mirror to the workspace's Slack channel. On unless the caller has its own Slack story. */
+  slack?: boolean;
 };
 
 /**
@@ -117,6 +121,7 @@ export async function notify(input: NotifyInput): Promise<number> {
       issueId: input.target?.kind === "issue" ? input.target.id : null,
       pageId: input.target?.kind === "page" ? input.target.id : null,
       projectId: input.target?.kind === "project" ? input.target.id : null,
+      href: input.href ?? null,
       title: input.title,
       body: input.body ?? null,
     })),
@@ -124,7 +129,7 @@ export async function notify(input: NotifyInput): Promise<number> {
 
   // One Slack post per event, not per recipient — the channel doesn't need the
   // same line five times because five people are watching.
-  void notifySlack(input.workspaceId, slackLine(input));
+  if (input.slack !== false) void notifySlack(input.workspaceId, slackLine(input));
 
   return recipients.length;
 }

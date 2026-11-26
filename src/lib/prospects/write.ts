@@ -10,7 +10,12 @@ export type WriteResult = {
   row: number;
   /** The row as it read just before this write, by header name — what changed is `before` vs the patch. */
   before: Record<string, string>;
+  /** The owner this write set, when it set one (including a claim on a status change); undefined otherwise. */
+  owner?: string;
 };
+
+/** The `assigned` value a final patch writes, when it writes one. */
+const ownerOf = (patch: CellPatch, written: string[]) => (written.includes("assigned") ? String(patch.assigned ?? "").trim() : undefined);
 
 /**
  * Write cells on one row, found by its registration number at write time.
@@ -43,7 +48,8 @@ export async function writeRecord(kind: ProspectKind, id: string, patch: CellPat
     throw new Error(`${tab} changed while saving (rows moved); reload and try again.`);
   }
 
-  const plan = planRowWrite({ kind, tab, header, row, current, formulas, patch: withAssignment(kind, header, current, patch, change, formulas) });
+  const final = withAssignment(kind, header, current, patch, change, formulas);
+  const plan = planRowWrite({ kind, tab, header, row, current, formulas, patch: final });
   if (plan.refused.length) throw new Error(`Refused: ${plan.refused.join("; ")}.`);
   await writeCells(sheet, plan.raw, "RAW");
   await writeCells(sheet, plan.entered, "USER_ENTERED");
@@ -52,10 +58,10 @@ export async function writeRecord(kind: ProspectKind, id: string, patch: CellPat
     const name = String(h ?? "").trim();
     if (name && !(name in before)) before[name] = String(current[i] ?? "").trim();
   });
-  return { written: plan.written, row, before };
+  return { written: plan.written, row, before, owner: ownerOf(final, plan.written) };
 }
 
-export type BulkWriteResult = { id: string; ok: true; written: string[]; before: Record<string, string> } | { id: string; ok: false; message: string };
+export type BulkWriteResult = { id: string; ok: true; written: string[]; before: Record<string, string>; owner?: string } | { id: string; ok: false; message: string };
 
 /**
  * The same patch on several rows of one tab, in a fixed number of Sheets calls
@@ -84,7 +90,7 @@ export async function writeRecords(kind: ProspectKind, ids: string[], patch: Cel
   ]);
   const raw: { range: string; value: string | number | null }[] = [];
   const entered: { range: string; value: string | number | null }[] = [];
-  const planned: { id: string; written: string[]; before: Record<string, string> }[] = [];
+  const planned: { id: string; written: string[]; before: Record<string, string>; owner?: string }[] = [];
   targets.forEach((t, i) => {
     const current = rows[i][0] ?? [];
     if (String(current[idCol] ?? "").trim() !== t.id) {
@@ -92,7 +98,8 @@ export async function writeRecords(kind: ProspectKind, ids: string[], patch: Cel
       return;
     }
     // Per row: each row's own owner, status and date decide what an owner change adds.
-    const plan = planRowWrite({ kind, tab, header, row: t.row, current, formulas, patch: withAssignment(kind, header, current, patch, change, formulas) });
+    const final = withAssignment(kind, header, current, patch, change, formulas);
+    const plan = planRowWrite({ kind, tab, header, row: t.row, current, formulas, patch: final });
     if (plan.refused.length) {
       results.push({ id: t.id, ok: false, message: `Refused: ${plan.refused.join("; ")}.` });
       return;
@@ -104,7 +111,7 @@ export async function writeRecords(kind: ProspectKind, ids: string[], patch: Cel
       const name = String(h ?? "").trim();
       if (name && !(name in before)) before[name] = String(current[j] ?? "").trim();
     });
-    planned.push({ id: t.id, written: plan.written, before });
+    planned.push({ id: t.id, written: plan.written, before, owner: ownerOf(final, plan.written) });
   });
   await writeCells(sheet, raw, "RAW");
   await writeCells(sheet, entered, "USER_ENTERED");
