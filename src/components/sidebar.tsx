@@ -47,9 +47,12 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { createPage, deletePage, deleteProject, setActiveWorkspace } from "@/lib/actions";
+import { createPage, deletePage, deleteProject, setActiveWorkspace, updateProject } from "@/lib/actions";
 import { authClient } from "@/lib/auth/client";
 import type {
   FavoriteItem,
@@ -409,12 +412,11 @@ export function Sidebar({
         {operations.length > 0 && (
           <Section title="Back office" open={showOps} onToggle={() => setShowOps((v) => !v)}>
             {operations.map((o) => (
-              <NavItem
+              <ProductNavItem
                 key={o.id}
-                href={`/projects/${o.id}`}
+                project={o}
+                variant="operation"
                 active={pathname === `/projects/${o.id}` || pathname.startsWith(`/projects/${o.id}/`)}
-                icon={<span className="block size-2 rounded-full ring-[1.5px] ring-current ring-inset" />}
-                label={o.name}
               />
             ))}
           </Section>
@@ -561,11 +563,71 @@ function NavItem({
   );
 }
 
-/** One product, marked by its colour dot. */
-function ProductNavItem({ project, active }: { project: Project; active: boolean }) {
+/** Colours offered in a project's right-click menu. */
+const PROJECT_COLORS = ["#6366f1", "#ec4899", "#10b981", "#f59e0b", "#3b82f6", "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#8b5cf6", "#64748b"];
+
+/**
+ * One project in the sidebar: a product (its colour dot) or a Back office
+ * operation (a ring). Right-click to open, rename in place, recolour, copy its
+ * link, or delete it.
+ */
+function ProductNavItem({ project, active, variant = "product" }: { project: Project; active: boolean; variant?: "product" | "operation" }) {
   const router = useRouter();
-  const [, start] = useTransition();
+  const [pending, start] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(project.name);
   const base = `/projects/${project.id}`;
+  const save = (patch: { name?: string; color?: string }, done: string) =>
+    start(async () => {
+      try {
+        await updateProject(project.id, patch);
+        toast.success(done);
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't update the project");
+      }
+    });
+  const finishRename = () => {
+    setEditing(false);
+    const next = name.trim();
+    if (!next || next === project.name) {
+      setName(project.name);
+      return;
+    }
+    save({ name: next }, `Renamed to ${next}`);
+  };
+  const icon =
+    variant === "operation" ? (
+      <span className="block size-2 rounded-full ring-[1.5px] ring-current ring-inset" style={{ color: project.color }} />
+    ) : (
+      <span className="size-2.5 rounded-full ring-1 ring-inset ring-black/10" style={{ backgroundColor: project.color }} />
+    );
+
+  if (editing) {
+    return (
+      <div className="flex h-7 items-center gap-2 rounded-md bg-sidebar-accent px-2">
+        <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
+        <input
+          autoFocus
+          aria-label="Project name"
+          value={name}
+          maxLength={80}
+          onChange={(e) => setName(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={finishRename}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              setName(project.name);
+              setEditing(false);
+            }
+          }}
+          className="min-w-0 flex-1 rounded-sm bg-background px-1 text-ui outline-none ring-1 ring-brand"
+        />
+      </div>
+    );
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger
@@ -578,21 +640,45 @@ function ProductNavItem({ project, active }: { project: Project; active: boolean
               active
                 ? "bg-sidebar-accent font-medium text-foreground"
                 : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-foreground",
+              pending && "opacity-60",
             )}
           />
         }
       >
-        <span className="grid size-4 shrink-0 place-items-center">
-          <span
-            className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
-            style={{ backgroundColor: project.color }}
-          />
-        </span>
-        <span className="flex-1 truncate">{project.name}</span>
-        <span className="font-mono text-[10px] text-faint-foreground group-hover:text-muted-foreground">{project.key}</span>
+        <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
+        <span className="flex-1 truncate">{pending && name !== project.name ? name : project.name}</span>
+        {variant === "product" && (
+          <span className="font-mono text-[10px] text-faint-foreground group-hover:text-muted-foreground">{project.key}</span>
+        )}
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={() => router.push(base)}>Open</ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            setName(project.name);
+            setEditing(true);
+          }}
+        >
+          Rename…
+        </ContextMenuItem>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>Color</ContextMenuSubTrigger>
+          <ContextMenuSubContent className="grid w-auto grid-cols-6 gap-1 p-1.5">
+            {PROJECT_COLORS.map((c) => (
+              <ContextMenuItem
+                key={c}
+                aria-label={`Color ${c}`}
+                onClick={() => save({ color: c }, "Color changed")}
+                className="grid size-7 place-items-center p-0"
+              >
+                <span
+                  className={cn("size-4 rounded-full ring-1 ring-inset ring-black/10", c === project.color && "ring-2 ring-foreground")}
+                  style={{ backgroundColor: c }}
+                />
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
         <ContextMenuItem
           onClick={() => {
             void navigator.clipboard.writeText(`${window.location.origin}${base}`);
