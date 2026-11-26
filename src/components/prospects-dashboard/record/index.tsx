@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { KindDot, Owner, StageBar, StageDot } from "../bits";
 import { ActivityTab } from "./activity";
 import { DetailsTab } from "./details";
-import { ActionBar, DoNotContactBanner, StageMenu } from "./header";
+import { ActionBar, DoNotContactBanner, OwnerMenu, StageMenu } from "./header";
 import { OverviewTab } from "./overview";
 import { ResearchTab } from "./research";
 import type { Ctx } from "./shared";
@@ -136,11 +136,15 @@ export function RecordPage({
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{row.name}</h1>
               </div>
               <div className="flex items-center gap-2 text-[13px]">
-                {row.assigned && (
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                    <Owner name={row.assigned} /> {row.assigned}
-                  </span>
-                )}
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-muted-foreground">
+                  {row.assigned ? (
+                    <>
+                      <Owner name={row.assigned} /> {row.assigned}
+                    </>
+                  ) : (
+                    <span className="text-amber-700 dark:text-amber-400">Unassigned</span>
+                  )}
+                </span>
                 <span className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5">
                   <StageDot stage={row.stage} />
                   {STAGES[row.stage]}
@@ -198,11 +202,7 @@ export function RecordPage({
             <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{r.name}</h1>
           </div>
           <div className="flex items-center gap-2">
-            {r.assigned && (
-              <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                <Owner name={r.assigned} /> {r.assigned}
-              </span>
-            )}
+            <OwnerMenu ctx={ctx} r={r} />
             <StageMenu ctx={ctx} r={r} />
           </div>
         </div>

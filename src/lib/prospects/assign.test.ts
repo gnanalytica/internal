@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assignmentEffects, withAssignment } from "./plan";
+import { assignmentEffects, claimOnStatusChange, withAssignment } from "./plan";
 
 const header = ["name", "registration_no", "status", "assigned", "next_step_date", "notes"];
 const row = (status: string, assigned: string, date: string) => ["Asha", "IBBI/1", status, assigned, date, "old note"];
@@ -71,5 +71,34 @@ describe("withAssignment", () => {
       next_step_date: "2026-11-19",
       prependNote: "first\n18-11-2026 — Assigned to Parv by Sandeep",
     });
+  });
+});
+
+describe("a status change on an unowned record", () => {
+  it("assigns it to whoever changed the status, with the usual note and follow-up", () => {
+    expect(withAssignment("valuer", header, row("Not contacted", "", ""), { status: "Contacted" }, ctx)).toEqual({
+      status: "Contacted",
+      assigned: "Sandeep",
+      prependNote: "18-11-2026 — Assigned to Sandeep by Sandeep",
+      next_step_date: "2026-11-19",
+    });
+  });
+
+  it("keeps a touch's own note line first", () => {
+    const out = withAssignment("valuer", header, row("Not contacted", "", ""), { status: "Contacted", prependNote: "18-11-2026 — Call: Connected — Sandeep" }, ctx);
+    expect(out.assigned).toBe("Sandeep");
+    expect(out.prependNote).toBe("18-11-2026 — Call: Connected — Sandeep\n18-11-2026 — Assigned to Sandeep by Sandeep");
+  });
+
+  it("leaves an owned record, an unchanged status, an explicit owner, or an unknown actor alone", () => {
+    expect(claimOnStatusChange("valuer", header, row("Not contacted", "Parv", ""), { status: "Contacted" }, ctx)).toBeNull();
+    expect(claimOnStatusChange("valuer", header, row("Contacted", "", ""), { status: "contacted" }, ctx)).toBeNull();
+    expect(claimOnStatusChange("valuer", header, row("Not contacted", "", ""), { status: "Contacted", assigned: "Parv" }, ctx)).toBeNull();
+    expect(claimOnStatusChange("valuer", header, row("Not contacted", "", ""), { status: "Contacted" }, { by: " ", today: ctx.today })).toBeNull();
+    expect(claimOnStatusChange("valuer", header, row("Not contacted", "", ""), { city: "Pune" }, ctx)).toBeNull();
+  });
+
+  it("doesn't write over a formula in the owner column", () => {
+    expect(withAssignment("valuer", header, row("Not contacted", "", ""), { status: "Contacted" }, ctx, new Set([3]))).toEqual({ status: "Contacted" });
   });
 });

@@ -137,9 +137,11 @@ export async function assignProspects(kind: ProspectKind, ids: string[], memberN
  */
 export async function logProspectTouch(input: TouchInput, by: string, invalidate: Invalidate, dealCtx: DealContext | null): Promise<ProspectResult> {
   const t = touchSchema.parse(input);
-  const patch = touchPatch(t, by, todayIST());
+  const today = todayIST();
+  const patch = touchPatch(t, by, today);
   try {
-    const { written, before } = await writeRecord(t.kind, t.id, patch);
+    // The change context lets a touch that moves an unowned record's status assign it to `by`.
+    const { written, before } = await writeRecord(t.kind, t.id, patch, { by, today });
     // Straight after the row write: if Activity then fails and the touch is
     // retried, the status will already read as written and the retry would
     // see no change to sync.
