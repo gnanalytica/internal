@@ -24,6 +24,13 @@ export function stageLineText(from: string, to: string, by: string): string {
   return `Stage: ${from || "—"} → ${to}${b ? ` by ${b}` : ""}`;
 }
 
+/** A comment as a notes line: one line, signed — "27-11-2026 — @parv call him Thursday — Sandeep". */
+export function commentLine(today: string, text: string, by: string): string {
+  const body = text.replace(/\s*\n+\s*/g, " ").trim();
+  const b = first(by);
+  return datedLine(today, b ? `${body} — ${b}` : body);
+}
+
 /** A dated notes line: "27-11-2026 — <text>". */
 export const datedLine = (today: string, text: string) => `${displayDate(today)} — ${text}`;
 
@@ -31,7 +38,8 @@ export type HistoryItem =
   | { type: "touch"; date: string | null; entry: ActivityEntry }
   | { type: "owner"; date: string | null; to: string; from: string; by: string }
   | { type: "stage"; date: string | null; from: string; to: string; by: string }
-  | { type: "note"; date: string | null; text: string };
+  /** A note or comment; `by` is its signature ("… — Sandeep"), when it has one. */
+  | { type: "note"; date: string | null; text: string; by?: string };
 
 const OWNER = /^(?:Assigned to (.+?)|Unassigned)(?: \(was (.+?)\))?(?: by (\S+))?$/;
 const STAGE = /^Stage: (.+?) → (.+?)(?: by (\S+))?$/;
@@ -73,7 +81,8 @@ export function buildHistory(notes: string, activity: ActivityEntry[]): HistoryI
       items.push({ type: "stage", date, from: stage[1] === "—" ? "" : stage[1], to: stage[2], by: stage[3] ?? "" });
       continue;
     }
-    items.push({ type: "note", date, text });
+    const signed = m ? /^(.*\S)\s+—\s+(\p{L}[\p{L}.'-]*)$/u.exec(text) : null;
+    items.push(signed ? { type: "note", date, text: signed[1], by: signed[2] } : { type: "note", date, text });
   }
   // Touches with no matching line: in before the first item that is older.
   for (const entry of unused) {

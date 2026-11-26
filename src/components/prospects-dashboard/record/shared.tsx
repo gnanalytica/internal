@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { saveProspect } from "@/lib/prospects/actions";
 import type { ProspectRecord } from "@/lib/prospects/parse";
-import { displayDate } from "@/lib/prospects/parse";
 import { type ProspectKind } from "@/lib/prospects/schema";
 import { cn } from "@/lib/utils";
 import { type StageSubject } from "../stage-check";
@@ -111,35 +110,3 @@ export function TextForm({ ctx, col, title, description, value, initial, onOpenC
 }
 
 /** Add a dated line to the top of notes, the way logging a touch does. */
-export function AddNoteDialog({ ctx, r, open, onOpenChange }: { ctx: Ctx; r: ProspectRecord; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const [text, setText] = useState("");
-  const { save, pending } = useSave(ctx);
-  const line = `${displayDate(ctx.today)} — ${text.trim()} — ${ctx.me.split(/\s+/)[0]}`;
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-4 sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add a note</DialogTitle>
-          <DialogDescription>Goes at the top of {r.name}&apos;s notes, dated and signed.</DialogDescription>
-        </DialogHeader>
-        <textarea aria-label="Note" autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="e.g. Partner says SBI cases take 3 days to write up." className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button
-            disabled={pending || !text.trim()}
-            onClick={() =>
-              save({ notes: r.notes.trim() ? `${line}\n${r.notes.trim()}` : line }, () => {
-                setText("");
-                onOpenChange(false);
-              })
-            }
-          >
-            {pending ? "Saving…" : "Add note"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
