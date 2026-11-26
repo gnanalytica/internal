@@ -843,6 +843,8 @@ export async function bulkUpdateIssues(
     priority?: string;
     projectId?: string | null;
     assigneeIds?: string[];
+    /** Labels to add to every task (existing labels stay). */
+    addLabelIds?: string[];
   },
 ): Promise<{ updated: number }> {
   const ws = await getWorkspace();
@@ -869,6 +871,15 @@ export async function bulkUpdateIssues(
         unique.slice(i, i + 10).map((id) => setIssueAssignees(id, patch.assigneeIds!)),
       );
     }
+  }
+  if (patch.addLabelIds?.length) {
+    // Only this workspace's tasks and labels, whatever ids the browser sent.
+    const [own, okLabels] = await Promise.all([
+      db.select({ id: issues.id }).from(issues).where(and(eq(issues.workspaceId, ws.id), inArray(issues.id, unique))),
+      db.select({ id: labels.id }).from(labels).where(and(eq(labels.workspaceId, ws.id), inArray(labels.id, patch.addLabelIds))),
+    ]);
+    const rows = own.flatMap((i) => okLabels.map((l) => ({ issueId: i.id, labelId: l.id })));
+    if (rows.length) await db.insert(issueLabels).values(rows).onConflictDoNothing();
   }
   invalidate(ws.id, "issues");
   return { updated: unique.length };
