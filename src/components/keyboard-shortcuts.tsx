@@ -31,6 +31,11 @@ const HELP = [
   { keys: "G then N", label: "Go to Inbox" },
   { keys: "G then A", label: "Go to Ask AI" },
   { keys: "?", label: "This help" },
+  { keys: "J / K", label: "Task list: move down / up" },
+  { keys: "X", label: "Task list: select" },
+  { keys: "Enter", label: "Task list: open" },
+  { keys: "S / P", label: "Task list: set status / priority" },
+  { keys: "A / L", label: "Task list: assign / add label" },
 ];
 
 function isTyping(target: EventTarget | null): boolean {

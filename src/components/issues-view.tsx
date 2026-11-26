@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 
-import { BulkActionBar, type BulkPatch } from "@/components/bulk-action-bar";
+import { BulkActionBar, type BulkMenu, type BulkPatch } from "@/components/bulk-action-bar";
 import { StatusIcon } from "@/components/glyphs";
 import { IssueBoard } from "@/components/issue-board";
 import { IssueRow } from "@/components/issue-row";
@@ -579,8 +579,16 @@ export function IssuesView({
     selectAll,
   } = useRangeSelect(rowOrder, listRef);
 
-  // Esc clears; Cmd/Ctrl+A takes every visible row. Both stand down while
-  // you're typing, so search and editors keep their own meaning for the keys.
+  // Linear-style triage from the keyboard. J/K (or arrows) move a focus ring,
+  // X ticks the focused task, Enter opens it, and S / P / A / L open the bulk
+  // bar's status, priority, assignee or label menu for the selection — or for
+  // the focused task when nothing is ticked. Esc clears; Cmd/Ctrl+A takes
+  // every visible row. All of it stands down while you're typing or a menu or
+  // dialog is open, and a key straight after G is left to the app's "go to".
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [bulkMenu, setBulkMenu] = useState<BulkMenu | null>(null);
+  const lastG = useRef(0);
+  const focus = focusId && rowOrder.includes(focusId) ? focusId : null;
   useEffect(() => {
     if (view !== "list") return;
     const onKey = (e: KeyboardEvent) => {
@@ -589,15 +597,56 @@ export function IssuesView({
         if (!(t instanceof HTMLInputElement && t.type === "checkbox")) return;
       }
       if (document.querySelector("[role=dialog],[role=menu],[data-popup-open]")) return;
-      if (e.key === "Escape" && selected.size > 0) clearSelection();
-      else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && rowOrder.length > 0) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && rowOrder.length > 0) {
         e.preventDefault();
         selectAll();
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "Escape") {
+        if (selected.size > 0) clearSelection();
+        else setFocusId(null);
+        return;
+      }
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (key === "g") {
+        lastG.current = Date.now();
+        return;
+      }
+      if (Date.now() - lastG.current < 1200) {
+        lastG.current = 0;
+        return;
+      }
+      const move = (step: number) => {
+        if (!rowOrder.length) return;
+        e.preventDefault();
+        const i = focus ? rowOrder.indexOf(focus) : -1;
+        const next = rowOrder[i < 0 ? (step > 0 ? 0 : rowOrder.length - 1) : Math.min(rowOrder.length - 1, Math.max(0, i + step))];
+        setFocusId(next);
+        document.querySelector(`[data-select-id="${CSS.escape(next)}"]`)?.scrollIntoView({ block: "nearest" });
+      };
+      if (key === "j" || key === "ArrowDown") return move(1);
+      if (key === "k" || key === "ArrowUp") return move(-1);
+      if (key === "x" && focus) {
+        e.preventDefault();
+        toggleSelect(focus);
+        return;
+      }
+      if ((key === "Enter" || key === "o") && focus) {
+        e.preventDefault();
+        router.push(`/issues/${focus}`);
+        return;
+      }
+      const menus: Record<string, BulkMenu> = { s: "status", p: "priority", a: "assignee", l: "label" };
+      if (menus[key] && (selected.size > 0 || focus)) {
+        e.preventDefault();
+        if (selected.size === 0 && focus) toggleSelect(focus);
+        setBulkMenu(menus[key]);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [view, selected.size, rowOrder.length, clearSelection, selectAll]);
+  }, [view, selected.size, rowOrder, focus, clearSelection, selectAll, toggleSelect, router]);
 
   // Leaving the list for the board or timeline drops the selection: neither
   // shows it, and acting on rows you can't see is how things go wrong.
@@ -890,6 +939,7 @@ export function IssuesView({
                       issue={issue}
                       members={members}
                       selected={selected.has(issue.id)}
+                      focused={focus === issue.id}
                       onToggleSelect={() => toggleSelect(issue.id)}
                       onSelectPointerDown={(e) => selectPointerDown(issue.id, e)}
                       selecting={selected.size > 0}
@@ -920,6 +970,7 @@ export function IssuesView({
                           issue={child}
                           members={members}
                           selected={selected.has(child.id)}
+                          focused={focus === child.id}
                           onToggleSelect={() => toggleSelect(child.id)}
                           onSelectPointerDown={(e) => selectPointerDown(child.id, e)}
                           selecting={selected.size > 0}
@@ -970,6 +1021,9 @@ export function IssuesView({
           onDelete={deleteSelected}
           onSelectAll={selectAll}
           onClear={clearSelection}
+          labels={labels}
+          menu={bulkMenu}
+          onMenu={setBulkMenu}
         />
       )}
     </div>

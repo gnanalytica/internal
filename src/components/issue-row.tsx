@@ -37,6 +37,7 @@ export function IssueRow({
   issue,
   members,
   selected,
+  focused = false,
   onToggleSelect,
   onSelectPointerDown,
   selecting = false,
@@ -51,6 +52,8 @@ export function IssueRow({
   issue: IssueListItem;
   members: Member[];
   selected?: boolean;
+  /** The keyboard's place in the list (J/K): drawn with a ring. */
+  focused?: boolean;
   onToggleSelect?: () => void;
   /** Press on the checkbox: starts a drag-select or a shift-range. */
   onSelectPointerDown?: (e: React.PointerEvent) => void;
@@ -90,7 +93,9 @@ export function IssueRow({
           "group/row relative flex h-9 items-center gap-1.5 border-b border-border-subtle pr-3 pl-2 text-ui sm:pr-4 sm:pl-3",
           "hover:bg-muted/60",
           selected && "bg-selected hover:bg-selected",
+          focused && "bg-muted/60 shadow-[inset_2px_0_0_var(--brand)]",
         )}
+        aria-current={focused ? "true" : undefined}
         style={depth ? { paddingLeft: 12 + depth * 22 } : undefined}
       >
         {/* The row-wide hit target. Hidden from assistive tech: the title link

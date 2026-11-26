@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Folder, Loader2, Trash2, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, Folder, Loader2, Tag, Trash2, UserRound, X } from "lucide-react";
 
 import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PRIORITIES, STATUSES, type PriorityId, type StatusId } from "@/lib/constants";
-import type { Member, Project } from "@/lib/types";
+import type { Label, Member, Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type BulkPatch = {
@@ -29,7 +29,15 @@ export type BulkPatch = {
   priority?: string;
   projectId?: string | null;
   assigneeIds?: string[];
+  addLabelIds?: string[];
 };
+
+/** Which of the bar's menus is open; the list's S / P / A / L keys open them. */
+export type BulkMenu = "status" | "priority" | "assignee" | "label" | "project";
+
+function Key({ k }: { k: string }) {
+  return <kbd className="ml-0.5 hidden rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground sm:inline">{k}</kbd>;
+}
 
 const trigger =
   "h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium text-foreground/90 hover:bg-accent data-[popup-open]:bg-accent";
@@ -44,29 +52,38 @@ export function BulkActionBar({
   total,
   members,
   projects,
+  labels,
   pending,
   onApply,
   onDelete,
   onSelectAll,
   onClear,
+  menu,
+  onMenu,
 }: {
   count: number;
   /** Rows in view, so "Select all" knows whether there's anything left to add. */
   total: number;
   members: Member[];
   projects: Project[];
+  labels: Label[];
   pending: boolean;
   onApply: (patch: BulkPatch, done: string) => void;
   onDelete: () => void;
   onSelectAll: () => void;
   onClear: () => void;
+  /** The open menu, held by the list so a key can open one. */
+  menu: BulkMenu | null;
+  onMenu: (m: BulkMenu | null) => void;
 }) {
   // Armed for one selection size: change the selection and it disarms, since
   // confirming then would be confirming the wrong thing.
   const [confirmFor, setConfirmFor] = useState<number | null>(null);
   const confirmDelete = confirmFor === count;
-  const [assigneeOpen, setAssigneeOpen] = useState(false);
-  const [projectOpen, setProjectOpen] = useState(false);
+  const openFor = (m: BulkMenu) => ({ open: menu === m, onOpenChange: (o: boolean) => onMenu(o ? m : menu === m ? null : menu) });
+  const setAssigneeOpen = (o: boolean) => onMenu(o ? "assignee" : null);
+  const setProjectOpen = (o: boolean) => onMenu(o ? "project" : null);
+  const setLabelOpen = (o: boolean) => onMenu(o ? "label" : null);
   const tasks = (n: number) => `${n} ${n === 1 ? "task" : "tasks"}`;
 
   return (
@@ -114,13 +131,13 @@ export function BulkActionBar({
         <div className="mx-0.5 h-5 w-px shrink-0 bg-border" />
 
         {/* Status */}
-        <DropdownMenu>
+        <DropdownMenu {...openFor("status")}>
           <DropdownMenuTrigger
             disabled={pending}
             render={<Button variant="ghost" size="sm" className={trigger} />}
           >
             <StatusIcon status="in_progress" /> Status
-            <ChevronDown className="size-3 opacity-50" />
+            <Key k="S" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" side="top" className="w-44">
             {STATUSES.map((s) => (
@@ -137,13 +154,13 @@ export function BulkActionBar({
         </DropdownMenu>
 
         {/* Priority */}
-        <DropdownMenu>
+        <DropdownMenu {...openFor("priority")}>
           <DropdownMenuTrigger
             disabled={pending}
             render={<Button variant="ghost" size="sm" className={trigger} />}
           >
             <PriorityIcon priority="high" /> Priority
-            <ChevronDown className="size-3 opacity-50" />
+            <Key k="P" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" side="top" className="w-40">
             {PRIORITIES.map((p) => (
@@ -162,13 +179,13 @@ export function BulkActionBar({
         </DropdownMenu>
 
         {/* Assignee — searchable, teams outgrow a plain menu fast */}
-        <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
+        <Popover open={menu === "assignee"} onOpenChange={setAssigneeOpen}>
           <PopoverTrigger
             disabled={pending}
             render={<Button variant="ghost" size="sm" className={trigger} />}
           >
             <UserRound className="size-3.5 text-muted-foreground" /> Assignee
-            <ChevronDown className="size-3 opacity-50" />
+            <Key k="A" />
           </PopoverTrigger>
           <PopoverContent side="top" align="center" className="w-60 p-0">
             <Command>
@@ -209,8 +226,44 @@ export function BulkActionBar({
           </PopoverContent>
         </Popover>
 
+        {/* Label: adds to what each task has */}
+        <Popover open={menu === "label"} onOpenChange={setLabelOpen}>
+          <PopoverTrigger
+            disabled={pending || labels.length === 0}
+            render={<Button variant="ghost" size="sm" className={trigger} />}
+          >
+            <Tag className="size-3.5 text-muted-foreground" /> Label
+            <Key k="L" />
+          </PopoverTrigger>
+          <PopoverContent side="top" align="center" className="w-56 p-0">
+            <Command>
+              <CommandInput placeholder="Add label…" className="h-9" />
+              <CommandList>
+                <CommandEmpty>No label found.</CommandEmpty>
+                <CommandGroup>
+                  {labels.map((l) => (
+                    <CommandItem
+                      key={l.id}
+                      value={l.id}
+                      keywords={[l.name]}
+                      onSelect={() => {
+                        setLabelOpen(false);
+                        onApply({ addLabelIds: [l.id] }, `Labelled ${tasks(count)} ${l.name}`);
+                      }}
+                      className="gap-2"
+                    >
+                      <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: l.color }} />
+                      <span className="truncate">{l.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
         {/* Project */}
-        <Popover open={projectOpen} onOpenChange={setProjectOpen}>
+        <Popover open={menu === "project"} onOpenChange={setProjectOpen}>
           <PopoverTrigger
             disabled={pending}
             render={<Button variant="ghost" size="sm" className={trigger} />}
