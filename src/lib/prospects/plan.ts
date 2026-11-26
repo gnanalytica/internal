@@ -1,5 +1,6 @@
-import { bandKey, displayDate, isDoNotContact, stageIndex } from "./parse";
+import { bandKey, isDoNotContact, stageIndex } from "./parse";
 import { ACTIVITY_COLUMNS, DATE_COLUMNS, NUMBER_COLUMNS, WRITABLE, type ProspectKind } from "./schema";
+import { datedLine, ownerLineText, stageLineText } from "./history";
 import { addDays } from "./stats";
 
 /**
@@ -116,11 +117,7 @@ export function assignmentEffects(kind: ProspectKind, header: unknown[], current
   if (sameOwner(before, after)) return {};
   const can = (name: string) => WRITABLE[kind].has(name) && col(name) >= 0;
   const out: CellPatch = {};
-  if (can("notes")) {
-    const by = ctx.by.trim().split(/\s+/)[0];
-    const was = before ? ` (was ${before})` : "";
-    out.prependNote = `${displayDate(ctx.today)} — ${after ? `Assigned to ${after}` : "Unassigned"}${was}${by ? ` by ${by}` : ""}`;
-  }
+  if (can("notes")) out.prependNote = datedLine(ctx.today, ownerLineText(after, before, ctx.by));
   const stage = stageIndex(String(patch.status ?? cell("status")));
   const firstContact = stage === 0 && bandKey(cell("score_band")) === "A" && !isDoNotContact(cell("research_notes"));
   if (after && stage < 5 && !firstContact && !("next_step_date" in patch) && !cell("next_step_date") && can("next_step_date")) out.next_step_date = addDays(ctx.today, 1);
@@ -144,6 +141,22 @@ export function claimOnStatusChange(kind: ProspectKind, header: unknown[], curre
 }
 
 /**
+ * The dated notes line a stage change leaves ("27-11-2026 — Stage: Contacted →
+ * Discovery done by Sandeep"), so the record's history shows it. Only for a
+ * change that brings no note line of its own: a logged touch already leaves
+ * one, and its Activity row carries the stage after. Null otherwise. Pure.
+ */
+export function stageNote(kind: ProspectKind, header: unknown[], current: unknown[], patch: CellPatch, ctx: ChangeContext): string | null {
+  if (!("status" in patch) || patch.prependNote || !WRITABLE[kind].has("notes")) return null;
+  const col = (name: string) => header.findIndex((h) => String(h ?? "").trim() === name);
+  if (col("notes") < 0) return null;
+  const before = col("status") >= 0 ? String(current[col("status")] ?? "").trim() : "";
+  const after = String(patch.status ?? "").trim();
+  if (!after || before.toLowerCase() === after.toLowerCase()) return null;
+  return datedLine(ctx.today, stageLineText(before, after, ctx.by));
+}
+
+/**
  * A patch with the assignment rule applied; an existing note line stays first.
  * A status change on an unowned row first assigns it to whoever made the
  * change (see claimOnStatusChange), so the usual owner-change note follows.
@@ -156,6 +169,8 @@ export function withAssignment(kind: ProspectKind, header: unknown[], current: u
   const claim = claimOnStatusChange(kind, header, current, given, ctx);
   const patch = claim && !formulas.has(col("assigned")) ? { ...given, assigned: claim } : given;
   const extra = assignmentEffects(kind, header, current, patch, ctx);
+  const stage = stageNote(kind, header, current, given, ctx);
+  if (stage) extra.prependNote = [stage, extra.prependNote].filter(Boolean).join("\n");
   if (formulas.has(col("notes"))) delete extra.prependNote;
   if (formulas.has(col("next_step_date"))) delete extra.next_step_date;
   if (!Object.keys(extra).length) return patch;
