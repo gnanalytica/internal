@@ -26,6 +26,7 @@ export default async function CycleRoute({
       createdAt: i.createdAt,
     })),
     doneEvents: cycle.doneEvents,
+    progressEvents: cycle.progressEvents,
     start: cycle.startDate,
     end: cycle.endDate,
     now: new Date(),

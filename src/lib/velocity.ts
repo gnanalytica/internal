@@ -16,12 +16,12 @@ export type VelocityCycle = {
   name: string;
   endDate: Date;
   /** Every task in the cycle, with its estimate and whether it landed. */
-  issues: { status: string; estimate: number | null }[];
+  issues: { status: string; estimate: number | null; pointsDone?: number | null }[];
   /**
    * Tasks rolled over into a later cycle. They were committed here and didn't
    * land here, so they count toward what was committed, never toward done.
    */
-  carriedOut?: { estimate: number | null }[];
+  carriedOut?: { estimate: number | null; done?: number }[];
 };
 
 export type CycleVelocity = {
@@ -46,6 +46,8 @@ export type VelocitySummary = {
    */
   cyclesToClear: number | null;
 };
+
+import { taskPoints } from "@/lib/points";
 
 const weight = (i: { estimate: number | null }) => i.estimate ?? 1;
 const isDone = (i: { status: string }) => i.status === "done";
@@ -74,9 +76,12 @@ export function computeVelocity(input: {
     .sort((a, b) => a.endDate.getTime() - b.endDate.getTime())
     .map<CycleVelocity>((c) => {
       const counted = c.issues.filter(isCounted);
+      const carried = c.carriedOut ?? [];
+      // Carried-out work: committed here; the part done here counts as done here.
       const committed =
-        counted.reduce((s, i) => s + weight(i), 0) + (c.carriedOut ?? []).reduce((s, i) => s + weight(i), 0);
-      const donePoints = counted.filter(isDone).reduce((s, i) => s + weight(i), 0);
+        counted.reduce((s, i) => s + taskPoints(i).total, 0) + carried.reduce((s, i) => s + weight(i), 0);
+      const donePoints =
+        counted.reduce((s, i) => s + taskPoints(i).done, 0) + carried.reduce((s, i) => s + Math.min(i.done ?? 0, weight(i)), 0);
       return {
         id: c.id,
         name: c.name,

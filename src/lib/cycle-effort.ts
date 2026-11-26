@@ -1,15 +1,17 @@
+import { taskPoints } from "@/lib/points";
+
 /**
  * Where a cycle's effort sits: points per person, done vs open, and what
  * carried in from the last cycle or out to the next. Pure, so it is tested
  * without a database.
  *
- * A task counts once, against its lead assignee (`assigneeId`), so the rows
+ * Points follow lib/points (partial progress counts as done). A task counts once, against its lead assignee (`assigneeId`), so the rows
  * add up to the cycle. An unestimated task weighs 1 point, as in the burndown
  * and velocity, so the three agree; the unestimated count is still shown as
  * something to fix. Canceled work is left out.
  */
 
-export type EffortTask = { id: string; assigneeId: string | null; estimate: number | null; status: string };
+export type EffortTask = { id: string; assigneeId: string | null; estimate: number | null; pointsDone?: number | null; status: string };
 
 export type EffortRow = {
   /** Member id, or null for unassigned. */
@@ -22,7 +24,8 @@ export type EffortRow = {
   unestimated: number;
 };
 
-export type Carried = { count: number; points: number; unestimated: number };
+/** Tasks moved by rollover. `points` is their estimate then; `donePoints` the part done before they moved. */
+export type Carried = { count: number; points: number; donePoints: number; unestimated: number };
 
 export function cycleEffort(tasks: EffortTask[], members: { id: string; name: string }[]): { rows: EffortRow[]; total: EffortRow } {
   const rows = new Map<string | null, EffortRow>();
@@ -33,13 +36,13 @@ export function cycleEffort(tasks: EffortTask[], members: { id: string; name: st
     const id = t.assigneeId && members.some((m) => m.id === t.assigneeId) ? t.assigneeId : null;
     const row = rows.get(id) ?? blank(id, id ? members.find((m) => m.id === id)!.name : "Unassigned");
     rows.set(id, row);
+    const p = taskPoints(t);
     for (const r of [row, total]) {
       r.tasks++;
       if (t.estimate == null) r.unestimated++;
-      const pts = t.estimate ?? 1;
-      r.points += pts;
-      if (t.status === "done") r.donePoints += pts;
-      else r.openPoints += pts;
+      r.points += p.total;
+      r.donePoints += p.done;
+      r.openPoints += p.open;
     }
   }
   // Most points first; unassigned last, as the row to sort out.
@@ -47,10 +50,11 @@ export function cycleEffort(tasks: EffortTask[], members: { id: string; name: st
   return { rows: list, total };
 }
 
-export function carried(tasks: { estimate: number | null }[]): Carried {
+export function carried(tasks: { estimate: number | null; done?: number }[]): Carried {
   return {
     count: tasks.length,
     points: tasks.reduce((n, t) => n + (t.estimate ?? 1), 0),
+    donePoints: tasks.reduce((n, t) => n + Math.min(t.done ?? 0, t.estimate ?? 1), 0),
     unestimated: tasks.filter((t) => t.estimate == null).length,
   };
 }

@@ -34,6 +34,13 @@ describe("cycleEffort", () => {
 
 describe("carried", () => {
   it("sums points and counts the unestimated", () => {
-    expect(carried([{ estimate: 3 }, { estimate: null }, { estimate: 2 }])).toEqual({ count: 3, points: 6, unestimated: 1 });
+    expect(carried([{ estimate: 3, done: 1 }, { estimate: null }, { estimate: 2 }])).toEqual({ count: 3, points: 6, donePoints: 1, unestimated: 1 });
+  });
+});
+
+describe("cycleEffort with partial progress", () => {
+  it("counts points marked done before the task is Done", () => {
+    const { total } = cycleEffort([{ id: "1", assigneeId: "u1", estimate: 5, pointsDone: 3, status: "in_progress" }], members);
+    expect(total).toMatchObject({ points: 5, donePoints: 3, openPoints: 2 });
   });
 });

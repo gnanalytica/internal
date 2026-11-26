@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { taskPoints } from "@/lib/points";
 
 import { CyclesView } from "@/components/cycles-view";
 import { Topbar } from "@/components/topbar";
@@ -31,7 +32,7 @@ export default async function ProjectCyclesPage({
   // weighted the way burndown weights it (no estimate = one point).
   const outstandingPoints = allIssues
     .filter((i) => i.projectId === id && i.status !== "done" && i.status !== "canceled")
-    .reduce((sum, i) => sum + (i.estimate ?? 1), 0);
+    .reduce((sum, i) => sum + taskPoints(i).open, 0);
 
   return (
     <div className="flex h-full flex-col">

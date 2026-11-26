@@ -70,6 +70,7 @@ import {
   type CycleCadence,
 } from "@/lib/cycle-cadence";
 import { rollOverCore, stampCadence } from "@/lib/cycle-rollover";
+import { clampPointsDone } from "@/lib/points";
 import { callClaudeJson, isAiConfigured } from "@/lib/ai";
 import { normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
@@ -702,6 +703,8 @@ export async function updateIssue(
     startDate: string | null;
     dueDate: string | null;
     estimate: number | null;
+    /** Points of the estimate done so far (see lib/points). */
+    pointsDone: number | null;
     sortKey: string;
   }>,
 ) {
@@ -737,6 +740,13 @@ export async function updateIssue(
   if (patch.dueDate !== undefined)
     values.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
   if (patch.estimate !== undefined) values.estimate = patch.estimate;
+  // Points done stays within the estimate: set it, or re-fit it when the
+  // estimate changes under it.
+  if (patch.pointsDone !== undefined || patch.estimate !== undefined) {
+    const est = patch.estimate !== undefined ? patch.estimate : (before?.estimate ?? null);
+    const want = patch.pointsDone !== undefined ? patch.pointsDone : (before?.pointsDone ?? null);
+    values.pointsDone = clampPointsDone(want, est);
+  }
   if (patch.sortKey !== undefined) values.sortKey = patch.sortKey;
 
   await db
@@ -754,6 +764,9 @@ export async function updateIssue(
       acts.push({ type: "priority", data: { from: before.priority, to: patch.priority } });
     if (patch.assigneeId !== undefined && before.assigneeId !== patch.assigneeId)
       acts.push({ type: "assignee", data: { from: before.assigneeId, to: patch.assigneeId } });
+    // Progress gets a dated entry, so the burndown can place it on its day.
+    if (values.pointsDone !== undefined && (before.pointsDone ?? null) !== values.pointsDone)
+      acts.push({ type: "progress", data: { from: before.pointsDone == null ? null : String(before.pointsDone), to: values.pointsDone == null ? null : String(values.pointsDone) } });
     if (acts.length) {
       await db.insert(activity).values(
         acts.map((a) => ({

@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { taskPoints } from "@/lib/points";
 
 import { EngineeringView } from "@/components/engineering-view";
 import { isDepartmentEnabled, issueBelongsToDepartment } from "@/lib/departments";
@@ -40,7 +41,7 @@ export default async function ProjectEngineeringPage({
   // weighted the way burndown weights it (no estimate = one point).
   const outstandingPoints = projectIssues
     .filter((i) => i.status !== "done" && i.status !== "canceled")
-    .reduce((sum, i) => sum + (i.estimate ?? 1), 0);
+    .reduce((sum, i) => sum + taskPoints(i).open, 0);
 
   return (
     <EngineeringView
