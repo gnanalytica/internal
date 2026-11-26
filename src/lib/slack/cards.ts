@@ -5,7 +5,7 @@ import { formatCurrency, entityCurrency } from "@/lib/currency";
 import { DEAL_STAGES } from "@/lib/departments";
 import { KIND_LABEL, PROSPECT_KINDS, type ProspectKind } from "@/lib/prospects/schema";
 import { viaLabel } from "@/lib/customer-success";
-import type { SlackEventInput, SlackRecordType } from "./events";
+import type { ProspectTouchNote, SlackEventInput, SlackRecordType } from "./events";
 
 /**
  * How an app record looks in Slack. Pure: records.ts reads the rows, this turns
@@ -109,7 +109,7 @@ export function prospectFields(p: {
   if (p.projectName) out.push({ label: "Project", value: escapeMrkdwn(p.projectName) });
   out.push({
     label: "Stage",
-    value: p.from ? `${escapeMrkdwn(p.from)} → *${escapeMrkdwn(p.to)}*` : `*${escapeMrkdwn(p.to)}*`,
+    value: p.from && p.from !== p.to ? `${escapeMrkdwn(p.from)} → *${escapeMrkdwn(p.to)}*` : `*${escapeMrkdwn(p.to)}*`,
   });
   const kind = prospectKindLabel(p.ref);
   if (kind) out.push({ label: "Type", value: kind });
@@ -214,9 +214,15 @@ export function eventLine(
     case "prospect.stage_changed": {
       const p = ev.prospect;
       if (!p) return `${who} moved this prospect`;
-      return p.from
+      const line = p.from
         ? `${who} moved this prospect from ${escapeMrkdwn(p.from)} to *${escapeMrkdwn(p.to)}*`
         : `${who} moved this prospect to *${escapeMrkdwn(p.to)}*`;
+      return p.touch ? `${line}\n${touchLines(p.touch)}` : line;
+    }
+    case "prospect.touch_logged": {
+      const t = ev.prospect?.touch;
+      if (!t) return `${who} logged a touch`;
+      return `${who} logged a touch\n${touchLines(t)}`;
     }
     case "ticket.created":
       return `${who} logged a new customer request`;
@@ -225,6 +231,30 @@ export function eventLine(
     case "content.published":
       return `${who} posted this`;
   }
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-12-02" → "2 Dec"; anything else as written. */
+function dayMonth(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]}` : iso;
+}
+
+/**
+ * What a logged touch said, under the headline: how it went and what was said,
+ * what was learnt, and what happens next. Everything typed is escaped.
+ */
+export function touchLines(t: ProspectTouchNote): string {
+  const how = [t.channel, t.durationMin ? `${t.durationMin} min` : null, t.outcome].filter(Boolean).map((x) => escapeMrkdwn(String(x))).join(" · ");
+  const said = t.summary.replace(/\s+/g, " ").trim();
+  const lines = [said ? `${how}. ${escapeMrkdwn(clip(said, 400))}` : how];
+  if (t.learnt.length) lines.push(t.learnt.map((f) => `${escapeMrkdwn(f.label)}: ${escapeMrkdwn(clip(f.value, 120))}`).join(" · "));
+  if (t.nextStep || t.nextStepDate) {
+    const what = t.nextStep ? escapeMrkdwn(clip(t.nextStep, 200)) : "Follow up";
+    lines.push(`Next: ${what}${t.nextStepDate ? ` · ${dayMonth(t.nextStepDate)}` : ""}`);
+  }
+  return lines.map((l) => `> ${l}`).join("\n");
 }
 
 /* ---------- actions ---------- */

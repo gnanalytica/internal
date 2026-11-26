@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { sendTestSlack, setSlackWebhook } from "@/lib/actions";
-import { PROSPECT_STAGE_OPTIONS, SLACK_EVENT_GROUPS, SLACK_RULE_PRESETS, slackEventLabel } from "@/lib/slack/events";
+import { isProspectEvent, PROSPECT_STAGE_OPTIONS, SLACK_EVENT_GROUPS, SLACK_RULE_PRESETS, slackEventLabel } from "@/lib/slack/events";
 import { deleteSlackRule, linkMySlack, saveSlackRule, sendSlackRuleTest, unlinkMySlack } from "@/lib/slack/settings-actions";
 import type { SlackChannelOption, SlackConnection, SlackRuleRow } from "@/lib/slack/settings-data";
 import { draftFromPreset, draftFromRule, draftProblem, emptyDraft, toggleEvent, type RuleDraft } from "@/lib/slack/rule-draft";
@@ -182,7 +182,7 @@ export function SlackSettings({
                         {r.events.map((e) => (
                           <span key={e} className={cn("rounded-full px-1.5 py-0.5 text-[11px]", TONES.gray.chip)}>
                             {slackEventLabel(e)}
-                            {e === "prospect.stage_changed" && r.filters.minProspectStage
+                            {e.startsWith("prospect.") && r.filters.minProspectStage
                               ? ` (from ${r.filters.minProspectStage})`
                               : ""}
                           </span>
@@ -433,7 +433,7 @@ function RuleEditor({
                   {e.label}
                 </label>
               ))}
-              {g.id === "sales" && draft.events.includes("prospect.stage_changed") && (
+              {g.id === "sales" && draft.events.some(isProspectEvent) && (
                 <label className="ml-6 flex items-center gap-2 text-xs text-muted-foreground">
                   from
                   <select

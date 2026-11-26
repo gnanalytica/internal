@@ -1,13 +1,24 @@
 import { z } from "zod";
 
+import type { ProspectTouchNote } from "@/lib/slack/events";
+
 import { displayDate } from "./parse";
 import type { CellPatch } from "./plan";
-import { CHANNELS, DIRECTIONS, OUTCOMES, PROSPECT_KINDS, STAGES, WRITABLE } from "./schema";
+import { CHANNELS, DIRECTIONS, OUTCOMES, PROSPECT_KINDS, STAGES, WRITABLE, type Outcome } from "./schema";
 
 export const kindSchema = z.enum(PROSPECT_KINDS);
 export const idSchema = z.string().trim().min(1).max(80);
 export const valueSchema = z.union([z.string().max(20_000), z.number(), z.null()]);
 export const patchSchema = z.record(z.string(), valueSchema);
+
+/**
+ * Outcomes where someone actually spoke or wrote back: what they said is the
+ * point of logging it, so the summary can't be left blank. "No answer" and
+ * "Sent" stay one click.
+ */
+export const SUMMARY_REQUIRED: readonly Outcome[] = ["Connected", "Replied", "Meeting held", "Demo booked", "Not interested"];
+
+export const needsSummary = (outcome: string): boolean => (SUMMARY_REQUIRED as readonly string[]).includes(outcome);
 
 export const touchSchema = z.object({
   kind: kindSchema,
@@ -30,6 +41,9 @@ export const touchSchema = z.object({
       referred_by: z.string().max(200).optional(),
     })
     .default({}),
+}).refine((t) => !needsSummary(t.outcome) || t.summary.trim() !== "", {
+  message: "Write what they said — it's needed when you spoke or they replied.",
+  path: ["summary"],
 });
 
 export type TouchInput = z.input<typeof touchSchema>;
@@ -60,4 +74,29 @@ export function touchPatch(t: Touch, by: string, today: string): CellPatch {
   const minutes = t.durationMin ? ` (${t.durationMin} min)` : "";
   patch.prependNote = `${displayDate(today)} — ${t.channel}${minutes}: ${t.outcome}${t.summary ? `. ${t.summary}` : ""} — ${firstName(by)}`;
   return patch;
+}
+
+/** How what was learnt on a touch reads in Slack. */
+const LEARNT_LABEL: Record<keyof Touch["fields"], string> = {
+  lb_cases_per_month: "Cases a month",
+  current_software: "Current software",
+  objections: "Objection",
+  pitch_angle: "Pitch angle",
+  referred_by: "Referred by",
+};
+
+/** What a logged touch tells Slack — only what was typed, and only columns the tab has. */
+export function touchNote(t: Touch): ProspectTouchNote {
+  const learnt = (Object.keys(LEARNT_LABEL) as (keyof Touch["fields"])[])
+    .filter((col) => WRITABLE[t.kind].has(col) && t.fields[col] !== undefined && String(t.fields[col]).trim() !== "")
+    .map((col) => ({ label: LEARNT_LABEL[col], value: String(t.fields[col]).trim() }));
+  return {
+    channel: t.channel,
+    outcome: t.outcome,
+    durationMin: t.durationMin,
+    summary: t.summary.trim(),
+    nextStep: t.nextStep?.trim() || null,
+    nextStepDate: t.nextStepDate,
+    learnt,
+  };
 }

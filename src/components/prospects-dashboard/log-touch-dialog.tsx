@@ -13,6 +13,7 @@ import { logTouch } from "@/lib/prospects/actions";
 import { CHANNELS, OBJECTIONS, PITCH_ANGLES, STAGES, WRITABLE, type Channel, type Outcome, type ProspectKind } from "@/lib/prospects/schema";
 import { SOFTWARE } from "@/lib/prospects/contact";
 import { addDays } from "@/lib/prospects/stats";
+import { needsSummary } from "@/lib/prospects/touch";
 import { touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
 import { sendToProduct } from "@/lib/send-to-product-actions";
 import { cn } from "@/lib/utils";
@@ -146,6 +147,8 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
   const learns = tracksPractice || tracksPitch;
   const quickLabel = FOLLOW_UPS.find((f) => addDays(today, f.days) === followDate)?.label ?? "";
   const timed = TIMED.includes(channel);
+  const summaryNeeded = needsSummary(outcome);
+  const missingSummary = summaryNeeded && summary.trim() === "";
 
   const submit = () =>
     start(async () => {
@@ -200,11 +203,11 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!pending) submit();
+        if (!pending && !missingSummary) submit();
       }}
       onKeyDown={(e) => {
         // ⌘/Ctrl+Enter saves from anywhere in the form, the notes box included.
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !pending) {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !pending && !missingSummary) {
           e.preventDefault();
           submit();
         }
@@ -244,7 +247,7 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
               <Input id="log-min" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ""))} placeholder="e.g. 12" className="h-8 w-24" />
             </Field>
           )}
-          <Field label="What they said" hint="optional" htmlFor="log-sum">
+          <Field label="What they said" hint={summaryNeeded ? "required" : "optional"} htmlFor="log-sum">
             <Textarea
               id="log-sum"
               value={summary}
@@ -341,7 +344,7 @@ function LogForm({ target, today, title, onDone, onSaved }: { target: LogTarget;
           <Button type="button" variant="outline" onClick={onDone} disabled={pending}>
             Cancel
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending || missingSummary} title={missingSummary ? "Write what they said first" : undefined}>
             {pending ? "Saving…" : "Save"}
           </Button>
         </div>

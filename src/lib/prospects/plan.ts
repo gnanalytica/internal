@@ -2,6 +2,7 @@ import { bandKey, isDoNotContact, stageIndex } from "./parse";
 import { ACTIVITY_COLUMNS, DATE_COLUMNS, NUMBER_COLUMNS, WRITABLE, type ProspectKind } from "./schema";
 import { datedLine, ownerLineText, stageLineText } from "./history";
 import { addDays } from "./stats";
+import { missingRequired, requiredMessage } from "./stage-rules";
 
 /**
  * A change to one row. `prependNote` adds a dated line to the top of `notes`,
@@ -40,6 +41,26 @@ export function planRowWrite(input: {
   const written: string[] = [];
   const refused: string[] = [];
   const cell = (i: number) => `${quoteTab(tab)}!${colLetter(i)}${row}`;
+
+  // A forward move needs what the stages it leaves found out (stage-rules.ts),
+  // on the row as it will read after this write. A column the tab doesn't
+  // have can't be asked for.
+  const statusCol = col("status");
+  if (patch.status !== undefined && patch.status !== null && statusCol >= 0 && !formulas.has(statusCol)) {
+    const at = (name: string) => {
+      const i = col(name);
+      return i < 0 ? "" : String(current[i] ?? "").trim();
+    };
+    const from = stageIndex(at("status"));
+    const to = stageIndex(String(patch.status));
+    const values: Record<string, unknown> = {};
+    for (const h of header) {
+      const name = String(h ?? "").trim();
+      if (name) values[name] = name in patch ? patch[name] : at(name);
+    }
+    const missing = missingRequired(kind, values, from, to).filter((c) => col(c) >= 0);
+    if (missing.length) refused.push(requiredMessage(to, missing));
+  }
 
   const entries = Object.entries(patch).filter(([k]) => k !== "prependNote");
   if (patch.prependNote) {

@@ -1,4 +1,4 @@
-import { SLACK_RULE_PRESETS, isSlackEventType, type SlackEventType } from "./events";
+import { SLACK_RULE_PRESETS, isProspectEvent, isSlackEventType, type SlackEventType } from "./events";
 
 /**
  * The channel-rule editor's state on Settings › Slack, and how a preset or a
@@ -60,7 +60,7 @@ export function toggleEvent(draft: RuleDraft, event: SlackEventType): RuleDraft 
     ...draft,
     events,
     // The stage filter only means something while prospect events are on.
-    minProspectStage: events.includes("prospect.stage_changed") ? draft.minProspectStage : null,
+    minProspectStage: events.some(isProspectEvent) ? draft.minProspectStage : null,
   };
 }
 

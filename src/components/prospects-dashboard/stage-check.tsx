@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { saveProspect } from "@/lib/prospects/actions";
 import { OBJECTIONS, PITCH_ANGLES, STAGES, WRITABLE, type ProspectKind } from "@/lib/prospects/schema";
 import { SOFTWARE } from "@/lib/prospects/contact";
+import { missingRequired } from "@/lib/prospects/stage-rules";
 import { todayIST } from "@/lib/prospects/stats";
 import { Chips, DatePicker, shortDate } from "./bits";
 import { rowKey, usePatchRows } from "./optimistic";
@@ -40,18 +41,33 @@ const ASKABLE: Record<string, { label: string; has: (s: StageSubject) => boolean
   phone: { label: "Phone", has: (s) => s.hasPhone },
 };
 
-/** The fields still empty that the current stage asks for before moving forward. */
-export function missingForMove(s: StageSubject, target: number): string[] {
-  if (target <= s.stage || target === 6) return [];
-  return [...new Set(STAGE_COACHING[s.stage].fields)].filter((f) => ASKABLE[f] && WRITABLE[s.kind].has(f) && !ASKABLE[f].has(s));
+/** What the record has, by column, for the rules in stage-rules.ts. */
+const valuesOf = (s: StageSubject): Record<string, unknown> => ({
+  lb_cases_per_month: s.cases,
+  current_software: s.software,
+  pitch_angle: s.pitchAngle,
+  next_step: s.nextStep,
+});
+
+/**
+ * The fields still empty before a move: `required` ones the sheet write will
+ * refuse without (stage-rules.ts), and `suggested` ones the current stage
+ * asks for but the move can go ahead without.
+ */
+export function missingForMove(s: StageSubject, target: number): { required: string[]; suggested: string[] } {
+  const required = missingRequired(s.kind, valuesOf(s), s.stage, target).filter((f) => ASKABLE[f]);
+  if (target <= s.stage || target === 6) return { required, suggested: [] };
+  const suggested = [...new Set(STAGE_COACHING[s.stage].fields)].filter((f) => ASKABLE[f] && WRITABLE[s.kind].has(f) && !ASKABLE[f].has(s) && !required.includes(f));
+  return { required, suggested };
 }
 
 /**
  * Move a record to another stage. Moving forward with facts missing asks for
- * them first; the person can still move without them.
+ * them first: the required ones must be filled to move; the rest can be
+ * skipped.
  */
 export function useStageMove(onChanged: () => void) {
-  const [ask, setAsk] = useState<{ subject: StageSubject; target: number; fields: string[] } | null>(null);
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [pending, start] = useTransition();
   const patchRows = usePatchRows();
   const write = (s: StageSubject, target: number, extra: Record<string, string | number | null> = {}) =>
@@ -69,15 +85,17 @@ export function useStageMove(onChanged: () => void) {
     });
   const move = (s: StageSubject, target: number) => {
     if (target === s.stage) return;
-    const fields = missingForMove(s, target);
-    if (fields.length) setAsk({ subject: s, target, fields });
+    const { required, suggested } = missingForMove(s, target);
+    if (required.length || suggested.length) setAsk({ subject: s, target, required, fields: [...required, ...suggested] });
     else write(s, target);
   };
   const dialog = ask ? <StageCheckDialog key={`${ask.subject.id}:${ask.target}`} ask={ask} pending={pending} onCancel={() => setAsk(null)} onMove={(extra) => write(ask.subject, ask.target, extra)} /> : null;
   return { move, dialog, pending };
 }
 
-function StageCheckDialog({ ask, pending, onCancel, onMove }: { ask: { subject: StageSubject; target: number; fields: string[] }; pending: boolean; onCancel: () => void; onMove: (extra: Record<string, string | number | null>) => void }) {
+type Ask = { subject: StageSubject; target: number; required: string[]; fields: string[] };
+
+function StageCheckDialog({ ask, pending, onCancel, onMove }: { ask: Ask; pending: boolean; onCancel: () => void; onMove: (extra: Record<string, string | number | null>) => void }) {
   const [vals, setVals] = useState<Record<string, string>>({});
   const set = (k: string, v: string) => setVals((p) => ({ ...p, [k]: v }));
   const [today] = useState(() => todayIST());
@@ -86,19 +104,24 @@ function StageCheckDialog({ ask, pending, onCancel, onMove }: { ask: { subject: 
       .filter(([, v]) => v.trim() !== "")
       .map(([k, v]) => [k, k === "lb_cases_per_month" ? Number(v) : v.trim()]),
   );
+  const requiredFilled = ask.required.every((f) => f in extra);
   return (
     <Dialog open onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Move to {STAGES[ask.target]}</DialogTitle>
           <DialogDescription>
-            {ask.subject.name} is missing what {STAGES[ask.subject.stage]} should have found out. Fill what you know.
+            {ask.subject.name} is missing what {STAGES[ask.subject.stage]} should have found out.{" "}
+            {ask.required.length ? "Fill the required ones to move; the rest if you know them." : "Fill what you know."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           {ask.fields.map((f) => (
             <div key={f} className="flex flex-col gap-2">
-              <span className="text-xs font-medium text-foreground/80">{ASKABLE[f].label}</span>
+              <span className="text-xs font-medium text-foreground/80">
+                {ASKABLE[f].label}
+                {ask.required.includes(f) && <span className="ml-1 font-normal text-destructive">Required</span>}
+              </span>
               {f === "current_software" ? (
                 <Chips label={ASKABLE[f].label} value={vals[f] ?? ""} options={SOFTWARE} onChange={(v) => set(f, v)} allowNone />
               ) : f === "objections" ? (
@@ -124,10 +147,12 @@ function StageCheckDialog({ ask, pending, onCancel, onMove }: { ask: { subject: 
           ))}
         </div>
         <div className="flex justify-end gap-2 border-t pt-4">
-          <Button variant="ghost" disabled={pending} onClick={() => onMove({})}>
-            Move anyway
-          </Button>
-          <Button disabled={pending} onClick={() => onMove(extra)}>
+          {ask.required.length === 0 && (
+            <Button variant="ghost" disabled={pending} onClick={() => onMove({})}>
+              Move anyway
+            </Button>
+          )}
+          <Button disabled={pending || !requiredFilled} onClick={() => onMove(extra)}>
             {pending ? "Saving…" : "Save and move"}
           </Button>
         </div>
