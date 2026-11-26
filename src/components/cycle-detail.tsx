@@ -280,7 +280,7 @@ function EffortSection({
         <span className="text-xs font-medium text-muted-foreground">Effort (points)</span>
         <span className="text-[11px] tabular-nums text-muted-foreground">
           {total.donePoints} of {pts(total.points)} done
-          {total.unestimated ? ` · ${total.unestimated} unestimated` : ""}
+          {total.unestimated ? ` · ${total.unestimated} unestimated (counted as 1)` : ""}
         </span>
       </div>
       <ul className="flex flex-col gap-1.5">

@@ -17,6 +17,11 @@ export type VelocityCycle = {
   endDate: Date;
   /** Every task in the cycle, with its estimate and whether it landed. */
   issues: { status: string; estimate: number | null }[];
+  /**
+   * Tasks rolled over into a later cycle. They were committed here and didn't
+   * land here, so they count toward what was committed, never toward done.
+   */
+  carriedOut?: { estimate: number | null }[];
 };
 
 export type CycleVelocity = {
@@ -69,7 +74,8 @@ export function computeVelocity(input: {
     .sort((a, b) => a.endDate.getTime() - b.endDate.getTime())
     .map<CycleVelocity>((c) => {
       const counted = c.issues.filter(isCounted);
-      const committed = counted.reduce((s, i) => s + weight(i), 0);
+      const committed =
+        counted.reduce((s, i) => s + weight(i), 0) + (c.carriedOut ?? []).reduce((s, i) => s + weight(i), 0);
       const donePoints = counted.filter(isDone).reduce((s, i) => s + weight(i), 0);
       return {
         id: c.id,

@@ -35,6 +35,7 @@ export function CycleVelocity({
           name: c.name,
           endDate: new Date(c.endDate),
           issues: c.issues,
+          carriedOut: c.carriedOut,
         })),
         outstandingPoints,
         now: new Date(nowISO),

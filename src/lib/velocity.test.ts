@@ -113,3 +113,21 @@ describe("computeVelocity", () => {
     expect(v.averagePoints).toBe(5); // the two 50-point outliers fall outside the window
   });
 });
+
+describe("computeVelocity with carried-over work", () => {
+  it("counts work rolled into the next cycle as committed, not done", () => {
+    const v = computeVelocity({
+      cycles: [
+        {
+          id: "c1",
+          name: "Cycle 1",
+          endDate: new Date("2026-11-01"),
+          issues: [{ status: "done", estimate: 5 }],
+          carriedOut: [{ estimate: 3 }, { estimate: null }],
+        },
+      ],
+      now: new Date("2026-11-10"),
+    });
+    expect(v.cycles[0]).toMatchObject({ donePoints: 5, completionPct: 56 }); // 5 of 5+3+1
+  });
+});
