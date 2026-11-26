@@ -262,3 +262,22 @@ describe("due-date sort", () => {
     expect(sorted.map((i) => i.id)).toEqual(["soon", "late", "none"]);
   });
 });
+
+describe("groupIssues by label", () => {
+  it("puts each task once, under its first label in order, and the rest under No label", () => {
+    const a = makeIssue({ id: "a", labels: [label("ui"), label("bug")] });
+    const b = makeIssue({ id: "b", labels: [label("ui")] });
+    const c = makeIssue({ id: "c" });
+    const groups = groupIssues([a, b, c], "label", { members: [], projects: [], labels: [label("bug"), label("ui")] });
+    expect(groups.map((g) => [g.key, g.items.map((i) => i.id)])).toEqual([
+      ["bug", ["a"]],
+      ["ui", ["b"]],
+      ["none", ["c"]],
+    ]);
+  });
+
+  it("derives the labels from the tasks when none are passed", () => {
+    const a = makeIssue({ id: "a", labels: [label("ui"), label("bug")] });
+    expect(groupIssues([a], "label", { members: [], projects: [] }).map((g) => g.key)).toEqual(["bug"]);
+  });
+});

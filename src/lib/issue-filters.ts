@@ -1,5 +1,5 @@
 import { ISSUE_TYPES, PRIORITIES, STATUSES } from "@/lib/constants";
-import type { Cycle, IssueListItem, Member, Milestone, Project } from "@/lib/types";
+import type { Cycle, IssueListItem, Label, Member, Milestone, Project } from "@/lib/types";
 
 /** Active issue filters. Empty set = no constraint for that dimension. */
 export type IssueFilters = {
@@ -112,6 +112,7 @@ export type GroupBy =
   | "project"
   | "cycle"
   | "milestone"
+  | "label"
   | "none";
 
 export const GROUP_BYS: { id: GroupBy; label: string }[] = [
@@ -122,6 +123,7 @@ export const GROUP_BYS: { id: GroupBy; label: string }[] = [
   { id: "project", label: "Project" },
   { id: "cycle", label: "Cycle" },
   { id: "milestone", label: "Milestone" },
+  { id: "label", label: "Label" },
   { id: "none", label: "None" },
 ];
 
@@ -139,6 +141,8 @@ export type GroupContext = {
   /** `hint` is a secondary label for the group header — a cycle's dates. */
   cycles?: (Pick<Cycle, "id" | "name"> & { hint?: string })[];
   milestones?: Pick<Milestone, "id" | "name">[];
+  /** Order for label groups; derived from the tasks when absent. */
+  labels?: Pick<Label, "id" | "name" | "color">[];
 };
 
 export type IssueGroup = {
@@ -164,6 +168,13 @@ function derive(
     if (v && !seen.has(v.id)) seen.set(v.id, { id: v.id, name: v.name });
   }
   return [...seen.values()];
+}
+
+/** The labels carried by a set of issues, by name. */
+function deriveLabels(issues: IssueListItem[]): Pick<Label, "id" | "name" | "color">[] {
+  const seen = new Map<string, Pick<Label, "id" | "name" | "color">>();
+  for (const i of issues) for (const l of i.labels) if (!seen.has(l.id)) seen.set(l.id, l);
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Partition issues into ordered, non-empty groups by the chosen dimension. */
@@ -240,6 +251,28 @@ export function groupIssues(
           match: (i: IssueListItem) => i.milestoneId === m.id,
         })),
         { key: "none", label: "No milestone", match: (i) => !i.milestoneId },
+      ];
+      break;
+    }
+    case "label": {
+      // One group per task — under its first label in this order — so a task
+      // with two labels is one row, and keyboard focus and range select (which
+      // key on the task) never see it twice.
+      const list = ctx.labels ?? deriveLabels(issues);
+      const rank = new Map(list.map((l, i) => [l.id, i]));
+      const firstLabel = (i: IssueListItem) =>
+        i.labels.reduce<string | null>((best, l) => {
+          if (!rank.has(l.id)) return best;
+          return best === null || rank.get(l.id)! < rank.get(best)! ? l.id : best;
+        }, null);
+      defs = [
+        ...list.map((l) => ({
+          key: l.id,
+          label: l.name,
+          color: l.color,
+          match: (i: IssueListItem) => firstLabel(i) === l.id,
+        })),
+        { key: "none", label: "No label", match: (i) => firstLabel(i) === null },
       ];
       break;
     }
