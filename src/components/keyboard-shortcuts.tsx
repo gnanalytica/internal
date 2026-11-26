@@ -38,6 +38,7 @@ const HELP = [
   { keys: "A / L", label: "Task list: assign / add label" },
   { keys: "D / E", label: "Task list: due date / points" },
   { keys: "⇧C", label: "Task list: move to cycle" },
+  { keys: "Space", label: "Task list: peek at task" },
 ];
 
 function isTyping(target: EventTarget | null): boolean {

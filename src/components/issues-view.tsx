@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Download,
   GanttChartSquare,
+  Link2,
   List as ListIcon,
   ListFilter,
   Plus,
@@ -24,6 +25,7 @@ import { BulkActionBar, type BulkMenu, type BulkPatch } from "@/components/bulk-
 import { StatusIcon } from "@/components/glyphs";
 import { IssueBoard } from "@/components/issue-board";
 import { IssueCalendar } from "@/components/issue-calendar";
+import { IssuePeek } from "@/components/issue-peek";
 import { IssueRow } from "@/components/issue-row";
 import { IssueTimelineView } from "@/components/issue-timeline-view";
 import { NewIssueDialog } from "@/components/new-issue-dialog";
@@ -76,6 +78,7 @@ import { cycleSubtitle } from "@/lib/cycle-format";
 import { FIRST_PAINT_ROWS, GROUP_PAGE, nestGroup, pageGroups, subIssueProgress } from "@/lib/issue-tree";
 import { cycleStatus, issueIdentifier } from "@/lib/types";
 import { istDay } from "@/lib/scorecard";
+import { readViewFromUrl, writeViewToUrl } from "@/lib/view-url";
 
 /** Row columns the Display menu can hide. */
 const COLUMNS = [
@@ -313,11 +316,26 @@ export function IssuesView({
             setView(s.view);
           if (Array.isArray(s.hidden)) setHidden(new Set(s.hidden));
         }
+        // A shared link wins over what this browser remembered.
+        const u = embedded ? null : readViewFromUrl(window.location.search);
+        if (u) {
+          setFStatus(new Set(u.status));
+          setFPriority(new Set(u.priority));
+          setFType(new Set(u.type));
+          setFAssignee(new Set(u.assignee));
+          setFLabel(new Set(u.label));
+          setFCycle(new Set(u.cycle));
+          setFMilestone(new Set(u.milestone));
+          setFBlocked(new Set(u.blocked));
+          if (u.sort) setSort(u.sort as SortId);
+          if (u.group) setGroupBy(u.group as GroupBy);
+          if (u.view === "list" || u.view === "board" || u.view === "timeline" || u.view === "calendar") setView(u.view);
+        }
       } catch {
         // Ignore malformed storage.
       }
     }
-  }, [storageKey]);
+  }, [storageKey, embedded]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Save on change (skipping the very first run so we don't clobber the load).
@@ -347,6 +365,26 @@ export function IssuesView({
     } catch {
       // Storage may be unavailable (private mode); ignore.
     }
+    // Keep the address bar in step, so the URL is always a link to this view.
+    // replaceState, not the router: no navigation, no server round trip.
+    if (!embedded) {
+      const next = writeViewToUrl(window.location.search, {
+        status: [...fStatus],
+        priority: [...fPriority],
+        type: [...fType],
+        assignee: [...fAssignee],
+        label: [...fLabel],
+        cycle: [...fCycle],
+        milestone: [...fMilestone],
+        blocked: [...fBlocked],
+        sort: sort === "manual" ? "" : sort,
+        group: groupBy === defaultGroupBy ? "" : groupBy,
+        view: view === "list" ? "" : view,
+      });
+      if (next !== window.location.search.replace(/^\?/, "")) {
+        window.history.replaceState(window.history.state, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
+      }
+    }
   }, [
     storageKey,
     fStatus,
@@ -361,6 +399,8 @@ export function IssuesView({
     groupBy,
     view,
     hidden,
+    embedded,
+    defaultGroupBy,
   ]);
 
   function persist(changed: { id: string; status: StatusId; sortKey: string }[]) {
@@ -619,6 +659,7 @@ export function IssuesView({
   // dialog is open, and a key straight after G is left to the app's "go to".
   const [focusId, setFocusId] = useState<string | null>(null);
   const [bulkMenu, setBulkMenu] = useState<BulkMenu | null>(null);
+  const [peekId, setPeekId] = useState<string | null>(null);
   const lastG = useRef(0);
   const focus = focusId && rowOrder.includes(focusId) ? focusId : null;
   useEffect(() => {
@@ -636,8 +677,20 @@ export function IssuesView({
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Escape") {
-        if (selected.size > 0) clearSelection();
+        if (peekId) setPeekId(null);
+        else if (selected.size > 0) clearSelection();
         else setFocusId(null);
+        return;
+      }
+      // Space peeks at the focused task (or closes the peek).
+      if (e.key === " " && !e.shiftKey) {
+        if (peekId) {
+          e.preventDefault();
+          setPeekId(null);
+        } else if (focus) {
+          e.preventDefault();
+          setPeekId(focus);
+        }
         return;
       }
       // Shift+C is "move to cycle"; plain C stays the app's create-task key.
@@ -664,6 +717,8 @@ export function IssuesView({
         const i = focus ? rowOrder.indexOf(focus) : -1;
         const next = rowOrder[i < 0 ? (step > 0 ? 0 : rowOrder.length - 1) : Math.min(rowOrder.length - 1, Math.max(0, i + step))];
         setFocusId(next);
+        // An open peek follows the focus, as in Linear.
+        if (peekId) setPeekId(next);
         document.querySelector(`[data-select-id="${CSS.escape(next)}"]`)?.scrollIntoView({ block: "nearest" });
       };
       if (key === "j" || key === "ArrowDown") return move(1);
@@ -689,7 +744,7 @@ export function IssuesView({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [view, selected.size, rowOrder, focus, clearSelection, selectAll, toggleSelect, router]);
+  }, [view, selected.size, rowOrder, focus, peekId, clearSelection, selectAll, toggleSelect, router]);
 
   // Leaving the list for the board or timeline drops the selection: neither
   // shows it, and acting on rows you can't see is how things go wrong.
@@ -837,6 +892,19 @@ export function IssuesView({
               <DropdownMenuItem onClick={saveView} className="gap-2">
                 <Plus className="size-3.5" /> Save current view…
               </DropdownMenuItem>
+              {!embedded && (
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() =>
+                    navigator.clipboard.writeText(window.location.href).then(
+                      () => toast.success("Link to this view copied"),
+                      () => toast.error("Couldn't copy the link"),
+                    )
+                  }
+                >
+                  <Link2 className="size-3.5" /> Copy link to this view
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -1095,6 +1163,10 @@ export function IssuesView({
             persist={persist}
           />
         </div>
+      )}
+
+      {peekId && issues.find((i) => i.id === peekId) && (
+        <IssuePeek issue={issues.find((i) => i.id === peekId)!} now={now} onClose={() => setPeekId(null)} />
       )}
 
       {selected.size > 0 && (
