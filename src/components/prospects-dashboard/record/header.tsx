@@ -7,13 +7,32 @@ import { isDoNotContact } from "@/lib/prospects/parse";
 import { STAGES } from "@/lib/prospects/schema";
 import { mailtoHref, telHref, whatsappHref } from "@/lib/prospects/contact";
 import { cn } from "@/lib/utils";
-import { StageDot } from "../bits";
+import { Owner, OwnerPicker, StageDot } from "../bits";
 import { useStageMove } from "../stage-check";
-import { subjectOf } from "./shared";
+import { subjectOf, useSave } from "./shared";
 import type { Ctx } from "./shared";
 
 
 /* ---------- header ---------- */
+
+/** Who owns the record, always shown; click to reassign it, or to take an unowned one. */
+export function OwnerMenu({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
+  const { save, pending } = useSave(ctx);
+  return (
+    <OwnerPicker value={r.assigned} me={ctx.me} team={ctx.team} disabled={pending} onPick={(n) => save({ assigned: n })}>
+      <button type="button" aria-label={r.assigned ? `Owner: ${r.assigned}. Change owner` : "Unassigned. Assign owner"} className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] hover:bg-muted aria-expanded:bg-muted disabled:opacity-60">
+        {r.assigned ? (
+          <>
+            <Owner name={r.assigned} /> {r.assigned}
+          </>
+        ) : (
+          <span className="text-amber-700 dark:text-amber-400">Unassigned</span>
+        )}
+        <ChevronDown className="size-3.5 text-muted-foreground" />
+      </button>
+    </OwnerPicker>
+  );
+}
 
 /** The stage, as a menu: forward moves ask for what the current stage should have found out. */
 export function StageMenu({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {

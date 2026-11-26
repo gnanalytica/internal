@@ -128,13 +128,33 @@ export function assignmentEffects(kind: ProspectKind, header: unknown[], current
 }
 
 /**
+ * Who should own a row nobody owns when its status changes: the person
+ * changing it (first name, as the team writes `assigned`). Null when the row
+ * already has an owner, the change sets the owner itself, the status doesn't
+ * really change, or nobody is known to be acting. Pure.
+ */
+export function claimOnStatusChange(kind: ProspectKind, header: unknown[], current: unknown[], patch: CellPatch, ctx: ChangeContext): string | null {
+  if (!("status" in patch) || "assigned" in patch || !WRITABLE[kind].has("assigned")) return null;
+  const col = (name: string) => header.findIndex((h) => String(h ?? "").trim() === name);
+  if (col("assigned") < 0 || String(current[col("assigned")] ?? "").trim()) return null;
+  const before = col("status") >= 0 ? String(current[col("status")] ?? "").trim().toLowerCase() : "";
+  if (before === String(patch.status ?? "").trim().toLowerCase()) return null;
+  const by = ctx.by.trim().split(/\s+/)[0] ?? "";
+  return by || null;
+}
+
+/**
  * A patch with the assignment rule applied; an existing note line stays first.
+ * A status change on an unowned row first assigns it to whoever made the
+ * change (see claimOnStatusChange), so the usual owner-change note follows.
  * An added cell whose column holds a formula is dropped, so the note or date
  * never gets the owner change itself refused.
  */
-export function withAssignment(kind: ProspectKind, header: unknown[], current: unknown[], patch: CellPatch, ctx: ChangeContext | undefined, formulas: Set<number> = new Set()): CellPatch {
-  if (!ctx) return patch;
+export function withAssignment(kind: ProspectKind, header: unknown[], current: unknown[], given: CellPatch, ctx: ChangeContext | undefined, formulas: Set<number> = new Set()): CellPatch {
+  if (!ctx) return given;
   const col = (name: string) => header.findIndex((h) => String(h ?? "").trim() === name);
+  const claim = claimOnStatusChange(kind, header, current, given, ctx);
+  const patch = claim && !formulas.has(col("assigned")) ? { ...given, assigned: claim } : given;
   const extra = assignmentEffects(kind, header, current, patch, ctx);
   if (formulas.has(col("notes"))) delete extra.prependNote;
   if (formulas.has(col("next_step_date"))) delete extra.next_step_date;
