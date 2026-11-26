@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, gt, gte, ilike, inArray, isNull, lt, max, notInArray, or } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, lt, max, or } from "drizzle-orm";
 import { del, put } from "@vercel/blob";
 import { refresh, revalidateTag, updateTag } from "next/cache";
 import { cookies } from "next/headers";
@@ -66,11 +66,10 @@ import {
   type StatusId,
 } from "@/lib/constants";
 import {
-  ceremonyTasksFor,
-  isCadenceEmpty,
   normalizeCadence,
   type CycleCadence,
 } from "@/lib/cycle-cadence";
+import { rollOverCore, stampCadence } from "@/lib/cycle-rollover";
 import { callClaudeJson, isAiConfigured } from "@/lib/ai";
 import { normalizeProposedIssue } from "@/lib/ai-parse";
 import { generateApiKey } from "@/lib/api/keys";
@@ -1647,65 +1646,7 @@ export async function deleteCycle(id: string) {
   invalidate(ws.id, "cycles");
 }
 
-/** Terminal statuses — work that a closing cycle leaves behind rather than carries. */
-const FINISHED = ["done", "canceled"];
 
-/**
- * Stamp a project's cadence ceremonies into one cycle.
- *
- * Idempotent by task title, so it is safe on every cycle creation and safe to
- * re-run by hand after the cadence changes — an existing ceremony is left
- * alone and only genuinely new ones are added. Returns how many it created.
- */
-async function stampCadence(
-  workspaceId: string,
-  creatorId: string,
-  cycle: { id: string; projectId: string; startDate: Date; endDate: Date },
-): Promise<number> {
-  const [project] = await db
-    .select({ cadence: projects.cycleCadence })
-    .from(projects)
-    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.id, cycle.projectId)))
-    .limit(1);
-  if (!project || isCadenceEmpty(project.cadence)) return 0;
-
-  const existing = await db
-    .select({ title: issues.title })
-    .from(issues)
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.cycleId, cycle.id)));
-
-  const tasks = ceremonyTasksFor(
-    project.cadence,
-    cycle,
-    existing.map((e) => e.title),
-  );
-  if (tasks.length === 0) return 0;
-
-  // Numbering restarts per project, matching createIssue.
-  const [{ value: maxNumber }] = await db
-    .select({ value: max(issues.number) })
-    .from(issues)
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.projectId, cycle.projectId)));
-
-  await db.insert(issues).values(
-    tasks.map((t, i) => ({
-      workspaceId,
-      projectId: cycle.projectId,
-      cycleId: cycle.id,
-      number: (maxNumber ?? 0) + 1 + i,
-      title: t.title,
-      type: t.type,
-      priority: t.priority,
-      status: "todo",
-      estimate: t.estimate,
-      dueDate: t.dueDate,
-      creatorId,
-      sortKey: `a${Date.now() + i}`,
-    })),
-  );
-
-  return tasks.length;
-}
 
 /**
  * Turn a support ticket into a task, keeping the thread back to the reporter.
@@ -1814,79 +1755,10 @@ export async function updateCycleCadence(projectId: string, cadence: CycleCadenc
 export async function rollOverCycle(id: string) {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
-  const [cycle] = await db
-    .select()
-    .from(cycles)
-    .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, id)))
-    .limit(1);
-  if (!cycle) throw new Error("Cycle not found");
-
-  const unfinished = await db
-    .select({ id: issues.id })
-    .from(issues)
-    .where(
-      and(
-        eq(issues.workspaceId, ws.id),
-        eq(issues.cycleId, id),
-        notInArray(issues.status, FINISHED),
-      ),
-    );
-
-  // The next cycle is the soonest one starting after this one — not simply the
-  // next number, since cycles can be created out of order.
-  const [existingNext] = await db
-    .select()
-    .from(cycles)
-    .where(
-      and(
-        eq(cycles.workspaceId, ws.id),
-        eq(cycles.projectId, cycle.projectId),
-        gt(cycles.startDate, cycle.startDate),
-      ),
-    )
-    .orderBy(asc(cycles.startDate))
-    .limit(1);
-
-  // Created without its cadence: the ceremonies are about to arrive from the
-  // cycle being rolled over, and stamping first would duplicate every one of
-  // them — the title dedupe cannot see tasks that have not moved yet.
-  const target =
-    existingNext ??
-    (await createCycle(
-      {
-        projectId: cycle.projectId,
-        startDate: cycle.endDate.toISOString(),
-        endDate: new Date(
-          cycle.endDate.getTime() + (cycle.endDate.getTime() - cycle.startDate.getTime()),
-        ).toISOString(),
-      },
-      { applyCadence: false },
-    ));
-
-  if (unfinished.length > 0) {
-    await db
-      .update(issues)
-      .set({ cycleId: target.id, updatedAt: new Date() })
-      .where(
-        and(
-          eq(issues.workspaceId, ws.id),
-          inArray(
-            issues.id,
-            unfinished.map((i) => i.id),
-          ),
-        ),
-      );
-  }
-
-  // Now that the carried-over work is in place, fill whatever the cadence is
-  // still missing — the retro that was already done last cycle, and so didn't
-  // roll over, gets a fresh one for this cycle. Only for a cycle we just
-  // created: re-stamping one the team already has would resurrect ceremonies
-  // they deliberately deleted.
-  if (!existingNext) await stampCadence(ws.id, me.id, target);
-
+  const res = await rollOverCore(ws.id, me.id, id, { createIfMissing: true, now: new Date() });
   invalidate(ws.id, "cycles", "issues");
-  return { movedCount: unfinished.length, cycle: target, created: !existingNext };
+  if (!res.cycle) throw new Error("Couldn't find or create the next cycle.");
+  return { movedCount: res.movedCount, cycle: res.cycle, created: res.created };
 }
 
 
