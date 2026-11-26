@@ -5,7 +5,7 @@
  */
 
 const LISTS = ["status", "priority", "type", "assignee", "label", "cycle", "milestone", "blocked"] as const;
-const SINGLES = ["sort", "group", "view"] as const;
+const SINGLES = ["sort", "group", "view", "scope"] as const;
 
 export type UrlView = Record<(typeof LISTS)[number], string[]> & Record<(typeof SINGLES)[number], string>;
 
@@ -26,6 +26,7 @@ export function readViewFromUrl(search: string): UrlView | null {
     sort: q.get("sort") ?? "",
     group: q.get("group") ?? "",
     view: q.get("view") ?? "",
+    scope: q.get("scope") ?? "",
   };
 }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { readViewFromUrl, writeViewToUrl, type UrlView } from "./view-url";
 
-const empty: UrlView = { status: [], priority: [], type: [], assignee: [], label: [], cycle: [], milestone: [], blocked: [], sort: "", group: "", view: "" };
+const empty: UrlView = { status: [], priority: [], type: [], assignee: [], label: [], cycle: [], milestone: [], blocked: [], sort: "", group: "", view: "", scope: "" };
 
 describe("view in the URL", () => {
   it("writes only what is set, keeps other params, and reads it back", () => {

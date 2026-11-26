@@ -18,6 +18,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Timer,
   X,
 } from "lucide-react";
 
@@ -79,6 +80,7 @@ import { FIRST_PAINT_ROWS, GROUP_PAGE, nestGroup, pageGroups, subIssueProgress }
 import { cycleStatus, issueIdentifier } from "@/lib/types";
 import { istDay } from "@/lib/scorecard";
 import { readViewFromUrl, writeViewToUrl } from "@/lib/view-url";
+import { CYCLE_SCOPES, cyclesInScope, type CycleScope } from "@/lib/cycle-scope";
 
 /** Row columns the Display menu can hide. */
 const COLUMNS = [
@@ -143,6 +145,7 @@ export function IssuesView({
   blockedIds = [],
   defaultGroupBy = "status",
   embedded = false,
+  cycleSwitcher = false,
   storageScope,
 }: {
   initialIssues: IssueListItem[];
@@ -174,6 +177,8 @@ export function IssuesView({
   defaultGroupBy?: GroupBy;
   /** Hide the page Topbar when rendered inside another tabbed surface. */
   embedded?: boolean;
+  /** Show the Previous / Current / Next cycle switcher (My tasks). */
+  cycleSwitcher?: boolean;
   /**
    * Distinguishes the persisted filter/sort/view state when the same project is
    * shown on more than one surface. Without it, changing the view on the
@@ -195,6 +200,8 @@ export function IssuesView({
   const [fAssignee, setFAssignee] = useState<Set<string>>(new Set());
   const [fLabel, setFLabel] = useState<Set<string>>(new Set());
   const [fCycle, setFCycle] = useState<Set<string>>(new Set());
+  /** A relative cycle choice (My tasks); wins over fCycle while set. */
+  const [cycleScope, setCycleScope] = useState<CycleScope | null>(null);
   const [fMilestone, setFMilestone] = useState<Set<string>>(new Set());
   const [fBlocked, setFBlocked] = useState<Set<string>>(new Set());
   // Deliberately not persisted or saved into a view: search is how you find one
@@ -315,6 +322,7 @@ export function IssuesView({
           if (s.view === "list" || s.view === "board" || s.view === "timeline" || s.view === "calendar")
             setView(s.view);
           if (Array.isArray(s.hidden)) setHidden(new Set(s.hidden));
+          if (cycleSwitcher && CYCLE_SCOPES.some((c) => c.id === s.cycleScope)) setCycleScope(s.cycleScope);
         }
         // A shared link wins over what this browser remembered.
         const u = embedded ? null : readViewFromUrl(window.location.search);
@@ -330,12 +338,13 @@ export function IssuesView({
           if (u.sort) setSort(u.sort as SortId);
           if (u.group) setGroupBy(u.group as GroupBy);
           if (u.view === "list" || u.view === "board" || u.view === "timeline" || u.view === "calendar") setView(u.view);
+          if (cycleSwitcher) setCycleScope(CYCLE_SCOPES.find((c) => c.id === u.scope)?.id ?? null);
         }
       } catch {
         // Ignore malformed storage.
       }
     }
-  }, [storageKey, embedded]);
+  }, [storageKey, embedded, cycleSwitcher]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Save on change (skipping the very first run so we don't clobber the load).
@@ -360,6 +369,7 @@ export function IssuesView({
           groupBy,
           view,
           hidden: [...hidden],
+          cycleScope,
         }),
       );
     } catch {
@@ -380,6 +390,7 @@ export function IssuesView({
         sort: sort === "manual" ? "" : sort,
         group: groupBy === defaultGroupBy ? "" : groupBy,
         view: view === "list" ? "" : view,
+        scope: cycleScope ?? "",
       });
       if (next !== window.location.search.replace(/^\?/, "")) {
         window.history.replaceState(window.history.state, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
@@ -401,6 +412,7 @@ export function IssuesView({
     hidden,
     embedded,
     defaultGroupBy,
+    cycleScope,
   ]);
 
   function persist(changed: { id: string; status: StatusId; sortKey: string }[]) {
@@ -534,7 +546,10 @@ export function IssuesView({
               ...cycleOptions.map((c) => ({ value: c.id, label: c.name, hint: c.hint })),
             ],
             selected: fCycle,
-            onChange: setFCycle,
+            onChange: (next: Set<string>) => {
+              setCycleScope(null);
+              setFCycle(next);
+            },
           },
         ]
       : []),
@@ -568,6 +583,15 @@ export function IssuesView({
       : []),
   ];
 
+  // The switcher's cycles, or the Filter menu's. An empty scope matches
+  // nothing (no current cycle anywhere), not everything.
+  const scopedCycles = useMemo(() => {
+    if (!cycleScope) return null;
+    const ids = cyclesInScope(cycleScope, cycles, now);
+    return ids.size ? ids : new Set(["__none"]);
+  }, [cycleScope, cycles, now]);
+  const effectiveCycle = scopedCycles ?? fCycle;
+
   const visible = useMemo(() => {
     const matched = filterIssues(stamped, {
       status: fStatus,
@@ -575,7 +599,7 @@ export function IssuesView({
       type: fType,
       assignee: fAssignee,
       label: fLabel,
-      cycle: fCycle,
+      cycle: effectiveCycle,
       milestone: fMilestone,
       blocked: fBlocked,
     });
@@ -588,7 +612,7 @@ export function IssuesView({
         i.assignee?.name.toLowerCase().includes(needle) ||
         i.milestone?.name.toLowerCase().includes(needle),
     );
-  }, [stamped, fStatus, fPriority, fType, fAssignee, fLabel, fCycle, fMilestone, fBlocked, query]);
+  }, [stamped, fStatus, fPriority, fType, fAssignee, fLabel, effectiveCycle, fMilestone, fBlocked, query]);
 
   const compare = useMemo(() => issueComparator(sort), [sort]);
 
@@ -795,6 +819,7 @@ export function IssuesView({
   }
 
   function clearFilters() {
+    setCycleScope(null);
     setFStatus(new Set());
     setFPriority(new Set());
     setFType(new Set());
@@ -850,6 +875,25 @@ export function IssuesView({
           categories={filterCategories}
           activeCount={activeFilterCount}
         />
+
+        {cycleSwitcher && (
+          <CycleSwitcher
+            scope={cycleScope}
+            picked={cycleScope ? null : fCycle.size === 1 ? [...fCycle][0] : null}
+            cycles={cycles}
+            projects={projects}
+            issueProjects={new Set(issues.map((i) => i.projectId).filter((x): x is string => !!x))}
+            now={now}
+            onScope={(s) => {
+              setCycleScope(s);
+              setFCycle(new Set());
+            }}
+            onPick={(id) => {
+              setCycleScope(null);
+              setFCycle(new Set([id]));
+            }}
+          />
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           <DropdownMenu>
@@ -1386,6 +1430,82 @@ function EmptyState({
           </Button>
         }
       />
+    </div>
+  );
+}
+
+/**
+ * My tasks' cycle switcher: All · Previous · Current · Next, or one cycle
+ * picked from the list. The relative choices follow the calendar (see
+ * lib/cycle-scope), so "Current" stays current.
+ */
+function CycleSwitcher({
+  scope,
+  picked,
+  cycles,
+  projects,
+  issueProjects,
+  now,
+  onScope,
+  onPick,
+}: {
+  scope: CycleScope | null;
+  picked: string | null;
+  cycles: Cycle[];
+  projects: Project[];
+  /** Projects that have tasks in this list; the picker offers their cycles. */
+  issueProjects: Set<string>;
+  now: Date;
+  onScope: (s: CycleScope | null) => void;
+  onPick: (id: string) => void;
+}) {
+  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? "";
+  const names = (s: CycleScope) => {
+    const ids = cyclesInScope(s, cycles, now);
+    const list = cycles.filter((c) => ids.has(c.id)).map((c) => `${c.name} (${projectName(c.projectId)})`);
+    return list.length ? list.join(", ") : "No cycle";
+  };
+  const pickable = cycles
+    .filter((c) => issueProjects.has(c.projectId))
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  const pickedCycle = picked ? cycles.find((c) => c.id === picked) : null;
+  const seg = (active: boolean) =>
+    cn(
+      "h-6 rounded px-2 text-[12px] font-medium transition-colors",
+      active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+    );
+  return (
+    <div role="group" aria-label="Cycle" className="flex items-center gap-0.5 rounded-md border bg-muted/40 p-0.5">
+      <Timer className="mx-1 size-3.5 text-muted-foreground" />
+      <button type="button" className={seg(!scope && !picked)} onClick={() => onScope(null)}>
+        All
+      </button>
+      {CYCLE_SCOPES.map((s) => (
+        <button key={s.id} type="button" className={seg(scope === s.id)} title={names(s.id)} onClick={() => onScope(s.id)}>
+          {s.label}
+        </button>
+      ))}
+      <DropdownMenu>
+        <DropdownMenuTrigger className={cn(seg(!!pickedCycle), "inline-flex items-center gap-1")}>
+          <span className="max-w-32 truncate">{pickedCycle ? pickedCycle.name : "Pick"}</span>
+          <ChevronDown className="size-3 opacity-60" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-h-80 w-72">
+          {pickable.length === 0 ? (
+            <div className="px-2 py-1.5 text-ui text-muted-foreground">No cycles in your projects</div>
+          ) : (
+            pickable.map((c) => (
+              <DropdownMenuItem key={c.id} onClick={() => onPick(c.id)} className="flex-col items-start gap-0">
+                <span className="flex w-full items-center gap-1.5">
+                  <span className="truncate font-medium">{c.name}</span>
+                  <span className="ml-auto truncate text-[11px] text-muted-foreground">{projectName(c.projectId)}</span>
+                </span>
+                <span className="text-[11px] text-muted-foreground">{cycleSubtitle(c, now)}</span>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
