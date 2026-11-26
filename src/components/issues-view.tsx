@@ -42,6 +42,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -71,7 +72,17 @@ import {
 } from "@/lib/issue-filters";
 import { cycleSubtitle } from "@/lib/cycle-format";
 import { FIRST_PAINT_ROWS, GROUP_PAGE, nestGroup, pageGroups, subIssueProgress } from "@/lib/issue-tree";
-import { issueIdentifier } from "@/lib/types";
+import { cycleStatus, issueIdentifier } from "@/lib/types";
+import { istDay } from "@/lib/scorecard";
+
+/** Row columns the Display menu can hide. */
+const COLUMNS = [
+  { id: "labels", label: "Labels" },
+  { id: "estimate", label: "Points" },
+  { id: "due", label: "Due date" },
+  { id: "project", label: "Project" },
+  { id: "assignees", label: "Assignees" },
+];
 import type {
   Cycle,
   IssueListItem,
@@ -187,6 +198,8 @@ export function IssuesView({
   // One clock for the whole view — cycle timings that disagree row to row read
   // as a bug.
   const [now] = useState(() => new Date());
+  /** Columns switched off in Display → Show. */
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [sort, setSort] = useState<SortId>("manual");
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroupBy);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -296,6 +309,7 @@ export function IssuesView({
           if (typeof s.groupBy === "string") setGroupBy(s.groupBy as GroupBy);
           if (s.view === "list" || s.view === "board" || s.view === "timeline")
             setView(s.view);
+          if (Array.isArray(s.hidden)) setHidden(new Set(s.hidden));
         }
       } catch {
         // Ignore malformed storage.
@@ -325,6 +339,7 @@ export function IssuesView({
           sort,
           groupBy,
           view,
+          hidden: [...hidden],
         }),
       );
     } catch {
@@ -343,6 +358,7 @@ export function IssuesView({
     sort,
     groupBy,
     view,
+    hidden,
   ]);
 
   function persist(changed: { id: string; status: StatusId; sortKey: string }[]) {
@@ -526,6 +542,7 @@ export function IssuesView({
     projects,
     cycles: cycleOptions,
     milestones: milestoneOptions,
+    labels: labels.length ? [...labels].sort((a, b) => a.name.localeCompare(b.name)) : undefined,
   });
   const grouped = (
     groupBy === "status" && view === "list"
@@ -608,6 +625,15 @@ export function IssuesView({
         else setFocusId(null);
         return;
       }
+      // Shift+C is "move to cycle"; plain C stays the app's create-task key.
+      if (e.shiftKey && e.key.toLowerCase() === "c") {
+        if (selected.size > 0 || focus) {
+          e.preventDefault();
+          if (selected.size === 0 && focus) toggleSelect(focus);
+          setBulkMenu("cycle");
+        }
+        return;
+      }
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       if (key === "g") {
         lastG.current = Date.now();
@@ -632,12 +658,14 @@ export function IssuesView({
         toggleSelect(focus);
         return;
       }
+      // Enter on a focused button or link is that control's own business.
+      if (key === "Enter" && t?.closest("a,button,[role=button],[role=menuitem]")) return;
       if ((key === "Enter" || key === "o") && focus) {
         e.preventDefault();
         router.push(`/issues/${focus}`);
         return;
       }
-      const menus: Record<string, BulkMenu> = { s: "status", p: "priority", a: "assignee", l: "label" };
+      const menus: Record<string, BulkMenu> = { s: "status", p: "priority", a: "assignee", l: "label", d: "due", e: "estimate" };
       if (menus[key] && (selected.size > 0 || focus)) {
         e.preventDefault();
         if (selected.size === 0 && focus) toggleSelect(focus);
@@ -654,12 +682,26 @@ export function IssuesView({
     if (view !== "list") clearSelection();
   }, [view, clearSelection]);
 
+  // Cycles the selection can move into: open cycles of the one project every
+  // selected task shares, or null when the selection spans projects.
+  const bulkCycleChoices = useMemo(() => {
+    const projectIds = new Set(issues.filter((i) => selected.has(i.id)).map((i) => i.projectId));
+    if (projectIds.size !== 1) return null;
+    const [pid] = [...projectIds];
+    if (!pid) return null;
+    return cycles
+      .filter((c) => c.projectId === pid && cycleStatus(c, now) !== "completed")
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+      .map((c) => ({ id: c.id, name: c.name, hint: cycleSubtitle(c, now) }));
+  }, [issues, selected, cycles, now]);
+
   function applyBulk(patch: BulkPatch, done: string) {
     const ids = [...selected];
     startBulk(async () => {
       try {
-        await bulkUpdateIssues(ids, patch);
-        toast.success(done);
+        const res = await bulkUpdateIssues(ids, patch);
+        if (res.skipped) toast.warning(`${done.replace(/\d+ tasks?/, `${res.updated} of ${ids.length}`)} — ${res.skipped} from other projects were left as they were`);
+        else toast.success(done);
         clearSelection();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Couldn't update the tasks");
@@ -814,6 +856,27 @@ export function IssuesView({
                 </DropdownMenuRadioGroup>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Show</DropdownMenuLabel>
+                {COLUMNS.map((c) => (
+                  <DropdownMenuCheckboxItem
+                    key={c.id}
+                    checked={!hidden.has(c.id)}
+                    closeOnClick={false}
+                    onCheckedChange={(on) =>
+                      setHidden((prev) => {
+                        const next = new Set(prev);
+                        if (on) next.delete(c.id);
+                        else next.add(c.id);
+                        return next;
+                      })
+                    }
+                  >
+                    {c.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="gap-2"
                 onClick={() =>
@@ -940,6 +1003,7 @@ export function IssuesView({
                       members={members}
                       selected={selected.has(issue.id)}
                       focused={focus === issue.id}
+                      hidden={hidden}
                       onToggleSelect={() => toggleSelect(issue.id)}
                       onSelectPointerDown={(e) => selectPointerDown(issue.id, e)}
                       selecting={selected.size > 0}
@@ -971,6 +1035,7 @@ export function IssuesView({
                           members={members}
                           selected={selected.has(child.id)}
                           focused={focus === child.id}
+                          hidden={hidden}
                           onToggleSelect={() => toggleSelect(child.id)}
                           onSelectPointerDown={(e) => selectPointerDown(child.id, e)}
                           selecting={selected.size > 0}
@@ -1024,6 +1089,8 @@ export function IssuesView({
           labels={labels}
           menu={bulkMenu}
           onMenu={setBulkMenu}
+          today={istDay(now)}
+          cycleChoices={bulkCycleChoices}
         />
       )}
     </div>

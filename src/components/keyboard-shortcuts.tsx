@@ -36,6 +36,8 @@ const HELP = [
   { keys: "Enter", label: "Task list: open" },
   { keys: "S / P", label: "Task list: set status / priority" },
   { keys: "A / L", label: "Task list: assign / add label" },
+  { keys: "D / E", label: "Task list: due date / points" },
+  { keys: "⇧C", label: "Task list: move to cycle" },
 ];
 
 function isTyping(target: EventTarget | null): boolean {
@@ -90,7 +92,8 @@ export function KeyboardShortcuts({
         return;
       }
 
-      if (e.key === "c") {
+      // Shift+C belongs to the task list (move to cycle).
+      if (e.key === "c" && !e.shiftKey) {
         e.preventDefault();
         setNewOpen(true);
         return;

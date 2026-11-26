@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Folder, Loader2, Tag, Trash2, UserRound, X } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Folder, Gauge, Loader2, Tag, Timer, Trash2, UserRound, X } from "lucide-react";
 
 import { PriorityIcon, StatusIcon, UserAvatar } from "@/components/glyphs";
 import { Button } from "@/components/ui/button";
@@ -30,10 +30,23 @@ export type BulkPatch = {
   projectId?: string | null;
   assigneeIds?: string[];
   addLabelIds?: string[];
+  dueDate?: string | null;
+  estimate?: number | null;
+  cycleId?: string | null;
+};
+
+/** Story points on offer, Fibonacci-ish as most teams size. */
+const POINTS = [1, 2, 3, 5, 8, 13];
+
+/** yyyy-mm-dd plus `days`. */
+const plusDays = (iso: string, days: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 };
 
 /** Which of the bar's menus is open; the list's S / P / A / L keys open them. */
-export type BulkMenu = "status" | "priority" | "assignee" | "label" | "project";
+export type BulkMenu = "status" | "priority" | "assignee" | "label" | "project" | "due" | "estimate" | "cycle";
 
 function Key({ k }: { k: string }) {
   return <kbd className="ml-0.5 hidden rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground sm:inline">{k}</kbd>;
@@ -60,6 +73,8 @@ export function BulkActionBar({
   onClear,
   menu,
   onMenu,
+  today,
+  cycleChoices,
 }: {
   count: number;
   /** Rows in view, so "Select all" knows whether there's anything left to add. */
@@ -75,6 +90,10 @@ export function BulkActionBar({
   /** The open menu, held by the list so a key can open one. */
   menu: BulkMenu | null;
   onMenu: (m: BulkMenu | null) => void;
+  /** Today in India time, yyyy-mm-dd, for the quick due dates. */
+  today: string;
+  /** Open cycles of the project every selected task shares; null when the selection spans projects. */
+  cycleChoices: { id: string; name: string; hint?: string }[] | null;
 }) {
   // Armed for one selection size: change the selection and it disarms, since
   // confirming then would be confirming the wrong thing.
@@ -84,6 +103,12 @@ export function BulkActionBar({
   const setAssigneeOpen = (o: boolean) => onMenu(o ? "assignee" : null);
   const setProjectOpen = (o: boolean) => onMenu(o ? "project" : null);
   const setLabelOpen = (o: boolean) => onMenu(o ? "label" : null);
+  const setDueOpen = (o: boolean) => onMenu(o ? "due" : null);
+  const setCycleOpen = (o: boolean) => onMenu(o ? "cycle" : null);
+  const due = (iso: string | null, what: string) => {
+    setDueOpen(false);
+    onApply({ dueDate: iso }, iso ? `Set ${tasks(count)} due ${what}` : `Cleared the due date on ${tasks(count)}`);
+  };
   const tasks = (n: number) => `${n} ${n === 1 ? "task" : "tasks"}`;
 
   return (
@@ -259,6 +284,111 @@ export function BulkActionBar({
                 </CommandGroup>
               </CommandList>
             </Command>
+          </PopoverContent>
+        </Popover>
+
+        {/* Due date */}
+        <Popover open={menu === "due"} onOpenChange={setDueOpen}>
+          <PopoverTrigger disabled={pending} render={<Button variant="ghost" size="sm" className={trigger} />}>
+            <CalendarClock className="size-3.5 text-muted-foreground" /> Due
+            <Key k="D" />
+          </PopoverTrigger>
+          <PopoverContent side="top" align="center" className="w-56 p-1">
+            {[
+              { label: "Today", days: 0 },
+              { label: "Tomorrow", days: 1 },
+              { label: "In 3 days", days: 3 },
+              { label: "Next week", days: 7 },
+              { label: "In 2 weeks", days: 14 },
+            ].map((q) => (
+              <button key={q.label} type="button" onClick={() => due(plusDays(today, q.days), q.label.toLowerCase())} className="flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-sm hover:bg-accent">
+                {q.label}
+                <span className="font-mono text-[11px] text-muted-foreground">{plusDays(today, q.days).slice(5)}</span>
+              </button>
+            ))}
+            <label className="flex h-9 items-center gap-2 px-2 text-sm">
+              <span className="text-muted-foreground">On</span>
+              <input
+                type="date"
+                aria-label="Due date"
+                onChange={(e) => e.target.value && due(e.target.value, e.target.value)}
+                className="h-7 flex-1 rounded-md border bg-background px-1.5 text-xs"
+              />
+            </label>
+            <div className="my-1 h-px bg-border" />
+            <button type="button" onClick={() => due(null, "")} className="flex h-8 w-full items-center rounded-md px-2 text-left text-sm text-muted-foreground hover:bg-accent">
+              No due date
+            </button>
+          </PopoverContent>
+        </Popover>
+
+        {/* Points */}
+        <DropdownMenu {...openFor("estimate")}>
+          <DropdownMenuTrigger disabled={pending} render={<Button variant="ghost" size="sm" className={trigger} />}>
+            <Gauge className="size-3.5 text-muted-foreground" /> Points
+            <Key k="E" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" side="top" className="w-36">
+            {POINTS.map((n) => (
+              <DropdownMenuItem key={n} onClick={() => onApply({ estimate: n }, `Set ${tasks(count)} to ${n} point${n === 1 ? "" : "s"}`)} className="gap-2 tabular-nums">
+                {n} {n === 1 ? "point" : "points"}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem onClick={() => onApply({ estimate: null }, `Cleared points on ${tasks(count)}`)} className="text-muted-foreground">
+              No estimate
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Cycle: only within one project, since a cycle belongs to one */}
+        <Popover open={menu === "cycle"} onOpenChange={setCycleOpen}>
+          <PopoverTrigger
+            disabled={pending}
+            render={<Button variant="ghost" size="sm" className={trigger} />}
+          >
+            <Timer className="size-3.5 text-muted-foreground" /> Cycle
+            <Key k="⇧C" />
+          </PopoverTrigger>
+          <PopoverContent side="top" align="center" className="w-64 p-0">
+            {cycleChoices === null ? (
+              <p className="px-3 py-3 text-xs text-muted-foreground">These tasks are in different projects. A cycle belongs to one project, so select tasks from one project to set it.</p>
+            ) : (
+              <Command>
+                <CommandInput placeholder="Move to cycle…" className="h-9" />
+                <CommandList>
+                  <CommandEmpty>No open cycle in this project.</CommandEmpty>
+                  <CommandGroup>
+                    {cycleChoices.map((c) => (
+                      <CommandItem
+                        key={c.id}
+                        value={c.id}
+                        keywords={[c.name]}
+                        onSelect={() => {
+                          setCycleOpen(false);
+                          onApply({ cycleId: c.id }, `Moved ${tasks(count)} to ${c.name}`);
+                        }}
+                        className="gap-2"
+                      >
+                        <Timer className="size-3.5 text-muted-foreground" />
+                        <span className="flex-1 truncate">{c.name}</span>
+                        {c.hint && <span className="text-[10px] text-muted-foreground">{c.hint}</span>}
+                      </CommandItem>
+                    ))}
+                    <CommandItem
+                      value="__none"
+                      keywords={["no cycle", "none", "remove"]}
+                      onSelect={() => {
+                        setCycleOpen(false);
+                        onApply({ cycleId: null }, `Took ${tasks(count)} out of their cycle`);
+                      }}
+                      className="gap-2 text-muted-foreground"
+                    >
+                      No cycle
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            )}
           </PopoverContent>
         </Popover>
 

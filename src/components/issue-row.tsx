@@ -48,6 +48,7 @@ export function IssueRow({
   showAssignees = true,
   showCreated = true,
   showProject = true,
+  hidden,
 }: {
   issue: IssueListItem;
   members: Member[];
@@ -71,7 +72,10 @@ export function IssueRow({
   showAssignees?: boolean;
   showCreated?: boolean;
   showProject?: boolean;
+  /** Columns turned off in the list's Display menu: labels, estimate, due, project, assignees. */
+  hidden?: ReadonlySet<string>;
 }) {
+  const shows = (col: string) => !hidden?.has(col);
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [fallbackNow] = useState(() => new Date());
@@ -169,7 +173,7 @@ export function IssueRow({
             </span>
           )}
 
-          {issue.labels.length > 0 && (
+          {shows("labels") && issue.labels.length > 0 && (
             <span className="hidden lg:flex">
               <LabelChips labels={issue.labels} />
             </span>
@@ -197,7 +201,7 @@ export function IssueRow({
             </span>
           )}
 
-          {issue.estimate != null && (
+          {shows("estimate") && issue.estimate != null && (
             <span
               className="hidden min-w-5 rounded-sm border px-1 text-center text-[11px] tabular-nums text-muted-foreground md:inline"
               title={`Estimate: ${issue.estimate}`}
@@ -207,7 +211,7 @@ export function IssueRow({
           )}
 
           {/* Fixed slot so due dates line up down the list. */}
-          <span className="flex w-[5.5rem] justify-start">
+          {shows("due") && <span className="flex w-[5.5rem] justify-start">
             {due && (
               <span
                 className={cn("flex items-center gap-1 text-[12px] tabular-nums", DUE_TONE[due.tone])}
@@ -217,9 +221,9 @@ export function IssueRow({
                 {due.text}
               </span>
             )}
-          </span>
+          </span>}
 
-          {showProject && issue.project && (
+          {showProject && shows("project") && issue.project && (
             <span
               className="hidden w-12 items-center gap-1.5 text-[12px] text-muted-foreground md:flex"
               title={issue.project.name}
@@ -237,7 +241,7 @@ export function IssueRow({
             </span>
           )}
 
-          {showAssignees && (
+          {showAssignees && shows("assignees") && (
             <MultiAssigneePicker
               members={members}
               value={issue.assignees.map((a) => a.id)}

@@ -845,8 +845,14 @@ export async function bulkUpdateIssues(
     assigneeIds?: string[];
     /** Labels to add to every task (existing labels stay). */
     addLabelIds?: string[];
+    /** yyyy-mm-dd, or null to clear. */
+    dueDate?: string | null;
+    /** Story points, or null to clear. */
+    estimate?: number | null;
+    /** A cycle of the tasks' own project, or null to take them out of their cycle. */
+    cycleId?: string | null;
   },
-): Promise<{ updated: number }> {
+): Promise<{ updated: number; skipped?: number }> {
   const ws = await getWorkspace();
   const me = await getCurrentUser(ws.id);
   const unique = [...new Set(ids)].slice(0, 500);
@@ -855,10 +861,40 @@ export async function bulkUpdateIssues(
   if (patch.projectId !== undefined) {
     await moveIssuesToProject(ws.id, me.id, unique, patch.projectId);
   }
-  if (patch.status !== undefined || patch.priority !== undefined) {
+  if (patch.dueDate !== undefined && patch.dueDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(patch.dueDate)) {
+    throw new Error("Due date must be yyyy-mm-dd.");
+  }
+  if (patch.estimate !== undefined && patch.estimate !== null && !(Number.isInteger(patch.estimate) && patch.estimate >= 0 && patch.estimate <= 100)) {
+    throw new Error("Points must be a whole number from 0 to 100.");
+  }
+  let skipped = 0;
+  if (patch.cycleId !== undefined) {
+    // A cycle belongs to one project: only that project's tasks join it.
+    const own = await db
+      .select({ id: issues.id, projectId: issues.projectId })
+      .from(issues)
+      .where(and(eq(issues.workspaceId, ws.id), inArray(issues.id, unique)));
+    let fits = own.map((i) => i.id);
+    if (patch.cycleId !== null) {
+      const [cycle] = await db
+        .select({ projectId: cycles.projectId })
+        .from(cycles)
+        .where(and(eq(cycles.workspaceId, ws.id), eq(cycles.id, patch.cycleId)))
+        .limit(1);
+      if (!cycle) throw new Error("Cycle not found.");
+      fits = own.filter((i) => i.projectId === cycle.projectId).map((i) => i.id);
+    }
+    skipped = unique.length - fits.length;
+    for (let i = 0; i < fits.length; i += 10) {
+      await Promise.all(fits.slice(i, i + 10).map((id) => updateIssue(id, { cycleId: patch.cycleId! })));
+    }
+  }
+  if (patch.status !== undefined || patch.priority !== undefined || patch.dueDate !== undefined || patch.estimate !== undefined) {
     const scalar = {
       ...(patch.status !== undefined ? { status: patch.status } : {}),
       ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+      ...(patch.dueDate !== undefined ? { dueDate: patch.dueDate } : {}),
+      ...(patch.estimate !== undefined ? { estimate: patch.estimate } : {}),
     };
     // Small batches: parallel enough to be quick, not so wide it floods the pool.
     for (let i = 0; i < unique.length; i += 10) {
@@ -882,7 +918,7 @@ export async function bulkUpdateIssues(
     if (rows.length) await db.insert(issueLabels).values(rows).onConflictDoNothing();
   }
   invalidate(ws.id, "issues");
-  return { updated: unique.length };
+  return { updated: unique.length - skipped, ...(skipped ? { skipped } : {}) };
 }
 
 /** Delete many tasks in one request. */
