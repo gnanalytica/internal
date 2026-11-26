@@ -70,6 +70,7 @@ import {
   type CycleCadence,
 } from "@/lib/cycle-cadence";
 import { rollOverCore, stampCadence } from "@/lib/cycle-rollover";
+import { PROSPECTS_PRODUCT_KEY } from "@/lib/prospects/schema";
 import { clampPointsDone } from "@/lib/points";
 import { callClaudeJson, isAiConfigured } from "@/lib/ai";
 import { normalizeProposedIssue } from "@/lib/ai-parse";
@@ -1850,6 +1851,28 @@ export async function updateProject(
     .set(values)
     .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
   invalidate(ws.id, "projects");
+}
+
+/**
+ * Change a project's key — the prefix of its task identifiers (NEWP-12 → FC-12).
+ * Tasks keep their numbers; links use ids, so nothing breaks, but the old
+ * identifiers written in text (docs, comments) stop matching. 2–6 letters or
+ * digits, starting with a letter, unique in the workspace. Valytica's key is
+ * fixed: Sales finds its prospects by it.
+ */
+export async function updateProjectKey(id: string, rawKey: string): Promise<{ key: string }> {
+  const ws = await getWorkspace();
+  const key = rawKey.trim().toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{1,5}$/.test(key)) throw new Error("A key is 2–6 letters or digits, starting with a letter.");
+  const rows = await db.select({ id: projects.id, key: projects.key }).from(projects).where(eq(projects.workspaceId, ws.id));
+  const current = rows.find((p) => p.id === id);
+  if (!current) throw new Error("Project not found.");
+  if (current.key === key) return { key };
+  if (current.key === PROSPECTS_PRODUCT_KEY) throw new Error(`${PROSPECTS_PRODUCT_KEY} can't change: Sales finds its prospects by it.`);
+  if (rows.some((p) => p.id !== id && p.key === key)) throw new Error(`${key} is already another project's key.`);
+  await db.update(projects).set({ key }).where(and(eq(projects.workspaceId, ws.id), eq(projects.id, id)));
+  invalidate(ws.id, "projects", "issues");
+  return { key };
 }
 
 const HEALTH = new Set(["on_track", "at_risk", "off_track"]);
