@@ -1078,6 +1078,28 @@ export async function getCycles(
       project: { columns: { name: true, color: true } },
     },
   });
+  // Work each cycle carried out by rollover (the `cycle` activity entries it
+  // writes): committed there, not done there. Without it a cycle that rolled
+  // work forward looks fully done and velocity reads high.
+  const carried = rows.length
+    ? await db
+        .select({ issueId: activity.issueId, from: sql<string>`${activity.data}->>'from'`, estimate: issues.estimate })
+        .from(activity)
+        .innerJoin(issues, eq(issues.id, activity.issueId))
+        .where(
+          and(
+            eq(activity.workspaceId, workspaceId),
+            eq(activity.type, "cycle"),
+            inArray(sql<string>`${activity.data}->>'from'`, rows.map((r) => r.id)),
+          ),
+        )
+    : [];
+  const carriedOut = new Map<string, Map<string, { estimate: number | null }>>();
+  for (const r of carried) {
+    const m = carriedOut.get(r.from) ?? new Map();
+    m.set(r.issueId, { estimate: r.estimate });
+    carriedOut.set(r.from, m);
+  }
   return rows.map((c) => ({
     ...c,
     projectName: c.project?.name ?? "",
@@ -1085,6 +1107,7 @@ export async function getCycles(
     issueCount: c.issues.length,
     doneCount: c.issues.filter((i) => i.status === "done").length,
     issues: c.issues.map((i) => ({ status: i.status, estimate: i.estimate })),
+    carriedOut: [...(carriedOut.get(c.id)?.values() ?? [])],
   }));
 }
 

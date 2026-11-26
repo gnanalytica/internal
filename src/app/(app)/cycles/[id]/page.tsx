@@ -18,7 +18,9 @@ export default async function CycleRoute({
   if (!cycle) notFound();
 
   const burndown = computeBurndown({
-    issues: cycle.issues.map((i) => ({
+    // Canceled work was decided against, not burned down — left out here as it
+    // is in velocity and the Effort section, so all three show the same total.
+    issues: cycle.issues.filter((i) => i.status !== "canceled").map((i) => ({
       id: i.id,
       estimate: i.estimate,
       createdAt: i.createdAt,

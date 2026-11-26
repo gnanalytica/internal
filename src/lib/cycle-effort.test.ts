@@ -8,7 +8,7 @@ const members = [
 ];
 
 describe("cycleEffort", () => {
-  it("adds points per lead assignee, splits done and open, and counts unestimated", () => {
+  it("adds points per lead assignee (unestimated = 1, as burndown does), splits done and open, and counts unestimated", () => {
     const { rows, total } = cycleEffort(
       [
         { id: "1", assigneeId: "u1", estimate: 5, status: "done" },
@@ -21,10 +21,10 @@ describe("cycleEffort", () => {
     );
     expect(rows.map((r) => [r.name, r.tasks, r.points, r.donePoints, r.openPoints, r.unestimated])).toEqual([
       ["Parv", 2, 8, 5, 3, 0],
-      ["Tasleem", 1, 0, 0, 0, 1],
+      ["Tasleem", 1, 1, 0, 1, 1],
       ["Unassigned", 1, 2, 0, 2, 0],
     ]);
-    expect(total).toMatchObject({ tasks: 4, points: 10, donePoints: 5, openPoints: 5, unestimated: 1 });
+    expect(total).toMatchObject({ tasks: 4, points: 11, donePoints: 5, openPoints: 6, unestimated: 1 });
   });
 
   it("puts a task whose assignee left the workspace under Unassigned", () => {
@@ -34,6 +34,6 @@ describe("cycleEffort", () => {
 
 describe("carried", () => {
   it("sums points and counts the unestimated", () => {
-    expect(carried([{ estimate: 3 }, { estimate: null }, { estimate: 2 }])).toEqual({ count: 3, points: 5, unestimated: 1 });
+    expect(carried([{ estimate: 3 }, { estimate: null }, { estimate: 2 }])).toEqual({ count: 3, points: 6, unestimated: 1 });
   });
 });

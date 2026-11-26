@@ -4,8 +4,9 @@
  * without a database.
  *
  * A task counts once, against its lead assignee (`assigneeId`), so the rows
- * add up to the cycle. Unestimated tasks are counted, not guessed: they show
- * as a number to fix rather than a silent 1. Canceled work is left out.
+ * add up to the cycle. An unestimated task weighs 1 point, as in the burndown
+ * and velocity, so the three agree; the unestimated count is still shown as
+ * something to fix. Canceled work is left out.
  */
 
 export type EffortTask = { id: string; assigneeId: string | null; estimate: number | null; status: string };
@@ -35,7 +36,7 @@ export function cycleEffort(tasks: EffortTask[], members: { id: string; name: st
     for (const r of [row, total]) {
       r.tasks++;
       if (t.estimate == null) r.unestimated++;
-      const pts = t.estimate ?? 0;
+      const pts = t.estimate ?? 1;
       r.points += pts;
       if (t.status === "done") r.donePoints += pts;
       else r.openPoints += pts;
@@ -49,7 +50,7 @@ export function cycleEffort(tasks: EffortTask[], members: { id: string; name: st
 export function carried(tasks: { estimate: number | null }[]): Carried {
   return {
     count: tasks.length,
-    points: tasks.reduce((n, t) => n + (t.estimate ?? 0), 0),
+    points: tasks.reduce((n, t) => n + (t.estimate ?? 1), 0),
     unestimated: tasks.filter((t) => t.estimate == null).length,
   };
 }
