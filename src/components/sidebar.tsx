@@ -52,7 +52,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { createPage, deletePage, deleteProject, setActiveWorkspace, updateProject } from "@/lib/actions";
+import { createPage, deletePage, deleteProject, setActiveWorkspace, updateProject, updateProjectKey } from "@/lib/actions";
 import { authClient } from "@/lib/auth/client";
 import type {
   FavoriteItem,
@@ -679,6 +679,28 @@ function ProductNavItem({ project, active, variant = "product" }: { project: Pro
             ))}
           </ContextMenuSubContent>
         </ContextMenuSub>
+        {variant === "product" && project.key !== PROSPECTS_PRODUCT_KEY && (
+          <ContextMenuItem
+            onClick={() => {
+              const next = window.prompt(
+                `New key for ${project.name} (2–6 letters or digits). Task IDs change from ${project.key}-12 to NEW-12; links keep working.`,
+                project.key,
+              );
+              if (!next || next.trim().toUpperCase() === project.key) return;
+              start(async () => {
+                try {
+                  const { key } = await updateProjectKey(project.id, next);
+                  toast.success(`Key changed to ${key}`);
+                  router.refresh();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Couldn't change the key");
+                }
+              });
+            }}
+          >
+            Change key…
+          </ContextMenuItem>
+        )}
         <ContextMenuItem
           onClick={() => {
             void navigator.clipboard.writeText(`${window.location.origin}${base}`);
