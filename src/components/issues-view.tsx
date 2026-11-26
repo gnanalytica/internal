@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransiti
 import {
   ArrowLeft,
   Bookmark,
+  CalendarDays,
   Check,
   Columns3,
   ChevronDown,
@@ -22,6 +23,7 @@ import {
 import { BulkActionBar, type BulkMenu, type BulkPatch } from "@/components/bulk-action-bar";
 import { StatusIcon } from "@/components/glyphs";
 import { IssueBoard } from "@/components/issue-board";
+import { IssueCalendar } from "@/components/issue-calendar";
 import { IssueRow } from "@/components/issue-row";
 import { IssueTimelineView } from "@/components/issue-timeline-view";
 import { NewIssueDialog } from "@/components/new-issue-dialog";
@@ -95,7 +97,7 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type View = "list" | "board" | "timeline";
+type View = "list" | "board" | "timeline" | "calendar";
 
 /**
  * Status groups in a list read started-first — what's moving, then what's
@@ -253,7 +255,7 @@ export function IssuesView({
     setFBlocked(new Set(config.blocked ?? []));
     if (config.sort) setSort(config.sort as SortId);
     if (config.groupBy) setGroupBy(config.groupBy as GroupBy);
-    if (config.view === "list" || config.view === "board" || config.view === "timeline")
+    if (config.view === "list" || config.view === "board" || config.view === "timeline" || config.view === "calendar")
       setView(config.view);
   }
 
@@ -307,7 +309,7 @@ export function IssuesView({
           if (Array.isArray(s.blocked)) setFBlocked(new Set(s.blocked));
           if (typeof s.sort === "string") setSort(s.sort as SortId);
           if (typeof s.groupBy === "string") setGroupBy(s.groupBy as GroupBy);
-          if (s.view === "list" || s.view === "board" || s.view === "timeline")
+          if (s.view === "list" || s.view === "board" || s.view === "timeline" || s.view === "calendar")
             setView(s.view);
           if (Array.isArray(s.hidden)) setHidden(new Set(s.hidden));
         }
@@ -366,6 +368,19 @@ export function IssuesView({
       await Promise.all(
         changed.map((c) => updateIssue(c.id, { status: c.status, sortKey: c.sortKey })),
       );
+      router.refresh();
+    });
+  }
+
+  // A calendar drag: show the new day at once, then save it.
+  function moveDue(id: string, day: string) {
+    setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, dueDate: new Date(`${day}T00:00:00Z`) } : i)));
+    startTransition(async () => {
+      try {
+        await updateIssue(id, { dueDate: day });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't change the due date");
+      }
       router.refresh();
     });
   }
@@ -898,6 +913,9 @@ export function IssuesView({
             <ViewButton active={view === "timeline"} onClick={() => setView("timeline")} label="Timeline">
               <GanttChartSquare className="size-3.5" />
             </ViewButton>
+            <ViewButton active={view === "calendar"} onClick={() => setView("calendar")} label="Calendar">
+              <CalendarDays className="size-3.5" />
+            </ViewButton>
           </div>
           {embedded && (
             <NewIssueDialog
@@ -1063,6 +1081,10 @@ export function IssuesView({
       ) : view === "timeline" ? (
         <div className="min-h-0 flex-1">
           <IssueTimelineView issues={visible} members={members} />
+        </div>
+      ) : view === "calendar" ? (
+        <div className="min-h-0 flex-1">
+          <IssueCalendar issues={visible} now={now} onMove={moveDue} />
         </div>
       ) : (
         <div className="min-h-0 flex-1">
