@@ -23,6 +23,7 @@ export const SLACK_EVENT_GROUPS = [
     events: [
       { id: "deal.won", label: "Deal won" },
       { id: "prospect.stage_changed", label: "Prospect stage changed" },
+      { id: "prospect.touch_logged", label: "Prospect touch logged" },
     ],
   },
   {
@@ -74,10 +75,25 @@ export type SlackEventInput = {
   /** Who did it, when known. */
   actorId?: string | null;
   /** Prospects only: the row as it read before the write, and the new status. */
-  prospect?: { name: string; from: string | null; to: string };
+  prospect?: { name: string; from: string | null; to: string; touch?: ProspectTouchNote };
   /** Comments: the comment text. */
   body?: string;
 };
+
+/** What a logged call, message or meeting said — shown under a prospect's headline. */
+export type ProspectTouchNote = {
+  channel: string;
+  outcome: string;
+  durationMin: number | null;
+  summary: string;
+  nextStep: string | null;
+  nextStepDate: string | null;
+  /** What was learnt, by label ("Cases a month": "40"); blanks left out. */
+  learnt: { label: string; value: string }[];
+};
+
+/** Whether an event is about a prospect, and so carries its stage. */
+export const isProspectEvent = (type: SlackEventType): boolean => type === "prospect.stage_changed" || type === "prospect.touch_logged";
 
 /**
  * The Slack events an outbound-webhook event implies. Task events reach Slack
@@ -139,7 +155,7 @@ export type SlackEventFacts = {
   type: SlackEventType;
   /** The record's project, when it has one. */
   projectId: string | null;
-  /** Prospects only: the stage moved to. */
+  /** Prospects only: the stage moved to (or, for a touch, the stage after it). */
   prospectStage?: string | null;
 };
 
@@ -149,14 +165,14 @@ const stageRank = (stage: string | null | undefined): number =>
 /**
  * Whether a rule wants this event. A rule scoped to a project only hears that
  * project's records; a record with no project is only heard by "All projects"
- * rules. A prospect rule with a minimum stage ignores moves to earlier stages
- * (and to stages it doesn't recognise).
+ * rules. A prospect rule with a minimum stage ignores prospects at earlier
+ * stages (and at stages it doesn't recognise) — moves and touches alike.
  */
 export function ruleMatches(rule: SlackRule, ev: SlackEventFacts): boolean {
   if (!rule.events.includes(ev.type)) return false;
   if (rule.projectId && rule.projectId !== ev.projectId) return false;
   const min = rule.filters?.minProspectStage;
-  if (ev.type === "prospect.stage_changed" && min) {
+  if (isProspectEvent(ev.type) && min) {
     const at = stageRank(ev.prospectStage);
     if (at < 0 || at < stageRank(min)) return false;
   }

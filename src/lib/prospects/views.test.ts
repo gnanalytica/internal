@@ -125,13 +125,17 @@ describe("logging a touch", () => {
   });
 
   it("leaves the next step alone when none is given, and drops fields the tab has no column for", () => {
-    const t = touchSchema.parse({ ...base, kind: "bank", durationMin: null, summary: "", nextStep: null, nextStepDate: null, fields: { current_software: "Own software", pitch_angle: "Faster reports" } });
+    const t = touchSchema.parse({ ...base, kind: "bank", outcome: "No answer", durationMin: null, summary: "", nextStep: null, nextStepDate: null, fields: { current_software: "Own software", pitch_angle: "Faster reports" } });
     const p = touchPatch(t, "Priya", TODAY);
-    expect(p).toEqual({ status: "Discovery done", last_contacted: TODAY, prependNote: "28-09-2026 — Call: Connected — Priya" });
+    expect(p).toEqual({ status: "Discovery done", last_contacted: TODAY, prependNote: "28-09-2026 — Call: No answer — Priya" });
   });
 
   it("rejects what the sheet would not accept", () => {
     expect(touchSchema.safeParse({ ...base, outcome: "Maybe" }).success).toBe(false);
+    // Spoke or heard back: what they said can't be blank. No answer can.
+    expect(touchSchema.safeParse({ ...base, summary: "  " }).success).toBe(false);
+    expect(touchSchema.safeParse({ ...base, outcome: "Not interested", summary: "" }).success).toBe(false);
+    expect(touchSchema.safeParse({ ...base, outcome: "No answer", summary: "" }).success).toBe(true);
     expect(touchSchema.safeParse({ ...base, nextStepDate: "01-10-2026" }).success).toBe(false);
     expect(touchSchema.safeParse({ ...base, kind: "lead" }).success).toBe(false);
     expect(patchSchema.safeParse({ status: { nested: true } }).success).toBe(false);

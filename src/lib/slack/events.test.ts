@@ -81,6 +81,12 @@ describe("ruleMatches", () => {
     expect(at("Something odd")).toBe(false);
   });
 
+  it("applies the minimum prospect stage to logged touches too", () => {
+    const r = rule({ events: ["prospect.touch_logged"], filters: { minProspectStage: "Demo done" } });
+    expect(ruleMatches(r, { type: "prospect.touch_logged", projectId: null, prospectStage: "Contacted" })).toBe(false);
+    expect(ruleMatches(r, { type: "prospect.touch_logged", projectId: null, prospectStage: "Pilot running" })).toBe(true);
+  });
+
   it("ignores the stage filter for other events", () => {
     const r = rule({ events: ["deal.won"], filters: { minProspectStage: "Won" } });
     expect(ruleMatches(r, { type: "deal.won", projectId: null })).toBe(true);

@@ -122,6 +122,30 @@ describe("eventLine", () => {
     expect(long.length).toBeLessThan(320);
   });
 
+  it("puts a logged touch under a prospect's move, escaped", () => {
+    const touch = {
+      channel: "Call",
+      outcome: "Demo booked",
+      durationMin: 12,
+      summary: "Uses <ValuerPro>,\n40 cases",
+      nextStep: "Run the demo",
+      nextStepDate: "2026-12-02",
+      learnt: [{ label: "Cases a month", value: "40" }],
+    };
+    expect(
+      eventLine({ type: "prospect.stage_changed", prospect: { name: "n", from: "Contacted", to: "Discovery done", touch } }, { fields: [] }, "Sandeep"),
+    ).toBe(
+      "*Sandeep* moved this prospect from Contacted to *Discovery done*\n> Call · 12 min · Demo booked. Uses &lt;ValuerPro&gt;, 40 cases\n> Cases a month: 40\n> Next: Run the demo · 2 Dec",
+    );
+    expect(
+      eventLine(
+        { type: "prospect.touch_logged", prospect: { name: "n", from: "Contacted", to: "Contacted", touch: { ...touch, outcome: "No answer", durationMin: null, summary: "", learnt: [], nextStep: null } } },
+        { fields: [] },
+        null,
+      ),
+    ).toBe("Someone logged a touch\n> Call · No answer\n> Next: Follow up · 2 Dec");
+  });
+
   it("describes prospect moves and wins", () => {
     expect(
       eventLine({ type: "prospect.stage_changed", prospect: { name: "n", from: "Contacted", to: "Demo done" } }, { fields: [] }, "Sandeep"),

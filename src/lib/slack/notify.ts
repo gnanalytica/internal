@@ -16,6 +16,7 @@ import {
   isNewsworthyChange,
   recordTypeOf,
   slackEventsFromWebhook,
+  type ProspectTouchNote,
   type SlackEventInput,
   type SlackRule,
 } from "./events";
@@ -95,6 +96,12 @@ async function deliver(workspaceId: string, ev: SlackEventInput): Promise<void> 
       .from(slackThreads)
       .where(and(eq(slackThreads.recordType, "issue"), eq(slackThreads.recordId, snap.id), inArray(slackThreads.slackChannelId, channels)));
     channels = channels.filter((c) => !linked.some((l) => l.channel === c));
+  }
+  if (ev.type === "prospect.touch_logged" && ev.prospect && ev.prospect.from !== ev.prospect.to && channels.length > 0) {
+    // A touch that moved the stage is also a stage change, which carries the
+    // touch: a channel that hears both gets one reply, not two.
+    const staged = channelsFor(rules, { ...factsOf(ev, snap), type: "prospect.stage_changed" });
+    channels = channels.filter((c) => !staged.includes(c));
   }
   if (channels.length === 0) return;
 
@@ -211,21 +218,33 @@ export function emitDealsWon(workspaceId: string, dealIds: string[], actorId?: s
 
 /**
  * A prospect's status was written. Announced only when the stage actually
- * moved — a touch logged at the same stage isn't news — and only when the
- * row's previous status is known.
+ * moved — a touch logged at the same stage isn't a stage change — and only
+ * when the row's previous status is known. A logged touch (`touch`) rides on
+ * the stage change, and is also its own event for channels that want every
+ * call, message and meeting.
  */
 export function emitProspectStage(
   ctx: { workspaceId: string; userId: string | null },
-  change: { kind: string; id: string; before: Record<string, string>; status: string },
+  change: { kind: string; id: string; before: Record<string, string>; status: string; touch?: ProspectTouchNote },
 ): void {
-  if (change.before.status === undefined) return;
-  const from = STAGES[stageIndex(change.before.status)];
   const to = STAGES[stageIndex(change.status)];
-  if (from === to) return;
-  emitSlackEvent(ctx.workspaceId, {
-    type: "prospect.stage_changed",
-    recordId: `${change.kind}:${change.id}`,
-    actorId: ctx.userId,
-    prospect: { name: prospectDealName(change.before, change.id), from, to },
-  });
+  const from = change.before.status === undefined ? null : STAGES[stageIndex(change.before.status)];
+  const recordId = `${change.kind}:${change.id}`;
+  const name = prospectDealName(change.before, change.id);
+  if (from !== null && from !== to) {
+    emitSlackEvent(ctx.workspaceId, {
+      type: "prospect.stage_changed",
+      recordId,
+      actorId: ctx.userId,
+      prospect: { name, from, to, touch: change.touch },
+    });
+  }
+  if (change.touch) {
+    emitSlackEvent(ctx.workspaceId, {
+      type: "prospect.touch_logged",
+      recordId,
+      actorId: ctx.userId,
+      prospect: { name, from: from ?? to, to, touch: change.touch },
+    });
+  }
 }

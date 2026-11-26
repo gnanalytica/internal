@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { deals, projects } from "@/db/schema";
 import { apiInvalidate } from "@/lib/api/invalidate";
+import type { ProspectTouchNote } from "@/lib/slack/events";
 import { emitDealsWon, emitProspectStage } from "@/lib/slack/notify";
 import { dealStageForChange, planDealStep, prospectDealName, prospectRef } from "./deal-plan";
 import { PROSPECTS_PRODUCT_KEY, type ProspectKind } from "./schema";
@@ -19,6 +20,8 @@ export type ProspectStatusChange = {
   before: Record<string, string>;
   /** The status just written. */
   status: string;
+  /** When the change came from a logged touch: what it said, for Slack. */
+  touch?: ProspectTouchNote;
 };
 
 /**

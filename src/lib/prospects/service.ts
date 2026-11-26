@@ -7,7 +7,7 @@ import { loadWorkbook } from "./read";
 import { relatedRecords, type Related } from "./related";
 import { PROSPECT_KINDS, RECORD_TYPE, WRITABLE, type ProspectKind } from "./schema";
 import { todayIST } from "./stats";
-import { firstName, idSchema, kindSchema, nowIST, patchSchema, touchPatch, touchSchema, type TouchInput } from "./touch";
+import { firstName, idSchema, kindSchema, nowIST, patchSchema, touchNote, touchPatch, touchSchema, type TouchInput } from "./touch";
 import { duplicateMessage, findDuplicates, newLeadSchema, type DuplicateMatch, type NewLeadInput } from "./linkedin";
 import { appendActivity, appendLinkedInLead, writeRecord, writeRecords } from "./write";
 import { getMembers } from "@/lib/data";
@@ -201,7 +201,9 @@ export async function assignProspects(kind: ProspectKind, ids: string[], memberN
  * one row to Activity, which is where the history and the stats come from.
  */
 export async function logProspectTouch(input: TouchInput, by: string, invalidate: Invalidate, dealCtx: DealContext | null): Promise<ProspectResult> {
-  const t = touchSchema.parse(input);
+  const parsed = touchSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "That touch isn't valid." };
+  const t = parsed.data;
   const today = todayIST();
   const patch = touchPatch(t, by, today);
   try {
@@ -210,7 +212,7 @@ export async function logProspectTouch(input: TouchInput, by: string, invalidate
     // Straight after the row write: if Activity then fails and the touch is
     // retried, the status will already read as written and the retry would
     // see no change to sync.
-    await syncProspectDeal(dealCtx, { kind: t.kind, id: t.id, before, status: t.statusAfter });
+    await syncProspectDeal(dealCtx, { kind: t.kind, id: t.id, before, status: t.statusAfter, touch: touchNote(t) });
     const activityId = await appendActivity({
       loggedAt: nowIST(),
       recordType: RECORD_TYPE[t.kind],
