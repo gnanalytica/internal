@@ -6,6 +6,7 @@
  * phone and the web read a project the same way.
  */
 import { visibleDepartments } from "@/lib/departments";
+import { taskPoints } from "@/lib/points";
 
 import { canSeeFinance, canSeeSales, type ApiScope } from "./scope-rules";
 
@@ -108,13 +109,12 @@ export function activeCycle<T extends CycleDates>(cycles: T[], now: Date): T | n
   return upcoming[0] ?? null;
 }
 
-/** Points the way burndown and velocity weigh them: no estimate counts as one. */
-export function cyclePoints(issues: { status: string; estimate: number | null }[]): { total: number; done: number } {
-  const counted = issues.filter((i) => i.status !== "canceled");
-  const w = (i: { estimate: number | null }) => i.estimate ?? 1;
+/** Points the way burndown and velocity weigh them (lib/points): no estimate counts as one, partial progress counts. */
+export function cyclePoints(issues: { status: string; estimate: number | null; pointsDone?: number | null }[]): { total: number; done: number } {
+  const counted = issues.filter((i) => i.status !== "canceled").map(taskPoints);
   return {
-    total: counted.reduce((s, i) => s + w(i), 0),
-    done: counted.filter((i) => i.status === "done").reduce((s, i) => s + w(i), 0),
+    total: counted.reduce((s, p) => s + p.total, 0),
+    done: counted.reduce((s, p) => s + p.done, 0),
   };
 }
 

@@ -21,7 +21,7 @@ const REACTION_EMOJIS = ["👍", "❤️", "🎉", "😄", "🚀", "👀", "✅"
 
 function describe(
   type: string,
-  data: { from?: string | null; to?: string | null } | null,
+  data: { from?: string | null; to?: string | null; fromName?: string; toName?: string; estimate?: number | null; done?: number } | null,
   members: Member[],
 ): string {
   const memberName = (id?: string | null) =>
@@ -37,6 +37,19 @@ function describe(
       return data?.to ? `assigned ${memberName(data.to)}` : "removed the assignee";
     case "project":
       return `moved ${data?.from ?? "it"} to ${data?.to ?? "another project"}`;
+    case "cycle": {
+      // Written by rollover: the estimate then, and the part credited to the old cycle.
+      const where = data?.fromName && data?.toName ? `from ${data.fromName} to ${data.toName}` : "to the next cycle";
+      const pts =
+        data?.estimate != null && data.done
+          ? ` · ${data.done} of ${data.estimate} pts done there, ${data.estimate - data.done} carried`
+          : data?.estimate != null
+            ? ` · ${data.estimate} pts`
+            : "";
+      return `carried it ${where}${pts}`;
+    }
+    case "progress":
+      return data?.to ? `marked ${data.to} points done` : "cleared the points done";
     default:
       return "updated the issue";
   }

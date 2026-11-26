@@ -204,9 +204,9 @@ export function IssueRow({
           {shows("estimate") && issue.estimate != null && (
             <span
               className="hidden min-w-5 rounded-sm border px-1 text-center text-[11px] tabular-nums text-muted-foreground md:inline"
-              title={`Estimate: ${issue.estimate}`}
+              title={issue.pointsDone ? `${issue.pointsDone} of ${issue.estimate} points done` : `Estimate: ${issue.estimate}`}
             >
-              {issue.estimate}
+              {issue.pointsDone ? `${issue.pointsDone}/${issue.estimate}` : issue.estimate}
             </span>
           )}
 

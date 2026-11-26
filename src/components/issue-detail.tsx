@@ -453,13 +453,34 @@ export function IssueDetail({
                 className="w-full rounded-md border bg-transparent px-2 py-1 text-xs outline-none focus:border-brand"
               >
                 <option value="">—</option>
-                {[1, 2, 3, 5, 8, 13].map((n) => (
-                  <option key={n} value={n}>
-                    {n} {n === 1 ? "point" : "points"}
-                  </option>
-                ))}
+                {/* A carried-over task can hold a remainder (say 4) that isn't on the scale. */}
+                {[...new Set([1, 2, 3, 5, 8, 13, ...(issue.estimate != null ? [issue.estimate] : [])])]
+                  .sort((a, b) => a - b)
+                  .map((n) => (
+                    <option key={n} value={n}>
+                      {n} {n === 1 ? "point" : "points"}
+                    </option>
+                  ))}
               </select>
             </PropRow>
+            {issue.estimate != null && issue.estimate > 0 && issue.status !== "done" && issue.status !== "canceled" && (
+              <PropRow label="Done">
+                <select
+                  aria-label="Points done"
+                  value={issue.pointsDone ?? 0}
+                  onChange={(e) =>
+                    persist(() => updateIssue(issue.id, { pointsDone: Number(e.target.value) || null }))
+                  }
+                  className="w-full rounded-md border bg-transparent px-2 py-1 text-xs outline-none focus:border-brand"
+                >
+                  {Array.from({ length: issue.estimate + 1 }, (_, n) => (
+                    <option key={n} value={n}>
+                      {n} of {issue.estimate} done
+                    </option>
+                  ))}
+                </select>
+              </PropRow>
+            )}
           </div>
 
           {/* Relations live with the other metadata (Linear-style). */}

@@ -315,6 +315,7 @@ function EffortSection({
           {carriedOut.count > 0 && (
             <span>
               ↗ Carried out: {carriedOut.count} task{carriedOut.count === 1 ? "" : "s"} · {pts(carriedOut.points)}
+              {carriedOut.donePoints ? ` (${carriedOut.donePoints} done here)` : ""}
               {carriedOut.cycle ? ` to ${carriedOut.cycle}` : ""}
             </span>
           )}

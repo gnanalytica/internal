@@ -309,9 +309,9 @@ export type CycleWithCount = Cycle & {
   projectName: string;
   projectColor: string;
   /** Status + estimate per task, enough to compute velocity (see lib/velocity). */
-  issues: { status: string; estimate: number | null }[];
-  /** Tasks rollover carried out of this cycle into a later one (estimates as they stand now). */
-  carriedOut?: { estimate: number | null }[];
+  issues: { status: string; estimate: number | null; pointsDone?: number | null }[];
+  /** Tasks rollover carried out of this cycle: their estimate and the points done here, as at rollover. */
+  carriedOut?: { estimate: number | null; done: number }[];
 };
 export type ProjectWithIssueCount = Project & {
   issueCount: number;

@@ -82,3 +82,19 @@ describe("computeBurndown", () => {
     expect(r.points.map((p) => p.date)).toEqual(["2026-07-01", "2026-07-02"]);
   });
 });
+
+describe("computeBurndown with partial progress", () => {
+  it("burns down the points marked done on the day they were marked", () => {
+    const start = new Date("2026-11-01T00:00:00Z");
+    const r = computeBurndown({
+      issues: [{ id: "a", estimate: 5, createdAt: start }],
+      doneEvents: [],
+      progressEvents: [{ issueId: "a", at: new Date("2026-11-02T10:00:00Z"), done: 3 }],
+      start,
+      end: new Date("2026-11-05T00:00:00Z"),
+      now: new Date("2026-11-04T00:00:00Z"),
+    });
+    // 5 points; 3 marked done on day 2, so 2 remain from then on.
+    expect(r.points.map((p) => p.remaining)).toEqual([5, 2, 2, 2]);
+  });
+});

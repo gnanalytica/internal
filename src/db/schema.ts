@@ -201,6 +201,10 @@ export const issues = pgTable(
     startDate: timestamp("start_date", { withTimezone: true }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     estimate: integer("estimate"),
+    // Points of the estimate already done, for credit before the task is Done
+    // (0..estimate; null = none). Rollover credits it to the old cycle and
+    // carries only the rest (see lib/cycle-rollover).
+    pointsDone: integer("points_done"),
     githubUrl: text("github_url"),
     githubNumber: integer("github_number"),
     // Provenance for issues created by an integration rather than a human.

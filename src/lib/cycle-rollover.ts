@@ -114,7 +114,7 @@ export async function rollOverCore(
   if (!cycle) throw new Error("Cycle not found");
 
   const unfinished = await db
-    .select({ id: issues.id })
+    .select({ id: issues.id, estimate: issues.estimate, pointsDone: issues.pointsDone })
     .from(issues)
     .where(and(eq(issues.workspaceId, workspaceId), eq(issues.cycleId, cycleId), notInArray(issues.status, FINISHED)));
 
@@ -131,18 +131,48 @@ export async function rollOverCore(
   // cycle being rolled over, and stamping first would duplicate every one of
   // them — the title dedupe cannot see tasks that have not moved yet.
   const length = cycle.endDate.getTime() - cycle.startDate.getTime();
-  const start = cycle.endDate;
+  // A new cycle starts where this one ended — or today, if that's already
+  // past, so rolling over a long-finished cycle doesn't create one in the past.
+  const today = new Date(opts.now);
+  today.setUTCHours(0, 0, 0, 0);
+  const start = cycle.endDate.getTime() >= today.getTime() ? cycle.endDate : today;
   const target = existingNext ?? (await insertCycle(workspaceId, cycle.projectId, start, new Date(start.getTime() + length)));
 
   if (unfinished.length > 0) {
     const ids = unfinished.map((i) => i.id);
+    // The record goes first: there are no transactions on this driver, and if
+    // the move failed after it, a re-run finds the tasks still here and
+    // records them again — whereas a move without its record would lose the
+    // points done here for good. Each entry keeps the estimate and done points
+    // as they stood, which is what the old cycle is credited with.
+    await db.insert(activity).values(
+      unfinished.map((t) => ({
+        workspaceId,
+        issueId: t.id,
+        actorId,
+        type: "cycle",
+        data: {
+          from: cycle.id,
+          to: target.id,
+          fromName: cycle.name,
+          toName: target.name,
+          estimate: t.estimate,
+          done: t.estimate == null ? 0 : Math.min(t.pointsDone ?? 0, t.estimate),
+        },
+      })),
+    );
+    // Carry only what's left: the estimate drops by the points done here, and
+    // the progress starts again in the new cycle. Guarded on the old cycle, so
+    // a task someone moved meanwhile is left alone.
     await db
       .update(issues)
-      .set({ cycleId: target.id, updatedAt: new Date() })
-      .where(and(eq(issues.workspaceId, workspaceId), inArray(issues.id, ids)));
-    await db.insert(activity).values(
-      ids.map((issueId) => ({ workspaceId, issueId, actorId, type: "cycle", data: { from: cycle.id, to: target.id } })),
-    );
+      .set({
+        cycleId: target.id,
+        estimate: sql`case when ${issues.estimate} is null then null else greatest(${issues.estimate} - coalesce(${issues.pointsDone}, 0), 0) end`,
+        pointsDone: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(issues.workspaceId, workspaceId), inArray(issues.id, ids), eq(issues.cycleId, cycle.id)));
   }
 
   // Now that the carried-over work is in place, fill whatever the cadence is
@@ -247,9 +277,9 @@ export async function autoRollOverEndedCycles(now: Date): Promise<{ workspaceId:
 export async function getCarried(
   workspaceId: string,
   cycleId: string,
-): Promise<{ in: { estimate: number | null }[]; out: { estimate: number | null }[]; outTo: string | null; inFrom: string | null }> {
+): Promise<{ in: { estimate: number | null; done: number }[]; out: { estimate: number | null; done: number }[]; outTo: string | null; inFrom: string | null }> {
   const rows = await db
-    .select({ issueId: activity.issueId, data: activity.data, estimate: issues.estimate })
+    .select({ issueId: activity.issueId, data: activity.data, liveEstimate: issues.estimate })
     .from(activity)
     .innerJoin(issues, eq(issues.id, activity.issueId))
     .where(
@@ -259,18 +289,21 @@ export async function getCarried(
         sql`(${activity.data}->>'from' = ${cycleId} or ${activity.data}->>'to' = ${cycleId})`,
       ),
     );
-  const into = new Map<string, { estimate: number | null }>();
-  const outOf = new Map<string, { estimate: number | null }>();
+  const into = new Map<string, { estimate: number | null; done: number }>();
+  const outOf = new Map<string, { estimate: number | null; done: number }>();
   let inFrom: string | null = null;
   let outTo: string | null = null;
   for (const r of rows) {
-    const d = r.data as { from?: string; to?: string } | null;
+    const d = r.data as { from?: string; to?: string; estimate?: number | null; done?: number } | null;
+    // As at rollover when the entry recorded it; older entries only have the live estimate.
+    const snap = { estimate: d && "estimate" in d ? (d.estimate ?? null) : r.liveEstimate, done: d?.done ?? 0 };
     if (d?.to === cycleId) {
-      into.set(r.issueId, { estimate: r.estimate });
+      // What arrived here is what was left: the estimate minus the part done before.
+      into.set(r.issueId, { estimate: snap.estimate == null ? null : snap.estimate - snap.done, done: 0 });
       inFrom = d.from ?? inFrom;
     }
     if (d?.from === cycleId) {
-      outOf.set(r.issueId, { estimate: r.estimate });
+      outOf.set(r.issueId, snap);
       outTo = d.to ?? outTo;
     }
   }

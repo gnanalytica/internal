@@ -418,7 +418,14 @@ export async function apiUpdateIssue(
   if ("milestoneId" in patch) values.milestoneId = toRef(patch.milestoneId);
   if ("featureId" in patch) values.featureId = toRef(patch.featureId);
   if ("parentId" in patch) values.parentId = toRef(patch.parentId);
-  if ("estimate" in patch) values.estimate = patch.estimate ?? null;
+  if ("estimate" in patch) {
+    values.estimate = patch.estimate ?? null;
+    // Points done can't exceed the new estimate, and needs one.
+    values.pointsDone =
+      patch.estimate == null
+        ? null
+        : sql`case when ${issues.pointsDone} is null then null else least(${issues.pointsDone}, ${patch.estimate}) end`;
+  }
   if ("startDate" in patch) values.startDate = toDate(patch.startDate);
   if ("dueDate" in patch) values.dueDate = toDate(patch.dueDate);
   if (typeof patch.description === "string") values.description = textToDoc(patch.description);

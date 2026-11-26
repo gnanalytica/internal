@@ -98,7 +98,14 @@ export function IssuePeek({ issue, now, onClose }: { issue: IssueListItem; now: 
           </dd>
           <dt className="text-muted-foreground">Points</dt>
           <dd className="flex items-center gap-1.5">
-            <Gauge className="size-3.5 text-muted-foreground" /> {issue.estimate ?? <span className="text-muted-foreground">None</span>}
+            <Gauge className="size-3.5 text-muted-foreground" />{" "}
+            {issue.estimate == null ? (
+              <span className="text-muted-foreground">None</span>
+            ) : issue.pointsDone ? (
+              `${issue.pointsDone} of ${issue.estimate} done`
+            ) : (
+              issue.estimate
+            )}
           </dd>
           {issue.project && (
             <>

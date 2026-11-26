@@ -1074,7 +1074,7 @@ export async function getCycles(
     with: {
       // Estimates come along so the Cycles surface can compute velocity without
       // a second pass over the issues.
-      issues: { columns: { id: true, status: true, estimate: true } },
+      issues: { columns: { id: true, status: true, estimate: true, pointsDone: true } },
       project: { columns: { name: true, color: true } },
     },
   });
@@ -1083,7 +1083,15 @@ export async function getCycles(
   // work forward looks fully done and velocity reads high.
   const carried = rows.length
     ? await db
-        .select({ issueId: activity.issueId, from: sql<string>`${activity.data}->>'from'`, estimate: issues.estimate })
+        .select({
+          issueId: activity.issueId,
+          from: sql<string>`${activity.data}->>'from'`,
+          // The estimate and done points as they stood at rollover, when the
+          // entry has them; older entries fall back to the live estimate.
+          snapEstimate: sql<string | null>`${activity.data}->>'estimate'`,
+          snapDone: sql<string | null>`${activity.data}->>'done'`,
+          estimate: issues.estimate,
+        })
         .from(activity)
         .innerJoin(issues, eq(issues.id, activity.issueId))
         .where(
@@ -1094,10 +1102,11 @@ export async function getCycles(
           ),
         )
     : [];
-  const carriedOut = new Map<string, Map<string, { estimate: number | null }>>();
+  const carriedOut = new Map<string, Map<string, { estimate: number | null; done: number }>>();
   for (const r of carried) {
     const m = carriedOut.get(r.from) ?? new Map();
-    m.set(r.issueId, { estimate: r.estimate });
+    const snap = r.snapEstimate === null ? undefined : r.snapEstimate === "" ? null : Number(r.snapEstimate);
+    m.set(r.issueId, { estimate: snap === undefined ? r.estimate : snap, done: Number(r.snapDone ?? 0) || 0 });
     carriedOut.set(r.from, m);
   }
   return rows.map((c) => ({
@@ -1106,7 +1115,7 @@ export async function getCycles(
     projectColor: c.project?.color ?? "#94a3b8",
     issueCount: c.issues.length,
     doneCount: c.issues.filter((i) => i.status === "done").length,
-    issues: c.issues.map((i) => ({ status: i.status, estimate: i.estimate })),
+    issues: c.issues.map((i) => ({ status: i.status, estimate: i.estimate, pointsDone: i.pointsDone })),
     carriedOut: [...(carriedOut.get(c.id)?.values() ?? [])],
   }));
 }
@@ -1118,6 +1127,7 @@ export async function getCycle(
   | (Cycle & {
       issues: IssueWithRelations[];
       doneEvents: { issueId: string; at: Date }[];
+      progressEvents: { issueId: string; at: Date; done: number }[];
     })
   | null
 > {
@@ -1160,11 +1170,15 @@ export async function getCycle(
       (a) => a.type === "status" && (a.data as { to?: string } | null)?.to === "done",
     )
     .map((a) => ({ issueId: a.issueId, at: a.createdAt }));
+  const progressEvents = acts
+    .filter((a) => a.type === "progress")
+    .map((a) => ({ issueId: a.issueId, at: a.createdAt, done: Number((a.data as { to?: string | null } | null)?.to ?? 0) || 0 }));
 
   return {
     ...row,
     issues: row.issues.map((i) => ({ ...i, labels: i.labels.map((l) => l.label), assignees: i.assignees.map((a) => a.user) })),
     doneEvents,
+    progressEvents,
   };
 }
 

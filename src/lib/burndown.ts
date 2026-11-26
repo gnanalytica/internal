@@ -7,6 +7,8 @@
 
 type Issue = { id: string; estimate: number | null; createdAt: Date };
 type DoneEvent = { issueId: string; at: Date };
+/** Points marked done on a task that isn't Done yet, as of `at`. */
+type ProgressEvent = { issueId: string; at: Date; done: number };
 
 const DAY_MS = 86_400_000;
 
@@ -29,6 +31,8 @@ function isoDay(startMs: number, dayIndex: number): string {
 export function computeBurndown(input: {
   issues: Issue[];
   doneEvents: DoneEvent[];
+  /** Partial progress, so a half-done task burns down on the day it moved. */
+  progressEvents?: ProgressEvent[];
   start: Date;
   end: Date;
   now: Date;
@@ -36,7 +40,7 @@ export function computeBurndown(input: {
   points: { date: string; remaining: number; ideal: number }[];
   totalPoints: number;
 } {
-  const { issues, doneEvents, start, end, now } = input;
+  const { issues, doneEvents, progressEvents = [], start, end, now } = input;
   const weight = (i: Issue) => i.estimate ?? 1;
   const totalPoints = issues.reduce((s, i) => s + weight(i), 0);
   if (issues.length === 0) return { points: [], totalPoints: 0 };
@@ -50,6 +54,16 @@ export function computeBurndown(input: {
   }
 
   const startMs = startOfUtcDay(start);
+  // Each task's progress, oldest first, by cycle-day.
+  const progress = new Map<string, { day: number; done: number }[]>();
+  for (const e of [...progressEvents].sort((a, b) => a.at.getTime() - b.at.getTime())) {
+    progress.set(e.issueId, [...(progress.get(e.issueId) ?? []), { day: dayIndexOf(e.at.getTime(), startMs), done: e.done }]);
+  }
+  const doneBy = (id: string, day: number) => {
+    let d = 0;
+    for (const p of progress.get(id) ?? []) if (p.day <= day) d = p.done;
+    return d;
+  };
   const lastMs = Math.min(end.getTime(), now.getTime());
   const spanDays = Math.max(0, Math.floor((lastMs - startMs) / DAY_MS));
   const totalSpan = Math.max(1, Math.floor((end.getTime() - startMs) / DAY_MS));
@@ -61,7 +75,7 @@ export function computeBurndown(input: {
       if (dayIndexOf(i.createdAt.getTime(), startMs) > day) continue; // not yet in scope
       const done = doneAt.get(i.id);
       if (done !== undefined && dayIndexOf(done, startMs) <= day) continue; // completed
-      remaining += weight(i);
+      remaining += Math.max(0, weight(i) - Math.min(doneBy(i.id, day), weight(i)));
     }
     const ideal = Math.max(0, totalPoints * (1 - day / totalSpan));
     points.push({
