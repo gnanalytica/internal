@@ -7,7 +7,7 @@ import type { DealContext } from "./deals";
 import { PROSPECTS_TAG } from "./read";
 import type { ProspectKind } from "./schema";
 import { isAssignedTo } from "./stats";
-import { addLinkedInLead, assignProspects, type AddLeadResult, BULK_LIMIT, logProspectTouch, saveProspectRecord, saveProspectRecords, type BulkResult, type ProspectResult } from "./service";
+import { addLinkedInLead, addProspectComment, assignProspects, type AddLeadResult, BULK_LIMIT, logProspectTouch, saveProspectRecord, saveProspectRecords, type BulkResult, type ProspectResult } from "./service";
 import type { NewLeadInput } from "./linkedin";
 import type { TouchInput as ServiceTouchInput } from "./touch";
 
@@ -58,6 +58,12 @@ export async function assignTo(kind: ProspectKind, ids: string[], person: string
   const member = members.map((m) => (m.name || m.email || "").trim()).find((n) => n && isAssignedTo(person, n));
   if (!member) return { ok: false, message: `${person} is not a member of this workspace.` };
   return assignProspects(kind, ids, member, invalidate, by, dealCtx);
+}
+
+/** Comment on a record; teammates @-mentioned get an Inbox ping. */
+export async function commentOnProspect(kind: ProspectKind, id: string, text: string): Promise<ActionResult> {
+  const { name, dealCtx } = await signedIn();
+  return addProspectComment(kind, id, text, name, invalidate, dealCtx);
 }
 
 /**

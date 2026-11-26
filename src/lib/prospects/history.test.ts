@@ -56,3 +56,16 @@ describe("whenLabel", () => {
     expect(whenLabel(null, "2026-11-27")).toBe("");
   });
 });
+
+describe("comments", () => {
+  it("writes one signed line and reads it back with its author", async () => {
+    const { commentLine } = await import("./history");
+    const line = commentLine("2026-11-27", "@parv call him\nThursday ", "Sandeep Polavarapu");
+    expect(line).toBe("27-11-2026 — @parv call him Thursday — Sandeep");
+    expect(buildHistory(line, [])).toEqual([{ type: "note", date: "2026-11-27", text: "@parv call him Thursday", by: "Sandeep" }]);
+  });
+  it("leaves an unsigned or undated line unsigned", () => {
+    expect(buildHistory("27-11-2026 — Partner prefers mornings", [])[0]).toEqual({ type: "note", date: "2026-11-27", text: "Partner prefers mornings" });
+    expect(buildHistory("SBI — Hyderabad zone", [])[0]).toEqual({ type: "note", date: null, text: "SBI — Hyderabad zone" });
+  });
+});

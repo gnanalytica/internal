@@ -13,6 +13,8 @@ import { appendActivity, appendLinkedInLead, writeRecord, writeRecords } from ".
 import { getMembers } from "@/lib/data";
 import { notify } from "@/lib/notify";
 import { planPings, type OwnerChange } from "./pings";
+import { commentLine } from "./history";
+import { findMentionedMemberIds } from "@/lib/mentions";
 
 /**
  * The prospects rules, free of any notion of who is signed in or how. The web's
@@ -141,6 +143,45 @@ async function pingNewOwners(ctx: DealContext | null, by: string, kind: Prospect
     }
   } catch (err) {
     console.error("[prospects] owner ping failed", err);
+  }
+}
+
+/**
+ * Comment on a record: a signed, dated line at the top of notes (added on the
+ * server against the row as it reads now, so two people commenting at once
+ * both land), and an Inbox ping for each teammate @-mentioned.
+ */
+export async function addProspectComment(kind: ProspectKind, id: string, text: string, by: string, invalidate: Invalidate, ctx: DealContext | null): Promise<ProspectResult> {
+  const k = kindSchema.parse(kind);
+  const body = text.trim().slice(0, 2000);
+  if (!body) return { ok: false, message: "Write something first." };
+  if (!WRITABLE[k].has("notes")) return { ok: false, message: "This tab has no notes column." };
+  try {
+    const rid = idSchema.parse(id);
+    const { before } = await writeRecord(k, rid, { prependNote: commentLine(todayIST(), body, by) });
+    invalidate();
+    if (ctx) {
+      try {
+        const members = (await getMembers(ctx.workspaceId)).map((m) => ({ id: m.id, name: m.name ?? "", email: m.email ?? "" }));
+        const mentioned = findMentionedMemberIds(body, members);
+        const name = before.name || [before.institution, before.contact_person].filter(Boolean).join(" · ") || "a prospect";
+        await notify({
+          workspaceId: ctx.workspaceId,
+          actorId: ctx.userId ?? "",
+          type: "mentioned",
+          title: `${firstName(by) || "Someone"} mentioned you on ${name}`,
+          body,
+          href: `/prospects?${new URLSearchParams({ rec: `${k}:${rid}`, rt: "activity" })}`,
+          userIds: mentioned,
+          slack: false,
+        });
+      } catch (err) {
+        console.error("[prospects] mention ping failed", err);
+      }
+    }
+    return { ok: true, written: ["notes"], message: "Comment added." };
+  } catch (err) {
+    return { ok: false, message: errorMessage(err) };
   }
 }
 

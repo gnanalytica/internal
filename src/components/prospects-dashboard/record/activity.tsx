@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Link2, Mail, MessageCircle, MessageSquare, Phone, Plus, StickyNote, UserMinus, UserPlus, Users } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { SendToProductButton, type ProductFeedback } from "@/components/product/send-to-product";
 import type { ActivityEntry, ProspectRecord } from "@/lib/prospects/parse";
 import { displayDate, stageIndex } from "@/lib/prospects/parse";
@@ -9,8 +9,14 @@ import { buildHistory, whenLabel, type HistoryItem } from "@/lib/prospects/histo
 import { isAssignedTo } from "@/lib/prospects/stats";
 import { WRITABLE, type Channel } from "@/lib/prospects/schema";
 import { canSendTouch, touchContact, touchSource, touchSourceRef } from "@/lib/send-to-product";
-import { CHANNEL_TONE, outcomeTone, StageDot, ToneChip } from "../bits";
-import { AddNoteDialog, Section, SmallButton, TextDialog } from "./shared";
+import { CHANNEL_TONE, Owner, outcomeTone, StageDot, ToneChip } from "../bits";
+import { Section, SmallButton, TextDialog } from "./shared";
+import { Button } from "@/components/ui/button";
+import { commentOnProspect } from "@/lib/prospects/actions";
+import { isMentionToken, mentionKeysForMember } from "@/lib/mentions";
+import { useMentionAutocomplete } from "@/lib/use-mention-autocomplete";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Ctx } from "./shared";
 
 
@@ -78,7 +84,7 @@ function Dot({ children }: { children: React.ReactNode }) {
   return <span className="relative z-10 grid size-6 shrink-0 place-items-center rounded-full border bg-background text-muted-foreground">{children}</span>;
 }
 
-function HistoryRow({ item, r, fb, today }: { item: HistoryItem; r: ProspectRecord; fb: ProductFeedback; today: string }) {
+function HistoryRow({ item, r, fb, today, people }: { item: HistoryItem; r: ProspectRecord; fb: ProductFeedback; today: string; people: Person[] }) {
   const when = whenLabel(item.date, today);
   const time = when ? <span className="shrink-0 font-mono text-xs text-muted-foreground" title={item.date ? displayDate(item.date) : undefined}>{when}</span> : null;
   if (item.type === "touch") {
@@ -152,24 +158,126 @@ function HistoryRow({ item, r, fb, today }: { item: HistoryItem; r: ProspectReco
       </li>
     );
   }
+  if (item.by) {
+    return (
+      <li className="flex gap-3 text-[13px]">
+        <span className="relative z-10 shrink-0">
+          <Owner name={item.by} />
+        </span>
+        <div className="min-w-0 flex-1 rounded-lg border bg-muted/30 px-3 py-2">
+          <div className="mb-0.5 flex items-center gap-2">
+            <span className="text-xs font-medium">{item.by}</span>
+            <span className="flex-1" />
+            {time}
+          </div>
+          <MentionText text={item.text} people={people} />
+        </div>
+      </li>
+    );
+  }
   return (
     <li className="flex gap-3 text-[13px]">
       <Dot>
         <StickyNote className="size-3" />
       </Dot>
-      <span className="min-w-0 flex-1 pt-0.5 leading-relaxed whitespace-pre-wrap">{item.text}</span>
+      <span className="min-w-0 flex-1 pt-0.5 leading-relaxed whitespace-pre-wrap">
+        <MentionText text={item.text} people={people} />
+      </span>
       {time}
     </li>
+  );
+}
+
+type Person = { id: string; name: string; email: string };
+
+/** A note or comment with its @mentions picked out. */
+function MentionText({ text, people }: { text: string; people: Person[] }) {
+  return (
+    <span className="leading-relaxed whitespace-pre-wrap">
+      {text.split(/(@[\w.-]+)/g).map((p, i) =>
+        p.startsWith("@") && isMentionToken(p.slice(1), people) ? (
+          <span key={i} className="rounded bg-brand/10 px-0.5 font-medium text-brand">
+            {p}
+          </span>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </span>
+  );
+}
+
+/** Linear-style comment box: @ to mention a teammate (they get an Inbox ping), ⌘↵ to send. */
+function Composer({ ctx, people }: { ctx: Ctx; people: Person[] }) {
+  const [body, setBody] = useState("");
+  const [pending, start] = useTransition();
+  const mention = useMentionAutocomplete({ members: people, value: body, onChange: setBody });
+  const { textareaRef, suggestions, activeIndex, handleChange, handleKeyDown, insert, setActiveIndex, close } = mention;
+  const submit = () => {
+    if (!body.trim() || pending) return;
+    start(async () => {
+      const res = await commentOnProspect(ctx.kind, ctx.id, body);
+      if (res.ok) {
+        setBody("");
+        close();
+        ctx.onChanged();
+      } else toast.error(res.message);
+    });
+  };
+  return (
+    <div className="relative rounded-lg border focus-within:border-brand">
+      {suggestions.length > 0 && (
+        <div className="absolute top-full left-0 z-20 mt-1 w-60 overflow-hidden rounded-lg border bg-popover py-1 shadow-md">
+          {suggestions.map((m, i) => (
+            <button
+              key={m.id}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                insert(m);
+              }}
+              onMouseEnter={() => setActiveIndex(i)}
+              className={cn("flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm", i === activeIndex ? "bg-accent" : "hover:bg-accent/60")}
+            >
+              <Owner name={m.name} />
+              <span className="truncate">{m.name}</span>
+              <span className="ml-auto truncate text-[11px] text-muted-foreground">@{mentionKeysForMember(m)[0]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <textarea
+        ref={textareaRef}
+        aria-label="Comment"
+        value={body}
+        onChange={handleChange}
+        onKeyDown={(e) => {
+          if (handleKeyDown(e)) return;
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
+        }}
+        placeholder="Leave a comment… (@ to mention)"
+        rows={2}
+        className="w-full resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+      />
+      <div className="flex items-center justify-between border-t px-2 py-1.5">
+        <span className="text-[11px] text-muted-foreground">
+          <kbd className="rounded bg-muted px-1 py-0.5 font-mono">⌘↵</kbd> to send · saved to the sheet&apos;s notes
+        </span>
+        <Button size="sm" className="h-7" onClick={submit} disabled={pending || !body.trim()}>
+          {pending ? "Sending…" : "Comment"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
 const first = (name: string) => name.trim().split(/\s+/)[0] ?? "";
 
 export function ActivityTab({ ctx, r, activity, fb }: { ctx: Ctx; r: ProspectRecord; activity: ActivityEntry[]; fb: ProductFeedback }) {
-  const [noteOpen, setNoteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const items = buildHistory(r.notes, activity);
   const canNote = WRITABLE[ctx.kind].has("notes");
+  const people: Person[] = [ctx.me, ...ctx.team.filter((t) => !isAssignedTo(t, ctx.me))].filter(Boolean).map((n) => ({ id: n, name: n, email: "" }));
   return (
     <div className="flex flex-col gap-8">
       <Section
@@ -177,28 +285,27 @@ export function ActivityTab({ ctx, r, activity, fb }: { ctx: Ctx; r: ProspectRec
         aside={
           <div className="flex gap-1.5">
             {r.notes && canNote && <SmallButton onClick={() => setEditOpen(true)}>Edit notes</SmallButton>}
-            {canNote && (
-              <SmallButton onClick={() => setNoteOpen(true)}>
-                <Plus className="size-3.5" /> Add a note
-              </SmallButton>
-            )}
             <SmallButton onClick={() => ctx.onLog()}>
               <Plus className="size-3.5" /> Log a touch
             </SmallButton>
           </div>
         }
       >
+        {canNote && (
+          <div className="mb-5">
+            <Composer ctx={ctx} people={people} />
+          </div>
+        )}
         {items.length ? (
           <ol className="relative flex flex-col gap-4 before:absolute before:top-3 before:bottom-3 before:left-3 before:w-px before:bg-border">
             {items.map((item, i) => (
-              <HistoryRow key={item.type === "touch" ? item.entry.id || `t${i}` : i} item={item} r={r} fb={fb} today={ctx.today} />
+              <HistoryRow key={item.type === "touch" ? item.entry.id || `t${i}` : i} item={item} r={r} fb={fb} today={ctx.today} people={people} />
             ))}
           </ol>
         ) : (
           <p className="rounded-lg border border-dashed px-4 py-5 text-[13px] text-muted-foreground">Nothing yet. Touches, notes, and stage and owner changes show up here, newest first.</p>
         )}
       </Section>
-      <AddNoteDialog ctx={ctx} r={r} open={noteOpen} onOpenChange={setNoteOpen} />
       <TextDialog ctx={ctx} col="notes" title="Notes" description="Newest first, one line per entry." value={r.notes} open={editOpen} onOpenChange={setEditOpen} rows={16} />
     </div>
   );
