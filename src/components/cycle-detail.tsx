@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { applyCadenceToCycle, deleteCycle, rollOverCycle, updateCycle } from "@/lib/actions";
 import { projectCyclesHref } from "@/lib/departments";
 import type { Cycle, IssueListItem, TaskContext } from "@/lib/types";
+import { UserAvatar } from "@/components/glyphs";
+import { cycleEffort, type Carried } from "@/lib/cycle-effort";
 import { cycleStatus } from "@/lib/types";
 
 export function CycleDetail({
@@ -26,11 +28,16 @@ export function CycleDetail({
   ctx,
   burndownPoints,
   totalPoints,
+  carriedIn,
+  carriedOut,
 }: {
   cycle: Cycle & { issues: IssueListItem[] };
   ctx: TaskContext;
   burndownPoints: { date: string; remaining: number; ideal: number }[];
   totalPoints: number;
+  /** Rolled in from the previous cycle / out to the next, by rollover. */
+  carriedIn: Carried & { cycle: string | null };
+  carriedOut: Carried & { cycle: string | null };
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -183,6 +190,8 @@ export function CycleDetail({
           </div>
         )}
 
+        <EffortSection cycle={cycle} members={ctx.members} carriedIn={carriedIn} carriedOut={carriedOut} />
+
         {/* Burndown */}
         <div className="mt-4 max-w-md">
           <div className="mb-1 flex items-center justify-between">
@@ -240,6 +249,77 @@ export function CycleDetail({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+const pts = (n: number) => `${n} pt${n === 1 ? "" : "s"}`;
+
+/**
+ * Where the cycle's effort sits: points per person (each task against its
+ * lead assignee, so rows add up), done vs open, unestimated tasks to size,
+ * and what carried in from the last cycle or out to the next.
+ */
+function EffortSection({
+  cycle,
+  members,
+  carriedIn,
+  carriedOut,
+}: {
+  cycle: { issues: IssueListItem[] };
+  members: { id: string; name: string; avatarColor: string }[];
+  carriedIn: Carried & { cycle: string | null };
+  carriedOut: Carried & { cycle: string | null };
+}) {
+  const { rows, total } = cycleEffort(cycle.issues, members);
+  if (total.tasks === 0 && carriedIn.count === 0 && carriedOut.count === 0) return null;
+  const max = Math.max(1, ...rows.map((r) => r.points));
+  return (
+    <div className="mt-4 max-w-xl">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">Effort (points)</span>
+        <span className="text-[11px] tabular-nums text-muted-foreground">
+          {total.donePoints} of {pts(total.points)} done
+          {total.unestimated ? ` · ${total.unestimated} unestimated` : ""}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {rows.map((r) => {
+          const m = members.find((x) => x.id === r.id);
+          return (
+            <li key={r.id ?? "none"} className="grid grid-cols-[8rem_1fr_7rem] items-center gap-2 text-xs">
+              <span className="flex min-w-0 items-center gap-1.5">
+                {m ? <UserAvatar name={m.name} color={m.avatarColor} className="size-4 text-[8px]" /> : <span className="size-4 rounded-full border border-dashed border-muted-foreground/60" />}
+                <span className="truncate">{r.name}</span>
+              </span>
+              <span className="flex h-2 overflow-hidden rounded-full bg-muted" title={`${r.donePoints} done, ${r.openPoints} open`}>
+                <span className="h-full bg-brand" style={{ width: `${(r.donePoints / max) * 100}%` }} />
+                <span className="h-full bg-brand/30" style={{ width: `${(r.openPoints / max) * 100}%` }} />
+              </span>
+              <span className="text-right tabular-nums text-muted-foreground">
+                {pts(r.points)} · {r.tasks} task{r.tasks === 1 ? "" : "s"}
+                {r.unestimated ? <span className="text-amber-600 dark:text-amber-400" title="Tasks with no estimate"> · {r.unestimated}?</span> : null}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {(carriedIn.count > 0 || carriedOut.count > 0) && (
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          {carriedIn.count > 0 && (
+            <span>
+              ↘ Carried in: {carriedIn.count} task{carriedIn.count === 1 ? "" : "s"} · {pts(carriedIn.points)}
+              {carriedIn.cycle ? ` from ${carriedIn.cycle}` : ""}
+            </span>
+          )}
+          {carriedOut.count > 0 && (
+            <span>
+              ↗ Carried out: {carriedOut.count} task{carriedOut.count === 1 ? "" : "s"} · {pts(carriedOut.points)}
+              {carriedOut.cycle ? ` to ${carriedOut.cycle}` : ""}
+            </span>
+          )}
+        </p>
+      )}
     </div>
   );
 }

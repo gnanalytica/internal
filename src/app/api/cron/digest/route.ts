@@ -1,9 +1,13 @@
 import { and, eq, gte, isNull } from "drizzle-orm";
 
+import { revalidateTag } from "next/cache";
+
 import { db } from "@/db";
 import { notifications, users, workspaceMembers, workspaces } from "@/db/schema";
 import { buildDigest, digestSubject, digestText } from "@/lib/digest";
 import { appBaseUrl, isEmailConfigured, sendEmail } from "@/lib/email";
+import { wsTags } from "@/lib/cache-tags";
+import { autoRollOverEndedCycles } from "@/lib/cycle-rollover";
 
 /**
  * Daily digest of everything a member missed.
@@ -37,9 +41,22 @@ export async function GET(req: Request) {
   if (!authorized(req)) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
+
+  // Cycles first: carrying unfinished work into the next cycle doesn't depend
+  // on email being set up. It rides on this daily job rather than a cron of its
+  // own; see autoRollOverEndedCycles. Never fails the digest.
+  let rolled: Awaited<ReturnType<typeof autoRollOverEndedCycles>> = [];
+  try {
+    rolled = await autoRollOverEndedCycles(new Date());
+    for (const ws of new Set(rolled.map((r) => r.workspaceId))) {
+      for (const tag of wsTags(ws, "cycles", "issues")) revalidateTag(tag, { expire: 1 });
+    }
+  } catch (err) {
+    console.error("[cron] cycle rollover failed", err);
+  }
   if (!isEmailConfigured()) {
     return Response.json(
-      { skipped: "No email provider configured (RESEND_API_KEY, EMAIL_FROM)." },
+      { skipped: "No email provider configured (RESEND_API_KEY, EMAIL_FROM).", rolled },
       { status: 200 },
     );
   }
@@ -96,5 +113,5 @@ export async function GET(req: Request) {
     if (ok) sent += 1;
   }
 
-  return Response.json({ recipients: byUser.size, sent });
+  return Response.json({ recipients: byUser.size, sent, rolled });
 }

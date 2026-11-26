@@ -4,6 +4,8 @@ import { CycleDetail } from "@/components/cycle-detail";
 import { computeBurndown } from "@/lib/burndown";
 import { getCycle, getWorkspace } from "@/lib/data";
 import { getTaskContext } from "@/lib/task-context";
+import { carried } from "@/lib/cycle-effort";
+import { getCarried } from "@/lib/cycle-rollover";
 
 export default async function CycleRoute({
   params,
@@ -12,7 +14,7 @@ export default async function CycleRoute({
 }) {
   const { id } = await params;
   const ws = await getWorkspace();
-  const [cycle, ctx] = await Promise.all([getCycle(ws.id, id), getTaskContext(ws.id)]);
+  const [cycle, ctx, moved] = await Promise.all([getCycle(ws.id, id), getTaskContext(ws.id), getCarried(ws.id, id)]);
   if (!cycle) notFound();
 
   const burndown = computeBurndown({
@@ -33,6 +35,8 @@ export default async function CycleRoute({
       ctx={ctx}
       burndownPoints={burndown.points}
       totalPoints={burndown.totalPoints}
+      carriedIn={{ ...carried(moved.in), cycle: moved.inFrom }}
+      carriedOut={{ ...carried(moved.out), cycle: moved.outTo }}
     />
   );
 }
