@@ -414,6 +414,10 @@ export const notifications = pgTable(
     // point before.
     pageId: uuid("page_id").references(() => pages.id, { onDelete: "cascade" }),
     projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    // A relative link for events about things that aren't rows here, such as
+    // a prospect in the sheet ("/prospects?rec=valuer:IBBI/…"). Wins over the
+    // ids above when set.
+    href: text("href"),
     title: text("title").notNull(),
     body: text("body"),
     read: timestamp("read", { withTimezone: true }),

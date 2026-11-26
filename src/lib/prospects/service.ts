@@ -10,6 +10,9 @@ import { todayIST } from "./stats";
 import { firstName, idSchema, kindSchema, nowIST, patchSchema, touchPatch, touchSchema, type TouchInput } from "./touch";
 import { duplicateMessage, findDuplicates, newLeadSchema, type DuplicateMatch, type NewLeadInput } from "./linkedin";
 import { appendActivity, appendLinkedInLead, writeRecord, writeRecords } from "./write";
+import { getMembers } from "@/lib/data";
+import { notify } from "@/lib/notify";
+import { planPings, type OwnerChange } from "./pings";
 
 /**
  * The prospects rules, free of any notion of who is signed in or how. The web's
@@ -68,8 +71,9 @@ export async function saveProspectRecord(
   if (unknown.length) return { ok: false, message: `Not editable from the dashboard: ${unknown.join(", ")}.` };
   try {
     const rid = idSchema.parse(id);
-    const { written, before } = await writeRecord(k, rid, clean, { by, today: todayIST() });
+    const { written, before, owner } = await writeRecord(k, rid, clean, { by, today: todayIST() });
     if (written.includes("status")) await syncProspectDeal(dealCtx, { kind: k, id: rid, before, status: String(clean.status ?? "") });
+    if (owner !== undefined) await pingNewOwners(dealCtx, by, k, [{ id: rid, before, owner }]);
     invalidate();
     return { ok: true, written, message: `Saved to the sheet: ${written.join(", ")}.` };
   } catch (err) {
@@ -104,6 +108,7 @@ export async function saveProspectRecords(
     list.forEach((id) => idSchema.parse(id));
     const results = await writeRecords(k, list, clean, { by, today: todayIST() });
     const failed: BulkResult["failed"] = [];
+    const owners: OwnerChange[] = [];
     let ok = 0;
     for (const r of results) {
       if (!r.ok) {
@@ -112,7 +117,9 @@ export async function saveProspectRecords(
       }
       ok++;
       if (r.written.includes("status")) await syncProspectDeal(dealCtx, { kind: k, id: r.id, before: r.before, status: String(clean.status ?? "") });
+      if (r.owner !== undefined) owners.push({ id: r.id, before: r.before, owner: r.owner });
     }
+    if (owners.length) await pingNewOwners(dealCtx, by, k, owners);
     if (ok) invalidate();
     return { ok, failed, message: failed.length ? `${ok} saved; ${failed.length} failed: ${failed[0].message}` : `Saved ${ok} to the sheet.` };
   } catch (err) {
@@ -120,11 +127,28 @@ export async function saveProspectRecords(
   }
 }
 
+/**
+ * Inbox pings for new owners (see pings.ts). Best-effort, like the deal sync:
+ * the sheet is already written, so a failure here is logged, never returned.
+ * Not mirrored to Slack: prospects post their own stage news there.
+ */
+async function pingNewOwners(ctx: DealContext | null, by: string, kind: ProspectKind, changes: OwnerChange[]): Promise<void> {
+  if (!ctx) return;
+  try {
+    const members = await getMembers(ctx.workspaceId);
+    for (const p of planPings(kind, changes, members, { userId: ctx.userId, name: by })) {
+      await notify({ workspaceId: ctx.workspaceId, actorId: ctx.userId ?? "", type: "assigned", title: p.title, body: p.body, href: p.href, userIds: [p.userId], slack: false });
+    }
+  } catch (err) {
+    console.error("[prospects] owner ping failed", err);
+  }
+}
+
 /** Assign rows to a member, by their first name as the team writes it. At most 50 at a time. */
-/** `by` is who is assigning; it defaults to the assignee (taking records for yourself). */
-export async function assignProspects(kind: ProspectKind, ids: string[], memberName: string, invalidate: Invalidate, by = memberName): Promise<ProspectResult> {
+/** `by` is who is assigning; it defaults to the assignee (taking records for yourself). `actor` lets the new owner be pinged. */
+export async function assignProspects(kind: ProspectKind, ids: string[], memberName: string, invalidate: Invalidate, by = memberName, actor: DealContext | null = null): Promise<ProspectResult> {
   const name = firstName(memberName);
-  const res = await saveProspectRecords(kind, ids, { assigned: name }, invalidate, null, by);
+  const res = await saveProspectRecords(kind, ids, { assigned: name }, invalidate, actor, by);
   if (res.failed.length) return { ok: false, message: `${res.ok} assigned; ${res.failed.length} failed: ${res.failed[0]?.message ?? res.message}` };
   if (!res.ok) return { ok: false, message: res.message };
   return { ok: true, written: ["assigned"], message: `Assigned ${res.ok} to ${name}.` };

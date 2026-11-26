@@ -54,7 +54,8 @@ export function InboxView({ notifications }: { notifications: NotificationItem[]
   function open(n: NotificationItem) {
     startTransition(async () => {
       if (!n.read) await markNotificationRead(n.id);
-      if (n.issueId) router.push(`/issues/${n.issueId}`);
+      if (n.href) router.push(n.href);
+      else if (n.issueId) router.push(`/issues/${n.issueId}`);
       else if (n.pageId) router.push(`/pages/${n.pageId}`);
       else if (n.projectId) router.push(`/projects/${n.projectId}`);
       else router.refresh();
@@ -90,7 +91,7 @@ export function InboxView({ notifications }: { notifications: NotificationItem[]
             <div>
               <p className="text-sm font-medium">You&apos;re all caught up</p>
               <p className="text-xs text-muted-foreground">
-                Assignments and comments on your issues show up here.
+                Assignments, comments and prospects handed to you show up here.
               </p>
             </div>
           </div>

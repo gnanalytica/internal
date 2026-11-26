@@ -59,6 +59,7 @@ export async function GET(req: Request) {
       createdAt: notifications.createdAt,
       issueId: notifications.issueId,
       pageId: notifications.pageId,
+      href: notifications.href,
     })
     .from(notifications)
     .innerJoin(users, eq(users.id, notifications.userId))

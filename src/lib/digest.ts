@@ -17,6 +17,8 @@ export type DigestNotification = {
   createdAt: Date;
   issueId: string | null;
   pageId: string | null;
+  /** A link for events about things that aren't issues or pages (a prospect). */
+  href?: string | null;
 };
 
 export type DigestGroup = {
@@ -43,12 +45,14 @@ export type Digest = {
 const PERSONAL = new Set(["assigned", "mentioned"]);
 
 function targetKey(n: DigestNotification): string | null {
+  if (n.href) return `href:${n.href}`;
   if (n.issueId) return `issue:${n.issueId}`;
   if (n.pageId) return `page:${n.pageId}`;
   return null;
 }
 
 function hrefFor(n: DigestNotification): string | null {
+  if (n.href) return n.href;
   if (n.issueId) return `/issues/${n.issueId}`;
   if (n.pageId) return `/pages/${n.pageId}`;
   return null;

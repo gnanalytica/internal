@@ -53,11 +53,11 @@ export async function saveProspects(rows: { kind: ProspectKind; id: string }[], 
  * a typo can't leave rows owned by nobody anyone recognises.
  */
 export async function assignTo(kind: ProspectKind, ids: string[], person: string): Promise<ActionResult> {
-  const [ws, { name: by }] = await Promise.all([getWorkspace(), signedIn()]);
+  const [ws, { name: by, dealCtx }] = await Promise.all([getWorkspace(), signedIn()]);
   const members = await getMembers(ws.id);
   const member = members.map((m) => (m.name || m.email || "").trim()).find((n) => n && isAssignedTo(person, n));
   if (!member) return { ok: false, message: `${person} is not a member of this workspace.` };
-  return assignProspects(kind, ids, member, invalidate, by);
+  return assignProspects(kind, ids, member, invalidate, by, dealCtx);
 }
 
 /**

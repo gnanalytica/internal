@@ -1663,6 +1663,7 @@ export async function getNotifications(
     issueId: n.issueId,
     pageId: n.pageId,
     projectId: n.projectId,
+    href: n.href,
     createdAt: n.createdAt,
     actor: n.actor,
   }));
