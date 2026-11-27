@@ -410,7 +410,7 @@ export function logTouchModal(p: Pick<ProspectView, "ref" | "name" | "status" | 
       Select({ id: "channel", label: "How", options: CHANNELS.map((c) => opt(c, c)), initialOption: "Call" }),
       RadioSelect({ id: "direction", label: "Direction", options: DIRECTIONS.map((d) => opt(d, d)), initialOption: "Outbound" }),
       Select({ id: "outcome", label: "Outcome", options: OUTCOMES.map((o) => opt(o, o)) }),
-      TextInput({ id: "summary", label: "What they said", multiline: true, optional: true, maxLength: 2000 }),
+      TextInput({ id: "summary", label: "What they said (needed if you spoke or they replied)", multiline: true, optional: true, maxLength: 2000 }),
       Select({ id: "status", label: "Stage after", options: STAGES.map((s) => opt(s, s)), initialOption: stage }),
       TextInput({
         id: "next_step",

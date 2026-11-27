@@ -101,7 +101,10 @@ export function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
   const text = r.drafts[ch.key];
   const email = ch.key === "email" ? emailParts(text) : null;
   const openHref = ch.key === "whatsapp" ? whatsappHref(r.phone, text) : ch.key === "email" ? mailtoHref(r.email, text) : ch.key === "call" ? telHref(r.phone) : null;
-  const markSent = () =>
+  // A call or meeting that happened needs what was said (touch.ts), so "Mark
+  // done" opens the log; a message sent is a one-click log.
+  const markSent = () => {
+    if (ch.key === "call" || ch.key === "meeting") return ctx.onLog({ channel: ch.channel, outcome: ch.key === "call" ? "Connected" : "Meeting held" });
     start(async () => {
       const res = await logTouch({
         kind: ctx.kind,
@@ -109,7 +112,7 @@ export function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
         name: r.name,
         channel: ch.channel,
         direction: "Outbound",
-        outcome: ch.key === "call" || ch.key === "meeting" ? "Connected" : "Sent",
+        outcome: "Sent",
         durationMin: null,
         summary: "",
         statusAfter: STAGES[Math.max(r.stage, 1)],
@@ -121,6 +124,7 @@ export function Drafts({ ctx, r }: { ctx: Ctx; r: ProspectRecord }) {
         ctx.onChanged();
       } else toast.error(res.message);
     });
+  };
   return (
     <Section title="Draft" aside={<Segmented label="Draft channel" value={ch.key} onChange={setTab} options={channels.map((c) => ({ value: c.key, label: c.label }))} />}>
       <div className="overflow-hidden rounded-xl border">

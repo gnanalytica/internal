@@ -15,7 +15,9 @@ import type { ActivityEntry, ProspectRecord } from "./parse";
 import { isDoNotContact, parseNoteLines } from "./parse";
 import * as schema from "./schema";
 import * as contact from "./contact";
+import * as stageRules from "./stage-rules";
 import * as stats from "./stats";
+import * as touch from "./touch";
 import type { MyWorkItem } from "./views";
 
 // The log dialog imports the server actions; the rules under test never call them.
@@ -111,6 +113,20 @@ describe("the mobile copy of the prospects rules", () => {
     expect(mobile.isDoNotContact("Practice: fine")).toBe(false);
   });
 
+  it("holds the same line on stage moves and touches", () => {
+    expect(mobile.REQUIRED_TO_LEAVE).toEqual(stageRules.REQUIRED_TO_LEAVE);
+    expect(mobile.REQUIRED_LABEL).toEqual(stageRules.REQUIRED_LABEL);
+    expect(mobile.SUMMARY_REQUIRED).toEqual(touch.SUMMARY_REQUIRED);
+    for (const kind of schema.PROSPECT_KINDS)
+      for (let from = 0; from < schema.STAGES.length; from++)
+        for (let to = 0; to < schema.STAGES.length; to++) expect(mobile.requiredForMove(kind, from, to)).toEqual(stageRules.requiredForMove(kind, from, to));
+    // Every one-tap log the phone (and Today on the web) sends must pass the server's touch rules.
+    const row = { name: "A", stage: 1, nextStep: "Send the deck" };
+    for (const channel of ["WhatsApp", "Email", "Call"] as const)
+      for (const q of mobile.quickOptions(channel).filter((x) => !x.log)) expect(touch.touchSchema.safeParse({ kind: "valuer", id: "X", ...mobile.quickTouch(q, channel, row, TODAY) }).success).toBe(true);
+    for (const key of ["whatsapp", "email"] as const) expect(touch.touchSchema.safeParse({ kind: "valuer", id: "X", ...mobile.markSentTouch(key, row, TODAY) }).success).toBe(true);
+  });
+
   it("carries the same playbook and stage coaching", () => {
     expect(mobilePlaybook.ANCHOR_QUESTION).toBe(webPlaybook.ANCHOR_QUESTION);
     expect(mobilePlaybook.PLAYBOOK).toEqual(webPlaybook.PLAYBOOK);
@@ -149,7 +165,7 @@ describe("mobile-only helpers", () => {
   });
 
   it("logs a draft marked as sent the way the web's record panel does", () => {
-    expect(mobile.markSentTouch("call", { name: "A", stage: 0, nextStep: "" }, TODAY)).toMatchObject({ channel: "Call", outcome: "Connected", statusAfter: "Contacted", nextStep: "Follow up", nextStepDate: "2026-10-01" });
+    expect(mobile.markSentTouch("whatsapp", { name: "A", stage: 0, nextStep: "" }, TODAY)).toMatchObject({ channel: "WhatsApp", outcome: "Sent", statusAfter: "Contacted", nextStep: "Follow up", nextStepDate: "2026-10-01" });
     expect(mobile.markSentTouch("email", { name: "A", stage: 3, nextStep: "Demo" }, TODAY)).toMatchObject({ channel: "Email", outcome: "Sent", statusAfter: "Demo done", nextStep: "Demo" });
   });
 

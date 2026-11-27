@@ -33,16 +33,16 @@ const QUICK: Record<"message" | "call", Quick[]> = {
   message: [
     { label: "Sent", hint: "Follow up in 3 days", outcome: "Sent", days: 3 },
     { label: "Replied or talked", hint: "Note what they said", outcome: "Replied", days: 3, log: true },
-    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
-    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Demo booked", hint: "Note what they said", outcome: "Demo booked", days: 3, log: true },
+    { label: "Not interested", hint: "Note why", outcome: "Not interested", days: null, log: true },
     { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
   ],
   call: [
     { label: "Talked", hint: "Note what they said", outcome: "Connected", days: 3, log: true },
     { label: "No answer", hint: "Try another channel tomorrow", outcome: "No answer", days: 1 },
     { label: "Call back later", hint: "Retry tomorrow", outcome: "Busy — call back", days: 1 },
-    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
-    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Demo booked", hint: "Note what they said", outcome: "Demo booked", days: 3, log: true },
+    { label: "Not interested", hint: "Note why", outcome: "Not interested", days: null, log: true },
     { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
   ],
 };

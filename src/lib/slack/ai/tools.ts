@@ -198,7 +198,7 @@ export const TOOL_SPECS = {
         channel: e(CHANNELS, "How they were reached."),
         direction: e(DIRECTIONS, "Defaults to Outbound."),
         outcome: e(OUTCOMES, "What happened."),
-        what_they_said: s("A short summary of what they said."),
+        what_they_said: s("A short summary of what they said. Required when the outcome is Connected, Replied, Meeting held, Demo booked or Not interested — ask for it if you don't have it."),
         stage_after: e(STAGES, "The stage after this touch, if it moved. Leave out to keep the current stage."),
         next_step: s("The follow-up, if any."),
         next_step_date: s("When the follow-up is due, yyyy-mm-dd."),

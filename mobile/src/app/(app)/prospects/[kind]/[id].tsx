@@ -28,6 +28,7 @@ import {
   parseNoteLines,
   PITCH_ANGLES,
   PROSPECT_KINDS,
+  requiredValues,
   SCORE_COLUMNS,
   STAGES,
   telHref,
@@ -38,11 +39,13 @@ import {
   type ActivityEntry,
   type Channel,
   type DraftKey,
+  type Outcome,
   type ProspectKind,
   type ProspectRecord,
 } from "@/features/prospects/model";
 import { STAGE_COACHING } from "@/features/prospects/playbook";
 import { useReach } from "@/features/prospects/reach";
+import { useStageMove, type MoveSubject } from "@/features/prospects/stage-check";
 import { useMe } from "@/lib/auth";
 import { useTheme } from "@/theme";
 
@@ -77,12 +80,12 @@ function RecordBody({ kind, detail, refreshing, onRefresh }: { kind: ProspectKin
   const today = todayIST();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [editing, setEditing] = useState<EditSpec | null>(null);
-  const [log, setLog] = useState<{ channel?: Channel } | null>(null);
+  const [log, setLog] = useState<{ channel?: Channel; outcome?: Outcome } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const has = (col: string) => WRITABLE[kind].has(col);
   const scored = !UNSCORED_KINDS.has(kind);
   const myFirst = firstName(me.actor?.name ?? "");
-  const target: LogTarget = { kind, id: r.id, name: r.name, stage: r.stage, nextStep: r.nextStep };
+  const target: LogTarget = { kind, id: r.id, name: r.name, stage: r.stage, nextStep: r.nextStep, known: requiredValues({ cases: r.casesPerMonth, software: r.software, pitchAngle: r.pitchAngle, nextStep: r.nextStep }) };
   const reach = useReach((channel) => setLog({ channel }));
   const call = telHref(r.phone);
   const wa = whatsappHref(r.phone, r.drafts.whatsapp);
@@ -100,6 +103,9 @@ function RecordBody({ kind, detail, refreshing, onRefresh }: { kind: ProspectKin
       setBusy(null);
     }
   };
+  // A forward move with required facts missing asks for them first, then saves them with the status.
+  const { move, sheet: stageSheet } = useStageMove((_, patch) => save(patch, "stage"));
+  const subject: MoveSubject = { kind, id: r.id, name: r.name, stage: r.stage, cases: r.casesPerMonth, software: r.software, pitchAngle: r.pitchAngle, nextStep: r.nextStep };
   const edit = (spec: EditSpec) => has(spec.col) && setEditing(spec);
   const onFieldSave = async (col: string, value: string | number | null) => {
     if (await save({ [col]: value })) setEditing(null);
@@ -167,7 +173,7 @@ function RecordBody({ kind, detail, refreshing, onRefresh }: { kind: ProspectKin
 
         <NextStep r={r} today={today} busy={busy} onEdit={() => edit({ col: "next_step", label: "Next step", value: r.nextStep })} onDate={(d) => void save({ next_step_date: d }, "date")} onPick={() => setSheet("date")} />
 
-        <StageCoaching r={r} kind={kind} busy={busy === "stage"} onMove={(s) => void save({ status: STAGES[s] }, "stage")} />
+        <StageCoaching r={r} kind={kind} busy={busy === "stage"} onMove={(s) => move(subject, s)} />
 
         <Section title="What we know">
           <Card style={{ paddingVertical: 2 }}>
@@ -175,7 +181,7 @@ function RecordBody({ kind, detail, refreshing, onRefresh }: { kind: ProspectKin
           </Card>
         </Section>
 
-        <Drafts r={r} kind={kind} today={today} onEdit={edit} onReach={(href, ch) => void reach(href, ch)} />
+        <Drafts r={r} kind={kind} today={today} onEdit={edit} onReach={(href, ch) => void reach(href, ch)} onLog={(channel, outcome) => setLog({ channel, outcome })} />
 
         <Section title="Research notes" action={has("research_notes") ? <Button size="sm" variant="ghost" icon="edit-2" title="Edit" onPress={() => edit({ col: "research_notes", label: "Research notes", value: r.researchNotes, type: "textarea" })} /> : null}>
           <ResearchNotes text={r.researchNotes} />
@@ -220,7 +226,7 @@ function RecordBody({ kind, detail, refreshing, onRefresh }: { kind: ProspectKin
         </Section>
       </Screen>
 
-      <Picker visible={sheet === "stage"} onClose={() => setSheet(null)} title="Status" value={String(r.stage)} options={STAGES.map((s, i) => ({ value: String(i), label: s, leading: <StagePill stage={i} /> }))} onPick={(v) => Number(v) !== r.stage && void save({ status: STAGES[Number(v)] }, "stage")} />
+      <Picker visible={sheet === "stage"} onClose={() => setSheet(null)} title="Status" value={String(r.stage)} options={STAGES.map((s, i) => ({ value: String(i), label: s, leading: <StagePill stage={i} /> }))} onPick={(v) => move(subject, Number(v))} />
       <Picker
         visible={sheet === "disqualify"}
         onClose={() => setSheet(null)}
@@ -231,7 +237,8 @@ function RecordBody({ kind, detail, refreshing, onRefresh }: { kind: ProspectKin
       />
       <DatePicker title="Next step date" visible={sheet === "date"} onClose={() => setSheet(null)} value={r.nextStepDate} onPick={(v) => void save({ next_step_date: v }, "date")} />
       <FieldEditor spec={editing} onClose={() => setEditing(null)} onSave={onFieldSave} />
-      <LogTouchModal target={log ? target : null} channel={log?.channel} today={today} onClose={() => setLog(null)} />
+      <LogTouchModal target={log ? target : null} channel={log?.channel} outcome={log?.outcome} today={today} onClose={() => setLog(null)} />
+      {stageSheet}
     </>
   );
 }
@@ -341,7 +348,7 @@ function Facts({ r, kind, onEdit }: { r: ProspectRecord; kind: ProspectKind; onE
   );
 }
 
-function Drafts({ r, kind, today, onEdit, onReach }: { r: ProspectRecord; kind: ProspectKind; today: string; onEdit: (s: EditSpec) => void; onReach: (href: string | null, ch: Channel | null) => void }) {
+function Drafts({ r, kind, today, onEdit, onReach, onLog }: { r: ProspectRecord; kind: ProspectKind; today: string; onEdit: (s: EditSpec) => void; onReach: (href: string | null, ch: Channel | null) => void; onLog: (channel: Channel, outcome: Outcome) => void }) {
   const { c, space, radius } = useTheme();
   const channels = DRAFT_CHANNELS.filter((d) => WRITABLE[kind].has(d.col));
   const [tab, setTab] = useState<DraftKey>(channels[0]?.key ?? "whatsapp");
@@ -352,6 +359,8 @@ function Drafts({ r, kind, today, onEdit, onReach }: { r: ProspectRecord; kind: 
   const href = ch.key === "whatsapp" ? whatsappHref(r.phone, text) : ch.key === "email" ? mailtoHref(r.email, text) : ch.key === "call" ? telHref(r.phone) : null;
   const done = ch.key === "call" || ch.key === "meeting";
   const markSent = async () => {
+    // A call or meeting that happened needs what was said, so "done" opens the log.
+    if (ch.key === "call" || ch.key === "meeting") return onLog(ch.channel, ch.key === "call" ? "Connected" : "Meeting held");
     setSending(true);
     try {
       notify((await logTouch(kind, r.id, markSentTouch(ch.key, r, today))).message);

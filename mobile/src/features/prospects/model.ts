@@ -386,16 +386,16 @@ export const QUICK: Record<"message" | "call", Quick[]> = {
   message: [
     { label: "Sent", hint: "Follow up in 3 days", outcome: "Sent", days: 3 },
     { label: "Replied or talked", hint: "Note what they said", outcome: "Replied", days: 3, log: true },
-    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
-    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Demo booked", hint: "Note what they said", outcome: "Demo booked", days: 3, log: true },
+    { label: "Not interested", hint: "Note why", outcome: "Not interested", days: null, log: true },
     { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
   ],
   call: [
     { label: "Talked", hint: "Note what they said", outcome: "Connected", days: 3, log: true },
     { label: "No answer", hint: "Try another channel tomorrow", outcome: "No answer", days: 1 },
     { label: "Call back later", hint: "Retry tomorrow", outcome: "Busy — call back", days: 1 },
-    { label: "Demo booked", hint: "Moves to Discovery done", outcome: "Demo booked", days: 3 },
-    { label: "Not interested", hint: "Moves to Lost", outcome: "Not interested", days: null },
+    { label: "Demo booked", hint: "Note what they said", outcome: "Demo booked", days: 3, log: true },
+    { label: "Not interested", hint: "Note why", outcome: "Not interested", days: null, log: true },
     { label: "Wrong number", hint: "Back to research", outcome: "Wrong number", days: 2, extra: { research_status: "Needs a person" } },
   ],
 };
@@ -437,14 +437,17 @@ export const DRAFT_CHANNELS = [
 ] as const satisfies readonly { key: keyof Drafts; col: string; label: string; channel: Channel }[];
 export type DraftKey = (typeof DRAFT_CHANNELS)[number]["key"];
 
-/** Marking a draft as sent/done, as the web's record panel logs it. */
-export function markSentTouch(key: DraftKey, r: { name: string; stage: number; nextStep: string }, today: string): TouchBody {
+/**
+ * Marking a message draft as sent, as the web's record panel logs it. A call
+ * or meeting marked done opens the log instead: what was said is required.
+ */
+export function markSentTouch(key: "whatsapp" | "email", r: { name: string; stage: number; nextStep: string }, today: string): TouchBody {
   const ch = DRAFT_CHANNELS.find((c) => c.key === key)!;
   return {
     name: r.name,
     channel: ch.channel,
     direction: "Outbound",
-    outcome: key === "call" || key === "meeting" ? "Connected" : "Sent",
+    outcome: "Sent",
     durationMin: null,
     summary: "",
     statusAfter: STAGES[Math.max(r.stage, 1)],
@@ -526,3 +529,54 @@ export function fieldFilled(r: ProspectRecord, col: string): boolean {
   const v = map[col];
   return v !== null && v !== undefined && v !== "";
 }
+
+// ---- what a move or a touch must carry (web: stage-rules.ts, touch.ts) ---------------
+
+/**
+ * What a record must have before it moves past a stage — the sheet write
+ * refuses the move without it. Leaving Discovery done needs volume and
+ * software; leaving Demo done needs the angle that landed and the next step.
+ * Moving back, or to Lost, never needs anything.
+ */
+export const REQUIRED_TO_LEAVE: Readonly<Partial<Record<number, readonly string[]>>> = {
+  2: ["lb_cases_per_month", "current_software"],
+  3: ["pitch_angle", "next_step"],
+};
+
+export const REQUIRED_LABEL: Record<string, string> = {
+  lb_cases_per_month: "Cases a month",
+  current_software: "Current software",
+  pitch_angle: "Pitch angle",
+  next_step: "Next step",
+};
+
+const LOST = STAGES.indexOf("Lost");
+
+/** The columns a move from stage `from` to stage `to` needs, on this kind's tab, in order. */
+export function requiredForMove(kind: ProspectKind, from: number, to: number): string[] {
+  if (to <= from || to === LOST) return [];
+  const out: string[] = [];
+  for (let s = from; s < to; s++) {
+    for (const col of REQUIRED_TO_LEAVE[s] ?? []) {
+      if (WRITABLE[kind].has(col) && !out.includes(col)) out.push(col);
+    }
+  }
+  return out;
+}
+
+const filledValue = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== "";
+
+/** The required columns still blank once `values` (the record with the change applied) is written. */
+export function missingRequired(kind: ProspectKind, values: Record<string, unknown>, from: number, to: number): string[] {
+  return requiredForMove(kind, from, to).filter((col) => !filledValue(values[col]));
+}
+
+/** A record's values for the required columns. */
+export function requiredValues(r: { cases: number | null; software: string; pitchAngle: string; nextStep: string }): Record<string, unknown> {
+  return { lb_cases_per_month: r.cases, current_software: r.software, pitch_angle: r.pitchAngle, next_step: r.nextStep };
+}
+
+/** Outcomes where someone spoke or wrote back: what they said can't be blank. */
+export const SUMMARY_REQUIRED: readonly Outcome[] = ["Connected", "Replied", "Meeting held", "Demo booked", "Not interested"];
+
+export const needsSummary = (outcome: string): boolean => (SUMMARY_REQUIRED as readonly string[]).includes(outcome);

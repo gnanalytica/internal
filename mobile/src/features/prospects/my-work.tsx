@@ -20,6 +20,7 @@ import {
   missingFacts,
   quickOptions,
   quickTouch,
+  requiredValues,
   STAGES,
   telHref,
   TODAY_GROUPS,
@@ -84,7 +85,7 @@ export function MyWorkView({ scope, header, onFind }: { scope: Scope; header: Re
 
   const quick = async (t: MyWorkItem, qk: Quick) => {
     if (qk.log) {
-      setLog({ target: { kind: t.row.kind, id: t.row.id, name: t.row.name, stage: t.row.stage, nextStep: t.row.nextStep }, key: keyOf(t), channel, outcome: qk.outcome });
+      setLog({ target: { kind: t.row.kind, id: t.row.id, name: t.row.name, stage: t.row.stage, nextStep: t.row.nextStep, known: requiredValues(t.row) }, key: keyOf(t), channel, outcome: qk.outcome });
       return;
     }
     setBusy(qk.label);
