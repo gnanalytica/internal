@@ -14,9 +14,12 @@ import {
   defaultNextStep,
   defaultStage,
   FOLLOW_UPS,
+  missingRequired,
+  needsSummary,
   OBJECTIONS,
   OUTCOMES_BY_CHANNEL,
   PITCH_ANGLES,
+  REQUIRED_LABEL,
   shortDate,
   SOFTWARE,
   STAGES,
@@ -27,7 +30,13 @@ import {
   type Stage,
 } from "./model";
 
-export type LogTarget = { kind: ProspectKind; id: string; name: string; stage: number; nextStep: string };
+/**
+ * Who the touch is for. `known` is what the record already has for the
+ * required columns (model.ts requiredValues): with it, a touch that moves the
+ * stage forward asks for any that are missing before it saves; without it the
+ * sheet write says what's missing.
+ */
+export type LogTarget = { kind: ProspectKind; id: string; name: string; stage: number; nextStep: string; known?: Record<string, unknown> };
 
 const NO_FOLLOW_UP = "No follow-up";
 const LOG_CHANNELS = CHANNELS.filter((c) => c !== "Other");
@@ -46,12 +55,18 @@ export function LogTouchModal({ target, today, channel, outcome, onClose, onSave
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  const { space } = useTheme();
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  const { c, space } = useTheme();
   return (
     <View style={{ gap: space.sm }}>
       <Text variant="small" weight="600">
         {label}
+        {required ? (
+          <Text variant="small" style={{ color: c.destructive }}>
+            {" "}
+            Required
+          </Text>
+        ) : null}
       </Text>
       {children}
     </View>
@@ -95,6 +110,18 @@ function LogForm({ target, today, initialChannel, initialOutcome, onClose, onSav
     if (quick) return setFollowDate(addDays(today, quick.days));
     setPicking(true);
   };
+  // What this touch will leave on the record, for the rules a forward move must meet.
+  const values: Record<string, unknown> = {
+    ...target.known,
+    ...(software ? { current_software: software } : {}),
+    ...(cases ? { lb_cases_per_month: Number(cases) } : {}),
+    ...(pitch ? { pitch_angle: pitch } : {}),
+    ...(step ? { next_step: step } : {}),
+  };
+  const missing = target.known ? missingRequired(target.kind, values, target.stage, stage) : [];
+  const summaryNeeded = needsSummary(outcome);
+  const blocked = (summaryNeeded && !summary.trim()) || missing.length > 0;
+  const showMore = more || missing.some((f) => f !== "next_step");
   const learned = [tracksPractice ? "software, cases a month" : "", tracksPitch ? "objection, pitch" : "", "minutes, stage"].filter(Boolean).join(", ");
 
   const save = async () => {
@@ -146,7 +173,7 @@ function LogForm({ target, today, initialChannel, initialOutcome, onClose, onSav
         <Field label="What happened">
           <Chips options={OUTCOMES_BY_CHANNEL[channel]} value={outcome} required onChange={(v) => v && setOutcome(v)} />
         </Field>
-        <Field label="What they said">
+        <Field label="What they said" required={summaryNeeded}>
           <Input value={summary} onChangeText={setSummary} placeholder="e.g. Works with 4 banks; the SBI format takes longest. Wants to see it on a live case." multiline style={{ minHeight: 80 }} />
         </Field>
         <Field label="Follow up">
@@ -163,7 +190,7 @@ function LogForm({ target, today, initialChannel, initialOutcome, onClose, onSav
           ) : null}
         </Field>
 
-        {!more ? (
+        {!showMore ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => setMore(true)}
@@ -181,10 +208,10 @@ function LogForm({ target, today, initialChannel, initialOutcome, onClose, onSav
           <View style={{ gap: space.lg, padding: space.md, borderRadius: radius.md, backgroundColor: c.muted }}>
             {tracksPractice ? (
               <>
-                <Field label="Current software">
+                <Field label="Current software" required={missing.includes("current_software")}>
                   <Chips options={SOFTWARE} value={software as (typeof SOFTWARE)[number] | ""} onChange={setSoftware} />
                 </Field>
-                <Field label="Cases a month">
+                <Field label="Cases a month" required={missing.includes("lb_cases_per_month")}>
                   <View style={{ width: 150 }}>
                     <Input value={cases} onChangeText={(v) => setCases(v.replace(/\D/g, "").slice(0, 5))} placeholder="e.g. 40" keyboardType="number-pad" />
                   </View>
@@ -196,7 +223,7 @@ function LogForm({ target, today, initialChannel, initialOutcome, onClose, onSav
                 <Field label="Main objection">
                   <Chips options={OBJECTIONS} value={objection as (typeof OBJECTIONS)[number] | ""} onChange={setObjection} />
                 </Field>
-                <Field label="Pitch that landed">
+                <Field label="Pitch that landed" required={missing.includes("pitch_angle")}>
                   <Chips options={PITCH_ANGLES} value={pitch as (typeof PITCH_ANGLES)[number] | ""} onChange={setPitch} />
                 </Field>
               </>
@@ -220,7 +247,17 @@ function LogForm({ target, today, initialChannel, initialOutcome, onClose, onSav
           </Text>
           {followDate ? ` · ${step ? `“${step}” ` : "follow up "}on ${shortDate(followDate, today)}` : " · no follow-up"} · saved to the sheet
         </Text>
-        <Button title={saving ? "Saving…" : "Save"} variant="brand" loading={saving} onPress={() => void save()} />
+        {missing.length ? (
+          <Text variant="caption" style={{ color: c.destructive }}>
+            {STAGES[stage]} needs {missing.map((f) => REQUIRED_LABEL[f] ?? f).join(", ")} first
+            {missing.includes("next_step") && !followDate ? " — set a follow-up to add the next step" : ""}.
+          </Text>
+        ) : summaryNeeded && !summary.trim() ? (
+          <Text variant="caption" tone="muted">
+            Write what they said to save.
+          </Text>
+        ) : null}
+        <Button title={saving ? "Saving…" : "Save"} variant="brand" loading={saving} disabled={blocked || saving} onPress={() => void save()} />
       </View>
       <DatePicker title="Follow up on" visible={picking} onClose={() => setPicking(false)} value={followDate} onPick={setFollowDate} />
     </KeyboardAvoidingView>

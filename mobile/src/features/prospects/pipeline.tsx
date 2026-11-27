@@ -9,6 +9,7 @@ import { rowsQuery, saveProspect, type Scope } from "./api";
 import { BandBadge, ChipRow, DueChip, fail, FilterButton, notify, StagePill, stageColor, Warnings } from "./bits";
 import { applyFilters, byUrgency, NO_FILTERS, STAGES, UNSCORED_KINDS, type ProspectKind, type ProspectRow } from "./model";
 import { openRecord } from "./my-work";
+import { useStageMove, type MoveSubject } from "./stage-check";
 
 const SECTION_CAP = 30;
 
@@ -39,14 +40,16 @@ export function PipelineView({ kind, scope, header, onMore }: { kind: ProspectKi
     });
   }, [q.data, owner, me, moved, today, collapsed]);
 
-  const move = async (r: ProspectRow, stage: number) => {
-    if (stage === r.stage) return;
+  const write = async (r: MoveSubject, patch: Record<string, string | number | null>) => {
+    const stage = STAGES.indexOf(String(patch.status) as (typeof STAGES)[number]);
     setMoved((m) => ({ ...m, [r.id]: stage }));
     try {
-      await saveProspect(r.kind, r.id, { status: STAGES[stage] });
+      await saveProspect(r.kind, r.id, patch);
       notify(`${r.name}: status → ${STAGES[stage]}`);
+      return true;
     } catch (e) {
       fail("Couldn't change the status", e);
+      return false;
     } finally {
       setMoved((m) => {
         const { [r.id]: _, ...rest } = m;
@@ -54,6 +57,8 @@ export function PipelineView({ kind, scope, header, onMore }: { kind: ProspectKi
       });
     }
   };
+  // A forward move with required facts missing asks for them first (stage-check.tsx).
+  const { move, sheet: stageSheet } = useStageMove(write);
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorView error={q.error} onRetry={() => void q.refetch()} />;
@@ -156,8 +161,9 @@ export function PipelineView({ kind, scope, header, onMore }: { kind: ProspectKi
         title={moving ? `Move ${moving.name}` : "Status"}
         value={moving ? String(moving.stage) : null}
         options={STAGES.map((s, i) => ({ value: String(i), label: s, leading: <StagePill stage={i} /> }))}
-        onPick={(v) => moving && void move(moving, Number(v))}
+        onPick={(v) => moving && move(moving, Number(v))}
       />
+      {stageSheet}
     </>
   );
 }
