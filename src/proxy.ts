@@ -65,6 +65,6 @@ export const config = {
   // `api/slack` is Slack calling in. It carries Slack's request signature, not
   // a session, and the adapter rejects anything unsigned.
   matcher: [
-    "/((?!api/auth|api/oauth|api/v1|api/cron|api/sheet-sync|api/slack|auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-|icon.png|apple-icon).*)",
+    "/((?!api/auth|api/oauth|api/v1|api/cron|api/sheet-sync|api/slack|auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon-|icon.png|apple-icon|delete-account).*)",
   ],
 };

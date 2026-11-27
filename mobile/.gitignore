@@ -9,3 +9,6 @@ android/
 ios/
 # Local env
 .env*.local
+
+# Google Play upload key (EAS submit)
+play-service-account.json
